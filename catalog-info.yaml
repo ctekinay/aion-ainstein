@@ -1,0 +1,9 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: ainstein-artifacts
+  description: AI artifacts for practicing architecture
+spec:
+  owner: so-general
+  type: documentation
+  lifecycle: evolution
