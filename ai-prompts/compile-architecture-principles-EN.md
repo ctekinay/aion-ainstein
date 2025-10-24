@@ -22,21 +22,41 @@ Assist the user in formulating architecture principles that support decision-mak
 ## Output Structure in Markdown
 
 ```
-### Principle: [Name of the principle]
-**Statement:**  
+---
+parent: Principles
+nav_order: 100
+title: Principle Template
+status: proposed | rejected | accepted | deprecated | … | superseded by PCP-0123
+date: YYYY-MM-DD when the decision was last updated
+
+#driver: list every driving this principle
+#approvers: list everyone with the final say in this principle.
+#contributors: list everyone whose opinions are sought (typically subject-matter experts); and with whom there is a two-way communication
+#informed: list every one who need to be aware of the principle once made. 
+
+# These are optional elements. Feel free to remove any of them.
+# additional decision-makers: {list everyone involved in the decision}
+---
+<!-- markdownlint-disable-next-line MD025 -->
+# Principle: [Name of the principle]
+
+## Statement  
 [Concise formulation of the principle]
 
-**Rationale:**  
+## Rationale
 [Why this principle is important]
 
-**Implications:**  
+## Implications  
 - [Implication 1]  
 - [Implication 2]  
 - [Implication 3]
 
-*(optional)*  
-**Scope:** [Domain of application]  
-**Related principles:** [List or references]
+<!-- From this point on optional elements only. Feel free to remove. -->
+## Scope
+[Domain of application]  
+
+## Related principles
+[List or references]
 ```
 
 ## Agent Behavior
