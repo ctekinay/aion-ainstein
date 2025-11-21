@@ -275,7 +275,7 @@ These tightly-coupled ESA architecture initiatives have their own repositories a
 
 - **[IEC 61968 Series](https://webstore.iec.ch/publication/6195)** - Application integration at electric utilities - System interfaces for distribution management
 - **[IEC 62351 Series](https://webstore.iec.ch/publication/6912)** - Power systems management and associated information exchange - Data and communications security
-- **[SGAM (Smart Grid Architecture Model)](https://ec.europa.eu/energy/sites/ener/files/doc
+- **[SGAM (Smart Grid Architecture Model)](https://ec.europa.eu/energy/sites/ener/files/documents/xpert_group1_reference_architecture.pdf)** - Reference architecture for smart grids
 
 ## Contact
 
