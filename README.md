@@ -244,22 +244,38 @@ These tightly-coupled ESA architecture initiatives have their own repositories a
 
 ## Related Resources
 
-### AI Ethics and Governance
+### Architecture Frameworks & Standards
 
+- **[TOGAF Standard, 10th Edition](https://www.opengroup.org/togaf)** - The Open Group Architecture Framework (latest version, released 2022, updated 2025)
+- **[ArchiMate 3.2 Specification](https://pubs.opengroup.org/architecture/archimate3-doc/)** - Official ArchiMate 3.2 specification (current version)
+- **[ArchiMate Forum](https://www.opengroup.org/archimate-forum)** - The Open Group ArchiMate community
+
+### Tools
+
+- **[Archi](https://www.archimatetool.com/)** - Free, open-source ArchiMate modeling tool (v5.6.0+, supports ArchiMate 3.2)
+- **[Archi Downloads](https://www.archimatetool.com/download/)** - Download the latest version
+- **[Archi Resources](https://www.archimatetool.com/resources/)** - Additional learning materials and examples
+- **[coArchi Plugin](https://www.archimatetool.com/plugins/)** - Collaboration plugin for Archi
+
+### Learning Materials
+
+- **[Introduction to TOGAF 10 White Paper](https://www.opengroup.org/togaf/new-version)** - What's new in TOGAF Standard, 10th Edition
+- **[ArchiMate 3.2 Overview](https://www.opengroup.org/archimate-forum/archimate-overview)** - Introduction to ArchiMate 3.2
+- **[TOGAF Library](https://www.opengroup.org/togaf-standard-10th-edition-downloads)** - Downloadable TOGAF documentation
+- **[Mastering ArchiMate](https://www.amazon.com/Mastering-ArchiMate-Gerben-Wierda/dp/9401800014)** - Comprehensive book by Gerben Wierda
+
+### AI Architecture, Ethiscs and Governance
+
+- **[AI in Enterprise Architecture](https://www.opengroup.org/ai-in-enterprise-architecture)** - The Open Group resources on AI in EA
+- **[Modeling AI Systems with ArchiMate](https://bizzdesign.com/blog/modeling-ai-systems/)** - Guidance on representing AI in ArchiMate
 - **[EU AI Act](https://www.europarl.europa.eu/topics/en/article/20230601STO93804/eu-ai-act-first-regulation-on-artificial-intelligence)** - European Union's AI regulatory framework. The world’s first comprehensive AI law
 - **[OECD AI Principles](https://oecd.ai/en/ai-principles)** - International AI governance principles
 
-### Architecture Frameworks & Standards
-
-- **[TOGAF Standard, 10th Edition](https://www.opengroup.org/togaf)** - The Open Group Architecture Framework
-- **[ArchiMate 3.2 Specification](https://pubs.opengroup.org/architecture/archimate3-doc/)** - Official ArchiMate 3.2 specification
-- **[ISO/IEC/IEEE 42010:2022](https://www.iso.org/standard/74393.html)** - Systems and software engineering — Architecture description
-- 
 ### Energy System Architecture
 
-- **[IEC 61968 Series](https://webstore.iec.ch/publication/6195)** - Application integration at electric utilities
-- **[IEC 62351 Series](https://webstore.iec.ch/publication/6912)** - Power systems management and associated information exchange
-- **[SGAM (Smart Grid Architecture Model)](https://ec.europa.eu/energy/sites/ener/files/documents/xpert_group1_reference_architecture.pdf)** - Reference architecture for smart grids
+- **[IEC 61968 Series](https://webstore.iec.ch/publication/6195)** - Application integration at electric utilities - System interfaces for distribution management
+- **[IEC 62351 Series](https://webstore.iec.ch/publication/6912)** - Power systems management and associated information exchange - Data and communications security
+- **[SGAM (Smart Grid Architecture Model)](https://ec.europa.eu/energy/sites/ener/files/doc
 
 ## Contact
 
