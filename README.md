@@ -14,7 +14,7 @@ A comprehensive repository for AInstein artifacts supporting AI-enabled architec
 - [Goals and Objectives](#goals-and-objectives)
 - [Contributing](#contributing)
 - [Governance](#governance)
-- [Related Initiatives](#related-initiatives)
+- [Related Initiatives and Repositories](#related-initiatives-and-repositories)
 - [Contact](#contact)
 
 ## About
@@ -37,13 +37,6 @@ This repository is maintained by the **Energy System Architects (ESA)** group at
 **Why**: We experience a large gap between abstract consultation reports on AI and technical reality, making it hard to judge at an architectural level for future state choices. That blocks architects from being sufficient upfront with their guidance to other use-cases.
 
 **How**: Contributing to AIon with agents, be upfront with knowledge and synchronizing with the AIon program (in formation).
-
-### Relationship to Other Initiatives
-
-The AInstein initiative:
-- **Contributes to**: ESA-main target architecture (provides agents, knowledge, and learnings)
-- **Part of**: AIon - as a learning use case
-- **Enables**: Architecture groups to leverage AI capabilities while maintaining human oversight
 
 AInstein serves as a critical learning platform that bridges the gap between abstract AI concepts and practical architectural implementation, providing concrete patterns and insights that inform broader organizational AI adoption.
 
@@ -231,75 +224,37 @@ Upon delivery and maturation of AInstein capabilities, governance will be update
 - Integration with enterprise AI governance frameworks
 - Broader knowledge sharing mechanisms
 
-## Related Repositories
+## Related Initiatives and Repositories
 
-The AInstein initiative is supported by multiple repositories:
+As shown by the ESA Initiatives figure under the "What is AInstein?" section, AInstein initiative is part of the broader ecosystem of ESA strategic working themes:
+
+- **ESA-main Target Architecture**
+- **Architecture for Architecture (A4A)**
+- **AIon**
+
+These tightly-coupled ESA architecture initiatives have their own repositories and these repositories work together to provide a complete view of the Energy System Architecture delivery streams:
 
 - **[esa-ainstein-artifacts](https://github.com/Alliander/esa-ainstein-artifacts)** - AInstein artifacts and knowledge base (this repository)
 - **[esa-ainstein-archi](https://github.com/Alliander/esa-ainstein-archi)** - AInstein ArchiMate co-architecture models
 - **[esa-main-artifacts](https://github.com/Alliander/esa-main-artifacts)** - ESA-main target architecture artifacts, ADRs, and principles
 - **[esa-a4a-artifacts](https://github.com/Alliander/esa-a4a-artifacts)** - A4A general artifacts and documentation
 - **[esa-a4a-archi](https://github.com/Alliander/esa-a4a-archi)** - A4A ArchiMate co-architecture models
-
-These repositories work together to provide a complete view of the Energy System Architecture initiatives.
-
-## Related Initiatives
-
-AInstein is part of the broader ecosystem of ESA strategic working themes:
-
-### ESA-main Target Architecture
-**What**: Future AI embracing and resilient energy system architecture.
-
-**Why**: We strongly believe that an incremental architecture is not the right answer to managing 3 (energy-, AI- and geopolitical) transitions at once.
-
-**How**: Understanding the AI-transition from AIon that delivers on the energy transition and embedding the results in the main AI based target architecture. In parallel test resilience patterns with external institutes with infrastructure in scope.
-
-**Relationship**: AInstein contributes to ESA-main target architecture by providing agents, knowledge, and learnings from AI integration experiments that inform the target architecture design.
-
-### AIon (In Formation) - AI based DSO architecture
-**What**: AIon is a program in formation focused on AI-based DSO architecture.
-
-**Why**: See program plan.
-
-**How**: See program plan.
-
-**Relationship**: AInstein is a learning use case within AIon, contributing agents, knowledge, and synchronizing with the broader AIon program formation.
-
-### A4A - Architecture for Architecture
-**What**: A4A is the transformation of architecture practice into a structured, service-oriented capability that spans as-is, transition, and to-be architectures. This includes clear articulation of architecture services and outputs that support decision-making at all enterprise levels, while enabling continuous and consistent evolution of the architectural staff.
-
-**Why**: Current architecture (motivation, business, information and technology)—both as-is and future state—are fragmented and difficult to access for stakeholders with diverse information needs. Without this transformation, radical changes cannot be managed effectively because the architecture capability lacks the clarity, reasoning and persuasive power to explain which changes are needed, why they matter, and how they should be implemented.
-
-**How**: Define and formalize the services that architecture provides—whether delivered by individuals, teams, systems, or AI agents. Establish clear service models, continuously assess their maturity, and improve them to ensure reliable, scalable, and integrated delivery across the enterprise.
-
-**Relationship**: AInstein explores how AI agents can enhance architecture service delivery, providing practical insights into how A4A's service-oriented capability can be augmented with AI while maintaining human oversight and judgment.
+- **[esa-aion-artifacts](https://github.com/Alliander/esa-aion-artifacts)** - AIon artifacts and knowledge base
+- **[esa-aion-archi](https://github.com/Alliander/esa-aion-archi)** - AIon ArchiMate co-architecture models
 
 ## Related Resources
 
-### AI and LLM Resources
+### AI Ethics and Governance
 
-- **[Anthropic Claude Documentation](https://docs.anthropic.com/)** - Documentation for Claude AI models
-- **[Prompt Engineering Guide](https://www.promptingguide.ai/)** - Comprehensive guide to prompt engineering
-- **[LangChain Documentation](https://python.langchain.com/)** - Framework for developing LLM applications
-- **[OpenAI Best Practices](https://platform.openai.com/docs/guides/prompt-engineering)** - Prompt engineering best practices
+- **[EU AI Act](https://www.europarl.europa.eu/topics/en/article/20230601STO93804/eu-ai-act-first-regulation-on-artificial-intelligence)** - European Union's AI regulatory framework. The world’s first comprehensive AI law
+- **[OECD AI Principles](https://oecd.ai/en/ai-principles)** - International AI governance principles
 
 ### Architecture Frameworks & Standards
 
 - **[TOGAF Standard, 10th Edition](https://www.opengroup.org/togaf)** - The Open Group Architecture Framework
 - **[ArchiMate 3.2 Specification](https://pubs.opengroup.org/architecture/archimate3-doc/)** - Official ArchiMate 3.2 specification
 - **[ISO/IEC/IEEE 42010:2022](https://www.iso.org/standard/74393.html)** - Systems and software engineering — Architecture description
-
-### AI Ethics and Governance
-
-- **[EU AI Act](https://artificialintelligenceact.eu/)** - European Union's AI regulatory framework
-- **[OECD AI Principles](https://oecd.ai/en/ai-principles)** - International AI governance principles
-- **[Responsible AI Practices](https://ai.google/responsibility/responsible-ai-practices/)** - Google's responsible AI framework
-
-### Human-in-the-Loop AI
-
-- **[Human-in-the-Loop Machine Learning](https://www.manning.com/books/human-in-the-loop-machine-learning)** - Book on active learning and annotation
-- **[Human-AI Interaction Guidelines](https://www.microsoft.com/en-us/research/project/guidelines-for-human-ai-interaction/)** - Microsoft's HAI interaction guidelines
-
+- 
 ### Energy System Architecture
 
 - **[IEC 61968 Series](https://webstore.iec.ch/publication/6195)** - Application integration at electric utilities
@@ -316,4 +271,4 @@ For questions or support, please [open an issue](https://github.com/Alliander/es
 
 ---
 
-*[Maintained with ❤️ by the ESA team at Alliander](https://www.alliander.com/en/)*
+*[Maintained by the ESA team at Alliander](https://www.alliander.com/en/)*
