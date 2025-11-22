@@ -1,14 +1,94 @@
 """Agent for querying Architectural Decision Records and principles."""
 
 import logging
+from enum import Enum
 from typing import Optional, Any
 
 from weaviate import WeaviateClient
 
 from .base import BaseAgent, AgentResponse
 from ..weaviate.collections import CollectionManager
+from ..config import settings
 
 logger = logging.getLogger(__name__)
+
+
+class QueryIntent(str, Enum):
+    """Types of query intents for the architecture agent."""
+    LIST = "list"           # User wants to see all items (e.g., "What ADRs exist?")
+    SEARCH = "search"       # User is looking for specific information
+    SUMMARY = "summary"     # User wants an overview or summary
+    COUNT = "count"         # User wants to know how many items exist
+
+
+class IntentClassifier:
+    """LLM-based intent classifier for query routing."""
+
+    INTENT_PROMPT = """Classify the user's query into one of these intents:
+- LIST: User wants to see all items or enumerate everything (e.g., "What ADRs exist?", "Show me all decisions", "List the principles")
+- SEARCH: User is looking for specific information about a topic (e.g., "What decisions were made about security?", "Tell me about CIM")
+- SUMMARY: User wants an overview or summary (e.g., "Summarize the architecture decisions", "Give me an overview")
+- COUNT: User wants to know how many items exist (e.g., "How many ADRs are there?")
+
+Query: {query}
+
+Respond with only one word: LIST, SEARCH, SUMMARY, or COUNT"""
+
+    def __init__(self):
+        """Initialize the intent classifier."""
+        self._openai_client = None
+
+    @property
+    def openai_client(self):
+        """Lazy-load OpenAI client."""
+        if self._openai_client is None:
+            try:
+                from openai import OpenAI
+                self._openai_client = OpenAI(api_key=settings.openai_api_key)
+            except ImportError:
+                logger.warning("OpenAI not available for intent classification")
+        return self._openai_client
+
+    def classify(self, query: str) -> QueryIntent:
+        """Classify the intent of a query using LLM.
+
+        Args:
+            query: The user's query
+
+        Returns:
+            Classified QueryIntent
+        """
+        if not self.openai_client:
+            # Fallback to default search if OpenAI not available
+            return QueryIntent.SEARCH
+
+        try:
+            response = self.openai_client.chat.completions.create(
+                model=settings.openai_chat_model,
+                messages=[
+                    {"role": "user", "content": self.INTENT_PROMPT.format(query=query)}
+                ],
+                max_tokens=10,
+                temperature=0,
+            )
+
+            intent_str = response.choices[0].message.content.strip().upper()
+
+            # Map response to intent
+            intent_map = {
+                "LIST": QueryIntent.LIST,
+                "SEARCH": QueryIntent.SEARCH,
+                "SUMMARY": QueryIntent.SUMMARY,
+                "COUNT": QueryIntent.COUNT,
+            }
+
+            intent = intent_map.get(intent_str, QueryIntent.SEARCH)
+            logger.info(f"Classified intent for '{query[:50]}...' as {intent.value}")
+            return intent
+
+        except Exception as e:
+            logger.warning(f"Intent classification failed: {e}, defaulting to SEARCH")
+            return QueryIntent.SEARCH
 
 
 class ArchitectureAgent(BaseAgent):
@@ -30,6 +110,7 @@ class ArchitectureAgent(BaseAgent):
             llm_client: Optional LLM client for generation
         """
         super().__init__(client, llm_client)
+        self.intent_classifier = IntentClassifier()
 
     async def query(
         self,
@@ -52,12 +133,18 @@ class ArchitectureAgent(BaseAgent):
         """
         logger.info(f"ArchitectureAgent processing: {question}")
 
-        # Check if this is a listing query
-        listing_keywords = ["what adrs", "list adr", "all adr", "show adr", "which adr", "existing adr"]
-        is_listing_query = any(kw in question.lower() for kw in listing_keywords)
+        # Use LLM to classify the query intent
+        intent = self.intent_classifier.classify(question)
+        logger.info(f"Query intent: {intent.value}")
 
-        if is_listing_query:
+        # Route based on intent
+        if intent == QueryIntent.LIST:
             return await self._handle_listing_query(question, include_principles)
+        elif intent == QueryIntent.COUNT:
+            return await self._handle_count_query(question)
+        elif intent == QueryIntent.SUMMARY:
+            return await self._handle_summary_query(question, include_principles)
+        # Default: SEARCH intent
 
         # Search ADRs
         adr_results = self.hybrid_search(
@@ -307,6 +394,82 @@ class ArchitectureAgent(BaseAgent):
             answer=answer,
             sources=sources,
             confidence=0.95,  # High confidence for listing queries
+            agent_name=self.name,
+            raw_results=adrs + principles,
+        )
+
+    async def _handle_count_query(self, question: str) -> AgentResponse:
+        """Handle queries that ask for counts of ADRs or principles.
+
+        Args:
+            question: The user's question
+
+        Returns:
+            AgentResponse with count information
+        """
+        adrs = self.list_all_adrs()
+        principles = self.list_all_principles()
+
+        # Count by status
+        status_counts = {}
+        for adr in adrs:
+            status = adr.get("status", "unknown")
+            status_counts[status] = status_counts.get(status, 0) + 1
+
+        answer_parts = [
+            f"## Document Counts\n",
+            f"- **Total ADRs**: {len(adrs)}",
+        ]
+
+        if status_counts:
+            answer_parts.append("\n### ADRs by Status:")
+            for status, count in sorted(status_counts.items()):
+                answer_parts.append(f"  - {status}: {count}")
+
+        answer_parts.append(f"\n- **Total Principles**: {len(principles)}")
+
+        return AgentResponse(
+            answer="\n".join(answer_parts),
+            sources=[],
+            confidence=0.98,
+            agent_name=self.name,
+            raw_results={"adr_count": len(adrs), "principle_count": len(principles), "status_counts": status_counts},
+        )
+
+    async def _handle_summary_query(self, question: str, include_principles: bool) -> AgentResponse:
+        """Handle queries that ask for a summary or overview.
+
+        Args:
+            question: The user's question
+            include_principles: Whether to include principles
+
+        Returns:
+            AgentResponse with summary
+        """
+        # Get all documents for summary
+        adrs = self.list_all_adrs()
+        principles = self.list_all_principles() if include_principles else []
+
+        # Use LLM to generate a summary
+        summary_context = []
+        for adr in adrs[:10]:  # Limit to first 10 for context
+            summary_context.append({
+                "title": adr.get("title", ""),
+                "status": adr.get("status", ""),
+                "context": adr.get("context", "")[:200],
+                "decision": adr.get("decision", "")[:200],
+            })
+
+        # Generate summary using Weaviate's generative search
+        answer = self.generate_answer(
+            f"Provide a high-level summary of the architecture decisions. {question}",
+            summary_context
+        )
+
+        return AgentResponse(
+            answer=answer,
+            sources=[{"title": adr.get("title", ""), "type": "ADR"} for adr in adrs[:5]],
+            confidence=0.85,
             agent_name=self.name,
             raw_results=adrs + principles,
         )
