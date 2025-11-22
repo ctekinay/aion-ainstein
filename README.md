@@ -47,46 +47,57 @@ The system uses a multi-agent architecture inspired by [Weaviate's Elysia](https
 
 ## Prerequisites
 
-- Docker and Docker Compose
-- Python 3.10+ (3.12 recommended)
-- NVIDIA GPU (optional, for faster local LLM inference)
+- **Docker Desktop** (with WSL2 on Windows)
+- **Python 3.10+** (3.12 recommended)
+- **NVIDIA GPU** (optional, for faster local LLM inference)
 
-## Quick Start
+## Quick Start (Windows)
 
-### 1. Start the Infrastructure
+### Option A: Automated Setup
 
-```bash
+```powershell
+# Run from project root in PowerShell
+.\scripts\setup.ps1
+```
+
+### Option B: Manual Setup
+
+#### 1. Start the Infrastructure
+
+```powershell
 # Start Weaviate and Ollama
 docker compose up -d
 
-# Pull the required Ollama models
+# Pull the required Ollama models (this takes a few minutes)
 docker compose exec ollama ollama pull nomic-embed-text
 docker compose exec ollama ollama pull llama3.2
 ```
 
-### 2. Install Python Dependencies
+#### 2. Install Python Dependencies
 
-```bash
+```powershell
 # Create virtual environment
-python3 -m venv .venv
-source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+python -m venv .venv
+
+# Activate it
+.\.venv\Scripts\Activate.ps1
 
 # Install dependencies
 pip install -e .
 ```
 
-### 3. Configure Environment
+#### 3. Configure Environment
 
-```bash
+```powershell
 # Copy example configuration
-cp .env.example .env
+Copy-Item .env.example .env
 
 # Edit .env if needed (defaults work for local setup)
 ```
 
-### 4. Initialize and Ingest Data
+#### 4. Initialize and Ingest Data
 
-```bash
+```powershell
 # Initialize collections and ingest all data
 aion init
 
@@ -94,9 +105,9 @@ aion init
 aion status
 ```
 
-### 5. Query the System
+#### 5. Query the System
 
-```bash
+```powershell
 # Interactive mode
 aion interactive
 
@@ -108,6 +119,26 @@ aion query "What decisions have been made about security?" --agent architecture
 
 # Search directly
 aion search "data quality" --collection policy
+```
+
+## Quick Start (Linux/macOS)
+
+```bash
+# Run automated setup
+./scripts/setup.sh
+
+# Or manually:
+docker compose up -d
+docker compose exec ollama ollama pull nomic-embed-text
+docker compose exec ollama ollama pull llama3.2
+
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -e .
+
+cp .env.example .env
+aion init
+aion interactive
 ```
 
 ## CLI Commands
@@ -123,7 +154,7 @@ aion search "data quality" --collection policy
 
 ### Query Options
 
-```bash
+```powershell
 # Use specific agent
 aion query "question" --agent vocabulary
 aion query "question" --agent architecture
@@ -134,6 +165,21 @@ aion query "question" --all
 
 # Verbose output with sources
 aion query "question" --verbose
+```
+
+### Interactive Mode Commands
+
+Once in interactive mode (`aion interactive`):
+
+```
+@vocabulary <question>    Query only vocabulary agent
+@architecture <question>  Query only architecture agent
+@policy <question>        Query only policy agent
+@all <question>           Query all agents
+agents                    List available agents
+status                    Show collection status
+help                      Show help
+quit                      Exit
 ```
 
 ## Project Structure
@@ -161,6 +207,9 @@ aion-ainstein/
 │   │   └── ingestion.py
 │   ├── config.py             # Configuration
 │   └── cli.py                # CLI interface
+├── scripts/
+│   ├── setup.ps1             # Windows setup script
+│   └── setup.sh              # Linux/macOS setup script
 ├── docker-compose.yml         # Weaviate + Ollama
 ├── requirements.txt
 ├── pyproject.toml
@@ -181,13 +230,27 @@ Environment variables (`.env`):
 
 ## Using with OpenAI (Optional)
 
-To use OpenAI instead of local Ollama:
+To use OpenAI instead of local Ollama (faster, but requires API key):
 
-```bash
+```powershell
 # In .env
 OPENAI_API_KEY=your-api-key
 OPENAI_EMBEDDING_MODEL=text-embedding-3-small
 OPENAI_CHAT_MODEL=gpt-4o-mini
+```
+
+## GPU Support on Windows
+
+For GPU acceleration with Ollama on Windows:
+
+1. Install [NVIDIA drivers](https://www.nvidia.com/Download/index.aspx) for Windows
+2. Enable WSL2 in Docker Desktop settings
+3. Docker Desktop automatically enables GPU passthrough
+
+To verify GPU is working:
+```powershell
+docker compose exec ollama ollama run llama3.2 "Hello"
+# Should respond quickly if GPU is active
 ```
 
 ## Python API Usage
@@ -232,9 +295,46 @@ asyncio.run(main())
 ### Governance Policies
 - Data governance, quality, classification, and metadata management
 
+## Troubleshooting
+
+### Docker issues on Windows
+
+```powershell
+# Check if containers are running
+docker ps
+
+# View logs
+docker compose logs weaviate
+docker compose logs ollama
+
+# Restart services
+docker compose restart
+```
+
+### Weaviate connection issues
+
+```powershell
+# Test Weaviate is responding
+Invoke-WebRequest -Uri "http://localhost:8080/v1/.well-known/ready"
+
+# Test Ollama is responding
+Invoke-WebRequest -Uri "http://localhost:11434/api/tags"
+```
+
+### Reset everything
+
+```powershell
+# Stop and remove containers + volumes
+docker compose down -v
+
+# Start fresh
+docker compose up -d
+aion init --recreate
+```
+
 ## Development
 
-```bash
+```powershell
 # Install dev dependencies
 pip install -e ".[dev]"
 
