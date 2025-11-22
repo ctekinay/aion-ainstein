@@ -34,6 +34,8 @@ dependencies = [
     "pydantic>=2.9.0",
     "pydantic-settings>=2.5.0",
     "httpx>=0.27.0",
+    "elysia-ai>=0.1.0",
+    "dspy-ai>=2.4.0",
 ]
 
 [project.optional-dependencies]

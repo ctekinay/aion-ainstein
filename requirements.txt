@@ -1,6 +1,10 @@
 # Weaviate client
 weaviate-client>=4.9.0
 
+# Elysia agentic RAG framework
+elysia-ai>=0.1.0
+dspy-ai>=2.4.0
+
 # RDF/SKOS parsing
 rdflib>=7.0.0
 

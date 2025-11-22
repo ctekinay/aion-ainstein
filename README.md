@@ -11,7 +11,7 @@ AION-AINSTEIN is a local Weaviate-based RAG system with OpenAI embeddings that e
 - **Data Governance Policies**: Compliance, data quality, and management policies
 - **Architecture Principles**: System design and governance principles
 
-The system uses a multi-agent architecture inspired by [Weaviate's Elysia](https://weaviate.io/blog/elysia-agentic-rag) framework.
+The system integrates with [Weaviate's Elysia](https://weaviate.io/blog/elysia-agentic-rag) framework - a decision tree-based agentic RAG system that dynamically selects tools and processes queries.
 
 ## Architecture
 
@@ -123,6 +123,9 @@ aion search "data quality" --collection policy
 | `aion search <text>` | Direct search across collections |
 | `aion agents` | List available agents |
 | `aion interactive` | Start interactive query session |
+| `aion elysia` | Start Elysia agentic RAG session (decision tree) |
+| `aion start-elysia-server` | Launch full Elysia web application |
+| `aion config` | Show current configuration |
 
 ### Query Options
 
@@ -154,6 +157,29 @@ help                      Show help
 quit                      Exit
 ```
 
+### Elysia Mode (Recommended)
+
+Elysia provides a decision tree-based agentic system that dynamically selects the right tools:
+
+```powershell
+# Start Elysia interactive mode
+aion elysia
+```
+
+Available tools in Elysia mode:
+- `search_vocabulary` - Search SKOS concepts and IEC standards
+- `search_architecture_decisions` - Search ADRs
+- `search_principles` - Search architecture principles
+- `search_policies` - Search governance policies
+- `list_all_adrs` - List all ADRs
+- `list_all_principles` - List all principles
+- `get_collection_stats` - Get system statistics
+
+For the full Elysia web experience with dynamic data display:
+```powershell
+aion start-elysia-server
+```
+
 ## Project Structure
 
 ```
@@ -178,7 +204,8 @@ aion-ainstein/
 │   │   ├── collections.py
 │   │   └── ingestion.py
 │   ├── config.py             # Configuration
-│   └── cli.py                # CLI interface
+│   ├── cli.py                # CLI interface
+│   └── elysia_agents.py      # Elysia integration
 ├── scripts/
 │   ├── setup.ps1             # Windows setup script
 │   └── setup.sh              # Linux/macOS setup script

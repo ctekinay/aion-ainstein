@@ -433,6 +433,83 @@ def interactive():
         raise typer.Exit(1)
 
 
+@app.command()
+def elysia():
+    """Start Elysia agentic RAG interactive session (decision tree-based)."""
+    console.print(Panel(
+        "AION-AINSTEIN Elysia Mode\n"
+        "Using Weaviate's Elysia decision tree framework\n"
+        "Type 'quit' or 'exit' to end the session.",
+        style="bold magenta"
+    ))
+
+    try:
+        from .elysia_agents import ElysiaRAGSystem, ELYSIA_AVAILABLE
+
+        if not ELYSIA_AVAILABLE:
+            console.print("[red]Elysia not installed. Run: pip install elysia-ai[/red]")
+            raise typer.Exit(1)
+
+        with weaviate_client() as client:
+            elysia_system = ElysiaRAGSystem(client)
+            console.print("[green]Elysia system initialized with custom tools[/green]")
+            console.print("[dim]Available tools: search_vocabulary, search_architecture_decisions,")
+            console.print("                  search_principles, search_policies, list_all_adrs,[/dim]")
+            console.print("[dim]                  list_all_principles, get_collection_stats[/dim]\n")
+
+            while True:
+                try:
+                    user_input = console.input("\n[bold magenta]Elysia>[/bold magenta] ").strip()
+
+                    if not user_input:
+                        continue
+
+                    if user_input.lower() in ("quit", "exit", "q"):
+                        console.print("[dim]Goodbye![/dim]")
+                        break
+
+                    # Process with Elysia
+                    with console.status("Elysia thinking...", spinner="dots"):
+                        response, objects = asyncio.run(elysia_system.query(user_input))
+
+                    # Display response
+                    console.print(Panel(Markdown(response), title="Elysia Response", border_style="magenta"))
+
+                    if objects:
+                        console.print(f"[dim]Retrieved {len(objects)} objects[/dim]")
+
+                except KeyboardInterrupt:
+                    console.print("\n[dim]Use 'quit' to exit.[/dim]")
+                    continue
+
+    except ImportError as e:
+        console.print(f"[red]Elysia import error: {e}[/red]")
+        console.print("[yellow]Make sure to install: pip install elysia-ai dspy-ai[/yellow]")
+        raise typer.Exit(1)
+    except Exception as e:
+        console.print(f"[red]Error: {e}")
+        logger.exception("Elysia error")
+        raise typer.Exit(1)
+
+
+@app.command()
+def start_elysia_server():
+    """Start the full Elysia web application."""
+    console.print(Panel("Starting Elysia Web Server", style="bold magenta"))
+
+    try:
+        import subprocess
+        console.print("[dim]Running: elysia start[/dim]")
+        console.print("[yellow]Note: Configure your API keys in the Elysia settings page[/yellow]")
+        subprocess.run(["elysia", "start"], check=True)
+    except FileNotFoundError:
+        console.print("[red]Elysia CLI not found. Install with: pip install elysia-ai[/red]")
+        raise typer.Exit(1)
+    except Exception as e:
+        console.print(f"[red]Failed to start Elysia: {e}[/red]")
+        raise typer.Exit(1)
+
+
 def main():
     """Main entry point."""
     app()
