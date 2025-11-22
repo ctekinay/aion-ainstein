@@ -52,6 +52,13 @@ class ArchitectureAgent(BaseAgent):
         """
         logger.info(f"ArchitectureAgent processing: {question}")
 
+        # Check if this is a listing query
+        listing_keywords = ["what adrs", "list adr", "all adr", "show adr", "which adr", "existing adr"]
+        is_listing_query = any(kw in question.lower() for kw in listing_keywords)
+
+        if is_listing_query:
+            return await self._handle_listing_query(question, include_principles)
+
         # Search ADRs
         adr_results = self.hybrid_search(
             query=question,
@@ -210,3 +217,96 @@ class ArchitectureAgent(BaseAgent):
 
         avg_score = sum(scores) / len(scores)
         return min(max(avg_score, 0.0), 1.0)
+
+    def list_all_adrs(self) -> list[dict]:
+        """List all ADRs in the collection.
+
+        Returns:
+            List of all ADR documents with title, status, and file info
+        """
+        collection = self.client.collections.get(self.collection_name)
+
+        results = collection.query.fetch_objects(
+            limit=100,
+            return_properties=["title", "status", "file_path", "context", "decision"],
+        )
+
+        adrs = []
+        for obj in results.objects:
+            props = dict(obj.properties)
+            # Skip template files
+            title = props.get("title", "")
+            file_path = props.get("file_path", "")
+            if "template" in title.lower() or "template" in file_path.lower():
+                continue
+            adrs.append(props)
+
+        return adrs
+
+    def list_all_principles(self) -> list[dict]:
+        """List all principles in the collection.
+
+        Returns:
+            List of all principle documents
+        """
+        collection = self.client.collections.get(CollectionManager.PRINCIPLE_COLLECTION)
+
+        results = collection.query.fetch_objects(
+            limit=100,
+            return_properties=["title", "file_path", "doc_type"],
+        )
+
+        return [dict(obj.properties) for obj in results.objects]
+
+    async def _handle_listing_query(self, question: str, include_principles: bool) -> AgentResponse:
+        """Handle queries that ask for a list of ADRs or principles.
+
+        Args:
+            question: The user's question
+            include_principles: Whether to include principles in listing
+
+        Returns:
+            AgentResponse with list of documents
+        """
+        adrs = self.list_all_adrs()
+        principles = self.list_all_principles() if include_principles else []
+
+        # Build formatted answer
+        answer_parts = []
+
+        if adrs:
+            answer_parts.append(f"## Architectural Decision Records ({len(adrs)} ADRs)\n")
+            for adr in sorted(adrs, key=lambda x: x.get("file_path", "")):
+                title = adr.get("title", "Untitled")
+                status = adr.get("status", "unknown")
+                file_name = adr.get("file_path", "").split("/")[-1] if adr.get("file_path") else ""
+                answer_parts.append(f"- **{title}** [{status}] - {file_name}")
+        else:
+            answer_parts.append("No ADRs found in the system.")
+
+        if principles and "principle" in question.lower():
+            answer_parts.append(f"\n\n## Principles ({len(principles)} documents)\n")
+            for p in principles:
+                title = p.get("title", "Untitled")
+                answer_parts.append(f"- {title}")
+
+        answer = "\n".join(answer_parts)
+
+        # Build sources
+        sources = [
+            {
+                "title": adr.get("title", ""),
+                "type": "ADR",
+                "status": adr.get("status", ""),
+                "file": adr.get("file_path", "").split("/")[-1] if adr.get("file_path") else "",
+            }
+            for adr in adrs
+        ]
+
+        return AgentResponse(
+            answer=answer,
+            sources=sources,
+            confidence=0.95,  # High confidence for listing queries
+            agent_name=self.name,
+            raw_results=adrs + principles,
+        )
