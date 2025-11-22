@@ -1,4 +1,4 @@
-"""Document loader for DOCX and PDF files."""
+"""Document loader for DOCX and PDF files with chunking support."""
 
 import logging
 from dataclasses import dataclass, field
@@ -7,10 +7,14 @@ from typing import Iterator, Optional
 
 logger = logging.getLogger(__name__)
 
+# Maximum characters per chunk (roughly 1500 tokens = ~6000 chars)
+MAX_CHUNK_SIZE = 6000
+CHUNK_OVERLAP = 500
+
 
 @dataclass
 class PolicyDocument:
-    """Represents a parsed policy document."""
+    """Represents a parsed policy document or chunk."""
 
     file_path: str
     title: str
@@ -18,23 +22,72 @@ class PolicyDocument:
     doc_type: str = "policy"
     file_type: str = ""  # 'docx' or 'pdf'
     page_count: int = 0
+    chunk_index: int = 0
+    total_chunks: int = 1
     metadata: dict = field(default_factory=dict)
 
     def to_dict(self) -> dict:
         """Convert to dictionary for Weaviate ingestion."""
+        # Add chunk info to title if multiple chunks
+        title = self.title
+        if self.total_chunks > 1:
+            title = f"{self.title} (Part {self.chunk_index + 1}/{self.total_chunks})"
+
         return {
             "file_path": self.file_path,
-            "title": self.title,
+            "title": title,
             "content": self.content,
             "doc_type": self.doc_type,
             "file_type": self.file_type,
             "page_count": self.page_count,
-            "full_text": f"Policy: {self.title}\n\n{self.content}",
+            "full_text": f"Policy: {title}\n\n{self.content}",
         }
 
 
+def chunk_text(text: str, max_size: int = MAX_CHUNK_SIZE, overlap: int = CHUNK_OVERLAP) -> list[str]:
+    """Split text into chunks with overlap.
+
+    Args:
+        text: Text to chunk
+        max_size: Maximum characters per chunk
+        overlap: Number of characters to overlap between chunks
+
+    Returns:
+        List of text chunks
+    """
+    if len(text) <= max_size:
+        return [text]
+
+    chunks = []
+    start = 0
+
+    while start < len(text):
+        end = start + max_size
+
+        # Try to break at a paragraph or sentence boundary
+        if end < len(text):
+            # Look for paragraph break
+            para_break = text.rfind("\n\n", start, end)
+            if para_break > start + max_size // 2:
+                end = para_break + 2
+            else:
+                # Look for sentence break
+                sentence_break = text.rfind(". ", start, end)
+                if sentence_break > start + max_size // 2:
+                    end = sentence_break + 2
+
+        chunk = text[start:end].strip()
+        if chunk:
+            chunks.append(chunk)
+
+        # Move start with overlap
+        start = end - overlap if end < len(text) else len(text)
+
+    return chunks
+
+
 class DocumentLoader:
-    """Loader for DOCX and PDF policy documents."""
+    """Loader for DOCX and PDF policy documents with chunking."""
 
     def __init__(self, documents_path: Path):
         """Initialize the document loader.
@@ -45,10 +98,10 @@ class DocumentLoader:
         self.documents_path = Path(documents_path)
 
     def load_all(self) -> Iterator[dict]:
-        """Load all DOCX and PDF files.
+        """Load all DOCX and PDF files, chunking large documents.
 
         Yields:
-            Dictionary representations of parsed documents
+            Dictionary representations of parsed document chunks
         """
         # Load DOCX files
         docx_files = list(self.documents_path.glob("*.docx"))
@@ -60,36 +113,34 @@ class DocumentLoader:
 
         for docx_file in docx_files:
             try:
-                doc = self._load_docx(docx_file)
-                if doc:
-                    yield doc.to_dict()
+                for doc_chunk in self._load_docx_chunked(docx_file):
+                    yield doc_chunk.to_dict()
             except Exception as e:
                 logger.error(f"Error loading DOCX {docx_file}: {e}")
                 continue
 
         for pdf_file in pdf_files:
             try:
-                doc = self._load_pdf(pdf_file)
-                if doc:
-                    yield doc.to_dict()
+                for doc_chunk in self._load_pdf_chunked(pdf_file):
+                    yield doc_chunk.to_dict()
             except Exception as e:
                 logger.error(f"Error loading PDF {pdf_file}: {e}")
                 continue
 
-    def _load_docx(self, file_path: Path) -> Optional[PolicyDocument]:
-        """Load a DOCX file.
+    def _load_docx_chunked(self, file_path: Path) -> Iterator[PolicyDocument]:
+        """Load a DOCX file and yield chunks.
 
         Args:
             file_path: Path to the DOCX file
 
-        Returns:
-            Parsed PolicyDocument or None
+        Yields:
+            PolicyDocument chunks
         """
         try:
             from docx import Document
         except ImportError:
             logger.error("python-docx not installed. Run: pip install python-docx")
-            return None
+            return
 
         try:
             doc = Document(str(file_path))
@@ -111,66 +162,52 @@ class DocumentLoader:
                         paragraphs.append(row_text)
 
             content = "\n\n".join(paragraphs)
-
-            # Extract title from filename or first paragraph
             title = self._extract_title(file_path, paragraphs)
 
-            # Extract metadata from core properties
-            metadata = {}
-            if doc.core_properties:
-                if doc.core_properties.author:
-                    metadata["author"] = doc.core_properties.author
-                if doc.core_properties.created:
-                    metadata["created"] = str(doc.core_properties.created)
-                if doc.core_properties.modified:
-                    metadata["modified"] = str(doc.core_properties.modified)
+            # Chunk the content
+            chunks = chunk_text(content)
+            total_chunks = len(chunks)
 
-            return PolicyDocument(
-                file_path=str(file_path),
-                title=title,
-                content=content,
-                file_type="docx",
-                metadata=metadata,
-            )
+            for i, chunk_content in enumerate(chunks):
+                yield PolicyDocument(
+                    file_path=str(file_path),
+                    title=title,
+                    content=chunk_content,
+                    file_type="docx",
+                    chunk_index=i,
+                    total_chunks=total_chunks,
+                )
 
         except Exception as e:
             logger.error(f"Failed to parse DOCX {file_path}: {e}")
-            return None
 
-    def _load_pdf(self, file_path: Path) -> Optional[PolicyDocument]:
-        """Load a PDF file.
+    def _load_pdf_chunked(self, file_path: Path) -> Iterator[PolicyDocument]:
+        """Load a PDF file and yield chunks.
 
         Args:
             file_path: Path to the PDF file
 
-        Returns:
-            Parsed PolicyDocument or None
+        Yields:
+            PolicyDocument chunks
         """
         # Try PyMuPDF first (better extraction)
         try:
-            return self._load_pdf_pymupdf(file_path)
+            yield from self._load_pdf_pymupdf_chunked(file_path)
+            return
         except ImportError:
             pass
 
         # Fall back to PyPDF2
         try:
-            return self._load_pdf_pypdf2(file_path)
+            yield from self._load_pdf_pypdf2_chunked(file_path)
         except ImportError:
             logger.error(
                 "Neither pymupdf nor PyPDF2 installed. "
                 "Run: pip install pymupdf or pip install PyPDF2"
             )
-            return None
 
-    def _load_pdf_pymupdf(self, file_path: Path) -> Optional[PolicyDocument]:
-        """Load PDF using PyMuPDF (fitz).
-
-        Args:
-            file_path: Path to the PDF file
-
-        Returns:
-            Parsed PolicyDocument or None
-        """
+    def _load_pdf_pymupdf_chunked(self, file_path: Path) -> Iterator[PolicyDocument]:
+        """Load PDF using PyMuPDF and yield chunks."""
         import fitz  # PyMuPDF
 
         try:
@@ -182,38 +219,30 @@ class DocumentLoader:
                 if text.strip():
                     pages.append(text.strip())
 
-            content = "\n\n---\n\n".join(pages)
+            content = "\n\n".join(pages)
             title = self._extract_title(file_path, pages)
+            page_count = len(doc)
 
-            # Extract metadata
-            metadata = {}
-            if doc.metadata:
-                for key in ["author", "title", "subject", "creator"]:
-                    if doc.metadata.get(key):
-                        metadata[key] = doc.metadata[key]
+            # Chunk the content
+            chunks = chunk_text(content)
+            total_chunks = len(chunks)
 
-            return PolicyDocument(
-                file_path=str(file_path),
-                title=title,
-                content=content,
-                file_type="pdf",
-                page_count=len(doc),
-                metadata=metadata,
-            )
+            for i, chunk_content in enumerate(chunks):
+                yield PolicyDocument(
+                    file_path=str(file_path),
+                    title=title,
+                    content=chunk_content,
+                    file_type="pdf",
+                    page_count=page_count,
+                    chunk_index=i,
+                    total_chunks=total_chunks,
+                )
 
         except Exception as e:
             logger.error(f"Failed to parse PDF with PyMuPDF {file_path}: {e}")
-            return None
 
-    def _load_pdf_pypdf2(self, file_path: Path) -> Optional[PolicyDocument]:
-        """Load PDF using PyPDF2.
-
-        Args:
-            file_path: Path to the PDF file
-
-        Returns:
-            Parsed PolicyDocument or None
-        """
+    def _load_pdf_pypdf2_chunked(self, file_path: Path) -> Iterator[PolicyDocument]:
+        """Load PDF using PyPDF2 and yield chunks."""
         from PyPDF2 import PdfReader
 
         try:
@@ -225,28 +254,27 @@ class DocumentLoader:
                 if text and text.strip():
                     pages.append(text.strip())
 
-            content = "\n\n---\n\n".join(pages)
+            content = "\n\n".join(pages)
             title = self._extract_title(file_path, pages)
+            page_count = len(reader.pages)
 
-            # Extract metadata
-            metadata = {}
-            if reader.metadata:
-                for key in ["/Author", "/Title", "/Subject", "/Creator"]:
-                    if reader.metadata.get(key):
-                        metadata[key.lstrip("/")] = reader.metadata[key]
+            # Chunk the content
+            chunks = chunk_text(content)
+            total_chunks = len(chunks)
 
-            return PolicyDocument(
-                file_path=str(file_path),
-                title=title,
-                content=content,
-                file_type="pdf",
-                page_count=len(reader.pages),
-                metadata=metadata,
-            )
+            for i, chunk_content in enumerate(chunks):
+                yield PolicyDocument(
+                    file_path=str(file_path),
+                    title=title,
+                    content=chunk_content,
+                    file_type="pdf",
+                    page_count=page_count,
+                    chunk_index=i,
+                    total_chunks=total_chunks,
+                )
 
         except Exception as e:
             logger.error(f"Failed to parse PDF with PyPDF2 {file_path}: {e}")
-            return None
 
     def _extract_title(self, file_path: Path, paragraphs: list[str]) -> str:
         """Extract title from filename or first paragraph.
