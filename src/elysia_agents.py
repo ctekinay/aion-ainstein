@@ -17,11 +17,13 @@ logger = logging.getLogger(__name__)
 try:
     import elysia
     from elysia import tool, Tree
-    from elysia.tree.objects import TreeOutput
     ELYSIA_AVAILABLE = True
-except ImportError:
+except ImportError as e:
     ELYSIA_AVAILABLE = False
-    logger.warning("elysia-ai not installed. Run: pip install elysia-ai")
+    logger.warning(f"elysia-ai import failed: {e}")
+except Exception as e:
+    ELYSIA_AVAILABLE = False
+    logger.warning(f"elysia-ai error: {e}")
 
 
 class ElysiaRAGSystem:
