@@ -453,8 +453,8 @@ def elysia():
         with weaviate_client() as client:
             elysia_system = ElysiaRAGSystem(client)
             console.print("[green]Elysia system initialized with custom tools[/green]")
-            console.print("[dim]Available tools: search_vocabulary, search_architecture_decisions,")
-            console.print("                  search_principles, search_policies, list_all_adrs,[/dim]")
+            console.print("[dim]Available tools: search_vocabulary, search_architecture_decisions,[/dim]")
+            console.print("[dim]                  search_principles, search_policies, list_all_adrs,[/dim]")
             console.print("[dim]                  list_all_principles, get_collection_stats[/dim]\n")
 
             while True:
