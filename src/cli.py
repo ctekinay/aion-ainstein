@@ -35,6 +35,61 @@ app = typer.Typer(
 console = Console()
 
 
+# Valid OpenAI models supported by Weaviate
+VALID_OPENAI_CHAT_MODELS = [
+    "gpt-3.5-turbo", "gpt-3.5-turbo-16k", "gpt-3.5-turbo-1106",
+    "gpt-4", "gpt-4-32k", "gpt-4-1106-preview", "gpt-4o", "gpt-4o-mini"
+]
+VALID_OPENAI_EMBEDDING_MODELS = [
+    "text-embedding-3-small", "text-embedding-3-large", "text-embedding-ada-002"
+]
+
+
+@app.command()
+def config():
+    """Show current configuration (for debugging)."""
+    console.print(Panel("Current Configuration", style="bold blue"))
+
+    table = Table(title="Settings")
+    table.add_column("Setting", style="cyan")
+    table.add_column("Value", style="green")
+    table.add_column("Status", style="yellow")
+
+    # Weaviate settings
+    table.add_row("WEAVIATE_URL", settings.weaviate_url, "OK")
+    table.add_row("WEAVIATE_IS_LOCAL", str(settings.weaviate_is_local), "OK")
+
+    # OpenAI settings
+    api_key_status = "OK" if settings.openai_api_key else "[red]MISSING[/red]"
+    api_key_display = f"{settings.openai_api_key[:10]}..." if settings.openai_api_key else "[red]Not set[/red]"
+    table.add_row("OPENAI_API_KEY", api_key_display, api_key_status)
+
+    embedding_status = "OK" if settings.openai_embedding_model in VALID_OPENAI_EMBEDDING_MODELS else "[red]INVALID[/red]"
+    table.add_row("OPENAI_EMBEDDING_MODEL", settings.openai_embedding_model, embedding_status)
+
+    chat_status = "OK" if settings.openai_chat_model in VALID_OPENAI_CHAT_MODELS else "[red]INVALID[/red]"
+    table.add_row("OPENAI_CHAT_MODEL", settings.openai_chat_model, chat_status)
+
+    console.print(table)
+
+    # Show validation errors
+    errors = []
+    if not settings.openai_api_key:
+        errors.append("OPENAI_API_KEY is not set")
+    if settings.openai_embedding_model not in VALID_OPENAI_EMBEDDING_MODELS:
+        errors.append(f"OPENAI_EMBEDDING_MODEL '{settings.openai_embedding_model}' is not valid. Use one of: {', '.join(VALID_OPENAI_EMBEDDING_MODELS)}")
+    if settings.openai_chat_model not in VALID_OPENAI_CHAT_MODELS:
+        errors.append(f"OPENAI_CHAT_MODEL '{settings.openai_chat_model}' is not valid. Use one of: {', '.join(VALID_OPENAI_CHAT_MODELS)}")
+
+    if errors:
+        console.print("\n[bold red]Configuration Errors:[/bold red]")
+        for error in errors:
+            console.print(f"  [red]• {error}[/red]")
+        console.print("\n[yellow]Fix these in your .env file and try again.[/yellow]")
+    else:
+        console.print("\n[green]Configuration is valid![/green]")
+
+
 @app.command()
 def init(
     recreate: bool = typer.Option(
@@ -43,6 +98,37 @@ def init(
 ):
     """Initialize Weaviate collections and ingest data."""
     console.print(Panel("Initializing AION-AINSTEIN RAG System", style="bold blue"))
+
+    # Show current configuration
+    console.print("\n[bold]Current Configuration:[/bold]")
+    console.print(f"  OPENAI_EMBEDDING_MODEL: {settings.openai_embedding_model}")
+    console.print(f"  OPENAI_CHAT_MODEL: {settings.openai_chat_model}")
+
+    # Validate configuration before proceeding
+    errors = []
+    if not settings.openai_api_key:
+        errors.append("OPENAI_API_KEY is not set in .env file")
+    if settings.openai_chat_model not in VALID_OPENAI_CHAT_MODELS:
+        errors.append(
+            f"OPENAI_CHAT_MODEL '{settings.openai_chat_model}' is not valid.\n"
+            f"    Valid models: {', '.join(VALID_OPENAI_CHAT_MODELS)}\n"
+            f"    Please update your .env file."
+        )
+    if settings.openai_embedding_model not in VALID_OPENAI_EMBEDDING_MODELS:
+        errors.append(
+            f"OPENAI_EMBEDDING_MODEL '{settings.openai_embedding_model}' is not valid.\n"
+            f"    Valid models: {', '.join(VALID_OPENAI_EMBEDDING_MODELS)}"
+        )
+
+    if errors:
+        console.print("\n[bold red]Configuration Errors:[/bold red]")
+        for error in errors:
+            console.print(f"  [red]• {error}[/red]")
+        console.print("\n[yellow]Please check your .env file and ensure it contains:[/yellow]")
+        console.print("  OPENAI_API_KEY=sk-your-key-here")
+        console.print("  OPENAI_EMBEDDING_MODEL=text-embedding-3-small")
+        console.print("  OPENAI_CHAT_MODEL=gpt-4o-mini")
+        raise typer.Exit(1)
 
     with Progress(
         SpinnerColumn(),
