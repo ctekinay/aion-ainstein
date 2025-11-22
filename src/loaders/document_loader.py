@@ -29,7 +29,6 @@ class PolicyDocument:
             "doc_type": self.doc_type,
             "file_type": self.file_type,
             "page_count": self.page_count,
-            "metadata": self.metadata,
             "full_text": f"Policy: {self.title}\n\n{self.content}",
         }
 

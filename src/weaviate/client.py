@@ -6,7 +6,7 @@ from typing import Optional, Generator
 
 import weaviate
 from weaviate import WeaviateClient
-from weaviate.classes.init import Auth
+from weaviate.classes.init import Auth, AdditionalConfig, Timeout
 
 from ..config import settings
 
@@ -19,12 +19,18 @@ def get_weaviate_client() -> WeaviateClient:
     Returns:
         Connected WeaviateClient instance
     """
+    # Prepare headers with OpenAI API key
+    headers = {}
+    if settings.openai_api_key:
+        headers["X-OpenAI-Api-Key"] = settings.openai_api_key
+
     if settings.weaviate_is_local:
         logger.info(f"Connecting to local Weaviate at {settings.weaviate_url}")
         client = weaviate.connect_to_local(
             host=settings.weaviate_url.replace("http://", "").replace("https://", "").split(":")[0],
             port=int(settings.weaviate_url.split(":")[-1]) if ":" in settings.weaviate_url else 8080,
             grpc_port=int(settings.weaviate_grpc_url.split(":")[-1]) if settings.weaviate_grpc_url else 50051,
+            headers=headers,
         )
     else:
         if not settings.wcd_url or not settings.wcd_api_key:
@@ -35,6 +41,7 @@ def get_weaviate_client() -> WeaviateClient:
         client = weaviate.connect_to_weaviate_cloud(
             cluster_url=settings.wcd_url,
             auth_credentials=Auth.api_key(settings.wcd_api_key),
+            headers=headers,
         )
 
     # Verify connection

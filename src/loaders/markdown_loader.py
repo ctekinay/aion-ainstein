@@ -39,7 +39,6 @@ class MarkdownDocument:
             "decision": self.decision,
             "context": self.context,
             "consequences": self.consequences,
-            "metadata": self.metadata,
             # Combined searchable text
             "full_text": self._build_full_text(),
         }
