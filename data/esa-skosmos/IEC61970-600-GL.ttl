@@ -1,0 +1,223 @@
+@prefix : <http://iec.ch/TC57/ns/CIM/GeographicalLocation-EU/> .
+@prefix cims: <http://iec.ch/TC57/1999/rdf-schema-extensions-19990926#> .
+@prefix dcat: <http://www.w3.org/ns/dcat#> .
+@prefix dct: <http://purl.org/dc/terms/> .
+@prefix foaf: <http://xmlns.com/foaf/0.1/> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix skos: <http://www.w3.org/2004/02/skos/core#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+:Ontology a owl:Ontology,
+        skos:ConceptScheme ;
+    owl:versionIRI :3.0 ;
+    dcat:keyword "GL" ;
+    dcat:theme "vocabulary"@en ;
+    dct:conformsTo "file://iec61970cim17v40_iec61968cim13v13a_iec62325cim03v17a.eap",
+        "urn:iso:std:iec:61970-301:ed-7:amd1",
+        "urn:iso:std:iec:61970-501:draft:ed-2",
+        "urn:iso:std:iec:61970-600-2:ed-1" ;
+    dct:creator "ENTSO-E CIM EG"@en ;
+    dct:description "This vocabulary is describing the geographical location profile from IEC 61970-600-2."@en ;
+    dct:identifier "urn:uuid:862c1230-be19-4a01-bd6f-1a6c03d213ff" ;
+    dct:issued "2021-01-27T12:31:41+00:00"^^xsd:dateTime ;
+    dct:language "en-GB" ;
+    dct:modified "2020-10-12"^^xsd:date ;
+    dct:publisher "ENTSO-E"@en ;
+    dct:rights "Copyright"@en ;
+    dct:rightsHolder "ENTSO-E"@en ;
+    dct:title "IEC 61970 - Geographical Location (CGMES)"@en ;
+    foaf:homepage "https://www.entsoe.eu/digital/cim/cim-for-grid-models-exchange/" ;
+    owl:incompatibleWith <http://entsoe.eu/2009/profile1> ;
+    owl:priorVersion <http://entsoe.eu/CIM/GeographicalLocation/2/1> ;
+    skos:topConceptOf :IdentifiedObject .
+
+### rdf Properties
+
+cims:belongsToCategory a rdf:Property ;
+    rdfs:label "CIM Profile" .
+
+### rdfs Classes
+
+owl:Class a rdfs:Class ;
+    rdfs:label "Class" .
+
+### Classes
+
+:Boolean a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "Boolean"@en ;
+    skos:definition "A type with the value space \"true\" and \"false\"."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_GeographicalLocationProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:c8877462-b27d-517a-8716-f4b799e12394" ;
+    skos:inScheme :Ontology .
+
+:CoordinateSystem a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "CoordinateSystem"@en ;
+    skos:definition "Coordinate reference system."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_GeographicalLocationProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:91f12ec1-0315-53f1-93ee-f5f0d5d18e9c" ;
+    skos:broader :IdentifiedObject ;
+    skos:inScheme :Ontology .
+
+:Date a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "Date"@en ;
+    skos:definition "Date as \"yyyy-mm-dd\", which conforms with ISO 8601. UTC time zone is specified as \"yyyy-mm-ddZ\". A local timezone relative UTC is specified as \"yyyy-mm-dd(+/-)hh:mm\"."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_GeographicalLocationProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:d8f32c90-d4d4-54d8-ab70-f4d97c898b6f" ;
+    skos:inScheme :Ontology .
+
+:DateTime a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "DateTime"@en ;
+    skos:definition "Date and time as \"yyyy-mm-ddThh:mm:ss.sss\", which conforms with ISO 8601. UTC time zone is specified as \"yyyy-mm-ddThh:mm:ss.sssZ\". A local timezone relative UTC is specified as \"yyyy-mm-ddThh:mm:ss.sss-hh:mm\". The second component (shown here as \"ss.sss\") could have any number of digits in its fractional part to allow any kind of precision beyond seconds."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_GeographicalLocationProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:658cd595-ae88-55ae-a43d-09f9175b4a54" ;
+    skos:inScheme :Ontology .
+
+:IdentifiedObject a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "IdentifiedObject"@en ;
+    skos:definition "This is a root class to provide common identification for all classes needing identification and naming attributes."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_GeographicalLocationProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:b5f7c3e3-cea3-5a92-8452-0440a46f2c5e" ;
+    skos:inScheme :Ontology ;
+    skos:narrower :CoordinateSystem,
+        :Location,
+        :PowerSystemResource ;
+    skos:topConceptOf :Ontology .
+
+:Integer a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "Integer"@en ;
+    skos:definition "An integer number. The range is unspecified and not limited."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_GeographicalLocationProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:db8cadae-6904-579e-8853-a208851b9f41" ;
+    skos:inScheme :Ontology .
+
+:Location a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "Location"@en ;
+    skos:definition "The place, scene, or point of something where someone or something has been, is, and/or will be at a given moment in time. It can be defined with one or more position points (coordinates) in a given coordinate system."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_GeographicalLocationProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:a5ce3cdd-38db-5f48-9192-9d2d09cbb495" ;
+    skos:broader :IdentifiedObject ;
+    skos:inScheme :Ontology ;
+    skos:narrower :WorkLocation .
+
+:PositionPoint a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "PositionPoint"@en ;
+    skos:definition "Set of spatial coordinates that determine a point, defined in the coordinate system specified in 'Location.CoordinateSystem'. Use a single position point instance to describe a point-oriented location. Use a sequence of position points to describe a line-oriented object (physical location of non-point oriented objects like cables or lines), or area of an object (like a substation or a geographical zone - in this case, have first and last position point with the same values)."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_GeographicalLocationProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:840c1b6c-2a04-538e-b196-c02cbc5e0109" ;
+    skos:inScheme :Ontology ;
+    skos:topConceptOf :Ontology .
+
+:PowerSystemResource a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "PowerSystemResource"@en ;
+    skos:definition "A power system resource (PSR) can be an item of equipment such as a switch, an equipment container containing many individual items of equipment such as a substation, or an organisational entity such as sub-control area. Power system resources can have measurements associated."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_GeographicalLocationProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:99170e0f-b20f-52dc-97e6-79f649db85b5" ;
+    skos:broader :IdentifiedObject ;
+    skos:inScheme :Ontology .
+
+:ServiceLocation a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "ServiceLocation"@en ;
+    skos:definition "A real estate location, commonly referred to as premises."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_GeographicalLocationProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:2943242b-dbb2-5c3f-a783-0b8359723631" ;
+    skos:broader :WorkLocation ;
+    skos:inScheme :Ontology .
+
+:Status a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "Status"@en ;
+    skos:definition "Current status information relevant to an entity."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_GeographicalLocationProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:ffb563dc-cd95-5091-86e5-561ef60be7b2" ;
+    skos:inScheme :Ontology ;
+    skos:topConceptOf :Ontology .
+
+:StreetAddress a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "StreetAddress"@en ;
+    skos:definition "General purpose street and postal address information."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_GeographicalLocationProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:791587b3-f880-5f80-ab88-7ad94895bdad" ;
+    skos:inScheme :Ontology ;
+    skos:topConceptOf :Ontology .
+
+:StreetDetail a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "StreetDetail"@en ;
+    skos:definition "Street details, in the context of address."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_GeographicalLocationProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:e4099d5b-838e-5ef3-9b71-9ebc074d60dc" ;
+    skos:inScheme :Ontology ;
+    skos:topConceptOf :Ontology .
+
+:String a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "String"@en ;
+    skos:definition "A string consisting of a sequence of characters. The character encoding is UTF-8. The string length is unspecified and unlimited."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_GeographicalLocationProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:92baf717-e64f-5c60-848d-ef2172f8e6de" ;
+    skos:inScheme :Ontology .
+
+:TownDetail a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "TownDetail"@en ;
+    skos:definition "Town details, in the context of address."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_GeographicalLocationProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:6034d943-565d-5fa5-a853-c3825f3aa81a" ;
+    skos:inScheme :Ontology ;
+    skos:topConceptOf :Ontology .
+
+:WorkLocation a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "WorkLocation"@en ;
+    skos:definition "Information about a particular location for various forms of work."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_GeographicalLocationProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:2f61fc60-5874-541a-948d-4456494014fe" ;
+    skos:broader :Location ;
+    skos:inScheme :Ontology ;
+    skos:narrower :ServiceLocation .
+

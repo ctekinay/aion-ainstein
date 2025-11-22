@@ -1,0 +1,2568 @@
+@prefix : <http://iec.ch/TC57/ns/CIM/CoreEquipment-EU/> .
+@prefix cims: <http://iec.ch/TC57/1999/rdf-schema-extensions-19990926#> .
+@prefix dcat: <http://www.w3.org/ns/dcat#> .
+@prefix dct: <http://purl.org/dc/terms/> .
+@prefix foaf: <http://xmlns.com/foaf/0.1/> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix skos: <http://www.w3.org/2004/02/skos/core#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+:Ontology a owl:Ontology,
+        skos:ConceptScheme ;
+    owl:versionIRI :3.0 ;
+    dcat:keyword "EQ" ;
+    dcat:theme "vocabulary"@en ;
+    dct:conformsTo "file://iec61970cim17v40_iec61968cim13v13a_iec62325cim03v17a.eap",
+        "urn:iso:std:iec:61970-301:ed-7:amd1",
+        "urn:iso:std:iec:61970-501:draft:ed-2",
+        "urn:iso:std:iec:61970-600-2:ed-1" ;
+    dct:creator "ENTSO-E CIM EG"@en ;
+    dct:description "This vocabulary is describing the core equipment profile from IEC 61970-600-2."@en ;
+    dct:identifier "urn:uuid:9fd00587-84d4-4910-bbd4-e003ed7e0821" ;
+    dct:issued "2021-01-27T12:09:21+00:00"^^xsd:dateTime ;
+    dct:language "en-GB" ;
+    dct:modified "2020-10-12"^^xsd:date ;
+    dct:publisher "ENTSO-E"@en ;
+    dct:rights "Copyright"@en ;
+    dct:rightsHolder "ENTSO-E"@en ;
+    dct:title "IEC 61970 - Core Equipment (CGMES)"@en ;
+    foaf:homepage "https://www.entsoe.eu/digital/cim/cim-for-grid-models-exchange/" ;
+    owl:incompatibleWith <http://entsoe.eu/2009/profile1> ;
+    owl:priorVersion <http://entsoe.eu/CIM/EquipmentCore/3/1> ;
+    skos:topConceptOf :IdentifiedObject .
+
+### rdf Properties
+
+cims:belongsToCategory a rdf:Property ;
+    rdfs:label "CIM Profile" .
+
+### rdfs Classes
+
+owl:Class a rdfs:Class ;
+    rdfs:label "Class" .
+
+### Classes
+
+:ACDCConverter a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "ACDCConverter"@en ;
+    skos:definition "A unit with valves for three phases, together with unit control equipment, essential protective and switching devices, DC storage capacitors, phase reactors and auxiliaries, if any, used for conversion."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:a76eb423-9f9f-5f88-92cf-0435f2f91826" ;
+    skos:broader :ConductingEquipment ;
+    skos:inScheme :Ontology ;
+    skos:narrower :CsConverter,
+        :VsConverter .
+
+:ACDCConverterDCTerminal a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "ACDCConverterDCTerminal"@en ;
+    skos:definition "A DC electrical connection point at the AC/DC converter. The AC/DC converter is electrically connected also to the AC side. The AC connection is inherited from the AC conducting equipment in the same way as any other AC equipment. The AC/DC converter DC terminal is separate from generic DC terminal to restrict the connection with the AC side to AC/DC converter and so that no other DC conducting equipment can be connected to the AC side."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:f32cab97-469c-5734-bf0e-29904c6f7e9b" ;
+    skos:broader :DCBaseTerminal ;
+    skos:inScheme :Ontology .
+
+:ACDCTerminal a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "ACDCTerminal"@en ;
+    skos:definition "An electrical connection point (AC or DC) to a piece of conducting equipment. Terminals are connected at physical connection points called connectivity nodes."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:b8d86dba-ee60-5cc3-af69-e82138c74ba3" ;
+    skos:broader :IdentifiedObject ;
+    skos:inScheme :Ontology ;
+    skos:narrower :DCBaseTerminal,
+        :Terminal .
+
+:ACLineSegment a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "ACLineSegment"@en ;
+    skos:definition """A wire or combination of wires, with consistent electrical characteristics, building a single electrical system, used to carry alternating current between points in the power system.
+For symmetrical, transposed three phase lines, it is sufficient to use attributes of the line segment, which describe impedances and admittances for the entire length of the segment.  Additionally impedances can be computed by using length and associated per length impedances.
+The BaseVoltage at the two ends of ACLineSegments in a Line shall have the same BaseVoltage.nominalVoltage. However, boundary lines may have slightly different BaseVoltage.nominalVoltages and variation is allowed. Larger voltage difference in general requires use of an equivalent branch."""@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:673e0913-4d58-5429-9c77-5f2e2f525f2d" ;
+    skos:broader :Conductor ;
+    skos:inScheme :Ontology .
+
+:ActivePower a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "ActivePower"@en ;
+    skos:definition "Product of RMS value of the voltage and the RMS value of the in-phase component of the current."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:f48da167-c5e8-5950-83af-3c177bcf7896" ;
+    skos:inScheme :Ontology ;
+    skos:topConceptOf :Ontology .
+
+:ActivePowerLimit a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "ActivePowerLimit"@en ;
+    skos:definition "Limit on active power flow."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:21b017a8-2ead-59e5-96f5-871ee18a5c62" ;
+    skos:broader :OperationalLimit ;
+    skos:inScheme :Ontology .
+
+:ActivePowerPerCurrentFlow a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "ActivePowerPerCurrentFlow"@en ;
+    skos:definition "Active power variation with current flow."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:06552518-e470-5f44-b7c0-cf907efaa5f1" ;
+    skos:inScheme :Ontology ;
+    skos:topConceptOf :Ontology .
+
+:ActivePowerPerFrequency a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "ActivePowerPerFrequency"@en ;
+    skos:definition "Active power variation with frequency."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:e6283498-0098-5441-99c4-b358751ce455" ;
+    skos:inScheme :Ontology ;
+    skos:topConceptOf :Ontology .
+
+:AngleDegrees a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "AngleDegrees"@en ;
+    skos:definition "Measurement of angle in degrees."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:e7a637be-154a-5781-96d3-ae6dea541ec3" ;
+    skos:inScheme :Ontology ;
+    skos:topConceptOf :Ontology .
+
+:ApparentPower a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "ApparentPower"@en ;
+    skos:definition "Product of the RMS value of the voltage and the RMS value of the current."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:1989e004-20e1-50ed-8179-57f92c9a26ea" ;
+    skos:inScheme :Ontology ;
+    skos:topConceptOf :Ontology .
+
+:ApparentPowerLimit a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "ApparentPowerLimit"@en ;
+    skos:definition "Apparent power limit."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:115b11c6-bdcf-5617-9ec1-77bda6d768d4" ;
+    skos:broader :OperationalLimit ;
+    skos:inScheme :Ontology .
+
+:AsynchronousMachine a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "AsynchronousMachine"@en ;
+    skos:definition "A rotating machine whose shaft rotates asynchronously with the electrical field.  Also known as an induction machine with no external connection to the rotor windings, e.g. squirrel-cage induction machine."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:d4d52658-e95f-5c0a-9df9-ef51823c4fb5" ;
+    skos:broader :RotatingMachine ;
+    skos:inScheme :Ontology .
+
+:AuxiliaryEquipment a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "AuxiliaryEquipment"@en ;
+    skos:definition """AuxiliaryEquipment describe equipment that is not performing any primary functions but support for the equipment performing the primary function.
+AuxiliaryEquipment is attached to primary equipment via an association with Terminal."""@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:5927787f-4328-588e-84b0-690cdbc5154b" ;
+    skos:broader :Equipment ;
+    skos:inScheme :Ontology ;
+    skos:narrower :FaultIndicator,
+        :Sensor,
+        :SurgeArrester,
+        :WaveTrap .
+
+:BaseVoltage a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "BaseVoltage"@en ;
+    skos:definition "Defines a system base voltage which is referenced. "@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:7eaa11b4-6052-5aa3-a762-4e285fc4ed73" ;
+    skos:broader :IdentifiedObject ;
+    skos:inScheme :Ontology .
+
+:BasicIntervalSchedule a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "BasicIntervalSchedule"@en ;
+    skos:definition "Schedule of values at points in time."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:2cd0aefd-941b-57c9-952d-024c05eb6371" ;
+    skos:broader :IdentifiedObject ;
+    skos:inScheme :Ontology ;
+    skos:narrower :RegularIntervalSchedule .
+
+:BatteryUnit a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "BatteryUnit"@en ;
+    skos:definition "An electrochemical energy storage device."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:1fac6c02-f740-5900-9a39-f6cd3f889c76" ;
+    skos:broader :PowerElectronicsUnit ;
+    skos:inScheme :Ontology .
+
+:Bay a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "Bay"@en ;
+    skos:definition "A collection of power system resources (within a given substation) including conducting equipment, protection relays, measurements, and telemetry.  A bay typically represents a physical grouping related to modularization of equipment."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:68b264d3-b9b4-5626-84cc-c69c2e47797e" ;
+    skos:broader :EquipmentContainer ;
+    skos:inScheme :Ontology .
+
+:Boolean a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "Boolean"@en ;
+    skos:definition "A type with the value space \"true\" and \"false\"."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:96bee19d-1c45-5bfe-a525-4251514fbcc4" ;
+    skos:inScheme :Ontology .
+
+:BoundaryPoint a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "BoundaryPoint"@en ;
+    skos:definition "Designates a connection point at which one or more model authority sets shall connect to. The location of the connection point as well as other properties are agreed between organisations responsible for the interconnection, hence all attributes of the class represent this agreement.  It is primarily used in a boundary model authority set which can contain one or many BoundaryPoint-s among other Equipment-s and their connections."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:d09fcc16-2494-5ebc-9db2-829312ee79d2" ;
+    skos:broader :PowerSystemResource ;
+    skos:inScheme :Ontology .
+
+:Breaker a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "Breaker"@en ;
+    skos:definition "A mechanical switching device capable of making, carrying, and breaking currents under normal circuit conditions and also making, carrying for a specified time, and breaking currents under specified abnormal circuit conditions e.g.  those of short circuit."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:0de3cbda-531f-5411-b958-23a2ca181836" ;
+    skos:broader :ProtectedSwitch ;
+    skos:inScheme :Ontology ;
+    skos:narrower :DisconnectingCircuitBreaker .
+
+:BusbarSection a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "BusbarSection"@en ;
+    skos:definition """A conductor, or group of conductors, with negligible impedance, that serve to connect other conducting equipment within a single substation. 
+Voltage measurements are typically obtained from voltage transformers that are connected to busbar sections. A bus bar section may have many physical terminals but for analysis is modelled with exactly one logical terminal."""@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:8b5c78d8-dd69-5080-9b41-c7eed2469844" ;
+    skos:broader :Connector ;
+    skos:inScheme :Ontology .
+
+:BusNameMarker a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "BusNameMarker"@en ;
+    skos:definition "Used to apply user standard names to TopologicalNodes. Associated with one or more terminals that are normally connected with the bus name.    The associated terminals are normally connected by non-retained switches. For a ring bus station configuration, all BusbarSection terminals in the ring are typically associated.   For a breaker and a half scheme, both BusbarSections would normally be associated.  For a ring bus, all BusbarSections would normally be associated.  For a \"straight\" busbar configuration, normally only the main terminal at the BusbarSection would be associated.  "@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:de2b9a68-59c9-5a13-af07-001c58e74cc0" ;
+    skos:broader :IdentifiedObject ;
+    skos:inScheme :Ontology .
+
+:CAESPlant a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "CAESPlant"@en ;
+    skos:definition "Compressed air energy storage plant."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:bcaadd72-a289-5b05-adc5-5f006c7d01b8" ;
+    skos:broader :PowerSystemResource ;
+    skos:inScheme :Ontology .
+
+:Capacitance a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "Capacitance"@en ;
+    skos:definition "Capacitive part of reactance (imaginary part of impedance), at rated frequency."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:82c7baf0-b06b-5dbc-a6b0-bb5fd2925374" ;
+    skos:inScheme :Ontology ;
+    skos:topConceptOf :Ontology .
+
+:Clamp a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "Clamp"@en ;
+    skos:definition """A Clamp is a galvanic connection at a line segment where other equipment is connected. A Clamp does not cut the line segment. 
+A Clamp is ConductingEquipment and has one Terminal with an associated ConnectivityNode. Any other ConductingEquipment can be connected to the Clamp ConnectivityNode."""@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:cc527da1-84a8-51dc-b6d3-bce587ec0bda" ;
+    skos:broader :ConductingEquipment ;
+    skos:inScheme :Ontology .
+
+:CogenerationPlant a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "CogenerationPlant"@en ;
+    skos:definition "A set of thermal generating units for the production of electrical energy and process steam (usually from the output of the steam turbines). The steam sendout is typically used for industrial purposes or for municipal heating and cooling."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:18ad4973-fed5-5916-ac55-e17e4c5f91ab" ;
+    skos:broader :PowerSystemResource ;
+    skos:inScheme :Ontology .
+
+:CombinedCyclePlant a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "CombinedCyclePlant"@en ;
+    skos:definition "A set of combustion turbines and steam turbines where the exhaust heat from the combustion turbines is recovered to make steam for the steam turbines, resulting in greater overall plant efficiency."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:19f50e15-ca7f-5c29-8d51-ba8251994d93" ;
+    skos:broader :PowerSystemResource ;
+    skos:inScheme :Ontology .
+
+:Conductance a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "Conductance"@en ;
+    skos:definition "Factor by which voltage must be multiplied to give corresponding power lost from a circuit. Real part of admittance."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:f1d76824-1c42-55c1-84d3-1ac36a385be5" ;
+    skos:inScheme :Ontology ;
+    skos:topConceptOf :Ontology .
+
+:ConductingEquipment a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "ConductingEquipment"@en ;
+    skos:definition "The parts of the AC power system that are designed to carry current or that are conductively connected through terminals."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:40e51ec0-78ab-53d5-a139-a1aabaa50aeb" ;
+    skos:broader :Equipment ;
+    skos:inScheme :Ontology ;
+    skos:narrower :ACDCConverter,
+        :Clamp,
+        :Conductor,
+        :Connector,
+        :EarthFaultCompensator,
+        :EnergyConnection,
+        :EquivalentEquipment,
+        :Ground,
+        :PowerTransformer,
+        :SeriesCompensator,
+        :Switch .
+
+:Conductor a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "Conductor"@en ;
+    skos:definition "Combination of conducting material with consistent electrical characteristics, building a single electrical system, used to carry current between points in the power system.  "@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:584553a1-754e-5531-8536-18b83f0e548b" ;
+    skos:broader :ConductingEquipment ;
+    skos:inScheme :Ontology ;
+    skos:narrower :ACLineSegment .
+
+:ConformLoad a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "ConformLoad"@en ;
+    skos:definition "ConformLoad represent loads that follow a daily load change pattern where the pattern can be used to scale the load with a system load."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:0771572b-3100-5312-a6b6-cfb272a6efa9" ;
+    skos:broader :EnergyConsumer ;
+    skos:inScheme :Ontology .
+
+:ConformLoadGroup a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "ConformLoadGroup"@en ;
+    skos:definition "A group of loads conforming to an allocation pattern. "@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:088586a4-742d-514f-8282-cc1bccf8640f" ;
+    skos:broader :LoadGroup ;
+    skos:inScheme :Ontology .
+
+:ConformLoadSchedule a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "ConformLoadSchedule"@en ;
+    skos:definition "A curve of load  versus time (X-axis) showing the active power values (Y1-axis) and reactive power (Y2-axis) for each unit of the period covered. This curve represents a typical pattern of load over the time period for a given day type and season."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:08293964-f7d5-570b-a746-d49ca874a43b" ;
+    skos:broader :SeasonDayTypeSchedule ;
+    skos:inScheme :Ontology .
+
+:ConnectivityNode a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "ConnectivityNode"@en ;
+    skos:definition "Connectivity nodes are points where terminals of AC conducting equipment are connected together with zero impedance."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:6b989edd-98db-574b-9c88-1a63d032fc9b" ;
+    skos:broader :IdentifiedObject ;
+    skos:inScheme :Ontology .
+
+:ConnectivityNodeContainer a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "ConnectivityNodeContainer"@en ;
+    skos:definition "A base class for all objects that may contain connectivity nodes or topological nodes."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:a9934c8a-e4c2-5206-b90d-530563576a47" ;
+    skos:broader :PowerSystemResource ;
+    skos:inScheme :Ontology ;
+    skos:narrower :EquipmentContainer,
+        :EquivalentNetwork .
+
+:Connector a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "Connector"@en ;
+    skos:definition "A conductor, or group of conductors, with negligible impedance, that serve to connect other conducting equipment within a single substation and are modelled with a single logical terminal."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:9c4a9a14-e692-5327-a923-a0f6abd91dda" ;
+    skos:broader :ConductingEquipment ;
+    skos:inScheme :Ontology ;
+    skos:narrower :BusbarSection,
+        :Junction .
+
+:ControlArea a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "ControlArea"@en ;
+    skos:definition """A control area is a grouping of generating units and/or loads and a cutset of tie lines (as terminals) which may be used for a variety of purposes including automatic generation control, power flow solution area interchange control specification, and input to load forecasting. All generation and load within the area defined by the terminals on the border are considered in the area interchange control. Note that any number of overlapping control area specifications can be superimposed on the physical model. The following general principles apply to ControlArea:
+1.  The control area orientation for net interchange is positive for an import, negative for an export.
+2.  The control area net interchange is determined by summing flows in Terminals. The Terminals are identified by creating a set of TieFlow objects associated with a ControlArea object. Each TieFlow object identifies one Terminal.
+3.  In a single network model, a tie between two control areas must be modelled in both control area specifications, such that the two representations of the tie flow sum to zero.
+4.  The normal orientation of Terminal flow is positive for flow into the conducting equipment that owns the Terminal. (i.e. flow from a bus into a device is positive.) However, the orientation of each flow in the control area specification must align with the control area convention, i.e. import is positive. If the orientation of the Terminal flow referenced by a TieFlow is positive into the control area, then this is confirmed by setting TieFlow.positiveFlowIn flag TRUE. If not, the orientation must be reversed by setting the TieFlow.positiveFlowIn flag FALSE."""@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:60b73cf7-7176-584d-befe-b8be81c822fc" ;
+    skos:broader :PowerSystemResource ;
+    skos:inScheme :Ontology .
+
+:ControlAreaGeneratingUnit a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "ControlAreaGeneratingUnit"@en ;
+    skos:definition "A control area generating unit. This class is needed so that alternate control area definitions may include the same generating unit.   It should be noted that only one instance within a control area should reference a specific generating unit."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:b357d465-0917-5582-b188-366efd231514" ;
+    skos:broader :IdentifiedObject ;
+    skos:inScheme :Ontology .
+
+:ControlAreaTypeKind a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "ControlAreaTypeKind"@en ;
+    skos:definition "The type of control area."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:663afc67-1565-535a-960e-ae1c91888ff7" ;
+    skos:inScheme :Ontology ;
+    skos:topConceptOf :Ontology .
+
+:CsConverter a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "CsConverter"@en ;
+    skos:definition """DC side of the current source converter (CSC).
+The firing angle controls the dc voltage at the converter, both for rectifier and inverter. The difference between the dc voltages of the rectifier and inverter determines the dc current. The extinction angle is used to limit the dc voltage at the inverter, if needed, and is not used in active power control. The firing angle, transformer tap position and number of connected filters are the primary means to control a current source dc line. Higher level controls are built on top, e.g. dc voltage, dc current and active power. From a steady state perspective it is sufficient to specify the wanted active power transfer (ACDCConverter.targetPpcc) and the control functions will set the dc voltage, dc current, firing angle, transformer tap position and number of connected filters to meet this. Therefore attributes targetAlpha and targetGamma are not applicable in this case.
+The reactive power consumed by the converter is a function of the firing angle, transformer tap position and number of connected filter, which can be approximated with half of the active power. The losses is a function of the dc voltage and dc current.
+The attributes minAlpha and maxAlpha define the range of firing angles for rectifier operation between which no discrete tap changer action takes place. The range is typically 10-18 degrees.
+The attributes minGamma and maxGamma define the range of extinction angles for inverter operation between which no discrete tap changer action takes place. The range is typically 17-20 degrees."""@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:4466271c-5d2b-5427-910c-7f67462e787d" ;
+    skos:broader :ACDCConverter ;
+    skos:inScheme :Ontology .
+
+:Currency a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "Currency"@en ;
+    skos:definition "Monetary currencies.  ISO 4217 standard including 3-character currency code."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:9e83e286-c1d9-5e59-a3c1-bdc23fd35620" ;
+    skos:inScheme :Ontology ;
+    skos:topConceptOf :Ontology .
+
+:CurrentFlow a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "CurrentFlow"@en ;
+    skos:definition "Electrical current with sign convention: positive flow is out of the conducting equipment into the connectivity node. Can be both AC and DC."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:c8f8ccd1-391a-5a87-a6f1-1feaaa416210" ;
+    skos:inScheme :Ontology ;
+    skos:topConceptOf :Ontology .
+
+:CurrentLimit a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "CurrentLimit"@en ;
+    skos:definition "Operational limit on current. "@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:a7ccf7e7-c2e0-55d9-a250-493c09f40200" ;
+    skos:broader :OperationalLimit ;
+    skos:inScheme :Ontology .
+
+:CurrentTransformer a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "CurrentTransformer"@en ;
+    skos:definition "Instrument transformer used to measure electrical qualities of the circuit that is being protected and/or monitored. Typically used as current transducer for the purpose of metering or protection. A typical secondary current rating would be 5A."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:797f4203-dcae-5d0f-8d20-3d69068faf45" ;
+    skos:broader :Sensor ;
+    skos:inScheme :Ontology .
+
+:Curve a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "Curve"@en ;
+    skos:definition "A multi-purpose curve or functional relationship between an independent variable (X-axis) and dependent (Y-axis) variables. "@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:76324199-cf54-5f23-bd52-4a512c65b358" ;
+    skos:broader :IdentifiedObject ;
+    skos:inScheme :Ontology ;
+    skos:narrower :GrossToNetActivePowerCurve,
+        :ReactiveCapabilityCurve,
+        :VsCapabilityCurve .
+
+:CurveData a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "CurveData"@en ;
+    skos:definition "Multi-purpose data points for defining a curve.  The use of this generic class is discouraged if a more specific class can be used to specify the X and Y axis values along with their specific data types."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:d70fc143-9e13-5b60-bad0-08f7d9ff75c3" ;
+    skos:inScheme :Ontology ;
+    skos:topConceptOf :Ontology .
+
+:CurveStyle a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "CurveStyle"@en ;
+    skos:definition "Style or shape of curve."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:3ce60f8e-06da-5823-80bc-0311e6dd01b2" ;
+    skos:inScheme :Ontology ;
+    skos:topConceptOf :Ontology .
+
+:Cut a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "Cut"@en ;
+    skos:definition """A cut separates a line segment into two parts. The cut appears as a switch inserted between these two parts and connects them together. As the cut is normally open there is no galvanic connection between the two line segment parts. But it is possible to close the cut to get galvanic connection.
+The cut terminals are oriented towards the line segment terminals with the same sequence number. Hence the cut terminal with sequence number equal to 1 is oriented to the line segment's terminal with sequence number equal to 1.
+The cut terminals also act as connection points for jumpers and other equipment, e.g. a mobile generator. To enable this, connectivity nodes are placed at the cut terminals. Once the connectivity nodes are in place any conducting equipment can be connected at them."""@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:e0570715-db4e-53a4-a529-6a534f058555" ;
+    skos:broader :Switch ;
+    skos:inScheme :Ontology .
+
+:Date a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "Date"@en ;
+    skos:definition "Date as \"yyyy-mm-dd\", which conforms with ISO 8601. UTC time zone is specified as \"yyyy-mm-ddZ\". A local timezone relative UTC is specified as \"yyyy-mm-dd(+/-)hh:mm\"."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:b8f40a39-0a1e-5872-bd10-5a17242ad26e" ;
+    skos:inScheme :Ontology .
+
+:DateTime a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "DateTime"@en ;
+    skos:definition "Date and time as \"yyyy-mm-ddThh:mm:ss.sss\", which conforms with ISO 8601. UTC time zone is specified as \"yyyy-mm-ddThh:mm:ss.sssZ\". A local timezone relative UTC is specified as \"yyyy-mm-ddThh:mm:ss.sss-hh:mm\". The second component (shown here as \"ss.sss\") could have any number of digits in its fractional part to allow any kind of precision beyond seconds."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:4f37b087-9b59-54e1-9783-70fc9f72353b" ;
+    skos:inScheme :Ontology .
+
+:DayType a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "DayType"@en ;
+    skos:definition "Group of similar days.   For example it could be used to represent weekdays, weekend, or holidays."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:2d6107cb-ff81-5ac9-b88e-8d7b6dcc6970" ;
+    skos:broader :IdentifiedObject ;
+    skos:inScheme :Ontology .
+
+:DCBaseTerminal a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "DCBaseTerminal"@en ;
+    skos:definition "An electrical connection point at a piece of DC conducting equipment. DC terminals are connected at one physical DC node that may have multiple DC terminals connected. A DC node is similar to an AC connectivity node. The model requires that DC connections are distinct from AC connections. "@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:7e46841b-e35d-50b7-9e64-ac89fdcb54a9" ;
+    skos:broader :ACDCTerminal ;
+    skos:inScheme :Ontology ;
+    skos:narrower :ACDCConverterDCTerminal,
+        :DCTerminal .
+
+:DCBreaker a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "DCBreaker"@en ;
+    skos:definition "A breaker within a DC system. "@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:bbbe024b-4072-5f8a-89e8-a6a17dd51ae4" ;
+    skos:broader :DCSwitch ;
+    skos:inScheme :Ontology .
+
+:DCBusbar a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "DCBusbar"@en ;
+    skos:definition "A busbar within a DC system."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:908c23cc-45c2-50cb-979a-39940101002a" ;
+    skos:broader :DCConductingEquipment ;
+    skos:inScheme :Ontology .
+
+:DCChopper a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "DCChopper"@en ;
+    skos:definition "Low resistance equipment used in the internal DC circuit to balance voltages. It has typically positive and negative pole terminals and a ground."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:818ae73d-5fdd-5847-941e-4d33761e5aae" ;
+    skos:broader :DCConductingEquipment ;
+    skos:inScheme :Ontology .
+
+:DCConductingEquipment a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "DCConductingEquipment"@en ;
+    skos:definition "The parts of the DC power system that are designed to carry current or that are conductively connected through DC terminals."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:c63e212d-3790-5d67-8bbe-a9f3f6751c4d" ;
+    skos:broader :Equipment ;
+    skos:inScheme :Ontology ;
+    skos:narrower :DCBusbar,
+        :DCChopper,
+        :DCGround,
+        :DCLineSegment,
+        :DCSeriesDevice,
+        :DCShunt,
+        :DCSwitch .
+
+:DCConverterOperatingModeKind a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "DCConverterOperatingModeKind"@en ;
+    skos:definition "The operating mode of an HVDC bipole."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:562357f7-2a14-5f56-8010-850f0f9cf942" ;
+    skos:inScheme :Ontology ;
+    skos:topConceptOf :Ontology .
+
+:DCConverterUnit a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "DCConverterUnit"@en ;
+    skos:definition "Indivisible operative unit comprising all equipment between the point of common coupling on the AC side and the point of common coupling – DC side, essentially one or more converters, together with one or more converter transformers, converter control equipment, essential protective and switching devices and auxiliaries, if any, used for conversion."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:06ff77e9-5e11-50ed-9f12-1cb81af40ce3" ;
+    skos:broader :DCEquipmentContainer ;
+    skos:inScheme :Ontology .
+
+:DCDisconnector a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "DCDisconnector"@en ;
+    skos:definition "A disconnector within a DC system."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:e93531e7-23c9-5927-9837-2de1212317a2" ;
+    skos:broader :DCSwitch ;
+    skos:inScheme :Ontology .
+
+:DCEquipmentContainer a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "DCEquipmentContainer"@en ;
+    skos:definition "A modelling construct to provide a root class for containment of DC as well as AC equipment. The class differ from the EquipmentContaner for AC in that it may also contain DCNode-s. Hence it can contain both AC and DC equipment."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:45accd31-a3b1-5f2e-9b5c-ab166acf8166" ;
+    skos:broader :EquipmentContainer ;
+    skos:inScheme :Ontology ;
+    skos:narrower :DCConverterUnit,
+        :DCLine .
+
+:DCGround a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "DCGround"@en ;
+    skos:definition "A ground within a DC system."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:2aaeed97-1ef7-5fcf-b837-27c0eef90ebe" ;
+    skos:broader :DCConductingEquipment ;
+    skos:inScheme :Ontology .
+
+:DCLine a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "DCLine"@en ;
+    skos:definition "Overhead lines and/or cables connecting two or more HVDC substations."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:c725a263-f860-5843-8d31-4dd6002435c0" ;
+    skos:broader :DCEquipmentContainer ;
+    skos:inScheme :Ontology .
+
+:DCLineSegment a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "DCLineSegment"@en ;
+    skos:definition "A wire or combination of wires not insulated from one another, with consistent electrical characteristics, used to carry direct current between points in the DC region of the power system."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:5cf460a7-bbcd-5cbf-9147-13cb7b38adda" ;
+    skos:broader :DCConductingEquipment ;
+    skos:inScheme :Ontology .
+
+:DCNode a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "DCNode"@en ;
+    skos:definition "DC nodes are points where terminals of DC conducting equipment are connected together with zero impedance."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:23d77347-ab70-55d5-8e04-b0d6aa83c1da" ;
+    skos:broader :IdentifiedObject ;
+    skos:inScheme :Ontology .
+
+:DCPolarityKind a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "DCPolarityKind"@en ;
+    skos:definition "Polarity for DC circuits."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:43655b0b-7d11-5c47-9d5d-1c43bb85de13" ;
+    skos:inScheme :Ontology ;
+    skos:topConceptOf :Ontology .
+
+:DCSeriesDevice a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "DCSeriesDevice"@en ;
+    skos:definition "A series device within the DC system, typically a reactor used for filtering or smoothing.  Needed for transient and short circuit studies."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:66c98ee0-7743-51ca-b03c-10c7947f4edd" ;
+    skos:broader :DCConductingEquipment ;
+    skos:inScheme :Ontology .
+
+:DCShunt a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "DCShunt"@en ;
+    skos:definition "A shunt device within the DC system, typically used for filtering.  Needed for transient and short circuit studies."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:958209e1-4e31-5822-94e5-1b8c9cd42e2a" ;
+    skos:broader :DCConductingEquipment ;
+    skos:inScheme :Ontology .
+
+:DCSwitch a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "DCSwitch"@en ;
+    skos:definition "A switch within the DC system."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:650d4f66-86b8-54d2-befd-64b3307f4bf8" ;
+    skos:broader :DCConductingEquipment ;
+    skos:inScheme :Ontology ;
+    skos:narrower :DCBreaker,
+        :DCDisconnector .
+
+:DCTerminal a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "DCTerminal"@en ;
+    skos:definition "An electrical connection point to generic DC conducting equipment."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:beaf0b18-92da-59f6-8bb7-642ec2b816db" ;
+    skos:broader :DCBaseTerminal ;
+    skos:inScheme :Ontology .
+
+:Decimal a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "Decimal"@en ;
+    skos:definition "Decimal is the base-10 notational system for representing real numbers."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:f8a1f601-da5b-5e39-8eae-508968e273d8" ;
+    skos:inScheme :Ontology ;
+    skos:topConceptOf :Ontology .
+
+:DisconnectingCircuitBreaker a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "DisconnectingCircuitBreaker"@en ;
+    skos:definition "A circuit breaking device including disconnecting function, eliminating the need for separate disconnectors."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:c6292b91-13c6-5912-b99d-880c15cd0d42" ;
+    skos:broader :Breaker ;
+    skos:inScheme :Ontology .
+
+:Disconnector a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "Disconnector"@en ;
+    skos:definition "A manually operated or motor operated mechanical switching device used for changing the connections in a circuit, or for isolating a circuit or equipment from a source of power. It is required to open or close circuits when negligible current is broken or made. "@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:4f752ec5-74fc-52ab-8e8d-888c0c8ff200" ;
+    skos:broader :Switch ;
+    skos:inScheme :Ontology .
+
+:EarthFaultCompensator a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "EarthFaultCompensator"@en ;
+    skos:definition "A conducting equipment used to represent a connection to ground which is typically used to compensate earth faults.   An earth fault compensator device modelled with a single terminal implies a second terminal solidly connected to ground.  If two terminals are modelled, the ground is not assumed and normal connection rules apply."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:7ed3e98c-1796-5314-b57c-bdf12d2a3827" ;
+    skos:broader :ConductingEquipment ;
+    skos:inScheme :Ontology ;
+    skos:narrower :GroundingImpedance,
+        :PetersenCoil .
+
+:EnergyArea a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "EnergyArea"@en ;
+    skos:definition "Describes an area having energy production or consumption.  Specializations are intended to support the load allocation function as typically required in energy management systems or planning studies to allocate hypothesized load levels to individual load points for power flow analysis.  Often the energy area can be linked to both measured and forecast load levels."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:60ad8d27-5451-5b10-97d7-8383d82fc131" ;
+    skos:broader :IdentifiedObject ;
+    skos:inScheme :Ontology ;
+    skos:narrower :LoadArea,
+        :SubLoadArea .
+
+:EnergyConnection a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "EnergyConnection"@en ;
+    skos:definition "A connection of energy generation or consumption on the power system model."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:b4f65e0c-4beb-5a9a-88cd-a8ff41e4e98e" ;
+    skos:broader :ConductingEquipment ;
+    skos:inScheme :Ontology ;
+    skos:narrower :EnergyConsumer,
+        :EnergySource,
+        :RegulatingCondEq .
+
+:EnergyConsumer a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "EnergyConsumer"@en ;
+    skos:definition """Generic user of energy - a  point of consumption on the power system model.
+EnergyConsumer.pfixed, .qfixed, .pfixedPct and .qfixedPct have meaning only if there is no LoadResponseCharacteristic associated with EnergyConsumer or if LoadResponseCharacteristic.exponentModel is set to False."""@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:22dcd0e5-072a-5673-a761-f7df6c1ff493" ;
+    skos:broader :EnergyConnection ;
+    skos:inScheme :Ontology ;
+    skos:narrower :ConformLoad,
+        :NonConformLoad,
+        :StationSupply .
+
+:EnergySchedulingType a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "EnergySchedulingType"@en ;
+    skos:definition "Used to define the type of generation for scheduling purposes."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:67a01374-bf30-52d6-8714-0fda048cd4bc" ;
+    skos:broader :IdentifiedObject ;
+    skos:inScheme :Ontology .
+
+:EnergySource a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "EnergySource"@en ;
+    skos:definition "A generic equivalent for an energy supplier on a transmission or distribution voltage level."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:86cf083f-6fa5-561b-a33d-f3b2f31dac9a" ;
+    skos:broader :EnergyConnection ;
+    skos:inScheme :Ontology .
+
+:Equipment a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "Equipment"@en ;
+    skos:definition "The parts of a power system that are physical devices, electronic or mechanical."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:7b22878d-107d-58bc-bd9f-fe0f931c8278" ;
+    skos:broader :PowerSystemResource ;
+    skos:inScheme :Ontology ;
+    skos:narrower :AuxiliaryEquipment,
+        :ConductingEquipment,
+        :DCConductingEquipment,
+        :GeneratingUnit,
+        :HydroPump,
+        :PowerElectronicsUnit .
+
+:EquipmentContainer a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "EquipmentContainer"@en ;
+    skos:definition "A modelling construct to provide a root class for containing equipment. "@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:e0592163-9d45-587b-8947-4898015d47dc" ;
+    skos:broader :ConnectivityNodeContainer ;
+    skos:inScheme :Ontology ;
+    skos:narrower :Bay,
+        :DCEquipmentContainer,
+        :Line,
+        :Substation,
+        :VoltageLevel .
+
+:EquivalentBranch a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "EquivalentBranch"@en ;
+    skos:definition "The class represents equivalent branches. In cases where a transformer phase shift is modelled and the EquivalentBranch is spanning the same nodes, the impedance quantities for the EquivalentBranch shall consider the needed phase shift."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:c774ca37-7345-56c7-b1b4-a3d0eb9d8409" ;
+    skos:broader :EquivalentEquipment ;
+    skos:inScheme :Ontology .
+
+:EquivalentEquipment a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "EquivalentEquipment"@en ;
+    skos:definition "The class represents equivalent objects that are the result of a network reduction. The class is the base for equivalent objects of different types."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:e44419d7-fedc-566d-a4e6-4f3e76521067" ;
+    skos:broader :ConductingEquipment ;
+    skos:inScheme :Ontology ;
+    skos:narrower :EquivalentBranch,
+        :EquivalentInjection,
+        :EquivalentShunt .
+
+:EquivalentInjection a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "EquivalentInjection"@en ;
+    skos:definition "This class represents equivalent injections (generation or load).  Voltage regulation is allowed only at the point of connection."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:c18d9a94-13aa-5a02-aa24-8fd3ad3b4ccb" ;
+    skos:broader :EquivalentEquipment ;
+    skos:inScheme :Ontology .
+
+:EquivalentNetwork a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "EquivalentNetwork"@en ;
+    skos:definition "A class that groups electrical equivalents, including internal nodes, of a network that has been reduced. The ConnectivityNodes contained in the equivalent are intended to reflect internal nodes of the equivalent. The boundary Connectivity nodes where the equivalent connects outside itself are not contained by the equivalent."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:dc9750fe-1b7b-5c32-8989-4955c37fc4b1" ;
+    skos:broader :ConnectivityNodeContainer ;
+    skos:inScheme :Ontology .
+
+:EquivalentShunt a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "EquivalentShunt"@en ;
+    skos:definition "The class represents equivalent shunts."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:dc4bc872-d22d-5959-9b05-28cc96b4bf97" ;
+    skos:broader :EquivalentEquipment ;
+    skos:inScheme :Ontology .
+
+:ExternalNetworkInjection a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "ExternalNetworkInjection"@en ;
+    skos:definition "This class represents the external network and it is used for IEC 60909 calculations."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:5d448449-81db-59f5-8e2c-1e70746a7e6d" ;
+    skos:broader :RegulatingCondEq ;
+    skos:inScheme :Ontology .
+
+:FaultIndicator a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "FaultIndicator"@en ;
+    skos:definition "A FaultIndicator is typically only an indicator (which may or may not be remotely monitored), and not a piece of equipment that actually initiates a protection event. It is used for FLISR (Fault Location, Isolation and Restoration) purposes, assisting with the dispatch of crews to \"most likely\" part of the network (i.e. assists with determining circuit section where the fault most likely happened)."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:d139fe54-9b24-5cd0-9424-3a0364208378" ;
+    skos:broader :AuxiliaryEquipment ;
+    skos:inScheme :Ontology .
+
+:Float a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "Float"@en ;
+    skos:definition "A floating point number. The range is unspecified and not limited."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:335d3bd5-ee73-5f86-82e1-703226898069" ;
+    skos:inScheme :Ontology .
+
+:FossilFuel a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "FossilFuel"@en ;
+    skos:definition "The fossil fuel consumed by the non-nuclear thermal generating unit.   For example, coal, oil, gas, etc.   These are the specific fuels that the generating unit can consume."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:ae37e892-9208-5127-a143-9a25e988ec61" ;
+    skos:broader :IdentifiedObject ;
+    skos:inScheme :Ontology .
+
+:Frequency a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "Frequency"@en ;
+    skos:definition "Cycles per second."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:8034db1d-7cd8-5ded-b69b-4bdbd9a6f9f7" ;
+    skos:inScheme :Ontology ;
+    skos:topConceptOf :Ontology .
+
+:FuelType a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "FuelType"@en ;
+    skos:definition "Type of fuel."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:18e444c9-1121-5ce4-91c9-f33fba923996" ;
+    skos:inScheme :Ontology ;
+    skos:topConceptOf :Ontology .
+
+:Fuse a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "Fuse"@en ;
+    skos:definition "An overcurrent protective device with a circuit opening fusible part that is heated and severed by the passage of overcurrent through it. A fuse is considered a switching device because it breaks current."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:aa7c3755-6d7b-5ea6-a975-ee4998dafb0c" ;
+    skos:broader :Switch ;
+    skos:inScheme :Ontology .
+
+:GeneratingUnit a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "GeneratingUnit"@en ;
+    skos:definition "A single or set of synchronous machines for converting mechanical power into alternating-current power. For example, individual machines within a set may be defined for scheduling purposes while a single control signal is derived for the set. In this case there would be a GeneratingUnit for each member of the set and an additional GeneratingUnit corresponding to the set."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:e392bee0-36df-5b14-ab3d-125c3de8a6c1" ;
+    skos:broader :Equipment ;
+    skos:inScheme :Ontology ;
+    skos:narrower :HydroGeneratingUnit,
+        :NuclearGeneratingUnit,
+        :SolarGeneratingUnit,
+        :ThermalGeneratingUnit,
+        :WindGeneratingUnit .
+
+:GeneratorControlSource a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "GeneratorControlSource"@en ;
+    skos:definition "The source of controls for a generating unit."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:49a33288-d3c2-5f30-8fd4-9d41f3508bce" ;
+    skos:inScheme :Ontology ;
+    skos:topConceptOf :Ontology .
+
+:GeographicalRegion a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "GeographicalRegion"@en ;
+    skos:definition "A geographical region of a power system network model."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:a60c7b93-f456-530e-8077-6e9a52512c91" ;
+    skos:broader :IdentifiedObject ;
+    skos:inScheme :Ontology .
+
+:GrossToNetActivePowerCurve a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "GrossToNetActivePowerCurve"@en ;
+    skos:definition "Relationship between the generating unit's gross active power output on the X-axis (measured at the terminals of the machine(s)) and the generating unit's net active power output on the Y-axis (based on utility-defined measurements at the power station). Station service loads, when modelled, should be treated as non-conforming bus loads. There may be more than one curve, depending on the auxiliary equipment that is in service."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:a21e69fe-7010-5c1d-ab86-f58b28adfad3" ;
+    skos:broader :Curve ;
+    skos:inScheme :Ontology .
+
+:Ground a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "Ground"@en ;
+    skos:definition "A point where the system is grounded used for connecting conducting equipment to ground. The power system model can have any number of grounds."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:2d6f8b04-f283-5ae5-a1dc-3fe04e963bc8" ;
+    skos:broader :ConductingEquipment ;
+    skos:inScheme :Ontology .
+
+:GroundDisconnector a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "GroundDisconnector"@en ;
+    skos:definition "A manually operated or motor operated mechanical switching device used for isolating a circuit or equipment from ground."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:90d77a97-5028-5c39-aa27-260a7a20cd15" ;
+    skos:broader :Switch ;
+    skos:inScheme :Ontology .
+
+:GroundingImpedance a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "GroundingImpedance"@en ;
+    skos:definition "A fixed impedance device used for grounding."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:a6b57a0e-f791-5d13-8892-1563743c505d" ;
+    skos:broader :EarthFaultCompensator ;
+    skos:inScheme :Ontology .
+
+:HydroEnergyConversionKind a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "HydroEnergyConversionKind"@en ;
+    skos:definition "Specifies the capability of the hydro generating unit to convert energy as a generator or pump."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:898059c4-9eff-5541-b906-2637dc342a53" ;
+    skos:inScheme :Ontology ;
+    skos:topConceptOf :Ontology .
+
+:HydroGeneratingUnit a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "HydroGeneratingUnit"@en ;
+    skos:definition "A generating unit whose prime mover is a hydraulic turbine (e.g., Francis, Pelton, Kaplan)."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:ad173dc4-c2ab-5ba3-88d5-97eb27960bcc" ;
+    skos:broader :GeneratingUnit ;
+    skos:inScheme :Ontology .
+
+:HydroPlantStorageKind a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "HydroPlantStorageKind"@en ;
+    skos:definition "The type of hydro power plant."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:27cd3f7a-90a9-5344-a490-0eb0b75b369b" ;
+    skos:inScheme :Ontology ;
+    skos:topConceptOf :Ontology .
+
+:HydroPowerPlant a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "HydroPowerPlant"@en ;
+    skos:definition "A hydro power station which can generate or pump. When generating, the generator turbines receive water from an upper reservoir. When pumping, the pumps receive their water from a lower reservoir."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:b4bfde18-47d5-516e-9c82-18e8ccdc77b1" ;
+    skos:broader :PowerSystemResource ;
+    skos:inScheme :Ontology .
+
+:HydroPump a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "HydroPump"@en ;
+    skos:definition "A synchronous motor-driven pump, typically associated with a pumped storage plant."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:e2c761b1-b101-5586-bf04-fd967cc15940" ;
+    skos:broader :Equipment ;
+    skos:inScheme :Ontology .
+
+:HydroTurbineKind a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "HydroTurbineKind"@en ;
+    skos:definition "Type of turbine."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:cb17b4c9-1186-5e33-b687-c98bfa5f7fed" ;
+    skos:inScheme :Ontology ;
+    skos:topConceptOf :Ontology .
+
+:IdentifiedObject a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "IdentifiedObject"@en ;
+    skos:definition "This is a root class to provide common identification for all classes needing identification and naming attributes."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:9c27e17d-a34a-5579-ab3d-eed3f83fd574" ;
+    skos:inScheme :Ontology ;
+    skos:narrower :ACDCTerminal,
+        :BaseVoltage,
+        :BasicIntervalSchedule,
+        :BusNameMarker,
+        :ConnectivityNode,
+        :ControlAreaGeneratingUnit,
+        :Curve,
+        :DayType,
+        :DCNode,
+        :EnergyArea,
+        :EnergySchedulingType,
+        :FossilFuel,
+        :GeographicalRegion,
+        :LoadGroup,
+        :LoadResponseCharacteristic,
+        :OperationalLimit,
+        :OperationalLimitSet,
+        :OperationalLimitType,
+        :PhaseTapChangerTable,
+        :PowerSystemResource,
+        :RatioTapChangerTable,
+        :ReportingGroup,
+        :Season,
+        :SubGeographicalRegion,
+        :TieFlow,
+        :TransformerEnd ;
+    skos:topConceptOf :Ontology .
+
+:Inductance a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "Inductance"@en ;
+    skos:definition "Inductive part of reactance (imaginary part of impedance), at rated frequency."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:8dea1168-aea1-5cb3-a461-708013031173" ;
+    skos:inScheme :Ontology ;
+    skos:topConceptOf :Ontology .
+
+:Integer a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "Integer"@en ;
+    skos:definition "An integer number. The range is unspecified and not limited."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:f00811f2-346c-5837-b2de-3defe6be7ad0" ;
+    skos:inScheme :Ontology .
+
+:Jumper a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "Jumper"@en ;
+    skos:definition "A short section of conductor with negligible impedance which can be manually removed and replaced if the circuit is de-energized. Note that zero-impedance branches can potentially be modelled by other equipment types."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:d4a9855e-a0af-52eb-a1c7-d1bdb1236b62" ;
+    skos:broader :Switch ;
+    skos:inScheme :Ontology .
+
+:Junction a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "Junction"@en ;
+    skos:definition "A point where one or more conducting equipments are connected with zero resistance."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:1f67de5b-6092-5eb0-a159-8785c2fc7eea" ;
+    skos:broader :Connector ;
+    skos:inScheme :Ontology .
+
+:Length a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "Length"@en ;
+    skos:definition "Unit of length. It shall be a positive value or zero."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:6be5c0ff-46c5-5970-9cb2-f763e0f86483" ;
+    skos:inScheme :Ontology ;
+    skos:topConceptOf :Ontology .
+
+:LimitKind a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "LimitKind"@en ;
+    skos:definition "Limit kinds."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:873d9c67-ee57-53d4-9189-a1ba1adcdf71" ;
+    skos:inScheme :Ontology ;
+    skos:topConceptOf :Ontology .
+
+:Line a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "Line"@en ;
+    skos:definition "Contains equipment beyond a substation belonging to a power transmission line. "@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:305276f9-553a-51ef-a288-92c20aa06007" ;
+    skos:broader :EquipmentContainer ;
+    skos:inScheme :Ontology .
+
+:LinearShuntCompensator a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "LinearShuntCompensator"@en ;
+    skos:definition "A linear shunt compensator has banks or sections with equal admittance values."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:48b17404-f8e5-53e3-9989-dc7b2712ee59" ;
+    skos:broader :ShuntCompensator ;
+    skos:inScheme :Ontology .
+
+:LoadArea a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "LoadArea"@en ;
+    skos:definition "The class is the root or first level in a hierarchical structure for grouping of loads for the purpose of load flow load scaling."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:1e5f9390-e480-5eae-9f58-a12d805a897a" ;
+    skos:broader :EnergyArea ;
+    skos:inScheme :Ontology .
+
+:LoadBreakSwitch a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "LoadBreakSwitch"@en ;
+    skos:definition "A mechanical switching device capable of making, carrying, and breaking currents under normal operating conditions."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:caa2c1d0-3d74-57e1-a8d4-c06ac878617f" ;
+    skos:broader :ProtectedSwitch ;
+    skos:inScheme :Ontology .
+
+:LoadGroup a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "LoadGroup"@en ;
+    skos:definition "The class is the third level in a hierarchical structure for grouping of loads for the purpose of load flow load scaling."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:2990a42b-96d9-5089-a6df-476b15e02a75" ;
+    skos:broader :IdentifiedObject ;
+    skos:inScheme :Ontology ;
+    skos:narrower :ConformLoadGroup,
+        :NonConformLoadGroup .
+
+:LoadResponseCharacteristic a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "LoadResponseCharacteristic"@en ;
+    skos:definition """Models the characteristic response of the load demand due to changes in system conditions such as voltage and frequency. It is not related to demand response.
+If LoadResponseCharacteristic.exponentModel is True, the exponential voltage or frequency dependent models are specified and used as to calculate active and reactive power components of the load model.
+The equations to calculate active and reactive power components of the load model are internal to the power flow calculation, hence they use different quantities depending on the use case of the data exchange. 
+The equations for exponential voltage dependent load model injected power are: 
+pInjection= Pnominal* (Voltage/cim:BaseVoltage.nominalVoltage) ** cim:LoadResponseCharacteristic.pVoltageExponent
+qInjection= Qnominal* (Voltage/cim:BaseVoltage.nominalVoltage) ** cim:LoadResponseCharacteristic.qVoltageExponent
+Where: 
+1) * means "multiply" and ** is "raised to power of";
+2) Pnominal and Qnominal represent the active power and reactive power at nominal voltage as any load described by the voltage exponential model shall be given at nominal voltage.  This means that EnergyConsumer.p and EnergyConsumer.q  are at nominal voltage.
+3) After power flow is solved: 
+-pInjection and qInjection correspond to SvPowerflow.p and SvPowerflow.q respectively.  
+- Voltage corresponds to SvVoltage.v at the TopologicalNode where the load is connected."""@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:0c61566b-18a9-5a28-a967-724f1e752dfb" ;
+    skos:broader :IdentifiedObject ;
+    skos:inScheme :Ontology .
+
+:Money a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "Money"@en ;
+    skos:definition "Amount of money."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:779f7560-402d-5115-9b83-2f8c9bfe753f" ;
+    skos:inScheme :Ontology ;
+    skos:topConceptOf :Ontology .
+
+:MonthDay a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "MonthDay"@en ;
+    skos:definition "MonthDay format as \"--mm-dd\", which conforms with XSD data type gMonthDay."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:bea41aff-a65e-585c-b975-eab888eeace6" ;
+    skos:inScheme :Ontology ;
+    skos:topConceptOf :Ontology .
+
+:NonConformLoad a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "NonConformLoad"@en ;
+    skos:definition "NonConformLoad represents loads that do not follow a daily load change pattern and whose changes are not correlated with the daily load change pattern."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:c27b710f-9b2c-50f3-88ae-28665ae7ec2f" ;
+    skos:broader :EnergyConsumer ;
+    skos:inScheme :Ontology .
+
+:NonConformLoadGroup a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "NonConformLoadGroup"@en ;
+    skos:definition "Loads that do not follow a daily and seasonal load variation pattern."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:a88901cc-7c0d-5f90-83c0-b84fc87d82c5" ;
+    skos:broader :LoadGroup ;
+    skos:inScheme :Ontology .
+
+:NonConformLoadSchedule a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "NonConformLoadSchedule"@en ;
+    skos:definition "An active power (Y1-axis) and reactive power (Y2-axis) schedule (curves) versus time (X-axis) for non-conforming loads, e.g., large industrial load or power station service (where modelled)."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:4f428251-7a99-5963-af97-87d67f5591f6" ;
+    skos:broader :SeasonDayTypeSchedule ;
+    skos:inScheme :Ontology .
+
+:NonlinearShuntCompensator a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "NonlinearShuntCompensator"@en ;
+    skos:definition "A non linear shunt compensator has bank or section admittance values that differ. The attributes g, b, g0 and b0 of the associated NonlinearShuntCompensatorPoint describe the total conductance and admittance of a NonlinearShuntCompensatorPoint at a section number specified by NonlinearShuntCompensatorPoint.sectionNumber."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:674354ea-acef-567a-b647-60a1b68ca71d" ;
+    skos:broader :ShuntCompensator ;
+    skos:inScheme :Ontology .
+
+:NonlinearShuntCompensatorPoint a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "NonlinearShuntCompensatorPoint"@en ;
+    skos:definition "A non linear shunt compensator bank or section admittance value. The number of NonlinearShuntCompenstorPoint instances associated with a NonlinearShuntCompensator shall be equal to ShuntCompensator.maximumSections. ShuntCompensator.sections shall only be set to one of the NonlinearShuntCompenstorPoint.sectionNumber. There is no interpolation between NonlinearShuntCompenstorPoint-s."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:07614c9d-4d0d-572c-8698-6be34674e609" ;
+    skos:inScheme :Ontology ;
+    skos:topConceptOf :Ontology .
+
+:NuclearGeneratingUnit a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "NuclearGeneratingUnit"@en ;
+    skos:definition "A nuclear generating unit."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:e789d269-c203-5031-93ae-bda4311eac9d" ;
+    skos:broader :GeneratingUnit ;
+    skos:inScheme :Ontology .
+
+:OperationalLimit a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "OperationalLimit"@en ;
+    skos:definition """A value and normal value associated with a specific kind of limit. 
+The sub class value and normalValue attributes vary inversely to the associated OperationalLimitType.acceptableDuration (acceptableDuration for short).  
+If a particular piece of equipment has multiple operational limits of the same kind (apparent power, current, etc.), the limit with the greatest acceptableDuration shall have the smallest limit value and the limit with the smallest acceptableDuration shall have the largest limit value.  Note: A large current can only be allowed to flow through a piece of equipment for a short duration without causing damage, but a lesser current can be allowed to flow for a longer duration. """@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:843b28ff-600f-508c-bf9c-c09b605c6c82" ;
+    skos:broader :IdentifiedObject ;
+    skos:inScheme :Ontology ;
+    skos:narrower :ActivePowerLimit,
+        :ApparentPowerLimit,
+        :CurrentLimit,
+        :VoltageLimit .
+
+:OperationalLimitDirectionKind a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "OperationalLimitDirectionKind"@en ;
+    skos:definition "The direction attribute describes the side of  a limit that is a violation."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:ba4f9dbc-6ff8-57a3-a4d6-e1517ef850a8" ;
+    skos:inScheme :Ontology ;
+    skos:topConceptOf :Ontology .
+
+:OperationalLimitSet a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "OperationalLimitSet"@en ;
+    skos:definition "A set of limits associated with equipment.  Sets of limits might apply to a specific temperature, or season for example. A set of limits may contain different severities of limit levels that would apply to the same equipment. The set may contain limits of different types such as apparent power and current limits or high and low voltage limits  that are logically applied together as a set."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:b396339a-86d5-5fad-97b6-d13045667e21" ;
+    skos:broader :IdentifiedObject ;
+    skos:inScheme :Ontology .
+
+:OperationalLimitType a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "OperationalLimitType"@en ;
+    skos:definition "The operational meaning of a category of limits."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:de7c8a63-9954-5565-8a0b-0455d177add3" ;
+    skos:broader :IdentifiedObject ;
+    skos:inScheme :Ontology .
+
+:PerCent a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "PerCent"@en ;
+    skos:definition "Percentage on a defined base.   For example, specify as 100 to indicate at the defined base."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:fdd4e308-89a9-5d3c-9003-17cec280e21f" ;
+    skos:inScheme :Ontology ;
+    skos:topConceptOf :Ontology .
+
+:PetersenCoil a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "PetersenCoil"@en ;
+    skos:definition "A variable impedance device normally used to offset line charging during single line faults in an ungrounded section of network."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:58e820e7-a905-59b3-8199-05b0cc2de241" ;
+    skos:broader :EarthFaultCompensator ;
+    skos:inScheme :Ontology .
+
+:PhaseCode a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "PhaseCode"@en ;
+    skos:definition """An unordered enumeration of phase identifiers.  Allows designation of phases for both transmission and distribution equipment, circuits and loads.   The enumeration, by itself, does not describe how the phases are connected together or connected to ground.  Ground is not explicitly denoted as a phase.
+Residential and small commercial loads are often served from single-phase, or split-phase, secondary circuits. For the example of s12N, phases 1 and 2 refer to hot wires that are 180 degrees out of phase, while N refers to the neutral wire. Through single-phase transformer connections, these secondary circuits may be served from one or two of the primary phases A, B, and C. For three-phase loads, use the A, B, C phase codes instead of s12N.
+The integer values are from IEC 61968-9 to support revenue metering applications."""@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:35493f0f-ff61-5639-8e8b-d43fb4b18939" ;
+    skos:inScheme :Ontology ;
+    skos:topConceptOf :Ontology .
+
+:PhaseTapChanger a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "PhaseTapChanger"@en ;
+    skos:definition "A transformer phase shifting tap model that controls the phase angle difference across the power transformer and potentially the active power flow through the power transformer.  This phase tap model may also impact the voltage magnitude."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:fcbf1a12-d985-50f8-a56d-c94689758eb4" ;
+    skos:broader :TapChanger ;
+    skos:inScheme :Ontology ;
+    skos:narrower :PhaseTapChangerLinear,
+        :PhaseTapChangerNonLinear,
+        :PhaseTapChangerTabular .
+
+:PhaseTapChangerAsymmetrical a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "PhaseTapChangerAsymmetrical"@en ;
+    skos:definition "Describes the tap model for an asymmetrical phase shifting transformer in which the difference voltage vector adds to the in-phase winding. The out-of-phase winding is the transformer end where the tap changer is located.  The angle between the in-phase and out-of-phase windings is named the winding connection angle. The phase shift depends on both the difference voltage magnitude and the winding connection angle."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:57e62461-5cd6-58c7-8626-5414c6a0002b" ;
+    skos:broader :PhaseTapChangerNonLinear ;
+    skos:inScheme :Ontology .
+
+:PhaseTapChangerLinear a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "PhaseTapChangerLinear"@en ;
+    skos:definition """Describes a tap changer with a linear relation between the tap step and the phase angle difference across the transformer. This is a mathematical model that is an approximation of a real phase tap changer.
+The phase angle is computed as stepPhaseShiftIncrement times the tap position.
+The voltage magnitude of both sides is the same."""@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:d6ea46bd-5b40-5f94-be6c-9836876629d1" ;
+    skos:broader :PhaseTapChanger ;
+    skos:inScheme :Ontology .
+
+:PhaseTapChangerNonLinear a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "PhaseTapChangerNonLinear"@en ;
+    skos:definition "The non-linear phase tap changer describes the non-linear behaviour of a phase tap changer. This is a base class for the symmetrical and asymmetrical phase tap changer models. The details of these models can be found in IEC 61970-301."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:406685c8-7776-5cc1-a5d0-c2b9fec7bb99" ;
+    skos:broader :PhaseTapChanger ;
+    skos:inScheme :Ontology ;
+    skos:narrower :PhaseTapChangerAsymmetrical,
+        :PhaseTapChangerSymmetrical .
+
+:PhaseTapChangerSymmetrical a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "PhaseTapChangerSymmetrical"@en ;
+    skos:definition "Describes a symmetrical phase shifting transformer tap model in which the voltage magnitude of both sides is the same. The difference voltage magnitude is the base in an equal-sided triangle where the sides corresponds to the primary and secondary voltages. The phase angle difference corresponds to the top angle and can be expressed as twice the arctangent of half the total difference voltage."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:31221da0-69c1-5ce5-a413-b1e80091da37" ;
+    skos:broader :PhaseTapChangerNonLinear ;
+    skos:inScheme :Ontology .
+
+:PhaseTapChangerTable a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "PhaseTapChangerTable"@en ;
+    skos:definition "Describes a tabular curve for how the phase angle difference and impedance varies with the tap step."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:251bfb15-3f7f-54f5-a031-d81708ca5dea" ;
+    skos:broader :IdentifiedObject ;
+    skos:inScheme :Ontology .
+
+:PhaseTapChangerTablePoint a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "PhaseTapChangerTablePoint"@en ;
+    skos:definition "Describes each tap step in the phase tap changer tabular curve."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:cdc50621-2457-5cf4-96f1-41c6161771e5" ;
+    skos:broader :TapChangerTablePoint ;
+    skos:inScheme :Ontology .
+
+:PhaseTapChangerTabular a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "PhaseTapChangerTabular"@en ;
+    skos:definition "Describes a tap changer with a table defining the relation between the tap step and the phase angle difference across the transformer. "@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:40517d37-bbc9-5926-87f1-f3fb274b362b" ;
+    skos:broader :PhaseTapChanger ;
+    skos:inScheme :Ontology .
+
+:PhotoVoltaicUnit a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "PhotoVoltaicUnit"@en ;
+    skos:definition "A photovoltaic device or an aggregation of such devices."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:de2250b9-0bad-5f50-933f-6e56453f9c64" ;
+    skos:broader :PowerElectronicsUnit ;
+    skos:inScheme :Ontology .
+
+:PostLineSensor a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "PostLineSensor"@en ;
+    skos:definition " A sensor used mainly in overhead distribution networks as the source of both current and voltage measurements."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:af552d71-c9bf-57a1-a54f-eff5c6fe7c61" ;
+    skos:broader :Sensor ;
+    skos:inScheme :Ontology .
+
+:PotentialTransformer a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "PotentialTransformer"@en ;
+    skos:definition "Instrument transformer (also known as Voltage Transformer) used to measure electrical qualities of the circuit that is being protected and/or monitored. Typically used as voltage transducer for the purpose of metering, protection, or sometimes auxiliary substation supply. A typical secondary voltage rating would be 120V."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:8eee887a-6412-56bf-be9e-ea86a12d6ef3" ;
+    skos:broader :Sensor ;
+    skos:inScheme :Ontology .
+
+:PowerElectronicsConnection a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "PowerElectronicsConnection"@en ;
+    skos:definition "A connection to the AC network for energy production or consumption that uses power electronics rather than rotating machines."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:fb05ef4b-db57-52ab-b68b-50a8c4c36382" ;
+    skos:broader :RegulatingCondEq ;
+    skos:inScheme :Ontology .
+
+:PowerElectronicsUnit a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "PowerElectronicsUnit"@en ;
+    skos:definition "A generating unit or battery or aggregation that connects to the AC network using power electronics rather than rotating machines."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:30f879c4-23fd-539c-943b-b2d411b83565" ;
+    skos:broader :Equipment ;
+    skos:inScheme :Ontology ;
+    skos:narrower :BatteryUnit,
+        :PhotoVoltaicUnit,
+        :PowerElectronicsWindUnit .
+
+:PowerElectronicsWindUnit a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "PowerElectronicsWindUnit"@en ;
+    skos:definition "A wind generating unit that connects to the AC network with power electronics rather than rotating machines or an aggregation of such units."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:28d55a0a-1c31-5a88-b7db-846f8d4c8e84" ;
+    skos:broader :PowerElectronicsUnit ;
+    skos:inScheme :Ontology .
+
+:PowerSystemResource a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "PowerSystemResource"@en ;
+    skos:definition "A power system resource (PSR) can be an item of equipment such as a switch, an equipment container containing many individual items of equipment such as a substation, or an organisational entity such as sub-control area. Power system resources can have measurements associated."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:b2a353e6-863a-5760-8763-4d372ca8e624" ;
+    skos:broader :IdentifiedObject ;
+    skos:inScheme :Ontology ;
+    skos:narrower :BoundaryPoint,
+        :CAESPlant,
+        :CogenerationPlant,
+        :CombinedCyclePlant,
+        :ConnectivityNodeContainer,
+        :ControlArea,
+        :Equipment,
+        :HydroPowerPlant,
+        :RegulatingControl,
+        :SolarPowerPlant,
+        :TapChanger,
+        :WindPowerPlant .
+
+:PowerTransformer a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "PowerTransformer"@en ;
+    skos:definition """An electrical device consisting of  two or more coupled windings, with or without a magnetic core, for introducing mutual coupling between electric circuits. Transformers can be used to control voltage and phase shift (active power flow).
+A power transformer may be composed of separate transformer tanks that need not be identical.
+A power transformer can be modelled with or without tanks and is intended for use in both balanced and unbalanced representations.   A power transformer typically has two terminals, but may have one (grounding), three or more terminals.
+The inherited association ConductingEquipment.BaseVoltage should not be used.  The association from TransformerEnd to BaseVoltage should be used instead."""@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:31f63b41-b0ec-5710-ad88-b80ee93d9dc5" ;
+    skos:broader :ConductingEquipment ;
+    skos:inScheme :Ontology .
+
+:PowerTransformerEnd a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "PowerTransformerEnd"@en ;
+    skos:definition """A PowerTransformerEnd is associated with each Terminal of a PowerTransformer.
+The impedance values r, r0, x, and x0 of a PowerTransformerEnd represents a star equivalent as follows.
+1) for a two Terminal PowerTransformer the high voltage (TransformerEnd.endNumber=1) PowerTransformerEnd has non zero values on r, r0, x, and x0 while the low voltage (TransformerEnd.endNumber=2) PowerTransformerEnd has zero values for r, r0, x, and x0.  Parameters are always provided, even if the PowerTransformerEnds have the same rated voltage.  In this case, the parameters are provided at the PowerTransformerEnd which has TransformerEnd.endNumber equal to 1.
+2) for a three Terminal PowerTransformer the three PowerTransformerEnds represent a star equivalent with each leg in the star represented by r, r0, x, and x0 values.
+3) For a three Terminal transformer each PowerTransformerEnd shall have g, g0, b and b0 values corresponding to the no load losses distributed on the three PowerTransformerEnds. The total no load loss shunt impedances may also be placed at one of the PowerTransformerEnds, preferably the end numbered 1, having the shunt values on end 1.  This is the preferred way.
+4) for a PowerTransformer with more than three Terminals the PowerTransformerEnd impedance values cannot be used. Instead use the TransformerMeshImpedance or split the transformer into multiple PowerTransformers.
+Each PowerTransformerEnd must be contained by a PowerTransformer. Because a PowerTransformerEnd (or any other object) can not be contained by more than one parent, a PowerTransformerEnd can not have an association to an EquipmentContainer (Substation, VoltageLevel, etc)."""@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:69a9d8c4-cea9-5df5-8e61-9fe9f984b5b7" ;
+    skos:broader :TransformerEnd ;
+    skos:inScheme :Ontology .
+
+:ProtectedSwitch a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "ProtectedSwitch"@en ;
+    skos:definition "A ProtectedSwitch is a switching device that can be operated by ProtectionEquipment."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:93869c09-f277-502f-8ddc-60213b9ce879" ;
+    skos:broader :Switch ;
+    skos:inScheme :Ontology ;
+    skos:narrower :Breaker,
+        :LoadBreakSwitch .
+
+:RatioTapChanger a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "RatioTapChanger"@en ;
+    skos:definition """A tap changer that changes the voltage ratio impacting the voltage magnitude but not the phase angle across the transformer.
+
+Angle sign convention (general): Positive value indicates a positive phase shift from the winding where the tap is located to the other winding (for a two-winding transformer)."""@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:10b03874-798c-5c29-b299-46ba7ca14893" ;
+    skos:broader :TapChanger ;
+    skos:inScheme :Ontology .
+
+:RatioTapChangerTable a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "RatioTapChangerTable"@en ;
+    skos:definition "Describes a curve for how the voltage magnitude and impedance varies with the tap step. "@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:db54361f-f80c-5d85-ad08-72da703f6dfb" ;
+    skos:broader :IdentifiedObject ;
+    skos:inScheme :Ontology .
+
+:RatioTapChangerTablePoint a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "RatioTapChangerTablePoint"@en ;
+    skos:definition "Describes each tap step in the ratio tap changer tabular curve."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:83a5e712-c12b-590a-97cb-0241303807ee" ;
+    skos:broader :TapChangerTablePoint ;
+    skos:inScheme :Ontology .
+
+:Reactance a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "Reactance"@en ;
+    skos:definition "Reactance (imaginary part of impedance), at rated frequency."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:c89abc0a-b004-50aa-8447-de691b4d3352" ;
+    skos:inScheme :Ontology ;
+    skos:topConceptOf :Ontology .
+
+:ReactiveCapabilityCurve a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "ReactiveCapabilityCurve"@en ;
+    skos:definition "Reactive power rating envelope versus the synchronous machine's active power, in both the generating and motoring modes. For each active power value there is a corresponding high and low reactive power limit  value. Typically there will be a separate curve for each coolant condition, such as hydrogen pressure.  The Y1 axis values represent reactive minimum and the Y2 axis values represent reactive maximum."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:91a0113a-77fe-528c-b5f9-0036df4ed45e" ;
+    skos:broader :Curve ;
+    skos:inScheme :Ontology .
+
+:ReactivePower a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "ReactivePower"@en ;
+    skos:definition "Product of RMS value of the voltage and the RMS value of the quadrature component of the current."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:61bd9522-a838-5c87-8178-2aad52d0c4ac" ;
+    skos:inScheme :Ontology ;
+    skos:topConceptOf :Ontology .
+
+:RealEnergy a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "RealEnergy"@en ;
+    skos:definition "Real electrical energy."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:e9cf8ec5-e368-58d4-ac49-227abbf8e80a" ;
+    skos:inScheme :Ontology ;
+    skos:topConceptOf :Ontology .
+
+:RegularIntervalSchedule a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "RegularIntervalSchedule"@en ;
+    skos:definition "The schedule has time points where the time between them is constant."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:8dbd3310-5ef5-580f-84d4-ebf63ca759bc" ;
+    skos:broader :BasicIntervalSchedule ;
+    skos:inScheme :Ontology ;
+    skos:narrower :SeasonDayTypeSchedule .
+
+:RegularTimePoint a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "RegularTimePoint"@en ;
+    skos:definition "Time point for a schedule where the time between the consecutive points is constant."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:9e3ee184-4a3f-5f0a-97bf-7eb605bcc5c9" ;
+    skos:inScheme :Ontology ;
+    skos:topConceptOf :Ontology .
+
+:RegulatingCondEq a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "RegulatingCondEq"@en ;
+    skos:definition "A type of conducting equipment that can regulate a quantity (i.e. voltage or flow) at a specific point in the network. "@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:6cacded2-4db2-51c0-98d5-b4ac95c15856" ;
+    skos:broader :EnergyConnection ;
+    skos:inScheme :Ontology ;
+    skos:narrower :ExternalNetworkInjection,
+        :PowerElectronicsConnection,
+        :RotatingMachine,
+        :ShuntCompensator,
+        :StaticVarCompensator .
+
+:RegulatingControl a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "RegulatingControl"@en ;
+    skos:definition """Specifies a set of equipment that works together to control a power system quantity such as voltage or flow. 
+Remote bus voltage control is possible by specifying the controlled terminal located at some place remote from the controlling equipment.
+The specified terminal shall be associated with the connectivity node of the controlled point.  The most specific subtype of RegulatingControl shall be used in case such equipment participate in the control, e.g. TapChangerControl for tap changers.
+For flow control, load sign convention is used, i.e. positive sign means flow out from a TopologicalNode (bus) into the conducting equipment.
+The attribute minAllowedTargetValue and maxAllowedTargetValue are required in the following cases:
+- For a power generating module operated in power factor control mode to specify maximum and minimum power factor values;
+- Whenever it is necessary to have an off center target voltage for the tap changer regulator. For instance, due to long cables to off shore wind farms and the need to have a simpler setup at the off shore transformer platform, the voltage is controlled from the land at the connection point for the off shore wind farm. Since there usually is a voltage rise along the cable, there is typical and overvoltage of up 3-4 kV compared to the on shore station. Thus in normal operation the tap changer on the on shore station is operated with a target set point, which is in the lower parts of the dead band.
+The attributes minAllowedTargetValue and maxAllowedTargetValue are not related to the attribute targetDeadband and thus they are not treated as an alternative of the targetDeadband. They are needed due to limitations in the local substation controller. The attribute targetDeadband is used to prevent the power flow from move the tap position in circles (hunting) that is to be used regardless of the attributes minAllowedTargetValue and maxAllowedTargetValue."""@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:e39104b4-a634-5526-9cb7-5ef40f26547b" ;
+    skos:broader :PowerSystemResource ;
+    skos:inScheme :Ontology ;
+    skos:narrower :TapChangerControl .
+
+:RegulatingControlModeKind a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "RegulatingControlModeKind"@en ;
+    skos:definition "The kind of regulation model.   For example regulating voltage, reactive power, active power, etc."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:920f1e68-1c8c-50bf-a1e0-f537f1e78f84" ;
+    skos:inScheme :Ontology ;
+    skos:topConceptOf :Ontology .
+
+:RegulationSchedule a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "RegulationSchedule"@en ;
+    skos:definition "A pre-established pattern over time for a controlled variable, e.g., busbar voltage."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:cc7ba064-2e77-5c47-86a6-62173ad0f340" ;
+    skos:broader :SeasonDayTypeSchedule ;
+    skos:inScheme :Ontology .
+
+:ReportingGroup a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "ReportingGroup"@en ;
+    skos:definition "A reporting group is used for various ad-hoc groupings used for reporting."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:a4b31448-515f-53f6-a9cb-5370869865e3" ;
+    skos:broader :IdentifiedObject ;
+    skos:inScheme :Ontology .
+
+:Resistance a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "Resistance"@en ;
+    skos:definition "Resistance (real part of impedance)."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:43c0a95d-1b32-5dd1-a8de-8ea0ae9bb4b4" ;
+    skos:inScheme :Ontology ;
+    skos:topConceptOf :Ontology .
+
+:RotatingMachine a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "RotatingMachine"@en ;
+    skos:definition "A rotating machine which may be used as a generator or motor."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:3d81c740-1785-5fdf-a4d1-22a950f6228c" ;
+    skos:broader :RegulatingCondEq ;
+    skos:inScheme :Ontology ;
+    skos:narrower :AsynchronousMachine,
+        :SynchronousMachine .
+
+:RotationSpeed a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "RotationSpeed"@en ;
+    skos:definition "Number of revolutions per second."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:06f677b4-f775-5c90-8cc3-0240e3c3dea2" ;
+    skos:inScheme :Ontology ;
+    skos:topConceptOf :Ontology .
+
+:Season a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "Season"@en ;
+    skos:definition "A specified time period of the year."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:80a49509-349a-5551-9f12-537512b131c4" ;
+    skos:broader :IdentifiedObject ;
+    skos:inScheme :Ontology .
+
+:SeasonDayTypeSchedule a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "SeasonDayTypeSchedule"@en ;
+    skos:definition "A time schedule covering a 24 hour period, with curve data for a specific type of season and day."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:a144329f-0a2b-58b4-90d4-2bdf9823b1e7" ;
+    skos:broader :RegularIntervalSchedule ;
+    skos:inScheme :Ontology ;
+    skos:narrower :ConformLoadSchedule,
+        :NonConformLoadSchedule,
+        :RegulationSchedule,
+        :SwitchSchedule,
+        :TapSchedule .
+
+:Seconds a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "Seconds"@en ;
+    skos:definition "Time, in seconds."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:81cfa862-f776-5123-b986-67b216acf66d" ;
+    skos:inScheme :Ontology ;
+    skos:topConceptOf :Ontology .
+
+:Sensor a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "Sensor"@en ;
+    skos:definition "This class describe devices that transform a measured quantity into signals that can be presented at displays, used in control or be recorded."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:7bb58e2e-30f6-5b69-a202-a530264688d1" ;
+    skos:broader :AuxiliaryEquipment ;
+    skos:inScheme :Ontology ;
+    skos:narrower :CurrentTransformer,
+        :PostLineSensor,
+        :PotentialTransformer .
+
+:SeriesCompensator a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "SeriesCompensator"@en ;
+    skos:definition "A Series Compensator is a series capacitor or reactor or an AC transmission line without charging susceptance.  It is a two terminal device."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:28213746-c43f-5da2-83bf-7196efefb50f" ;
+    skos:broader :ConductingEquipment ;
+    skos:inScheme :Ontology .
+
+:ShuntCompensator a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "ShuntCompensator"@en ;
+    skos:definition "A shunt capacitor or reactor or switchable bank of shunt capacitors or reactors. A section of a shunt compensator is an individual capacitor or reactor. A negative value for bPerSection indicates that the compensator is a reactor. ShuntCompensator is a single terminal device.  Ground is implied."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:54bfe2bd-1aa5-58c7-9e10-59b27a6739af" ;
+    skos:broader :RegulatingCondEq ;
+    skos:inScheme :Ontology ;
+    skos:narrower :LinearShuntCompensator,
+        :NonlinearShuntCompensator .
+
+:SolarGeneratingUnit a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "SolarGeneratingUnit"@en ;
+    skos:definition "A solar thermal generating unit, connected to the grid by means of a rotating machine.  This class does not represent photovoltaic (PV) generation."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:827f574b-6309-57cf-a9d4-355b27a54308" ;
+    skos:broader :GeneratingUnit ;
+    skos:inScheme :Ontology .
+
+:SolarPowerPlant a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "SolarPowerPlant"@en ;
+    skos:definition "Solar power plant."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:a315f551-4598-55f9-97c5-54ef454023dc" ;
+    skos:broader :PowerSystemResource ;
+    skos:inScheme :Ontology .
+
+:StaticVarCompensator a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "StaticVarCompensator"@en ;
+    skos:definition """A facility for providing variable and controllable shunt reactive power. The SVC typically consists of a stepdown transformer, filter, thyristor-controlled reactor, and thyristor-switched capacitor arms.
+
+The SVC may operate in fixed MVar output mode or in voltage control mode. When in voltage control mode, the output of the SVC will be proportional to the deviation of voltage at the controlled bus from the voltage setpoint.  The SVC characteristic slope defines the proportion.  If the voltage at the controlled bus is equal to the voltage setpoint, the SVC MVar output is zero."""@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:a3d4aa9d-a50d-58ae-986e-6c916f32c854" ;
+    skos:broader :RegulatingCondEq ;
+    skos:inScheme :Ontology .
+
+:StationSupply a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "StationSupply"@en ;
+    skos:definition "Station supply with load derived from the station output."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:4e6e124f-cf11-5f58-8710-0ff37d386c34" ;
+    skos:broader :EnergyConsumer ;
+    skos:inScheme :Ontology .
+
+:String a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "String"@en ;
+    skos:definition "A string consisting of a sequence of characters. The character encoding is UTF-8. The string length is unspecified and unlimited."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:6d153cb8-3555-5504-9c0e-b4933f87fa4b" ;
+    skos:inScheme :Ontology .
+
+:SubGeographicalRegion a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "SubGeographicalRegion"@en ;
+    skos:definition "A subset of a geographical region of a power system network model."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:7a415398-e6e2-5294-9259-1d367233ee9f" ;
+    skos:broader :IdentifiedObject ;
+    skos:inScheme :Ontology .
+
+:SubLoadArea a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "SubLoadArea"@en ;
+    skos:definition "The class is the second level in a hierarchical structure for grouping of loads for the purpose of load flow load scaling."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:22c6eaf5-f19f-583b-ad61-1bd47c1b9bf6" ;
+    skos:broader :EnergyArea ;
+    skos:inScheme :Ontology .
+
+:Substation a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "Substation"@en ;
+    skos:definition "A collection of equipment for purposes other than generation or utilization, through which electric energy in bulk is passed for the purposes of switching or modifying its characteristics. "@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:941100f2-6027-5203-8b2e-75eff6a4245a" ;
+    skos:broader :EquipmentContainer ;
+    skos:inScheme :Ontology .
+
+:SurgeArrester a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "SurgeArrester"@en ;
+    skos:definition "Shunt device, installed on the network, usually in the proximity of electrical equipment in order to protect the said equipment against transient voltage transients caused by lightning or switching activity."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:e90d3f00-da36-5748-b0e4-49a094524e53" ;
+    skos:broader :AuxiliaryEquipment ;
+    skos:inScheme :Ontology .
+
+:Susceptance a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "Susceptance"@en ;
+    skos:definition "Imaginary part of admittance."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:efc2e3a0-6307-5a8e-9aa7-098b86a95af0" ;
+    skos:inScheme :Ontology ;
+    skos:topConceptOf :Ontology .
+
+:SVCControlMode a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "SVCControlMode"@en ;
+    skos:definition "Static VAr Compensator control mode."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:9053bfb1-9267-512b-8b66-7b5f8cf412e8" ;
+    skos:inScheme :Ontology ;
+    skos:topConceptOf :Ontology .
+
+:Switch a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "Switch"@en ;
+    skos:definition "A generic device designed to close, or open, or both, one or more electric circuits.  All switches are two terminal devices including grounding switches. The ACDCTerminal.connected at the two sides of the switch shall not be considered for assessing switch connectivity, i.e. only Switch.open, .normalOpen and .locked are relevant."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:d370fefb-2761-512b-b94a-2d86f8162dec" ;
+    skos:broader :ConductingEquipment ;
+    skos:inScheme :Ontology ;
+    skos:narrower :Cut,
+        :Disconnector,
+        :Fuse,
+        :GroundDisconnector,
+        :Jumper,
+        :ProtectedSwitch .
+
+:SwitchSchedule a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "SwitchSchedule"@en ;
+    skos:definition "A schedule of switch positions.  If RegularTimePoint.value1 is 0, the switch is open.  If 1, the switch is closed.  "@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:22d2f359-4d06-50c8-85a0-7feba9b281d6" ;
+    skos:broader :SeasonDayTypeSchedule ;
+    skos:inScheme :Ontology .
+
+:SynchronousMachine a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "SynchronousMachine"@en ;
+    skos:definition "An electromechanical device that operates with shaft rotating synchronously with the network. It is a single machine operating either as a generator or synchronous condenser or pump."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:477197c0-f832-5de5-88ed-a17f8e7c697c" ;
+    skos:broader :RotatingMachine ;
+    skos:inScheme :Ontology .
+
+:SynchronousMachineKind a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "SynchronousMachineKind"@en ;
+    skos:definition "Synchronous machine type."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:cfdc5fcd-0f80-5583-886e-fed4be271eff" ;
+    skos:inScheme :Ontology ;
+    skos:topConceptOf :Ontology .
+
+:TapChanger a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "TapChanger"@en ;
+    skos:definition "Mechanism for changing transformer winding tap positions."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:645cc795-081c-5fba-89d9-8173a9cc8a5f" ;
+    skos:broader :PowerSystemResource ;
+    skos:inScheme :Ontology ;
+    skos:narrower :PhaseTapChanger,
+        :RatioTapChanger .
+
+:TapChangerControl a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "TapChangerControl"@en ;
+    skos:definition "Describes behaviour specific to tap changers, e.g. how the voltage at the end of a line varies with the load level and compensation of the voltage drop by tap adjustment."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:e4344323-5777-5a2d-85f7-e1a9d9536d96" ;
+    skos:broader :RegulatingControl ;
+    skos:inScheme :Ontology .
+
+:TapChangerTablePoint a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "TapChangerTablePoint"@en ;
+    skos:definition "Describes each tap step in the tabular curve."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:ee800230-2808-58b0-82d0-bb23010b3783" ;
+    skos:inScheme :Ontology ;
+    skos:narrower :PhaseTapChangerTablePoint,
+        :RatioTapChangerTablePoint ;
+    skos:topConceptOf :Ontology .
+
+:TapSchedule a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "TapSchedule"@en ;
+    skos:definition "A pre-established pattern over time for a tap step."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:b19a18f2-b501-5fd3-a40d-740676379d87" ;
+    skos:broader :SeasonDayTypeSchedule ;
+    skos:inScheme :Ontology .
+
+:Terminal a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "Terminal"@en ;
+    skos:definition "An AC electrical connection point to a piece of conducting equipment. Terminals are connected at physical connection points called connectivity nodes."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:d0aca98c-fb63-53b1-b274-c19484eb51c2" ;
+    skos:broader :ACDCTerminal ;
+    skos:inScheme :Ontology .
+
+:ThermalGeneratingUnit a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "ThermalGeneratingUnit"@en ;
+    skos:definition "A generating unit whose prime mover could be a steam turbine, combustion turbine, or diesel engine."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:9fe4eb34-9fc4-5523-82af-c35d7bec1495" ;
+    skos:broader :GeneratingUnit ;
+    skos:inScheme :Ontology .
+
+:TieFlow a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "TieFlow"@en ;
+    skos:definition "Defines the structure (in terms of location and direction) of the net interchange constraint for a control area. This constraint may be used by either AGC or power flow."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:043dd1ba-3ed4-57aa-8c58-dacb8d8373e1" ;
+    skos:broader :IdentifiedObject ;
+    skos:inScheme :Ontology .
+
+:TransformerEnd a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "TransformerEnd"@en ;
+    skos:definition "A conducting connection point of a power transformer. It corresponds to a physical transformer winding terminal.  In earlier CIM versions, the TransformerWinding class served a similar purpose, but this class is more flexible because it associates to terminal but is not a specialization of ConductingEquipment."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:6f27ff00-0b8d-59ae-ae4b-e4ac5dbf7994" ;
+    skos:broader :IdentifiedObject ;
+    skos:inScheme :Ontology ;
+    skos:narrower :PowerTransformerEnd .
+
+:UnitMultiplier a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "UnitMultiplier"@en ;
+    skos:definition """The unit multipliers defined for the CIM.  When applied to unit symbols, the unit symbol is treated as a derived unit. Regardless of the contents of the unit symbol text, the unit symbol shall be treated as if it were a single-character unit symbol. Unit symbols should not contain multipliers, and it should be left to the multiplier to define the multiple for an entire data type. 
+
+For example, if a unit symbol is "m2Pers" and the multiplier is "k", then the value is k(m**2/s), and the multiplier applies to the entire final value, not to any individual part of the value. This can be conceptualized by substituting a derived unit symbol for the unit type. If one imagines that the symbol "Þ" represents the derived unit "m2Pers", then applying the multiplier "k" can be conceptualized simply as "kÞ".
+
+For example, the SI unit for mass is "kg" and not "g".  If the unit symbol is defined as "kg", then the multiplier is applied to "kg" as a whole and does not replace the "k" in front of the "g". In this case, the multiplier of "m" would be used with the unit symbol of "kg" to represent one gram.  As a text string, this violates the instructions in IEC 80000-1. However, because the unit symbol in CIM is treated as a derived unit instead of as an SI unit, it makes more sense to conceptualize the "kg" as if it were replaced by one of the proposed replacements for the SI mass symbol. If one imagines that the "kg" were replaced by a symbol "Þ", then it is easier to conceptualize the multiplier "m" as creating the proper unit "mÞ", and not the forbidden unit "mkg"."""@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:79977954-0b0a-507b-9458-c20fe1b8d85d" ;
+    skos:inScheme :Ontology ;
+    skos:topConceptOf :Ontology .
+
+:UnitSymbol a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "UnitSymbol"@en ;
+    skos:definition """The derived units defined for usage in the CIM. In some cases, the derived unit is equal to an SI unit. Whenever possible, the standard derived symbol is used instead of the formula for the derived unit. For example, the unit symbol Farad is defined as "F" instead of "CPerV". In cases where a standard symbol does not exist for a derived unit, the formula for the unit is used as the unit symbol. For example, density does not have a standard symbol and so it is represented as "kgPerm3". With the exception of the "kg", which is an SI unit, the unit symbols do not contain multipliers and therefore represent the base derived unit to which a multiplier can be applied as a whole. 
+Every unit symbol is treated as an unparseable text as if it were a single-letter symbol. The meaning of each unit symbol is defined by the accompanying descriptive text and not by the text contents of the unit symbol.
+To allow the widest possible range of serializations without requiring special character handling, several substitutions are made which deviate from the format described in IEC 80000-1. The division symbol "/" is replaced by the letters "Per". Exponents are written in plain text after the unit as "m3" instead of being formatted as "m" with a superscript of 3  or introducing a symbol as in "m^3". The degree symbol "°" is replaced with the letters "deg". Any clarification of the meaning for a substitution is included in the description for the unit symbol.
+Non-SI units are included in list of unit symbols to allow sources of data to be correctly labelled with their non-SI units (for example, a GPS sensor that is reporting numbers that represent feet instead of meters). This allows software to use the unit symbol information correctly convert and scale the raw data of those sources into SI-based units. 
+The integer values are used for harmonization with IEC 61850."""@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:f76879d9-56fe-5e22-bcd5-9665a95fa6a9" ;
+    skos:inScheme :Ontology ;
+    skos:topConceptOf :Ontology .
+
+:Voltage a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "Voltage"@en ;
+    skos:definition "Electrical voltage, can be both AC and DC."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:2fdcc7ca-8918-5aeb-bd7f-74ce9608b893" ;
+    skos:inScheme :Ontology ;
+    skos:topConceptOf :Ontology .
+
+:VoltageLevel a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "VoltageLevel"@en ;
+    skos:definition "A collection of equipment at one common system voltage forming a switchgear. The equipment typically consists of breakers, busbars, instrumentation, control, regulation and protection devices as well as assemblies of all these."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:cbf06e6b-e906-565d-a567-9563074e5a15" ;
+    skos:broader :EquipmentContainer ;
+    skos:inScheme :Ontology .
+
+:VoltageLimit a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "VoltageLimit"@en ;
+    skos:definition """Operational limit applied to voltage.
+The use of operational VoltageLimit is preferred instead of limits defined at VoltageLevel. The operational VoltageLimits are used, if present."""@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:93e48332-debf-5435-b4aa-7c3747e44b91" ;
+    skos:broader :OperationalLimit ;
+    skos:inScheme :Ontology .
+
+:VoltagePerReactivePower a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "VoltagePerReactivePower"@en ;
+    skos:definition "Voltage variation with reactive power."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:bc5edcab-f591-55a3-9e76-bbe1c8f2856a" ;
+    skos:inScheme :Ontology ;
+    skos:topConceptOf :Ontology .
+
+:VsCapabilityCurve a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "VsCapabilityCurve"@en ;
+    skos:definition "The P-Q capability curve for a voltage source converter, with P on X-axis and Qmin and Qmax on Y1-axis and Y2-axis."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:08957b83-c6c8-5cd7-9fcc-e1d9a0fe3037" ;
+    skos:broader :Curve ;
+    skos:inScheme :Ontology .
+
+:VsConverter a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "VsConverter"@en ;
+    skos:definition "DC side of the voltage source converter (VSC)."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:e9d6d2bf-1dee-52e9-b345-d56cafeec1ce" ;
+    skos:broader :ACDCConverter ;
+    skos:inScheme :Ontology .
+
+:WaveTrap a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "WaveTrap"@en ;
+    skos:definition "Line traps are devices that impede high frequency power line carrier signals yet present a negligible impedance at the main power frequency."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:56a968a3-c97a-5994-a1c0-f9b68eede8b7" ;
+    skos:broader :AuxiliaryEquipment ;
+    skos:inScheme :Ontology .
+
+:WindGeneratingUnit a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "WindGeneratingUnit"@en ;
+    skos:definition "A wind driven generating unit, connected to the grid by means of a rotating machine.  May be used to represent a single turbine or an aggregation.    "@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:3bd5d90a-56a1-53fb-9463-13d7ac2d52e3" ;
+    skos:broader :GeneratingUnit ;
+    skos:inScheme :Ontology .
+
+:WindGenUnitKind a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "WindGenUnitKind"@en ;
+    skos:definition "Kind of wind generating unit."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:fee61143-dfc0-592d-a064-fec7b5c4c9ed" ;
+    skos:inScheme :Ontology ;
+    skos:topConceptOf :Ontology .
+
+:WindingConnection a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "WindingConnection"@en ;
+    skos:definition "Winding connection type."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:a6126499-c814-5f6d-925f-07b3a9abee8c" ;
+    skos:inScheme :Ontology ;
+    skos:topConceptOf :Ontology .
+
+:WindPowerPlant a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "WindPowerPlant"@en ;
+    skos:definition "Wind power plant."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_CoreEquipmentProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:25aa9ef6-45cb-57fa-ad3f-801699eafe36" ;
+    skos:broader :PowerSystemResource ;
+    skos:inScheme :Ontology .
+

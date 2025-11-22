@@ -1,0 +1,121 @@
+@prefix :     <http://iec.ch/TC57/2013/IEC62746/> .
+@prefix xs:   <http://www.w3.org/2001/XMLSchema#> .
+@prefix dc:   <http://purl.org/dc/elements/1.1/> .
+@prefix sh:   <http://www.w3.org/ns/shacl#> .
+@prefix dct:  <http://purl.org/dc/terms/> .
+@prefix owl:  <http://www.w3.org/2002/07/owl#> .
+@prefix foaf: <http://xmlns.com/foaf/0.1/> .
+@prefix rdf:  <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
+@prefix dcat: <http://www.w3.org/ns/dcat#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix skos: <http://www.w3.org/2004/02/skos/core#> .
+
+:Ontology
+  a                owl:Ontology, skos:ConceptScheme ;
+  dct:title        "IEC 62746 - Demand Site"@en ;
+  dct:description  "IEC 62746-4:2024 describes CIM profiles for Demand-Side Resource Interface and is based on the use case shown in Annex A of this document. Schemas associated with this document were generated using the CIM101 UML and leverages the Market package. This document defines profiles complimentary to other standards, namely those in IEC 61970, IEC 61968, and IEC 62325."@en ;
+  dct:language     "en-GB" ;
+  dct:issued       "2018-11-19"^^xsd:date ;
+  dcat:landingPage "https://www.entsoe.eu/data/cim/" ;
+  owl:versionIRI   <http://iec.ch/TC57/2013/IEC62746/1.0> ;
+  dcat:theme       "vocabulary"@en .
+
+:DemandSiteManagement
+  a                 skos:Concept ;
+  dc:source         "IEC TR 62746-2:2015 © IEC 2015",
+                    "EURELECTRIC Views on Demand-Side Participation, https://www.eurelectric.org, Brussels, 2011" ;
+  skos:definition   """Demand Side Management (DSM) or Load Management has been used in the (mainly
+still vertically integrated as opposed to unbundled) power industry over the last thirty
+years with the aim “to reduce energy consumption and improve overall electricity
+usage efficiency through the implementation of policies and methods that control
+electricity demand. Demand Side Management (DSM) is usually a task for power
+companies / utilities to reduce or remove peak load, hence defer the installations of
+new capacities and distribution facilities. The commonly used methods by utilities for
+demand side management are: combination of high efficiency generation units, peak-
+load shaving, load shifting, and operating practices facilitating efficient usage of
+electricity, etc.” Demand Side Management (DSM) is therefore characterized by a ‘top-
+down’ approach: the utility decides to implement measures on the demand side to
+increase its efficiency."""@en ;
+  skos:inScheme     :Ontology ;
+  skos:prefLabel    "Demand Side Management (DSM)"@en ;
+  skos:topConceptOf :Ontology .
+
+:DemandResponseDR
+  a                 skos:Concept ;
+  dc:source         "IEC TR 62746-2:2015 © IEC 2015",
+                    "EURELECTRIC Views on Demand-Side Participation, https://www.eurelectric.org, Brussels, 2011" ;
+  skos:definition   """Demand Response (DR), on the contrary, implies a ‘bottom-up’ approach: the
+customer becomes active in managing his/her consumption – in order to achieve
+efficiency gains and by this means monetary/economic benefits. Demand Response
+(DR) can be defined as “the changes in electric usage by end-use customers from their
+normal consumption patterns in response to changes in the price of electricity over
+time. Further, DR can be also defined as the incentive payments designed to induce
+lower electricity use at times of high wholesale market prices or when system reliability
+is jeopardized. DR includes all intentional modifications to consumption patterns of
+electricity of end use customers that are intended to alter the timing, level of
+instantaneous demand, or the total electricity consumption”. DR aims to reduce
+electricity consumption in times of high energy cost or network constraints by allowing
+customers to respond to price or quantity signals."""@en ;
+  skos:inScheme     :Ontology ;
+  skos:prefLabel    "Demand Response"@en ;
+  skos:altLabel     "DR" ;
+  skos:editorialNote "Note 1 to entry: Alternative definition: In IEC 60050-617:2009, 617-04-15 it is defined as: action resulting from management of the electricity demand in response to supply conditions"@en;
+  skos:topConceptOf :Ontology .
+
+:Flexibility
+  a                 skos:Concept ;
+  skos:definition   """general concept of elasticity of resource deployment (demand, storage, generation) providing
+ancillary services for the grid stability and / or market optimization (change of power
+consumption, reduction of power feed-in, reactive power supply, etc.)"""@en ;
+  skos:inScheme     :Ontology ;
+  skos:prefLabel    "Flexibility"@en ;
+  skos:topConceptOf :Ontology .
+
+:DemandResponse
+  a                 skos:Concept ;
+  foaf:homepage     "https://www.eurelectric.org" ;
+  skos:definition   """concept describing an incentivizing of customers by costs, ecological information or others in
+order to initiate a change in their consumption or feed-in pattern (“bottom-up approach” =
+Customer decides, based on EURELECTRIC Views on Demand-Side Participation)"""@en ;
+  skos:inScheme     :Ontology ;
+  skos:prefLabel    "Demand Response"@en ;
+  skos:exactMatch   <https://ses.jrc.ec.europa.eu/eirie/en/taxonomy/term/725> ;
+  skos:topConceptOf :Ontology .
+
+:OpenADR
+  a                 skos:Concept ;
+  skos:prefLabel    "Open Automated Demand Response"@en ;
+  skos:definition   "The OpenADR Alliance was created to standardize, automate, and simplify Demand Response (DR) and Distributed Energy Resources (DER). OpenADR is an open, two-way information exchange model and Smart Grid standard."@en ;
+  skos:altLabel     "OpenADR"@en ;
+  skos:inScheme     :Ontology ;
+  skos:topConceptOf :Ontology .
+
+:VirtualEndNode
+  a                 skos:Concept ;
+  skos:prefLabel    "Virtual End Node"@en ;
+  skos:definition   "A VEN is typically a “client”, an “Energy Management System” (EMS), or any other end device or actor that accepts the OpenADR signal from a server (VTN)."@en ;
+  skos:editorialNote
+                    """A virtual end node (VEN) can be associated with zero or more resources. A VEN can receive messages pushed from a VTN or send requests or events to a VTN. A VEN may communicate with multiple VTNs, where each VTN is part of a different communication domain."""@en ;
+  skos:altLabel     "VEN" ;
+  skos:inScheme     :Ontology ;
+  skos:topConceptOf :Ontology .
+
+:VirtualTopNode
+  a                 skos:Concept ;
+  skos:prefLabel    "Virtual Top Node"@en ;
+  skos:definition   "A VTN is typically a “server” that transmits OpenADR signals to end devices or other intermediate servers. A technical role assumed by an actor that is assuming responsibility for the coordination of VENs within a communication domain"@en ;
+  skos:editorialNote
+                    """This is a special case of a VEN, where a virtual top node (VTN) is effectively a parent of many VENs with the responsibility for coordination of those VENs. A VTN is responsible for pushing to or receiving messages from many VENs. A market operator, grid operator or aggregator are examples of actors which will typically implement a VTN interface."""@en ;
+  skos:altLabel     "VTN" ;
+  skos:inScheme     :Ontology ;
+  skos:topConceptOf :Ontology .
+
+:CustomerEnergyManager
+  a                 skos:Concept ;
+  skos:prefLabel    "Customer Energy Manager"@en ;
+  skos:definition   "central managing function used by the customer to manage the flow of information between the grid and connected smart devices at the customer premises"@en ;
+  skos:altLabel     "CEM" ;
+  skos:inScheme     :Ontology ;
+  skos:topConceptOf :Ontology .
+

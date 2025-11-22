@@ -1,0 +1,232 @@
+@prefix :     <http://vocabs.alliander.com/def/focp/> .
+@prefix dc:   <http://purl.org/dc/elements/1.1/> .
+@prefix dct:  <http://purl.org/dc/terms/> .
+@prefix dcat: <http://www.w3.org/ns/dcat#> .
+@prefix owl:  <http://www.w3.org/2002/07/owl#> .
+@prefix skos: <http://www.w3.org/2004/02/skos/core#> .
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+
+:Ontology
+  a               owl:Ontology, skos:ConceptScheme ;
+  dct:title       "Alliander Found on Confluence - Glossary" ;
+  dct:description """De termen en definities in deze lijst zijn oorspronkelijk afkomstig van diverse confluence pagina's en deze pagina's zijn bedoeld om een gestandaardiseerde set van definities te creëren en te onderhouden.
+  Veel van deze pagina's zijn echter verouderd en niet meer actief bijgehouden. De lijst bevat termen die in het verleden zijn gebruikt, maar die mogelijk niet langer relevant zijn of waarvan de definities zijn gewijzigd. De lijst wordt uitsluitend aangeboden voor referentiedoeleinden, zodat gebruikers nog steeds toegang hebben tot de historische gegevens en definities die ooit zijn vastgelegd. Voor de meest recente en actuele informatie is het aan te raden om te starten bij het onderdeel 'Alliander Energie Systeem".""" ;
+  dct:creator     "Alliander" ;
+  dct:created     "2025-07-17"^^xsd:date ;
+  rdfs:seeAlso    <http://vocabs.alliander.com/ESAV/nl/> ;
+  dcat:theme      "vocabulary" .
+
+### Annotations
+
+:1
+  a                 skos:Concept ;
+  skos:prefLabel    "Meettransformator"@nl ;
+  skos:definition   """Een elektrisch apparaat dat wordt toegepast voor het verlagen van een wisselspanning zodat deze
+gemeten kan worden."""@nl ;
+  owl:versionInfo   "1" ;
+  dc:source         "EDSN Aansluitingenregister" ;
+  dct:created       "2025-07-14"^^xsd:date ;
+  dct:identifier    "4aa0ea2e-cdb0-5d9d-9571-7b6ccb523738" ;
+  skos:inScheme     :Ontology ;
+  skos:topConceptOf :Ontology .
+
+:2
+  a                 skos:Concept ;
+  skos:prefLabel    "Meettransformatortype"@nl ;
+  skos:definition   "Een verzameling meettransformatoren die bepaalde eigenschappen delen."@nl ;
+  owl:versionInfo   "1" ;
+  dc:source         "EDSN Aansluitingenregister" ;
+  dct:created       "2025-07-14"^^xsd:date ;
+  dct:identifier    "f1f23d54-8fdb-5ba0-9c82-3418c70b72bc" ;
+  skos:inScheme     :Ontology ;
+  skos:topConceptOf :Ontology .
+
+:3
+  a                 skos:Concept ;
+  skos:prefLabel    "Meetveld"@nl ;
+  skos:definition   """Een samenstel van objecten die het meten op een overdrachtspunt met een meetinstrument mogelijk
+Maken."""@nl ;
+  owl:versionInfo   "1" ;
+  dc:source         "EDSN Aansluitingenregister" ;
+  dct:created       "2025-07-14"^^xsd:date ;
+  dct:identifier    "5a213bef-fe88-56ad-a61f-d6888c4409bc" ;
+  skos:inScheme     :Ontology ;
+  skos:topConceptOf :Ontology .
+
+:4
+  a                 skos:Concept ;
+  skos:prefLabel    "Overdrachtspunt"@nl ;
+  skos:definition   """Elektriciteit: Het fysieke punt waar respectievelijk een scheiding tussen de aansluiting van twee netten
+onderling of tussen de aansluiting van een net en de installatie van de aangeslotene kan worden
+Gerealiseerd."""@nl ;
+  owl:versionInfo   "1" ;
+  dc:source         """EDSN Aansluitingenregister
+Gebaseerd op:
+https://wetten.overheid.nl/BWBR0037938)
+en
+https://wetten.overheid.nl/BWBR003792""" ;
+  dct:created       "2025-07-14"^^xsd:date ;
+  dct:identifier    "0a4e0119-65a9-5f58-9d9a-05c5705c58e5" ;
+  skos:inScheme     :Ontology ;
+  skos:topConceptOf :Ontology .
+
+:5
+  a                 skos:Concept ;
+  skos:prefLabel    "Overdrachtspunt"@nl ;
+  skos:definition   """Gas: het punt waar het gastransportnet ophoudt. In het geval van een verbinding tussen het landelijk
+gastransportnet en een regionaal gastransportnet: het punt waar het landelijk gastransportnet ophoudt."""@nl ;
+  owl:versionInfo   "1" ;
+  dc:source         """EDSN Aansluitingenregister
+Gebaseerd op:
+https://wetten.overheid.nl/BWBR0037938)
+en
+https://wetten.overheid.nl/BWBR003792""" ;
+  dct:created       "2025-07-14"^^xsd:date ;
+  dct:identifier    "559d4eed-e496-5d22-b1a5-2943f5336b74" ;
+  skos:inScheme     :Ontology ;
+  skos:topConceptOf :Ontology .
+
+:6
+  a                 skos:Concept ;
+  skos:prefLabel    "Telwerk"@nl ;
+  skos:definition   "Onderdeel van een meetinstrument waarop meetstanden worden bijgehouden. Een meter kan voorzien zijn van meerdere telwerken om totalen per tariefinstelling en leveringsrichting te registreren. "@nl ;
+  owl:versionInfo   "1" ;
+  dc:source         "ALDM" ;
+  dct:created       "2025-07-14"^^xsd:date ;
+  dct:identifier    "1874710c-dd90-56ff-b3c5-86edbebc86a9" ;
+  skos:inScheme     :Ontology ;
+  skos:topConceptOf :Ontology .
+
+:7
+  a                 skos:Concept ;
+  skos:prefLabel    "Telwerkgroep"@nl ;
+  skos:definition   """De uitvoeringswijze van het telwerk."""@nl ;
+  owl:versionInfo   "1" ;
+  dc:source         "ALDM" ;
+  dct:created       "2025-07-14"^^xsd:date ;
+  dct:identifier    "1cf5791e-bfd4-5837-a12e-80cbccc540e5" ;
+  skos:inScheme     :Ontology ;
+  skos:topConceptOf :Ontology .
+
+:8
+  a                 skos:Concept ;
+  skos:prefLabel    "Meter"@nl ;
+  skos:definition   """Een meter is een instrument ter bepaling en/of vastlegging van een grootheid (zoals kWh. m3, etc.).
+Entiteit Meter betreft de fysieke asset met een beschrijving van de unieke fysieke en technische eigenschappen."""@nl ;
+  owl:versionInfo   "1" ;
+  dc:source         "NaN" ;
+  dct:created       "2025-07-14"^^xsd:date ;
+  dct:identifier    "64b7b2d4-51b7-53e1-b4b8-9bbdf823686e" ;
+  skos:inScheme     :Ontology ;
+  skos:topConceptOf :Ontology .
+
+:9
+  a                 skos:Concept ;
+  skos:prefLabel    "Meter gerelateerde asset"@nl ;
+  skos:definition   """Overkoepelend begrip dat het apparaat in of rondom de meetinrichting aanduidt."""@nl ;
+  owl:versionInfo   "1" ;
+  dc:source         "ALDM" ;
+  dct:created       "2025-07-14"^^xsd:date ;
+  dct:identifier    "7d84b067-aea4-50e8-aa75-0a72bde376a2" ;
+  skos:inScheme     :Ontology ;
+  skos:topConceptOf :Ontology .
+
+:10
+  a                 skos:Concept ;
+  skos:prefLabel    "E of G fysiek overdrachtspunt"@nl ;
+  skos:definition   "Exacte locatie van het fysiek aanwijsbare punt dat onderdeel uitmaakt van het overdrachtspunt elektriciteit of gas"@nl ;
+  owl:versionInfo   "1" ;
+  dc:source         "ALDM" ;
+  dct:created       "2025-07-14"^^xsd:date ;
+  dct:identifier    "9cdf5d48-600e-5baf-bac2-5a857c77ce9e" ;
+  skos:inScheme     :Ontology ;
+  skos:topConceptOf :Ontology .
+
+:11
+  a                 skos:Concept ;
+  skos:prefLabel    "E Voedingspunt Geschakeld Net Funct Pos (L)"@nl ;
+  skos:definition   "De feitelijke aansluiting van het geschakelde net. Op basis hiervan vindt de afrekening plaats."@nl ;
+  owl:versionInfo   "1" ;
+  dc:source         "ALDM" ;
+  dct:created       "2025-07-14"^^xsd:date ;
+  dct:identifier    "2b198f3b-0207-5512-a008-4a9ca636518e" ;
+  skos:inScheme     :Ontology ;
+  skos:topConceptOf :Ontology .
+
+:12
+  a                 skos:Concept ;
+  skos:prefLabel    "Aansluitknelpunt"@nl ;
+  skos:definition   "nog geen defintiie beschikbaar"@nl ;
+  owl:versionInfo   "1" ;
+  dc:source         "Nettechnische eigenschappen Begrippenlijst MVP Klantproduct" ;
+  dct:created       "2025-07-14"^^xsd:date ;
+  dct:identifier    "7c7adbb3-39dc-5ed0-b819-34b286a004f0" ;
+  skos:inScheme     :Ontology ;
+  skos:topConceptOf :Ontology .
+
+:13
+  a                 skos:Concept ;
+  skos:prefLabel    "Transportknelpunt"@nl ;
+  skos:definition   "Het type transportknelpunt (beperkende factor in het netwerk) waar het product van invloed op is"@nl ;
+  owl:versionInfo   "1" ;
+  dc:source         "Nettechnische eigenschappen Begrippenlijst MVP Klantproduct" ;
+  dct:created       "2025-07-14"^^xsd:date ;
+  dct:identifier    "e8043974-c98f-5bb1-819e-c7784fe6401a" ;
+  skos:inScheme     :Ontology ;
+  skos:topConceptOf :Ontology .
+
+:14
+  a                 skos:Concept ;
+  skos:prefLabel    "Stationcomplex"@nl ;
+  skos:definition   "Overkoepelende term voor alles wat op een stationsterrein of stationterrein beschikbaar is. "@nl ;
+  owl:versionInfo   "1" ;
+  dct:created       "2025-07-14"^^xsd:date ;
+  dct:identifier    "0e37b1e1-e93c-5c60-b2e3-1fedc3e7272d" ;
+  skos:inScheme     :Ontology ;
+  skos:topConceptOf :Ontology .
+
+:15
+  a                 skos:Concept ;
+  skos:prefLabel    "Aansluitcategorie"@nl ;
+  skos:definition   "De aansluitcategorie (bijv. AC5) waarop het product toegepast kan worden"@nl ;
+  owl:versionInfo   "1" ;
+  dc:source         "Nettechnische eigenschappen Begrippenlijst MVP Klantproduct" ;
+  dct:created       "2025-07-14"^^xsd:date ;
+  dct:identifier    "a9cdbf65-9d75-5dc9-9df6-ce85030c2123" ;
+  skos:inScheme     :Ontology ;
+  skos:topConceptOf :Ontology .
+
+:16
+  a                 skos:Concept ;
+  skos:prefLabel    "Leveringsrichting"@nl ;
+  skos:definition   "Afname of invoeding op het net."@nl ;
+  owl:versionInfo   "1" ;
+  dc:source         "Nettechnische eigenschappen Begrippenlijst MVP Klantproduct" ;
+  dct:created       "2025-07-14"^^xsd:date ;
+  dct:identifier    "d301c791-3ece-5a05-b188-4ec116fa0bad" ;
+  skos:inScheme     :Ontology ;
+  skos:topConceptOf :Ontology .
+
+:17
+  a                 skos:Concept ;
+  skos:prefLabel    "Meetinrichting"@nl ;
+  skos:definition   "instrument of samenstel van instrumenten met een meetfunctie dat ten minste de invoeding, onttrekking of het verbruik van elektriciteit of gas meet."@nl ;
+  owl:versionInfo   "1" ;
+  dc:source         "Wetsvoorstel Energiewet (UHT))." ;
+  dct:created       "2025-07-14"^^xsd:date ;
+  dct:identifier    "023f6d7c-daea-5d1c-b7ba-e973d6f21938" ;
+  skos:inScheme     :Ontology ;
+  skos:topConceptOf :Ontology .
+
+:18
+  a                 skos:Concept ;
+  skos:prefLabel    "Meting"@nl ;
+  skos:definition   "bepalen van een waarde"@nl ;
+  owl:versionInfo   "1" ;
+  dct:created       "2025-07-14"^^xsd:date ;
+  dct:identifier    "d7faecf1-ed5a-55a9-bdf4-70c09775f045" ;
+  skos:inScheme     :Ontology ;
+  skos:topConceptOf :Ontology .
+
+

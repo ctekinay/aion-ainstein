@@ -1,0 +1,139 @@
+@prefix :     <http://iec.ch/TC57/2013/IEC62325/> .
+@prefix xs:   <http://www.w3.org/2001/XMLSchema#> .
+@prefix dc:   <http://purl.org/dc/elements/1.1/> .
+@prefix dct:  <http://purl.org/dc/terms/> .
+@prefix owl:  <http://www.w3.org/2002/07/owl#> .
+@prefix rdf:  <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
+@prefix dcat: <http://www.w3.org/ns/dcat#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix skos: <http://www.w3.org/2004/02/skos/core#> .
+
+owl:Class
+  a          rdfs:Class ;
+  rdfs:label "Class" .
+
+:Ontology
+  a                skos:ConceptScheme ;
+  owl:versionIRI   <http://iec.ch/TC57/2013/IEC62325/1.0> ;
+  dct:description  "This vocabulary supports market communication."@en ;
+  dct:identifier   "urn:iec62325.351:tc57wg16:451-7" ;
+  dct:language     "en-GB" ;
+  dct:modified     "2020-10-12"^^xsd:date ;
+  dct:title        "IEC 62325 - Market Model"@en ;
+  dcat:landingPage <https://www.entsoe.eu/data/cim/> ;
+  dcat:theme       "vocabulary"@en .
+
+:Scheduler
+  a                 skos:Concept ;
+  owl:versionInfo   "1.0" ;
+  skos:prefLabel    "Scheduler"@en ;
+  skos:definition   """scheduling system for resources that produce, consume, or transport energy or ancillary services in an energy market"""@en ;
+  skos:inScheme     :Ontology ;
+  skos:topConceptOf :Ontology .
+
+#:
+#  a                 skos:Concept ;
+#  skos:prefLabel    ""@en ;
+#  skos:definition   ""@en ;
+#  owl:versionInfo   "1" ;
+#  skos:topConceptOf :Ontology ;
+#  skos:inScheme     :Ontology .
+
+:IntraDayMarkets
+  a                 skos:Concept ;
+  skos:prefLabel    "Intra-Day Markets"@en ;
+  skos:definition   "An intra-day scheduling markets which refine the commitment and schedules produced by the day ahead markets."@en ;
+  dct:identifier    "urn:uuid:4a5b6c7d-8e9f-0a1b-2c3d-4e5f6a7b8c9d" ;
+  owl:versionInfo   "1" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:LoadForecast
+  a                 skos:Concept ;
+  skos:prefLabel    "Load Forecast"@en ;
+  skos:definition   "Load forecast system which predicts load for the specified time horizon"@en ;
+  dct:identifier    "urn:uuid:2b1c3d4e-5f6a-7b8c-9d0e-1f2a3b4c5d6e" ;
+  owl:versionInfo   "1" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:LocationalMarginalPrice
+  a                 skos:Concept ;
+  skos:prefLabel    "Locational Marginal Price"@en ;
+  skos:altLabel     "LMP"@en ;
+  skos:definition   "Marginal cost (currency/MWh) of serving the next increment of demand at a pricing node consistent with existing transmission constraints and the performance characteristics of the resources"@en ;
+  dct:identifier    "urn:uuid:3f0b1c2d-8f3b-5c0d-9a1e-2c4fb3c5d6e7" ;
+  owl:versionInfo   "1" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:MarketRole
+  a                 owl:Class, skos:Concept ;
+  skos:prefLabel    "Market Role "@en ;
+  skos:definition   "The intended behavior played by a market participant within the energy market."@en ;
+  skos:example      "The CPO plays a role in the EV charging of the energy market."@en ;
+  dct:identifier    "urn:uuid:c9de49bd-a86c-5309-a609-20eaf89481b0" ;
+  owl:versionInfo   "1.0" ;
+  skos:inScheme     :Ontology ;
+  skos:topConceptOf :Ontology .
+
+:Market
+  a                 owl:Class, skos:Concept ;
+  skos:prefLabel    "Market"@en ;
+  dct:identifier    "urn:uuid:9f125456-0598-4b96-b073-50740e7dc2e4" ;
+  skos:definition   ""@en ;
+  skos:editorialNote
+                    """The class Market identifies whether the instance is a Day Ahead, Hour-Ahead (Intraday) or Real Time market."""@en ;
+  owl:versionInfo   "1.0" ;
+  skos:inScheme     :Ontology ;
+  skos:topConceptOf :Ontology .
+
+:MarketProduct
+  a                  owl:Class, skos:Concept ;
+  skos:prefLabel     "Market Product"@en ;
+  dct:identifier     "urn:uuid:ac61eaae-5eee-57a2-9942-942ff4de376f" ;
+  skos:definition    "In general this means a good, service, or intangible offering that is created, positioned, and sold to satisfy customer needs within a marketplace.Within Alliander this refers to a Demand / Response Product to alter the energy behaviour of a Market Participant. The description of the CIM definition doesn't quite cover it, as named above."@en ;
+  skos:editorialNote """The MarketProduct class indicates the market product such as energy or ancillary service."""@en ;
+  owl:versionInfo    "1.0" ;
+  skos:inScheme      :Ontology ;
+  skos:topConceptOf  :Ontology .
+
+:MarketParticipant
+  a                 owl:Class, skos:Concept ;
+  dct:identifier    "urn:uuid:22d2eda7-02ff-56e1-a452-3c0b0587f06a" ;
+  owl:versionInfo   "1.0" ;
+  skos:definition   "An identification of a party acting in a electricity market business process."@en ;
+  skos:inScheme     :Ontology ;
+  skos:prefLabel    "Market Participant"@en ;
+  skos:topConceptOf :Ontology .
+
+:RegisteredResource
+  a                 owl:Class, skos:Concept ;
+  dct:identifier    "urn:uuid:d89662c8-8bbc-5e62-946c-a8c64a93883b" ;
+  owl:versionInfo   "1.0" ;
+  skos:altLabel     "Controllable Unit"@en ;
+  skos:definition   "A RegisteredResource is a resource or 'controllable unit' that is registered through the market participant registration system and describe the properties of the controllable unit."@en ;
+  skos:example      "Examples include generating unit, load, and non-physical generator or load."@en ;
+  skos:inScheme     :Ontology ;
+  skos:prefLabel    "Registered Resource"@en ;
+  skos:topConceptOf :Ontology .
+
+:RegisteredInterTie
+  a                 owl:Class, skos:Concept ;
+  dct:identifier    "urn:uuid:c090bfcd-9b24-5914-be1b-8b38636317e1" ;
+  owl:versionInfo   "1.0" ;
+  skos:definition   "means an administrative term to register the operating terms and conditions for the point of common coupling, where electricity leaves the infrastructure of the DSO and flows to the Market Participant or vice versa. At this point, the responsibility changes, from the DSO to the Market Participant or the other way around.Registered Inter Ties are registered in the Agreement with the Market Participant defining the terms and conditions that apply those points on the grid. A Registered Inter Tie can have parent Registered Inter Ties that have additional constraints. Capacity communicated based on a Registered Inter Tie must always take the constraints of their parent Registered Inter Ties into account.This is the entity that is enrolled in the DR Programs and can deliver some sort of change to their load profile in response to receiving a DR signal from a VTN."@en ;
+  skos:inScheme     :Ontology ;
+  skos:prefLabel    "Registered Inter Tie"@en ;
+  skos:topConceptOf :Ontology .
+
+:MarketEvaluationPoint
+  a                 owl:Class, skos:Concept ;
+  dct:identifier    "urn:uuid:3bf3d2c5-31f1-4796-b8bc-48133b6a66a8" ;
+  owl:versionInfo   "1.0" ;
+  skos:definition   "The identification of an entity where energy products are measured or computed."@en ;
+  skos:broader      <http://iec.ch/TC57/IEC61968#UsagePoint> ;
+  skos:inScheme     :Ontology ;
+  skos:prefLabel    "Market Evaluation Point"@en ;
+  skos:topConceptOf :Ontology .

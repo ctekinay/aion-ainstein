@@ -1,0 +1,8 @@
+config:
+  type: file
+  location: IEC61970-301.config
+
+source:
+  type: file
+  location: IEC61970-301.ttl
+

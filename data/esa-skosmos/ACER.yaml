@@ -1,0 +1,7 @@
+config:
+  type: file
+  location: ACER.config
+
+source:
+  type: file
+  location: ACER.ttl

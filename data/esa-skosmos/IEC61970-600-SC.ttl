@@ -1,0 +1,663 @@
+@prefix : <http://iec.ch/TC57/ns/CIM/ShortCircuit-EU/> .
+@prefix cims: <http://iec.ch/TC57/1999/rdf-schema-extensions-19990926#> .
+@prefix dcat: <http://www.w3.org/ns/dcat#> .
+@prefix dct: <http://purl.org/dc/terms/> .
+@prefix foaf: <http://xmlns.com/foaf/0.1/> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix skos: <http://www.w3.org/2004/02/skos/core#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+:Ontology a owl:Ontology,
+        skos:ConceptScheme ;
+    owl:versionIRI :3.0 ;
+    dcat:keyword "SC" ;
+    dcat:theme "vocabulary"@en ;
+    dct:conformsTo "file://iec61970cim17v40_iec61968cim13v13a_iec62325cim03v17a.eap",
+        "urn:iso:std:iec:61970-301:ed-7:amd1",
+        "urn:iso:std:iec:61970-501:draft:ed-2",
+        "urn:iso:std:iec:61970-600-2:ed-1" ;
+    dct:creator "ENTSO-E CIM EG"@en ;
+    dct:description "This vocabulary is describing the short circuit profile from IEC 61970-600-2."@en ;
+    dct:identifier "urn:uuid:97938d45-bb5f-4424-b64d-219c1f76ab31" ;
+    dct:issued "2021-01-27T12:17:39+00:00"^^xsd:dateTime ;
+    dct:language "en-GB" ;
+    dct:modified "2020-10-12"^^xsd:date ;
+    dct:publisher "ENTSO-E"@en ;
+    dct:rights "Copyright"@en ;
+    dct:rightsHolder "ENTSO-E"@en ;
+    dct:title "IEC 61970 - Short Circuit (CGMES)"@en ;
+    foaf:homepage "https://www.entsoe.eu/digital/cim/cim-for-grid-models-exchange/" ;
+    owl:incompatibleWith <http://entsoe.eu/2009/profile1> ;
+    owl:priorVersion <http://entsoe.eu/CIM/EquipmentShortCircuit/3/1> ;
+    skos:topConceptOf :IdentifiedObject .
+
+### rdf Properties
+
+cims:belongsToCategory a rdf:Property ;
+    rdfs:label "CIM Profile" .
+
+### rdfs Classes
+
+owl:Class a rdfs:Class ;
+    rdfs:label "Class" .
+
+### Classes
+
+:ACDCTerminal a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "ACDCTerminal"@en ;
+    skos:definition "An electrical connection point (AC or DC) to a piece of conducting equipment. Terminals are connected at physical connection points called connectivity nodes."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_ShortCircuitProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:803e8f60-7ce1-5107-872c-4fdbf4dc8272" ;
+    skos:broader :IdentifiedObject ;
+    skos:inScheme :Ontology ;
+    skos:narrower :Terminal .
+
+:ACLineSegment a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "ACLineSegment"@en ;
+    skos:definition """A wire or combination of wires, with consistent electrical characteristics, building a single electrical system, used to carry alternating current between points in the power system.
+For symmetrical, transposed three phase lines, it is sufficient to use attributes of the line segment, which describe impedances and admittances for the entire length of the segment.  Additionally impedances can be computed by using length and associated per length impedances.
+The BaseVoltage at the two ends of ACLineSegments in a Line shall have the same BaseVoltage.nominalVoltage. However, boundary lines may have slightly different BaseVoltage.nominalVoltages and variation is allowed. Larger voltage difference in general requires use of an equivalent branch."""@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_ShortCircuitProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:9adce4f8-a13d-5cc0-8b86-3b5c858abeb9" ;
+    skos:broader :Conductor ;
+    skos:inScheme :Ontology .
+
+:ActivePower a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "ActivePower"@en ;
+    skos:definition "Product of RMS value of the voltage and the RMS value of the in-phase component of the current."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_ShortCircuitProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:6f4dd22c-ed82-58ef-b033-183046ca91b1" ;
+    skos:inScheme :Ontology ;
+    skos:topConceptOf :Ontology .
+
+:AngleDegrees a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "AngleDegrees"@en ;
+    skos:definition "Measurement of angle in degrees."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_ShortCircuitProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:9c48b1b0-673a-5f67-8902-9ef4cdb6599f" ;
+    skos:inScheme :Ontology ;
+    skos:topConceptOf :Ontology .
+
+:AsynchronousMachine a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "AsynchronousMachine"@en ;
+    skos:definition "A rotating machine whose shaft rotates asynchronously with the electrical field.  Also known as an induction machine with no external connection to the rotor windings, e.g. squirrel-cage induction machine."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_ShortCircuitProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:88611f15-f675-526a-bd40-1710ff53a2e7" ;
+    skos:broader :RotatingMachine ;
+    skos:inScheme :Ontology .
+
+:Boolean a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "Boolean"@en ;
+    skos:definition "A type with the value space \"true\" and \"false\"."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_ShortCircuitProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:fe646c54-d4a6-5857-a412-d6d180aaa935" ;
+    skos:inScheme :Ontology .
+
+:BusbarSection a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "BusbarSection"@en ;
+    skos:definition """A conductor, or group of conductors, with negligible impedance, that serve to connect other conducting equipment within a single substation. 
+Voltage measurements are typically obtained from voltage transformers that are connected to busbar sections. A bus bar section may have many physical terminals but for analysis is modelled with exactly one logical terminal."""@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_ShortCircuitProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:b315ff15-f8ad-5a38-b9f3-7acdd241693d" ;
+    skos:broader :Connector ;
+    skos:inScheme :Ontology .
+
+:Conductance a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "Conductance"@en ;
+    skos:definition "Factor by which voltage must be multiplied to give corresponding power lost from a circuit. Real part of admittance."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_ShortCircuitProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:e1bd1c76-7027-567f-8de8-a0aecab63332" ;
+    skos:inScheme :Ontology ;
+    skos:topConceptOf :Ontology .
+
+:ConductingEquipment a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "ConductingEquipment"@en ;
+    skos:definition "The parts of the AC power system that are designed to carry current or that are conductively connected through terminals."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_ShortCircuitProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:ffdc5ed8-2cb5-5bb6-bcc5-62ab3df04106" ;
+    skos:broader :Equipment ;
+    skos:inScheme :Ontology ;
+    skos:narrower :Conductor,
+        :Connector,
+        :EarthFaultCompensator,
+        :EnergyConnection,
+        :EquivalentEquipment,
+        :PowerTransformer,
+        :SeriesCompensator .
+
+:Conductor a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "Conductor"@en ;
+    skos:definition "Combination of conducting material with consistent electrical characteristics, building a single electrical system, used to carry current between points in the power system.  "@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_ShortCircuitProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:bfe2220c-008c-5a0d-b14c-e0e5b546c99a" ;
+    skos:broader :ConductingEquipment ;
+    skos:inScheme :Ontology ;
+    skos:narrower :ACLineSegment .
+
+:Connector a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "Connector"@en ;
+    skos:definition "A conductor, or group of conductors, with negligible impedance, that serve to connect other conducting equipment within a single substation and are modelled with a single logical terminal."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_ShortCircuitProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:87b1e0d7-0968-510a-bc9d-67ef09035c47" ;
+    skos:broader :ConductingEquipment ;
+    skos:inScheme :Ontology ;
+    skos:narrower :BusbarSection .
+
+:CurrentFlow a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "CurrentFlow"@en ;
+    skos:definition "Electrical current with sign convention: positive flow is out of the conducting equipment into the connectivity node. Can be both AC and DC."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_ShortCircuitProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:df74b3a5-5a7a-595e-b2f0-fcc39c36d218" ;
+    skos:inScheme :Ontology ;
+    skos:topConceptOf :Ontology .
+
+:Date a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "Date"@en ;
+    skos:definition "Date as \"yyyy-mm-dd\", which conforms with ISO 8601. UTC time zone is specified as \"yyyy-mm-ddZ\". A local timezone relative UTC is specified as \"yyyy-mm-dd(+/-)hh:mm\"."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_ShortCircuitProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:6c0aa572-f086-525d-9ce5-9a1365e55793" ;
+    skos:inScheme :Ontology .
+
+:EarthFaultCompensator a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "EarthFaultCompensator"@en ;
+    skos:definition "A conducting equipment used to represent a connection to ground which is typically used to compensate earth faults.   An earth fault compensator device modelled with a single terminal implies a second terminal solidly connected to ground.  If two terminals are modelled, the ground is not assumed and normal connection rules apply."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_ShortCircuitProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:0f2f7fe5-67b3-5ed8-82a8-4889fde6effe" ;
+    skos:broader :ConductingEquipment ;
+    skos:inScheme :Ontology ;
+    skos:narrower :GroundingImpedance,
+        :PetersenCoil .
+
+:EnergyConnection a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "EnergyConnection"@en ;
+    skos:definition "A connection of energy generation or consumption on the power system model."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_ShortCircuitProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:180d34ad-bec8-58ff-885a-3fc0fe7c86ed" ;
+    skos:broader :ConductingEquipment ;
+    skos:inScheme :Ontology ;
+    skos:narrower :EnergySource,
+        :RegulatingCondEq .
+
+:EnergySource a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "EnergySource"@en ;
+    skos:definition "A generic equivalent for an energy supplier on a transmission or distribution voltage level."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_ShortCircuitProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:875c05c7-9ed9-5dd8-a183-ac1242f2c727" ;
+    skos:broader :EnergyConnection ;
+    skos:inScheme :Ontology .
+
+:Equipment a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "Equipment"@en ;
+    skos:definition "The parts of a power system that are physical devices, electronic or mechanical."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_ShortCircuitProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:a32da2fa-f4c5-5beb-89c9-fc33001c118e" ;
+    skos:broader :PowerSystemResource ;
+    skos:inScheme :Ontology ;
+    skos:narrower :ConductingEquipment .
+
+:EquivalentBranch a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "EquivalentBranch"@en ;
+    skos:definition "The class represents equivalent branches. In cases where a transformer phase shift is modelled and the EquivalentBranch is spanning the same nodes, the impedance quantities for the EquivalentBranch shall consider the needed phase shift."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_ShortCircuitProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:6d579061-1263-5b84-95d7-23a5343a7a62" ;
+    skos:broader :EquivalentEquipment ;
+    skos:inScheme :Ontology .
+
+:EquivalentEquipment a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "EquivalentEquipment"@en ;
+    skos:definition "The class represents equivalent objects that are the result of a network reduction. The class is the base for equivalent objects of different types."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_ShortCircuitProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:988f5b4b-a435-5258-8f5a-ef18fe626657" ;
+    skos:broader :ConductingEquipment ;
+    skos:inScheme :Ontology ;
+    skos:narrower :EquivalentBranch,
+        :EquivalentInjection .
+
+:EquivalentInjection a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "EquivalentInjection"@en ;
+    skos:definition "This class represents equivalent injections (generation or load).  Voltage regulation is allowed only at the point of connection."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_ShortCircuitProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:26847fed-4d4b-5315-8518-dcce4892f378" ;
+    skos:broader :EquivalentEquipment ;
+    skos:inScheme :Ontology .
+
+:ExternalNetworkInjection a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "ExternalNetworkInjection"@en ;
+    skos:definition "This class represents the external network and it is used for IEC 60909 calculations."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_ShortCircuitProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:20b9ca07-19cb-5ac6-b420-9d3bf150c107" ;
+    skos:broader :RegulatingCondEq ;
+    skos:inScheme :Ontology .
+
+:Float a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "Float"@en ;
+    skos:definition "A floating point number. The range is unspecified and not limited."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_ShortCircuitProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:0f2a5e84-33a5-599c-9c00-be29e79a09e7" ;
+    skos:inScheme :Ontology .
+
+:GroundingImpedance a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "GroundingImpedance"@en ;
+    skos:definition "A fixed impedance device used for grounding."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_ShortCircuitProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:d28e25fe-a8e9-54a8-952f-111d4c2b1e37" ;
+    skos:broader :EarthFaultCompensator ;
+    skos:inScheme :Ontology .
+
+:IdentifiedObject a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "IdentifiedObject"@en ;
+    skos:definition "This is a root class to provide common identification for all classes needing identification and naming attributes."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_ShortCircuitProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:01f44098-19b1-5092-a62b-47d10b9df5e6" ;
+    skos:inScheme :Ontology ;
+    skos:narrower :ACDCTerminal,
+        :MutualCoupling,
+        :PowerSystemResource,
+        :TransformerEnd ;
+    skos:topConceptOf :Ontology .
+
+:Integer a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "Integer"@en ;
+    skos:definition "An integer number. The range is unspecified and not limited."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_ShortCircuitProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:42d55270-1b60-55ce-93d0-1570dd1845eb" ;
+    skos:inScheme :Ontology .
+
+:Length a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "Length"@en ;
+    skos:definition "Unit of length. It shall be a positive value or zero."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_ShortCircuitProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:0ff44a0b-8518-59ab-a15b-1566b77a1329" ;
+    skos:inScheme :Ontology ;
+    skos:topConceptOf :Ontology .
+
+:LinearShuntCompensator a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "LinearShuntCompensator"@en ;
+    skos:definition "A linear shunt compensator has banks or sections with equal admittance values."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_ShortCircuitProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:1451817c-9369-5d6a-94fa-c732c44865be" ;
+    skos:broader :ShuntCompensator ;
+    skos:inScheme :Ontology .
+
+:MutualCoupling a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "MutualCoupling"@en ;
+    skos:definition "This class represents the zero sequence line mutual coupling."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_ShortCircuitProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:ba45a7d9-a372-5e59-9928-66497012b354" ;
+    skos:broader :IdentifiedObject ;
+    skos:inScheme :Ontology .
+
+:NonlinearShuntCompensatorPoint a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "NonlinearShuntCompensatorPoint"@en ;
+    skos:definition "A non linear shunt compensator bank or section admittance value. The number of NonlinearShuntCompenstorPoint instances associated with a NonlinearShuntCompensator shall be equal to ShuntCompensator.maximumSections. ShuntCompensator.sections shall only be set to one of the NonlinearShuntCompenstorPoint.sectionNumber. There is no interpolation between NonlinearShuntCompenstorPoint-s."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_ShortCircuitProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:17a4b2d3-b1a6-5eb6-bdd8-275743652997" ;
+    skos:inScheme :Ontology ;
+    skos:topConceptOf :Ontology .
+
+:PerCent a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "PerCent"@en ;
+    skos:definition "Percentage on a defined base.   For example, specify as 100 to indicate at the defined base."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_ShortCircuitProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:4170d894-c475-5099-a167-4c6ed04b8447" ;
+    skos:inScheme :Ontology ;
+    skos:topConceptOf :Ontology .
+
+:PetersenCoil a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "PetersenCoil"@en ;
+    skos:definition "A variable impedance device normally used to offset line charging during single line faults in an ungrounded section of network."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_ShortCircuitProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:3655933c-fcd8-5434-9e96-7592142bce60" ;
+    skos:broader :EarthFaultCompensator ;
+    skos:inScheme :Ontology .
+
+:PetersenCoilModeKind a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "PetersenCoilModeKind"@en ;
+    skos:definition "The mode of operation for a Petersen coil."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_ShortCircuitProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:a81bbf20-0750-57d7-b8df-0ce3ede27c9d" ;
+    skos:inScheme :Ontology ;
+    skos:topConceptOf :Ontology .
+
+:PowerSystemResource a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "PowerSystemResource"@en ;
+    skos:definition "A power system resource (PSR) can be an item of equipment such as a switch, an equipment container containing many individual items of equipment such as a substation, or an organisational entity such as sub-control area. Power system resources can have measurements associated."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_ShortCircuitProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:348b736c-a357-5337-9b5a-34a7241ff931" ;
+    skos:broader :IdentifiedObject ;
+    skos:inScheme :Ontology ;
+    skos:narrower :Equipment .
+
+:PowerTransformer a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "PowerTransformer"@en ;
+    skos:definition """An electrical device consisting of  two or more coupled windings, with or without a magnetic core, for introducing mutual coupling between electric circuits. Transformers can be used to control voltage and phase shift (active power flow).
+A power transformer may be composed of separate transformer tanks that need not be identical.
+A power transformer can be modelled with or without tanks and is intended for use in both balanced and unbalanced representations.   A power transformer typically has two terminals, but may have one (grounding), three or more terminals.
+The inherited association ConductingEquipment.BaseVoltage should not be used.  The association from TransformerEnd to BaseVoltage should be used instead."""@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_ShortCircuitProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:14050673-6d8b-5d4d-9092-0dd66811308d" ;
+    skos:broader :ConductingEquipment ;
+    skos:inScheme :Ontology .
+
+:PowerTransformerEnd a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "PowerTransformerEnd"@en ;
+    skos:definition """A PowerTransformerEnd is associated with each Terminal of a PowerTransformer.
+The impedance values r, r0, x, and x0 of a PowerTransformerEnd represents a star equivalent as follows.
+1) for a two Terminal PowerTransformer the high voltage (TransformerEnd.endNumber=1) PowerTransformerEnd has non zero values on r, r0, x, and x0 while the low voltage (TransformerEnd.endNumber=2) PowerTransformerEnd has zero values for r, r0, x, and x0.  Parameters are always provided, even if the PowerTransformerEnds have the same rated voltage.  In this case, the parameters are provided at the PowerTransformerEnd which has TransformerEnd.endNumber equal to 1.
+2) for a three Terminal PowerTransformer the three PowerTransformerEnds represent a star equivalent with each leg in the star represented by r, r0, x, and x0 values.
+3) For a three Terminal transformer each PowerTransformerEnd shall have g, g0, b and b0 values corresponding to the no load losses distributed on the three PowerTransformerEnds. The total no load loss shunt impedances may also be placed at one of the PowerTransformerEnds, preferably the end numbered 1, having the shunt values on end 1.  This is the preferred way.
+4) for a PowerTransformer with more than three Terminals the PowerTransformerEnd impedance values cannot be used. Instead use the TransformerMeshImpedance or split the transformer into multiple PowerTransformers.
+Each PowerTransformerEnd must be contained by a PowerTransformer. Because a PowerTransformerEnd (or any other object) can not be contained by more than one parent, a PowerTransformerEnd can not have an association to an EquipmentContainer (Substation, VoltageLevel, etc)."""@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_ShortCircuitProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:bf2ab2ec-9107-5005-81bf-782af1d37754" ;
+    skos:broader :TransformerEnd ;
+    skos:inScheme :Ontology .
+
+:PU a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "PU"@en ;
+    skos:definition "Per Unit - a positive or negative value referred to a defined base. Values typically range from -10 to +10."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_ShortCircuitProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:3cbfe121-bcfd-5425-baf4-fb2f181a5942" ;
+    skos:inScheme :Ontology ;
+    skos:topConceptOf :Ontology .
+
+:Reactance a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "Reactance"@en ;
+    skos:definition "Reactance (imaginary part of impedance), at rated frequency."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_ShortCircuitProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:e9fbd076-8729-514b-8fe2-197f7577e446" ;
+    skos:inScheme :Ontology ;
+    skos:topConceptOf :Ontology .
+
+:RegulatingCondEq a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "RegulatingCondEq"@en ;
+    skos:definition "A type of conducting equipment that can regulate a quantity (i.e. voltage or flow) at a specific point in the network. "@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_ShortCircuitProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:63930421-3c41-5459-8b40-528c668a49ba" ;
+    skos:broader :EnergyConnection ;
+    skos:inScheme :Ontology ;
+    skos:narrower :ExternalNetworkInjection,
+        :RotatingMachine,
+        :ShuntCompensator .
+
+:Resistance a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "Resistance"@en ;
+    skos:definition "Resistance (real part of impedance)."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_ShortCircuitProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:ed1d9a13-cb71-507f-bc14-f59431dc1cf4" ;
+    skos:inScheme :Ontology ;
+    skos:topConceptOf :Ontology .
+
+:RotatingMachine a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "RotatingMachine"@en ;
+    skos:definition "A rotating machine which may be used as a generator or motor."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_ShortCircuitProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:128fce3d-ed24-5814-ba84-ce484153077a" ;
+    skos:broader :RegulatingCondEq ;
+    skos:inScheme :Ontology ;
+    skos:narrower :AsynchronousMachine,
+        :SynchronousMachine .
+
+:SeriesCompensator a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "SeriesCompensator"@en ;
+    skos:definition "A Series Compensator is a series capacitor or reactor or an AC transmission line without charging susceptance.  It is a two terminal device."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_ShortCircuitProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:50f8e2ba-05e4-57e1-85a1-b353a006a008" ;
+    skos:broader :ConductingEquipment ;
+    skos:inScheme :Ontology .
+
+:ShortCircuitRotorKind a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "ShortCircuitRotorKind"@en ;
+    skos:definition "Type of rotor, used by short circuit applications."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_ShortCircuitProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:44047162-0252-57bd-a80c-f1c2ad56618e" ;
+    skos:inScheme :Ontology ;
+    skos:topConceptOf :Ontology .
+
+:ShuntCompensator a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "ShuntCompensator"@en ;
+    skos:definition "A shunt capacitor or reactor or switchable bank of shunt capacitors or reactors. A section of a shunt compensator is an individual capacitor or reactor. A negative value for bPerSection indicates that the compensator is a reactor. ShuntCompensator is a single terminal device.  Ground is implied."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_ShortCircuitProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:17d52f14-baf1-5bab-a856-57cc7efb186d" ;
+    skos:broader :RegulatingCondEq ;
+    skos:inScheme :Ontology ;
+    skos:narrower :LinearShuntCompensator .
+
+:String a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "String"@en ;
+    skos:definition "A string consisting of a sequence of characters. The character encoding is UTF-8. The string length is unspecified and unlimited."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_ShortCircuitProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:76f1af94-ada9-50cd-9f5b-075388ebb2f7" ;
+    skos:inScheme :Ontology .
+
+:Susceptance a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "Susceptance"@en ;
+    skos:definition "Imaginary part of admittance."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_ShortCircuitProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:5861a44e-738d-52e2-8cf6-7b9c4f5ef12e" ;
+    skos:inScheme :Ontology ;
+    skos:topConceptOf :Ontology .
+
+:SynchronousMachine a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "SynchronousMachine"@en ;
+    skos:definition "An electromechanical device that operates with shaft rotating synchronously with the network. It is a single machine operating either as a generator or synchronous condenser or pump."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_ShortCircuitProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:dafe2bef-cc18-5ca8-908c-83ad4e7162ab" ;
+    skos:broader :RotatingMachine ;
+    skos:inScheme :Ontology .
+
+:Temperature a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "Temperature"@en ;
+    skos:definition "Value of temperature in degrees Celsius."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_ShortCircuitProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:2ed39ad4-0c99-5f85-a9ce-f4d0046947ed" ;
+    skos:inScheme :Ontology ;
+    skos:topConceptOf :Ontology .
+
+:Terminal a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "Terminal"@en ;
+    skos:definition "An AC electrical connection point to a piece of conducting equipment. Terminals are connected at physical connection points called connectivity nodes."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_ShortCircuitProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:82fe0e2d-a363-5639-b8a1-4e6b46fe19f5" ;
+    skos:broader :ACDCTerminal ;
+    skos:inScheme :Ontology .
+
+:TransformerEnd a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "TransformerEnd"@en ;
+    skos:definition "A conducting connection point of a power transformer. It corresponds to a physical transformer winding terminal.  In earlier CIM versions, the TransformerWinding class served a similar purpose, but this class is more flexible because it associates to terminal but is not a specialization of ConductingEquipment."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_ShortCircuitProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:f6362a18-db55-55d8-8349-06ed28daf759" ;
+    skos:broader :IdentifiedObject ;
+    skos:inScheme :Ontology ;
+    skos:narrower :PowerTransformerEnd .
+
+:UnitMultiplier a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "UnitMultiplier"@en ;
+    skos:definition """The unit multipliers defined for the CIM.  When applied to unit symbols, the unit symbol is treated as a derived unit. Regardless of the contents of the unit symbol text, the unit symbol shall be treated as if it were a single-character unit symbol. Unit symbols should not contain multipliers, and it should be left to the multiplier to define the multiple for an entire data type. 
+
+For example, if a unit symbol is "m2Pers" and the multiplier is "k", then the value is k(m**2/s), and the multiplier applies to the entire final value, not to any individual part of the value. This can be conceptualized by substituting a derived unit symbol for the unit type. If one imagines that the symbol "Þ" represents the derived unit "m2Pers", then applying the multiplier "k" can be conceptualized simply as "kÞ".
+
+For example, the SI unit for mass is "kg" and not "g".  If the unit symbol is defined as "kg", then the multiplier is applied to "kg" as a whole and does not replace the "k" in front of the "g". In this case, the multiplier of "m" would be used with the unit symbol of "kg" to represent one gram.  As a text string, this violates the instructions in IEC 80000-1. However, because the unit symbol in CIM is treated as a derived unit instead of as an SI unit, it makes more sense to conceptualize the "kg" as if it were replaced by one of the proposed replacements for the SI mass symbol. If one imagines that the "kg" were replaced by a symbol "Þ", then it is easier to conceptualize the multiplier "m" as creating the proper unit "mÞ", and not the forbidden unit "mkg"."""@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_ShortCircuitProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:c9d89efb-7b2d-5931-b2bb-5f9c97f06201" ;
+    skos:inScheme :Ontology ;
+    skos:topConceptOf :Ontology .
+
+:UnitSymbol a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "UnitSymbol"@en ;
+    skos:definition """The derived units defined for usage in the CIM. In some cases, the derived unit is equal to an SI unit. Whenever possible, the standard derived symbol is used instead of the formula for the derived unit. For example, the unit symbol Farad is defined as "F" instead of "CPerV". In cases where a standard symbol does not exist for a derived unit, the formula for the unit is used as the unit symbol. For example, density does not have a standard symbol and so it is represented as "kgPerm3". With the exception of the "kg", which is an SI unit, the unit symbols do not contain multipliers and therefore represent the base derived unit to which a multiplier can be applied as a whole. 
+Every unit symbol is treated as an unparseable text as if it were a single-letter symbol. The meaning of each unit symbol is defined by the accompanying descriptive text and not by the text contents of the unit symbol.
+To allow the widest possible range of serializations without requiring special character handling, several substitutions are made which deviate from the format described in IEC 80000-1. The division symbol "/" is replaced by the letters "Per". Exponents are written in plain text after the unit as "m3" instead of being formatted as "m" with a superscript of 3  or introducing a symbol as in "m^3". The degree symbol "°" is replaced with the letters "deg". Any clarification of the meaning for a substitution is included in the description for the unit symbol.
+Non-SI units are included in list of unit symbols to allow sources of data to be correctly labelled with their non-SI units (for example, a GPS sensor that is reporting numbers that represent feet instead of meters). This allows software to use the unit symbol information correctly convert and scale the raw data of those sources into SI-based units. 
+The integer values are used for harmonization with IEC 61850."""@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_ShortCircuitProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:d295acd3-ddf6-53c5-ba20-8c5b87db07a1" ;
+    skos:inScheme :Ontology ;
+    skos:topConceptOf :Ontology .
+
+:Voltage a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "Voltage"@en ;
+    skos:definition "Electrical voltage, can be both AC and DC."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_ShortCircuitProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:1c56c56c-986b-5488-b7f8-e9178abc311b" ;
+    skos:inScheme :Ontology ;
+    skos:topConceptOf :Ontology .
+

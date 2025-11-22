@@ -1,0 +1,231 @@
+@prefix : <http://iec.ch/TC57/ns/CIM/Topology-EU/> .
+@prefix cims: <http://iec.ch/TC57/1999/rdf-schema-extensions-19990926#> .
+@prefix dcat: <http://www.w3.org/ns/dcat#> .
+@prefix dct: <http://purl.org/dc/terms/> .
+@prefix foaf: <http://xmlns.com/foaf/0.1/> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix skos: <http://www.w3.org/2004/02/skos/core#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+:Ontology a owl:Ontology,
+        skos:ConceptScheme ;
+    owl:versionIRI :3.0 ;
+    dcat:keyword "TP" ;
+    dcat:theme "vocabulary"@en ;
+    dct:conformsTo "file://iec61970cim17v40_iec61968cim13v13a_iec62325cim03v17a.eap",
+        "urn:iso:std:iec:61970-301:ed-7:amd1",
+        "urn:iso:std:iec:61970-501:draft:ed-2",
+        "urn:iso:std:iec:61970-600-2:ed-1" ;
+    dct:creator "ENTSO-E CIM EG"@en ;
+    dct:description "This vocabulary is describing the topology profile from IEC 61970-600-2."@en ;
+    dct:identifier "urn:uuid:2c5559fa-12b4-445a-b92a-958c90628cee" ;
+    dct:issued "2021-01-27T12:25:49+00:00"^^xsd:dateTime ;
+    dct:language "en-GB" ;
+    dct:modified "2020-10-12"^^xsd:date ;
+    dct:publisher "ENTSO-E"@en ;
+    dct:rights "Copyright"@en ;
+    dct:rightsHolder "ENTSO-E"@en ;
+    dct:title "IEC 61970 - Topology (CGMES)"@en ;
+    foaf:homepage "https://www.entsoe.eu/digital/cim/cim-for-grid-models-exchange/" ;
+    owl:incompatibleWith <http://entsoe.eu/2009/profile1> ;
+    owl:priorVersion <http://entsoe.eu/CIM/Topology/4/1> ;
+    skos:topConceptOf :IdentifiedObject .
+
+### rdf Properties
+
+cims:belongsToCategory a rdf:Property ;
+    rdfs:label "CIM Profile" .
+
+### rdfs Classes
+
+owl:Class a rdfs:Class ;
+    rdfs:label "Class" .
+
+### Classes
+
+:ACDCConverterDCTerminal a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "ACDCConverterDCTerminal"@en ;
+    skos:definition "A DC electrical connection point at the AC/DC converter. The AC/DC converter is electrically connected also to the AC side. The AC connection is inherited from the AC conducting equipment in the same way as any other AC equipment. The AC/DC converter DC terminal is separate from generic DC terminal to restrict the connection with the AC side to AC/DC converter and so that no other DC conducting equipment can be connected to the AC side."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_TopologyProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:0a514e28-b594-5804-b0b6-cc296de5fa12" ;
+    skos:broader :DCBaseTerminal ;
+    skos:inScheme :Ontology .
+
+:ACDCTerminal a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "ACDCTerminal"@en ;
+    skos:definition "An electrical connection point (AC or DC) to a piece of conducting equipment. Terminals are connected at physical connection points called connectivity nodes."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_TopologyProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:23811baa-1cde-57a6-bdbd-57fa1af1ac97" ;
+    skos:broader :IdentifiedObject ;
+    skos:inScheme :Ontology ;
+    skos:narrower :DCBaseTerminal,
+        :Terminal .
+
+:BaseVoltage a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "BaseVoltage"@en ;
+    skos:definition "Defines a system base voltage which is referenced. "@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_TopologyProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:b8d06ab4-8181-5c26-8bf6-6d13de6d0d83" ;
+    skos:inScheme :Ontology ;
+    skos:topConceptOf :Ontology .
+
+:ConnectivityNode a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "ConnectivityNode"@en ;
+    skos:definition "Connectivity nodes are points where terminals of AC conducting equipment are connected together with zero impedance."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_TopologyProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:2c7cd99e-1162-5eaa-8448-af52d1140f75" ;
+    skos:inScheme :Ontology ;
+    skos:topConceptOf :Ontology .
+
+:ConnectivityNodeContainer a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "ConnectivityNodeContainer"@en ;
+    skos:definition "A base class for all objects that may contain connectivity nodes or topological nodes."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_TopologyProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:2615353d-5897-5d77-b324-cc61e06c9fbe" ;
+    skos:inScheme :Ontology ;
+    skos:topConceptOf :Ontology .
+
+:Date a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "Date"@en ;
+    skos:definition "Date as \"yyyy-mm-dd\", which conforms with ISO 8601. UTC time zone is specified as \"yyyy-mm-ddZ\". A local timezone relative UTC is specified as \"yyyy-mm-dd(+/-)hh:mm\"."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_TopologyProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:d32bf8ec-34eb-539e-9bf6-8b5a1d9d6bb6" ;
+    skos:inScheme :Ontology .
+
+:DCBaseTerminal a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "DCBaseTerminal"@en ;
+    skos:definition "An electrical connection point at a piece of DC conducting equipment. DC terminals are connected at one physical DC node that may have multiple DC terminals connected. A DC node is similar to an AC connectivity node. The model requires that DC connections are distinct from AC connections. "@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_TopologyProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:d910271e-de62-5b22-a5fa-d251a2e3aab7" ;
+    skos:broader :ACDCTerminal ;
+    skos:inScheme :Ontology ;
+    skos:narrower :ACDCConverterDCTerminal,
+        :DCTerminal .
+
+:DCEquipmentContainer a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "DCEquipmentContainer"@en ;
+    skos:definition "A modelling construct to provide a root class for containment of DC as well as AC equipment. The class differ from the EquipmentContaner for AC in that it may also contain DCNode-s. Hence it can contain both AC and DC equipment."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_TopologyProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:3d565aff-be04-5629-91b9-50b36415178e" ;
+    skos:inScheme :Ontology ;
+    skos:topConceptOf :Ontology .
+
+:DCNode a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "DCNode"@en ;
+    skos:definition "DC nodes are points where terminals of DC conducting equipment are connected together with zero impedance."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_TopologyProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:42668653-6fc6-5fda-8512-b6c8aa0186e1" ;
+    skos:broader :IdentifiedObject ;
+    skos:inScheme :Ontology .
+
+:DCTerminal a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "DCTerminal"@en ;
+    skos:definition "An electrical connection point to generic DC conducting equipment."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_TopologyProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:720f645e-458a-5f87-aeb0-a62de653a6b7" ;
+    skos:broader :DCBaseTerminal ;
+    skos:inScheme :Ontology .
+
+:DCTopologicalNode a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "DCTopologicalNode"@en ;
+    skos:definition "DC bus."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_TopologyProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:97efed34-5657-5f80-8fee-66ba00096562" ;
+    skos:broader :IdentifiedObject ;
+    skos:inScheme :Ontology .
+
+:IdentifiedObject a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "IdentifiedObject"@en ;
+    skos:definition "This is a root class to provide common identification for all classes needing identification and naming attributes."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_TopologyProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:9d5c0d15-47ea-5a61-8e4e-2fe1338b6b84" ;
+    skos:inScheme :Ontology ;
+    skos:narrower :ACDCTerminal,
+        :DCNode,
+        :DCTopologicalNode,
+        :ReportingGroup,
+        :TopologicalNode ;
+    skos:topConceptOf :Ontology .
+
+:ReportingGroup a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "ReportingGroup"@en ;
+    skos:definition "A reporting group is used for various ad-hoc groupings used for reporting."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_TopologyProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:5ca3693f-4669-5937-a843-10d119de72a3" ;
+    skos:broader :IdentifiedObject ;
+    skos:inScheme :Ontology .
+
+:String a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "String"@en ;
+    skos:definition "A string consisting of a sequence of characters. The character encoding is UTF-8. The string length is unspecified and unlimited."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_TopologyProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:2f81580f-cb67-5832-9845-e98ba6168591" ;
+    skos:inScheme :Ontology .
+
+:Terminal a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "Terminal"@en ;
+    skos:definition "An AC electrical connection point to a piece of conducting equipment. Terminals are connected at physical connection points called connectivity nodes."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_TopologyProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:9147e24a-7ad6-5b82-bf04-5e79712db346" ;
+    skos:broader :ACDCTerminal ;
+    skos:inScheme :Ontology .
+
+:TopologicalNode a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "TopologicalNode"@en ;
+    skos:definition """For a detailed substation model a topological node is a set of connectivity nodes that, in the current network state, are connected together through any type of closed switches, including  jumpers. Topological nodes change as the current network state changes (i.e., switches, breakers, etc. change state).
+For a planning model, switch statuses are not used to form topological nodes. Instead they are manually created or deleted in a model builder tool. Topological nodes maintained this way are also called "busses"."""@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_TopologyProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:98cea8c7-9611-514e-9050-b59593167473" ;
+    skos:broader :IdentifiedObject ;
+    skos:inScheme :Ontology .
+

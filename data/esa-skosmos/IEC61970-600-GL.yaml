@@ -1,0 +1,6 @@
+config:
+  type: file
+  location: IEC61970-600-GL.config
+source:
+  type: file
+  location: IEC61970-600-GL.ttl

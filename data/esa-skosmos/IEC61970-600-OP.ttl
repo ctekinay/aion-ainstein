@@ -1,0 +1,569 @@
+@prefix : <http://iec.ch/TC57/ns/CIM/Operation-EU/> .
+@prefix cims: <http://iec.ch/TC57/1999/rdf-schema-extensions-19990926#> .
+@prefix dcat: <http://www.w3.org/ns/dcat#> .
+@prefix dct: <http://purl.org/dc/terms/> .
+@prefix foaf: <http://xmlns.com/foaf/0.1/> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix skos: <http://www.w3.org/2004/02/skos/core#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+:Ontology a owl:Ontology,
+        skos:ConceptScheme ;
+    owl:versionIRI :3.0 ;
+    dcat:keyword "OP" ;
+    dcat:theme "vocabulary"@en ;
+    dct:conformsTo "file://iec61970cim17v40_iec61968cim13v13a_iec62325cim03v17a.eap",
+        "urn:iso:std:iec:61970-301:ed-7:amd1",
+        "urn:iso:std:iec:61970-501:draft:ed-2",
+        "urn:iso:std:iec:61970-600-2:ed-1" ;
+    dct:creator "ENTSO-E CIM EG"@en ;
+    dct:description "This vocabulary is describing the operation profile from IEC 61970-600-2."@en ;
+    dct:identifier "urn:uuid:b603c770-6469-45da-a569-551394116c97" ;
+    dct:issued "2021-01-27T12:16:55+00:00"^^xsd:dateTime ;
+    dct:language "en-GB" ;
+    dct:modified "2020-10-12"^^xsd:date ;
+    dct:publisher "ENTSO-E"@en ;
+    dct:rights "Copyright"@en ;
+    dct:rightsHolder "ENTSO-E"@en ;
+    dct:title "IEC 61970 - Operation (CGMES)"@en ;
+    foaf:homepage "https://www.entsoe.eu/digital/cim/cim-for-grid-models-exchange/" ;
+    owl:incompatibleWith <http://entsoe.eu/2009/profile1> ;
+    owl:priorVersion <http://entsoe.eu/CIM/EquipmentOperation/3/1> ;
+    skos:topConceptOf :IdentifiedObject .
+
+### rdf Properties
+
+cims:belongsToCategory a rdf:Property ;
+    rdfs:label "CIM Profile" .
+
+### rdfs Classes
+
+owl:Class a rdfs:Class ;
+    rdfs:label "Class" .
+
+### Classes
+
+:Accumulator a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "Accumulator"@en ;
+    skos:definition "Accumulator represents an accumulated (counted) Measurement, e.g. an energy value."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_OperationProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:9ae58c05-4070-5e80-a8e0-b8b9998ecd28" ;
+    skos:broader :Measurement ;
+    skos:inScheme :Ontology .
+
+:AccumulatorLimit a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "AccumulatorLimit"@en ;
+    skos:definition "Limit values for Accumulator measurements."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_OperationProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:6587b142-b47e-5409-9aae-88db5cd46384" ;
+    skos:broader :Limit ;
+    skos:inScheme :Ontology .
+
+:AccumulatorLimitSet a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "AccumulatorLimitSet"@en ;
+    skos:definition "An AccumulatorLimitSet specifies a set of Limits that are associated with an Accumulator measurement."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_OperationProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:ef84cdd6-d4de-5611-a951-9073606b194a" ;
+    skos:broader :LimitSet ;
+    skos:inScheme :Ontology .
+
+:AccumulatorReset a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "AccumulatorReset"@en ;
+    skos:definition "This command resets the counter value to zero."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_OperationProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:f01e981f-fd97-5763-900a-0d922190b828" ;
+    skos:broader :Control ;
+    skos:inScheme :Ontology .
+
+:AccumulatorValue a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "AccumulatorValue"@en ;
+    skos:definition "AccumulatorValue represents an accumulated (counted) MeasurementValue."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_OperationProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:3164af17-79db-5714-ba41-8729b914d962" ;
+    skos:broader :MeasurementValue ;
+    skos:inScheme :Ontology .
+
+:ACDCTerminal a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "ACDCTerminal"@en ;
+    skos:definition "An electrical connection point (AC or DC) to a piece of conducting equipment. Terminals are connected at physical connection points called connectivity nodes."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_OperationProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:d22936ce-855b-56e1-9c84-a30ecf159ceb" ;
+    skos:broader :IdentifiedObject ;
+    skos:inScheme :Ontology ;
+    skos:narrower :Terminal .
+
+:Analog a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "Analog"@en ;
+    skos:definition "Analog represents an analog Measurement."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_OperationProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:dfdfc508-d58c-5709-a887-c7745aa7d004" ;
+    skos:broader :Measurement ;
+    skos:inScheme :Ontology .
+
+:AnalogControl a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "AnalogControl"@en ;
+    skos:definition "An analog control used for supervisory control."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_OperationProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:c1535acb-8da5-5e18-a103-aecf88dccb19" ;
+    skos:broader :Control ;
+    skos:inScheme :Ontology ;
+    skos:narrower :RaiseLowerCommand,
+        :SetPoint .
+
+:AnalogLimit a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "AnalogLimit"@en ;
+    skos:definition "Limit values for Analog measurements."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_OperationProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:a5e41aa0-dca9-5a51-8c13-5deae3574b13" ;
+    skos:broader :Limit ;
+    skos:inScheme :Ontology .
+
+:AnalogLimitSet a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "AnalogLimitSet"@en ;
+    skos:definition "An AnalogLimitSet specifies a set of Limits that are associated with an Analog measurement."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_OperationProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:067a7909-5c17-5468-86ce-3e1959de6381" ;
+    skos:broader :LimitSet ;
+    skos:inScheme :Ontology .
+
+:AnalogValue a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "AnalogValue"@en ;
+    skos:definition "AnalogValue represents an analog MeasurementValue."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_OperationProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:95271f47-60b8-5643-b75a-81bbd2d13c22" ;
+    skos:broader :MeasurementValue ;
+    skos:inScheme :Ontology .
+
+:Boolean a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "Boolean"@en ;
+    skos:definition "A type with the value space \"true\" and \"false\"."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_OperationProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:ea075af0-70a9-5e73-bfc9-18af1aa6c927" ;
+    skos:inScheme :Ontology .
+
+:Command a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "Command"@en ;
+    skos:definition "A Command is a discrete control used for supervisory control."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_OperationProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:0e3e8958-b743-5e4a-aa4a-67f2dd71f193" ;
+    skos:broader :Control ;
+    skos:inScheme :Ontology .
+
+:Control a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "Control"@en ;
+    skos:definition "Control is used for supervisory/device control. It represents control outputs that are used to change the state in a process, e.g. close or open breaker, a set point value or a raise lower command."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_OperationProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:665bae41-8d66-51a7-8b35-6be2bd8fbec7" ;
+    skos:broader :IOPoint ;
+    skos:inScheme :Ontology ;
+    skos:narrower :AccumulatorReset,
+        :AnalogControl,
+        :Command .
+
+:Date a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "Date"@en ;
+    skos:definition "Date as \"yyyy-mm-dd\", which conforms with ISO 8601. UTC time zone is specified as \"yyyy-mm-ddZ\". A local timezone relative UTC is specified as \"yyyy-mm-dd(+/-)hh:mm\"."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_OperationProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:65ba5bcc-fb6d-536a-9c5e-3db60b6c7fbc" ;
+    skos:inScheme :Ontology .
+
+:DateTime a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "DateTime"@en ;
+    skos:definition "Date and time as \"yyyy-mm-ddThh:mm:ss.sss\", which conforms with ISO 8601. UTC time zone is specified as \"yyyy-mm-ddThh:mm:ss.sssZ\". A local timezone relative UTC is specified as \"yyyy-mm-ddThh:mm:ss.sss-hh:mm\". The second component (shown here as \"ss.sss\") could have any number of digits in its fractional part to allow any kind of precision beyond seconds."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_OperationProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:ba7c5744-a37d-5f0a-a715-9dd3dc9eb15a" ;
+    skos:inScheme :Ontology .
+
+:Discrete a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "Discrete"@en ;
+    skos:definition "Discrete represents a discrete Measurement, i.e. a Measurement representing discrete values, e.g. a Breaker position."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_OperationProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:ed9de0f5-3ac0-51ab-8a1c-606b1703be32" ;
+    skos:broader :Measurement ;
+    skos:inScheme :Ontology .
+
+:DiscreteValue a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "DiscreteValue"@en ;
+    skos:definition "DiscreteValue represents a discrete MeasurementValue."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_OperationProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:4147eea3-223c-54e6-b70b-d629948c792c" ;
+    skos:broader :MeasurementValue ;
+    skos:inScheme :Ontology .
+
+:Float a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "Float"@en ;
+    skos:definition "A floating point number. The range is unspecified and not limited."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_OperationProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:a6420883-aaaa-56ea-a6a1-594db3cab296" ;
+    skos:inScheme :Ontology .
+
+:IdentifiedObject a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "IdentifiedObject"@en ;
+    skos:definition "This is a root class to provide common identification for all classes needing identification and naming attributes."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_OperationProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:089f68b6-eee8-5e7b-a0c8-a53775eba149" ;
+    skos:inScheme :Ontology ;
+    skos:narrower :ACDCTerminal,
+        :IOPoint,
+        :Limit,
+        :LimitSet,
+        :Measurement,
+        :MeasurementValueSource,
+        :PowerSystemResource,
+        :ValueAliasSet,
+        :ValueToAlias ;
+    skos:topConceptOf :Ontology .
+
+:Integer a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "Integer"@en ;
+    skos:definition "An integer number. The range is unspecified and not limited."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_OperationProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:9e3e53da-c7ca-5701-aa3f-adac26dbb658" ;
+    skos:inScheme :Ontology .
+
+:IOPoint a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "IOPoint"@en ;
+    skos:definition "The class describe a measurement or control value. The purpose is to enable having attributes and associations common for measurement and control."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_OperationProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:363b6b61-4233-5c56-a742-88177bf7a27f" ;
+    skos:broader :IdentifiedObject ;
+    skos:inScheme :Ontology ;
+    skos:narrower :Control,
+        :MeasurementValue .
+
+:Limit a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "Limit"@en ;
+    skos:definition "Specifies one limit value for a Measurement. A Measurement typically has several limits that are kept together by the LimitSet class. The actual meaning and use of a Limit instance (i.e., if it is an alarm or warning limit or if it is a high or low limit) is not captured in the Limit class. However the name of a Limit instance may indicate both meaning and use."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_OperationProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:1506586a-25d9-5531-9499-d2696feadb66" ;
+    skos:broader :IdentifiedObject ;
+    skos:inScheme :Ontology ;
+    skos:narrower :AccumulatorLimit,
+        :AnalogLimit .
+
+:LimitSet a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "LimitSet"@en ;
+    skos:definition "Specifies a set of Limits that are associated with a Measurement. A Measurement may have several LimitSets corresponding to seasonal or other changing conditions. The condition is captured in the name and description attributes. The same LimitSet may be used for several Measurements. In particular percentage limits are used this way."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_OperationProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:ea077f26-9163-5ba3-82f9-6d1cd7b5b5d0" ;
+    skos:broader :IdentifiedObject ;
+    skos:inScheme :Ontology ;
+    skos:narrower :AccumulatorLimitSet,
+        :AnalogLimitSet .
+
+:Measurement a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "Measurement"@en ;
+    skos:definition """A Measurement represents any measured, calculated or non-measured non-calculated quantity. Any piece of equipment may contain Measurements, e.g. a substation may have temperature measurements and door open indications, a transformer may have oil temperature and tank pressure measurements, a bay may contain a number of power flow measurements and a Breaker may contain a switch status measurement. 
+The PSR - Measurement association is intended to capture this use of Measurement and is included in the naming hierarchy based on EquipmentContainer. The naming hierarchy typically has Measurements as leaves, e.g. Substation-VoltageLevel-Bay-Switch-Measurement.
+Some Measurements represent quantities related to a particular sensor location in the network, e.g. a voltage transformer (VT) or potential transformer (PT) at a busbar or a current transformer (CT) at the bar between a breaker and an isolator. The sensing position is not captured in the PSR - Measurement association. Instead it is captured by the Measurement - Terminal association that is used to define the sensing location in the network topology. The location is defined by the connection of the Terminal to ConductingEquipment. 
+If both a Terminal and PSR are associated, and the PSR is of type ConductingEquipment, the associated Terminal should belong to that ConductingEquipment instance.
+When the sensor location is needed both Measurement-PSR and Measurement-Terminal are used. The Measurement-Terminal association is never used alone."""@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_OperationProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:255b8bf0-8275-5a79-85a8-292063e0d367" ;
+    skos:broader :IdentifiedObject ;
+    skos:inScheme :Ontology ;
+    skos:narrower :Accumulator,
+        :Analog,
+        :Discrete,
+        :StringMeasurement .
+
+:MeasurementValue a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "MeasurementValue"@en ;
+    skos:definition "The current state for a measurement. A state value is an instance of a measurement from a specific source. Measurements can be associated with many state values, each representing a different source for the measurement."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_OperationProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:b5652e01-e267-53a7-ba40-eb3bbab2063f" ;
+    skos:broader :IOPoint ;
+    skos:inScheme :Ontology ;
+    skos:narrower :AccumulatorValue,
+        :AnalogValue,
+        :DiscreteValue,
+        :StringMeasurementValue .
+
+:MeasurementValueQuality a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "MeasurementValueQuality"@en ;
+    skos:definition "Measurement quality flags. Bits 0-10 are defined for substation automation in IEC 61850-7-3. Bits 11-15 are reserved for future expansion by that document. Bits 16-31 are reserved for EMS applications."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_OperationProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:503bd1e1-2ab3-5078-93a9-2a59eb6a5ef4" ;
+    skos:broader :Quality61850 ;
+    skos:inScheme :Ontology .
+
+:MeasurementValueSource a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "MeasurementValueSource"@en ;
+    skos:definition "MeasurementValueSource describes the alternative sources updating a MeasurementValue. User conventions for how to use the MeasurementValueSource attributes are defined in IEC 61970-301."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_OperationProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:7589dd4b-c3dd-52e4-a9a1-7b222eb277ab" ;
+    skos:broader :IdentifiedObject ;
+    skos:inScheme :Ontology .
+
+:PerCent a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "PerCent"@en ;
+    skos:definition "Percentage on a defined base.   For example, specify as 100 to indicate at the defined base."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_OperationProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:08cc0799-f6e7-5762-955f-c486b244ee08" ;
+    skos:inScheme :Ontology ;
+    skos:topConceptOf :Ontology .
+
+:PhaseCode a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "PhaseCode"@en ;
+    skos:definition """An unordered enumeration of phase identifiers.  Allows designation of phases for both transmission and distribution equipment, circuits and loads.   The enumeration, by itself, does not describe how the phases are connected together or connected to ground.  Ground is not explicitly denoted as a phase.
+Residential and small commercial loads are often served from single-phase, or split-phase, secondary circuits. For the example of s12N, phases 1 and 2 refer to hot wires that are 180 degrees out of phase, while N refers to the neutral wire. Through single-phase transformer connections, these secondary circuits may be served from one or two of the primary phases A, B, and C. For three-phase loads, use the A, B, C phase codes instead of s12N.
+The integer values are from IEC 61968-9 to support revenue metering applications."""@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_OperationProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:a19cc514-e414-53da-bad7-94d45c0ad818" ;
+    skos:inScheme :Ontology ;
+    skos:topConceptOf :Ontology .
+
+:PowerSystemResource a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "PowerSystemResource"@en ;
+    skos:definition "A power system resource (PSR) can be an item of equipment such as a switch, an equipment container containing many individual items of equipment such as a substation, or an organisational entity such as sub-control area. Power system resources can have measurements associated."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_OperationProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:db27c075-00b4-5006-8938-a51d3f6a8ab1" ;
+    skos:broader :IdentifiedObject ;
+    skos:inScheme :Ontology .
+
+:Quality61850 a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "Quality61850"@en ;
+    skos:definition "Quality flags in this class are as defined in IEC 61850, except for estimatorReplaced, which has been included in this class for convenience."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_OperationProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:f7e57e73-338e-5960-a2fa-cbab3edc1bc0" ;
+    skos:inScheme :Ontology ;
+    skos:narrower :MeasurementValueQuality ;
+    skos:topConceptOf :Ontology .
+
+:RaiseLowerCommand a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "RaiseLowerCommand"@en ;
+    skos:definition "An analog control that increases or decreases a set point value with pulses. Unless otherwise specified, one pulse moves the set point by one. "@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_OperationProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:70063f12-ecb2-5d24-b827-feb8a598076e" ;
+    skos:broader :AnalogControl ;
+    skos:inScheme :Ontology .
+
+:SetPoint a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "SetPoint"@en ;
+    skos:definition "An analog control that issues a set point value."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_OperationProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:2c702e65-8e1f-5166-925e-dbd8f57f0835" ;
+    skos:broader :AnalogControl ;
+    skos:inScheme :Ontology .
+
+:Source a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "Source"@en ;
+    skos:definition "Source gives information related to the origin of a value."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_OperationProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:5b583f29-928a-59b2-8750-85c5ffc60b1a" ;
+    skos:inScheme :Ontology ;
+    skos:topConceptOf :Ontology .
+
+:String a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "String"@en ;
+    skos:definition "A string consisting of a sequence of characters. The character encoding is UTF-8. The string length is unspecified and unlimited."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_OperationProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:c030ef3c-5214-54a0-9489-c7963394ef98" ;
+    skos:inScheme :Ontology .
+
+:StringMeasurement a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "StringMeasurement"@en ;
+    skos:definition "StringMeasurement represents a measurement with values of type string."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_OperationProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:e3b9ff8c-7f38-5522-9109-3b07b38cf653" ;
+    skos:broader :Measurement ;
+    skos:inScheme :Ontology .
+
+:StringMeasurementValue a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "StringMeasurementValue"@en ;
+    skos:definition "StringMeasurementValue represents a measurement value of type string."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_OperationProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:7a3c190b-5048-5b74-b942-cd9a10c6011a" ;
+    skos:broader :MeasurementValue ;
+    skos:inScheme :Ontology .
+
+:Terminal a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "Terminal"@en ;
+    skos:definition "An AC electrical connection point to a piece of conducting equipment. Terminals are connected at physical connection points called connectivity nodes."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_OperationProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:188cd0ee-6a9b-530e-ad4a-32dbc0cfecd2" ;
+    skos:broader :ACDCTerminal ;
+    skos:inScheme :Ontology .
+
+:UnitMultiplier a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "UnitMultiplier"@en ;
+    skos:definition """The unit multipliers defined for the CIM.  When applied to unit symbols, the unit symbol is treated as a derived unit. Regardless of the contents of the unit symbol text, the unit symbol shall be treated as if it were a single-character unit symbol. Unit symbols should not contain multipliers, and it should be left to the multiplier to define the multiple for an entire data type. 
+
+For example, if a unit symbol is "m2Pers" and the multiplier is "k", then the value is k(m**2/s), and the multiplier applies to the entire final value, not to any individual part of the value. This can be conceptualized by substituting a derived unit symbol for the unit type. If one imagines that the symbol "Þ" represents the derived unit "m2Pers", then applying the multiplier "k" can be conceptualized simply as "kÞ".
+
+For example, the SI unit for mass is "kg" and not "g".  If the unit symbol is defined as "kg", then the multiplier is applied to "kg" as a whole and does not replace the "k" in front of the "g". In this case, the multiplier of "m" would be used with the unit symbol of "kg" to represent one gram.  As a text string, this violates the instructions in IEC 80000-1. However, because the unit symbol in CIM is treated as a derived unit instead of as an SI unit, it makes more sense to conceptualize the "kg" as if it were replaced by one of the proposed replacements for the SI mass symbol. If one imagines that the "kg" were replaced by a symbol "Þ", then it is easier to conceptualize the multiplier "m" as creating the proper unit "mÞ", and not the forbidden unit "mkg"."""@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_OperationProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:2a19bdeb-9fe1-5c0e-9d60-e1ba03b7e592" ;
+    skos:inScheme :Ontology ;
+    skos:topConceptOf :Ontology .
+
+:UnitSymbol a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "UnitSymbol"@en ;
+    skos:definition """The derived units defined for usage in the CIM. In some cases, the derived unit is equal to an SI unit. Whenever possible, the standard derived symbol is used instead of the formula for the derived unit. For example, the unit symbol Farad is defined as "F" instead of "CPerV". In cases where a standard symbol does not exist for a derived unit, the formula for the unit is used as the unit symbol. For example, density does not have a standard symbol and so it is represented as "kgPerm3". With the exception of the "kg", which is an SI unit, the unit symbols do not contain multipliers and therefore represent the base derived unit to which a multiplier can be applied as a whole. 
+Every unit symbol is treated as an unparseable text as if it were a single-letter symbol. The meaning of each unit symbol is defined by the accompanying descriptive text and not by the text contents of the unit symbol.
+To allow the widest possible range of serializations without requiring special character handling, several substitutions are made which deviate from the format described in IEC 80000-1. The division symbol "/" is replaced by the letters "Per". Exponents are written in plain text after the unit as "m3" instead of being formatted as "m" with a superscript of 3  or introducing a symbol as in "m^3". The degree symbol "°" is replaced with the letters "deg". Any clarification of the meaning for a substitution is included in the description for the unit symbol.
+Non-SI units are included in list of unit symbols to allow sources of data to be correctly labelled with their non-SI units (for example, a GPS sensor that is reporting numbers that represent feet instead of meters). This allows software to use the unit symbol information correctly convert and scale the raw data of those sources into SI-based units. 
+The integer values are used for harmonization with IEC 61850."""@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_OperationProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:1c746098-3e2f-5013-b188-42b15b9efd08" ;
+    skos:inScheme :Ontology ;
+    skos:topConceptOf :Ontology .
+
+:Validity a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "Validity"@en ;
+    skos:definition "Validity for MeasurementValue."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_OperationProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:e0286af9-f13c-5f19-a9be-2ec67df2549c" ;
+    skos:inScheme :Ontology ;
+    skos:topConceptOf :Ontology .
+
+:ValueAliasSet a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "ValueAliasSet"@en ;
+    skos:definition "Describes the translation of a set of values into a name and is intendend to facilitate custom translations. Each ValueAliasSet has a name, description etc. A specific Measurement may represent a discrete state like Open, Closed, Intermediate etc. This requires a translation from the MeasurementValue.value number to a string, e.g. 0-&gt;\"Invalid\", 1-&gt;\"Open\", 2-&gt;\"Closed\", 3-&gt;\"Intermediate\". Each ValueToAlias member in ValueAliasSet.Value describe a mapping for one particular value to a name."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_OperationProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:8614aa37-5f15-526c-a29a-bc55e7861af2" ;
+    skos:broader :IdentifiedObject ;
+    skos:inScheme :Ontology .
+
+:ValueToAlias a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "ValueToAlias"@en ;
+    skos:definition "Describes the translation of one particular value into a name, e.g. 1 as \"Open\"."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_OperationProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:c27032ee-2b20-5fa7-a550-adf8cf261b87" ;
+    skos:broader :IdentifiedObject ;
+    skos:inScheme :Ontology .
+

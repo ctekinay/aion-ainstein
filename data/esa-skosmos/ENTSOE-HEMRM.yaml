@@ -1,0 +1,7 @@
+config:
+  type: file
+  location: ENTSOE-HEMRM.config
+
+source:
+  type: file
+  location: ENTSOE-HEMRM.ttl

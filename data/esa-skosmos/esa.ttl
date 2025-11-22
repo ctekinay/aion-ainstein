@@ -1,0 +1,1715 @@
+@prefix :      <http://vocabs.alliander.com/terms/> .
+@prefix skos:  <http://www.w3.org/2004/02/skos/core#> .
+@prefix dc:    <http://purl.org/dc/elements/1.1/> .
+@prefix dct:   <http://purl.org/dc/terms/> .
+@prefix dcat:  <http://www.w3.org/ns/dcat#> .
+@prefix xsd:   <http://www.w3.org/2001/XMLSchema#> .
+@prefix owl:   <http://www.w3.org/2002/07/owl#> .
+@prefix foaf:  <http://xmlns.com/foaf/0.1/> .
+@prefix rdfs:  <http://www.w3.org/2000/01/rdf-schema#> .
+
+@prefix cim:   <http://iec.ch/TC57/ns/CIM/> .
+@prefix eq:    <http://iec.ch/TC57/ns/CIM/CoreEquipment-EU/> .
+@prefix op:    <http://iec.ch/TC57/ns/CIM/Operation-EU/> .
+@prefix tp:    <http://iec.ch/TC57/ns/CIM/Topology-EU/> .
+@prefix ssh:   <http://iec.ch/TC57/ns/CIM/StateVariables-EU/> .
+@prefix dsm:   <http://iec.ch/TC57/2013/IEC62746/> .
+@prefix maw:   <http://iec.ch/TC57/2013/IEC62325/> .
+@prefix amw:   <http://iec.ch/TC57/IEC61968/> .
+@prefix hemrm: <http://vocabs.entsoe.com/terms/> .
+@prefix elit:  <http://data.europa.eu/eli/terms/> .
+@prefix lido:  <http://linkeddata.overheid.nl/terms/> .
+
+:Ontology
+  a               owl:Ontology, skos:ConceptScheme ;
+  skos:prefLabel  "Begrippen"@nl, "Concepts"@en ;
+  dct:description "Terminology that Energy System Architecture (ESA) uses in its publications"@en,
+                  "Begrippen die Energie System Architectuur (ESA) in zijn publicaties hanteert"@nl ;
+  dct:identifier  "urn:uuid:48170043-3c6d-476d-b5d6-452bec944f42" ;
+  dct:publisher   "Alliander"@en ;
+  dct:creator     "Alliander"@en ;
+  dct:created     "2025-04-20"^^xsd:date ;
+  dct:modified    "2025-07-11"^^xsd:date ;
+  dcat:theme      "vocabulary"@en ;
+  rdfs:seeAlso    "https://www.electropedia.org/" ;
+  rdfs:seeAlso    "https://begrippen.netbeheernederland.nl/energiesysteembeheer/nl/index" ;
+  rdfs:seeAlso    <https://netbeheer-nederland.github.io/docs/> ;
+  owl:versionIRI  <http://vocabs.alliander.com/terms/20250605> .
+
+# Definition and abbreviations
+
+### skos:Concepts
+:4000
+  a              skos:Collection ;
+  skos:prefLabel "Operational Limit Collection"@en, "Operationele Limiet Collectie"@nl ;
+  skos:definition
+                 """A collection of terms and definitions in relation to the operating boundaries for secure grid operation."""@en,
+                 """Een verzameling termen en definities met betrekking tot de operationele grenzen voor veilige netwerkexploitatie."""@nl ;
+  skos:inScheme  :Ontology ;
+  skos:member    :71, :78, :79, :80, :115, :114, :113, :77, :132, :133 ;
+  dcat:theme     "vocabulary"@en .
+
+:4001
+  a               skos:Collection ;
+  skos:prefLabel  "Asset Limit Collection"@en, "Fysieke Component Limiet Collectie"@nl ;
+  skos:definition """A collection of terms and definitions in relation to the capacity rating of assets."""@en,
+                  """Een verzameling termen en definities met betrekking tot de capaciteitsclassificatie van componenten."""@nl ;
+  skos:member     :68, :116, :117, :119, :120 ;
+  skos:related    amw:Asset ;
+  skos:inScheme   :Ontology ;
+  dcat:theme      "vocabulary"@en .
+
+:4002
+  a               skos:Collection ;
+  skos:prefLabel  "Equipment Type Collection"@en, "Functionele Component Collectie"@nl ;
+  skos:definition """A collection of terms and definitions related to equipments in the electrical grid."""@en,
+                  """Een verzameling termen en definities met betrekking tot functionele componenten in het elektriciteitsnet."""@nl ;
+  skos:member     :74, :73, :70, :105, :107, :69, :32, :64, :49 ;
+  skos:related    eq:ConductingEquipment ;
+  skos:inScheme   :Ontology ;
+  dcat:theme      "vocabulary"@en .
+
+### rdfs Classes
+foaf:Agent
+  a          rdfs:Class ;
+  rdfs:label "Agent" .
+
+
+:begrippencode-elektriciteit
+  a              foaf:Document ;
+  skos:prefLabel "Concept code electricity"@en, "Begrippencode elektriciteit"@nl ;
+  foaf:page      <https://wetten.overheid.nl/jci1.3:c:BWBR0037938> .
+
+### skos:Concepts
+:1
+  a                 skos:Concept ;
+  skos:prefLabel    "Afroepbaar Vermogen"@nl, "Demandable Capacity"@en ;
+  skos:altLabel     "Demandable Power"@en ;
+  skos:definition   "Het verschil tussen de hoge en lage vermogensgrens."@nl,
+                    "The difference between a high and low power limit."@en ;
+  dc:source         "B4401" ;
+  skos:inScheme     :Ontology ;
+  skos:topConceptOf :Ontology ;
+  dct:identifier    "urn:uuid:26dc929b-57da-4002-81e9-f212f72e4fd1" ;
+  owl:versionInfo   1 .
+
+:2
+  a                 skos:Concept ;
+  skos:prefLabel    "Aanwezige Transportcapaciteit"@nl, "Available Transport Capacity"@en ;
+  skos:definition   "De maximale capaciteit dat een net aan kan, met inachtneming van de van toepassing zijnde netontwerpcriteria en operationele veiligheidsgrenzen."@nl,
+                    "The maximum capacity that a grid can handle, subject to applicable grid design criteria and operational safety limits."@en ;
+  dc:source         "B4401" ;
+  skos:inScheme     :Ontology ;
+  skos:topConceptOf :Ontology ;
+  dct:identifier    "urn:uuid:26dc929b-57da-4002-81e9-f212f72e4fd2" ;
+  owl:versionInfo   1 .
+
+:3
+  a                 skos:Concept ;
+  skos:prefLabel    "Demandable Period"@en, "Afroepbare Periodes"@nl ;
+  skos:definition   "Dit zijn de tussen de klant en de netbeheerder overeengekomen tijdssloten waarin door de netbeheerder een afregelverzoek mag worden geplaatst."@nl,
+                    "These are the time slots agreed upon between the customer and the grid operator in which an adjustment request may be placed by the grid operator."@en ;
+  skos:altLabel     "Availability Windows"@en, "Beschikbaarheidsvenster"@nl ;
+  dc:source         "B4401" ;
+  skos:inScheme     :Ontology ;
+  skos:topConceptOf :Ontology ;
+  dct:identifier    "urn:uuid:26dc929b-57da-4002-81e9-f212f72e4fd3" ;
+  owl:versionInfo   1 .
+
+:4
+  a                 skos:Concept ;
+  skos:prefLabel    "Afroepbaar Vermogen Limiet"@nl, "Demandable Capacity Limit"@en ;
+  skos:altLabel     "Afroeplimiet"@nl ;
+  skos:definition   "Dit is de limiet die de klant krijgt opgelegd tijdens de afroep. Een klant mag niet boven deze limiet uitkomen."@nl ;
+  dc:source         "B4401" ;
+  dct:identifier    "urn:uuid:51cbc2cf-7450-5bc1-b04f-a44780b52c86" ;
+  owl:versionInfo   "1" ;
+  skos:exactMatch   elit:1485-2 ;
+  skos:inScheme     :Ontology ;
+  skos:topConceptOf :Ontology .
+
+:5
+  a                 skos:Concept ;
+  skos:prefLabel    "Unused Capacity"@en, "Capaciteit niet in gebruik"@nl ;
+  skos:definition   "Vaak zal de klant niet zijn volledige GTV gebruiken, en dus een deel van zijn capaciteit niet gebruiken. Dit deel is dan ook niet effectief beschikbaar om afgeroepen te worden en hiermee wordt rekening gehouden in de afroep."@nl ;
+  dc:source         "B4401" ;
+  dct:identifier    "urn:uuid:97be4ed2-2940-53e0-be5d-8d34155cb241" ;
+  owl:versionInfo   "1" ;
+  skos:inScheme     :Ontology ;
+  skos:topConceptOf :Ontology .
+
+:6
+  a                  skos:Concept ;
+  skos:prefLabel     "Day-Ahead Market"@en, "Day-ahead handel"@nl ;
+  skos:altLabel      "DAM"@nl ;
+  skos:definition    "Day-ahead handel verwijst naar de handel in elektriciteit voor de volgende dag, die bijvoorbeeld plaatsvindt op EPEX Spot in Parijs (spotmarkt van EEX, de European Power Exchange), op EXAA in Wenen (Energy Exchange Austria), of in bilaterale OTC-contracten (Over-the-Counter Trading). De EPEX Spotmarkt is onderverdeeld in verschillende marktgebieden: België, Nederland, Frankrijk, Zwitserland, Duitsland en Oostenrijk, Verenigd Koninkrijk, en sinds kort ook de Scandinavische landen. Voor de afzonderlijke marktregio's verschilt de handel verder afhankelijk van de respectieve transmissienetbeheerders. Op de gekoppelde nationale markten, moeten de marktdeelnemers hun biedingen voor de veilingen van de volgende dag elke dag vóór 12.00 uur indienen. De marktresultaten worden elke dag om 12.40 uur gepubliceerd en de marktdeelnemers worden geïnformeerd over het succes van hun biedingen."@nl ;
+  skos:editorialNote """The day ahead market which determines the commitment and schedules of resources."""@en ;
+  dc:source          "B4401" ;
+  dct:identifier     "urn:uuid:46e54699-fcc2-599f-af8c-3de1b0a2322d" ;
+  owl:versionInfo    "1" ;
+  skos:inScheme      :Ontology ;
+  skos:broadMatch    elit:1222-34 ;
+  skos:topConceptOf  :Ontology .
+
+:7
+  a                 skos:Concept ;
+  skos:prefLabel    "Effective demand"@en, "Effectieve afroep"@nl ;
+  skos:definition   """Mocht de klant zijn volledige GTV gebruiken (en dus exact op de hoge vermogensgrens zitten), dan is het afroepbaar vermogen ook de maximale hoeveelheid effectieve afroep/curtailment die uitgevoerd kan worden. Vaak vallen de prognoses echter onder het GTV, en dus zal de uiteindelijke effectieve afroep/curtailment lager uitvallen dan het afroepbaar vermogen."""@nl ;
+  dc:source         "B4401" ;
+  dct:identifier    "urn:uuid:6b7de77b-cf14-597d-aab2-5de09481f222" ;
+  owl:versionInfo   "1" ;
+  skos:inScheme     :Ontology ;
+  skos:topConceptOf :Ontology .
+
+:8
+  a                 skos:Concept ;
+  skos:prefLabel    "Effectively Available Capacity"@en, "Effectief beschikbaar vermogen"@nl ;
+  skos:definition   "Het deel van de capaciteit dat wel wordt gebruikt door de klant en effectief beschikbaar is om afgeroepen te worden. Dit is het vermogen dat ingeperkt moet worden om het congestieprobleem op te lossen."@nl ;
+  dc:source         "B4401" ;
+  dct:identifier    "urn:uuid:0cc84423-45f7-51aa-8599-20c19f832702" ;
+  owl:versionInfo   "1" ;
+  skos:inScheme     :Ontology ;
+  skos:topConceptOf :Ontology .
+
+:9
+  a                 skos:Concept ;
+  skos:prefLabel    "Contracted Transport Capacity"@en, "Gecontracteerd transportvermogen"@nl ;
+  skos:altLabel     "GTV" ;
+  skos:definition   "het afgesproken transportvermogen van een klant waarvoor de netbeheerder ruimte reserveert op het net (wordt soms ook contractwaarde genoemd)."@nl ;
+  skos:altLabel     "GTV" ;
+  dc:source         "B4401" ;
+  dct:identifier    "urn:uuid:0f9d66a8-e6d3-5541-bd39-e8b9e681137a" ;
+  owl:versionInfo   "1" ;
+  skos:inScheme     :Ontology ;
+  skos:topConceptOf :Ontology .
+
+:10
+  a                 skos:Concept ;
+  skos:prefLabel    "Regulated grid load"@en, "Geregelde netbelasting"@nl ;
+  skos:definition   """the power profile that, after applying congestion management, is expected to actually occur on an asset."""@en,
+                    """het vermogensprofiel dat, na toepassing van congestiemanagement, wordt verwacht daadwerkelijk op te treden op een asset."""@nl ;
+  dc:source         "B4401" ;
+  dct:identifier    "urn:uuid:0610628d-f988-5b54-a030-14d879e58cd1" ;
+  owl:versionInfo   "1" ;
+  skos:inScheme     :Ontology ;
+  skos:topConceptOf :Ontology .
+
+:11
+  a                 skos:Concept ;
+  skos:prefLabel    "High Power Limit"@en, "Hoge vermogensgrens"@nl ;
+  skos:altLabel     "Maximale transportcapaciteit"@nl ;
+  skos:definition   "De maximale transportcapaciteit die een klant mag gebruiken op het moment dat er geen beperking is. Buiten de beperkte tijdsvensters om (in geval van CBC-T) en voor alle momenten zonder afroep (in geval van CBC-A) mag de klant dus tot zijn hoge vermogensgrens transport laten plaatsvinden. In de ATO en in dit document wordt dit ook wel GTV genoemd."@nl ;
+  dc:source         "B4401" ;
+  dct:identifier    "urn:uuid:ba3ee5ba-40b7-5092-808e-0d45f338ac9b" ;
+  owl:versionInfo   "1" ;
+  skos:inScheme     :Ontology ;
+  skos:topConceptOf :Ontology .
+
+:12
+  a                 skos:Concept ;
+  skos:prefLabel    "Contingency Element"@en, "Knelpuntelement"@nl ;
+  skos:definition   "An asset or group of assets that are operationally monitored against overload."@en,
+                    "Een asset of groep van assets die operationeel worden bewaakt tegen overbelasting."@nl ;
+  dc:source         "B4401" ;
+  dct:identifier    "urn:uuid:8cedf8d0-4909-5019-88ac-f0d904c0bf04" ;
+  owl:versionInfo   "1" ;
+  skos:inScheme     :Ontology ;
+  skos:topConceptOf :Ontology .
+
+:13
+  a                 skos:Concept ;
+  skos:prefLabel    "Low Power Limit"@en, "lage vermogensgrens"@nl ;
+  skos:altLabel     "Minimum transportcapaciteit"@nl ;
+  skos:definition   "De minimale transportcapaciteit, een capaciteit die de klant te allen tijde mag gebruiken. Dit vermogen is altijd beschikbaar voor de klant, en de afroeplimiet mag nooit lager zijn dan dit getal."@nl ;
+  dc:source         "B4401" ;
+  dct:identifier    "urn:uuid:c902bb45-3798-570b-a1f7-b15be5552373" ;
+  owl:versionInfo   "1" ;
+  skos:inScheme     :Ontology ;
+  skos:topConceptOf :Ontology .
+
+:14
+  a                 skos:Concept ;
+  skos:prefLabel    "Supply by grid operator"@en, "Levering door netbeheerder"@nl ;
+  skos:altLabel     "Levering door net"@nl, "LDN" ;
+  skos:definition   """A net power flow from the distribution grid to the customer(s)."""@en,
+                    "Een netto vermogensstroom van het distributienet naar de klant(en)."@nl ;
+  skos:relatedMatch lido:152 ;
+  dc:source         "B4401" ;
+  dct:identifier    "urn:uuid:9cf19402-9443-5a34-863b-ad5bb819b793" ;
+  owl:versionInfo   "1" ;
+  skos:inScheme     :Ontology ;
+  skos:editorialNote
+                    """The use of the LDN term is allowed when there is a transfer point with a customer; in this case, the passive sign convention applies."""@en,
+                    """Het gebruik van de LDN term is toegestaan wanneer er sprake is van een overdrachtspunt met een klant; hierbij is de passive sign convention van toepassing."""@nl ;
+  rdfs:seeAlso      <https://alliander.atlassian.net/wiki/x/zwGIyQ> ;
+  skos:topConceptOf :Ontology .
+
+:15
+  a                 skos:Concept ;
+  skos:prefLabel    "Retrieved by grid operator"@en, "Opname door netbeheerder"@nl ;
+  skos:altLabel     "Opname door net"@nl, "ODN" ;
+  skos:definition   "Een netto vermogensstroom van de klant(en) naar het distributienet."@nl ;
+  skos:relatedMatch lido:152 ;
+  dc:source         "B4401" ;
+  dct:identifier    "urn:uuid:92f080bc-771f-5268-94dc-0779a1075a55" ;
+  owl:versionInfo   "1" ;
+  skos:inScheme     :Ontology ;
+  skos:editorialNote
+                    "Het gebruik van de ODN term is toegestaan wanneer er sprake is van een overdrachtspunt met een klant; hierbij is de passive sign convention van toepassing."@nl ;
+  rdfs:seeAlso      <https://alliander.atlassian.net/wiki/x/zwGIyQ> ;
+  skos:topConceptOf :Ontology .
+
+:16
+  a                 skos:Concept ;
+  skos:prefLabel    "Affected System Operator"@en, "Betrokken Systeembeheerder"@nl ;
+  skos:definition   "means any DSO or TSO significantly affected by congestion or voltage issues on the grid of another systems operator, or whose grid may provide solutions to these issues or that data on the grid or the grid users are necessary to forecast, detect or solve such issues"@en ;
+  dc:source         "B4401" ;
+  dct:identifier    "urn:uuid:98b1d8a1-3b83-50cc-876f-548d006d46ba" ;
+  owl:versionInfo   "1" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:17
+  a                 skos:Concept ;
+  skos:prefLabel    "Activation"@en, "Activering"@nl ;
+  skos:definition   "The requested change of electricity consumption/production by a demand response resource, initiated by a system operator or market signal, requiring the provider to deliver the contracted load modification (increase, decrease, or shift) within the agreed time and magnitude, subject to verification and settlement."@en,
+                    "De gevraagde wijziging van elektriciteitsverbruik/-productie door een vraagresponsmiddel, geïnitieerd door een systeembeheerder of marktsignaal, waarbij de aanbieder verplicht is de gecontracteerde lastwijziging (verhoging, verlaging of verschuiving) binnen de afgesproken tijd en omvang te leveren, onder voorbehoud van verificatie en afwikkeling."@nl ;
+  dct:identifier    "urn:uuid:65f792b4-57f5-5dba-b6e5-c3eaa93f4f9d" ;
+  skos:related      :18, :35 ;
+  skos:relatedMatch elit:944-20 ;
+  owl:versionInfo   "1" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:18
+  a                 skos:Concept ;
+  skos:prefLabel    "Activation Interval"@en, "Activeringsinterval"@nl ;
+  skos:definition   "An activation interval for operating registered resource refers to the specific period during which this resource is scheduled, commanded, or allowed to be active to provide energy, capacity, or ancillary services to the grid. This interval is typically defined by a start time and an end time, during which this resource must follow operational constraints, such as power output levels, response times, or grid support functions.The activation interval occurs within a availability window. The activation interval in itself is not part of the registered resource, but the properties for activation are."@en,
+                    "Een activeringsinterval voor een geregistreerd middel verwijst naar de specifieke periode waarin dit middel is gepland, aangestuurd of toegestaan om actief te zijn om energie, capaciteit of aanvullende diensten aan het net te leveren. Dit interval wordt doorgaans gedefinieerd door een starttijd en een eindtijd, waarin dit middel zich moet houden aan operationele beperkingen, zoals vermogensniveaus, responstijden of netondersteuningsfuncties. Het activeringsinterval vindt plaats binnen een beschikbaarheidsvenster. Het activeringsinterval op zich maakt geen deel uit van het geregistreerde middel, maar de eigenschappen voor activering wel."@nl ; ;
+  dct:identifier    "urn:uuid:65f792b4-57f5-5dba-b6e5-c3eaa93f4f9e" ;
+  owl:versionInfo   "1" ;
+  skos:inScheme     :Ontology ;
+  skos:topConceptOf :Ontology .
+
+:19
+  a                 skos:Concept ;
+  skos:prefLabel    "Allocation Point"@en, "Allocatiepunt"@nl ;
+  skos:definition   """A virtual point at the transfer point of a connection, where the energy exchange between an installation and the grid is administratively assigned to a market party as if the measurement had taken place at the transfer point of the connection;"""@en,
+                    """Virtueel punt ter plaatse van het overdrachtspunt van een aansluiting, waar de energie-uitwisseling tussen een installatie en het net administratief aan een marktpartij wordt toegewezen alsof de meting op het overdrachtspunt van de aansluiting heeft plaatsgevonden;"""@nl ;
+  skos:narrowMatch  lido:130 ;
+  skos:exactMatch   maw:MarketEvaluationPoint ;
+  skos:narrower     :20, :21 ;
+  skos:relatedMatch hemrm:PartyConnectedToTheGrid, hemrm:BalanceResponsibleParty, hemrm:SystemOperator,
+                    hemrm:MeteredDataResponsible, hemrm:EnergySupplier ;
+  dct:identifier    "urn:uuid:165adbc9-b394-5c53-b414-becae1973fb4" ;
+  owl:versionInfo   "1" ;
+  rdfs:seeAlso      <https://energiedatawijzer.nl/wp-content/uploads/Documenten/Topics_MFF/TS013-Vertaalslag-van-Meetgegevens-naar-Allocatiepunten-en-of-Overdrachtspunten-1.0.pdf> ;
+  skos:inScheme     :Ontology ;
+  skos:topConceptOf :Ontology .
+
+:20
+  a               skos:Concept ;
+  skos:prefLabel  "Primary Allocation Point"@en, "Primair allocatiepunt"@nl ;
+  skos:broader    :19 ;
+  skos:exactMatch lido:130 ;
+  owl:versionInfo "1" ;
+#  skos:topConceptOf :Ontology ;
+  skos:inScheme   :Ontology .
+
+:21
+  a               skos:Concept ;
+  skos:prefLabel  "Secondary Allocation Point"@en, "Secundair allocatiepunt"@nl ;
+  skos:definition ""@nl ;
+  skos:broader    :19 ;
+  skos:exactMatch lido:161 ;
+  owl:versionInfo "1" ;
+#  skos:topConceptOf :Ontology ;
+  skos:inScheme   :Ontology .
+
+:22
+  a                 skos:Concept ;
+  skos:prefLabel    "Common Information Model"@en ;
+  skos:definition   """The Common Information Model (CIM) is a standardized, object-oriented conceptual framework developed by the electric utility industry to enable consistent representation, exchange, and integration of power system information across diverse applications and systems. CIM provides a shared vocabulary and schema for electrical network components, their attributes, and relationships, facilitating interoperability and data exchange in electric power operations, planning, and management."""@en ;
+  foaf:homepage     <https://www.entsoe.eu/digital/common-information-model/> ;
+  owl:versionInfo   "1" ;
+  skos:inScheme     :Ontology ;
+  skos:topConceptOf :Ontology .
+
+
+:23
+  a                 skos:Concept ;
+  skos:prefLabel    "Customer"@en ;
+  skos:definition   """An entity that is directly connected to the grid and receives services from a transmission or distribution system operator."""@en ;
+  skos:relatedMatch maw:MarketParticipant ;
+  skos:exactMatch   elit:944-1, elit:943-34 ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:24
+  a                 skos:Concept ;
+  skos:prefLabel    "Connection point"@en, "Overdrachtspunt"@nl ;
+  skos:altLabel     "Point of connection"@en, "Aansluitpunt"@nl, "OVP", "PoCC", "PCC" ;
+  skos:definition   """The point at which a utility's electrical system connects to a customer’s system.
+- It's the demarcation point between the DSO and the 'party connected to the grid'.
+- It is used in standards such as IEEE 1547, which defines requirements for connecting distributed generation (e.g., solar panels, wind turbines) to the electric grid.
+- At the connection, power quality (PQ) measurements are often taken to assess disturbances like voltage sags, harmonics, or flicker.
+"""@en ;
+  dc:source         "IEC 61000-4-30" ;
+  dct:identifier    "urn:uuid:44c7aa0e-16c3-5442-b3d4-f83396038417" ;
+  owl:versionInfo   "1" ;
+  skos:example      """If a factory connects to the power grid, the point where the factory’s internal electrical distribution system connects to the grid is the connection point."""@en ;
+  skos:exactMatch   elit:631-15, amw:UsagePoint, lido:126 ;
+  skos:relatedMatch hemrm:PartyConnectedToTheGrid ;
+  rdfs:seeAlso      <https://www.phasetophase.nl/boek/boek_1_2.html#_2.5> ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:25
+  a                 skos:Concept ;
+  skos:prefLabel    "Business Domain"@en, "Business Domein"@nl ;
+  skos:definition   """A business domain is essentially the scope of knowledge, activities, and responsibilities that define a distinct area of an organization’s business. It is often used in strategy, enterprise architecture, and software design to set clear boundaries around what belongs to one area versus another."""@en,
+                    """Een business domein is in wezen de reikwijdte van kennis, activiteiten en verantwoordelijkheden die een duidelijk gebied van de bedrijfsvoering van een organisatie definiëren. Het wordt vaak gebruikt in strategie, enterprise architectuur en softwareontwerp om duidelijke grenzen te stellen rond wat tot het ene gebied behoort versus het andere."""@nl ;
+  skos:example      "The Billing domain is responsible for generating, validating, and distributing customer invoices. It excludes payment collection, which is handled by the Payments domain."@en ;
+  dct:identifier    "urn:uuid:48170043-3c6d-476d-b5d6-452bec944f42" ;
+  foaf:homepage     <https://alliander.atlassian.net/wiki/x/IYBK6w> ;
+  skos:narrower     :125, :126, :127, :128 ;
+  skos:topConceptOf :Ontology ;
+  owl:versionInfo   "1" ;
+  skos:inScheme     :Ontology .
+
+:26
+  a                 skos:Concept ;
+  skos:prefLabel    "Connectivity"@en ;
+  skos:definition   """means the whole composition of only functional, non-reducible, electrotechnical components, where these are able to transport or distribute energy and without considering breaker status. It includes the primary function of current- and voltage transformers (auxiliary equipment).i.e. including amongst all switches (load switches, isolators, earthing switches, tapchangers) with their conducting properties in the primary grid.i.e. everything that cannot be related to a (future, current or past) switching action is not connectivity.i.e. from a model perspective the simplest example expressed in IEC CIM would be: Equipment A - Terminal - ConnectivityNode - Terminal - Equipment B.i.e. a substation is then a grouping component."""@en ;
+  skos:narrowMatch  :27 ;
+  dct:identifier    "urn:uuid:91cf0746-fcde-54e1-a9ac-8e1112cd9c61" ;
+  owl:versionInfo   "1" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:27
+  a                 skos:Concept ;
+  skos:prefLabel    "Topology"@en, "Topologie"@nl ;
+  skos:definition   """Topology aims to provide connectivity in a reduced and optimal form for different kinds of studies/downstream processing and provides what's actually connected. The topology is provided in an invariant way, where other variables of the studies do change.means the data concerning the connectivity of the different transmission system or distribution system elements in a substation and includes the electrical configuration and the position of circuit breakers and isolators."""@en,
+                    """Topologie heeft als doel om connectiviteit te bieden in een gereduceerde en optimale vorm voor verschillende soorten studies/afgeleide verwerking en biedt wat daadwerkelijk is verbonden. De topologie wordt op een ongewijzigde manier geleverd, waarbij andere variabelen van de studies wel veranderen."""@nl ;
+  dct:identifier    "urn:uuid:91cf0746-fcde-54e1-a9ac-8e1112cd9c61" ;
+  owl:versionInfo   "1" ;
+  skos:narrower     :122, :123, :124 ;
+  skos:narrowMatch  elit:1485-64 ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:28
+  a               skos:Concept ;
+  skos:prefLabel  "Demand congestion"@en, "Afnamecongestie"@nl ;
+  skos:definition """This refers to an imbalanced grid situation where the demand for electricity exceeds the available transportation capacity."""@en,
+                  """Dit verwijst naar situaties waarin de vraag naar elektriciteit hoger is dan de beschikbare capaciteit om deze te leveren."""@nl ;
+  skos:altLabel   "Consumption congestion"@en ;
+  skos:broader    :86 ;
+  skos:broadMatch elit:943-4 ;
+  skos:related    :29 ;
+  dct:identifier  "urn:uuid:4ee6e311-cdd5-4d9c-b6af-978813cd0e77" ;
+  owl:versionInfo "1" ;
+#  skos:topConceptOf :Ontology ;
+  skos:inScheme   :Ontology .
+
+:29
+  a                 skos:Concept ;
+  skos:prefLabel    "Congestion Service Provider"@en, "Congestie Service Provider"@nl ;
+  skos:altLabel     "CSP" ;
+  skos:definition   """CSP’s act as intermediaries between large business customers and grid operators, helping prevent congestion on the electricity grid by adjusting clients' electricity production or consumption in response to grid needs, with financial compensation. Only CSPs can submit bids on the open energy market through platforms connected to GOPACS. Businesses can either partner with an existing CSP or become one themselves if they have a contracted capacity of 1,000 kW or more."""@en,
+                    """"""@nl ;
+  skos:altLabel     "CSP" ;
+  skos:broadMatch   hemrm:FlexibilityServiceProvider ;
+  skos:exactMatch   lido:33 ;
+  skos:relatedMatch elit:943-4, maw:MarketRole ;
+  owl:versionInfo   "1" ;
+  skos:inScheme     :Ontology ;
+  skos:topConceptOf :Ontology .
+
+:30
+  a                 skos:Concept ;
+  skos:prefLabel    "Real Time Markets"@en, "Real-time markten"@nl ;
+  skos:altLabel     "RTM" ;
+  skos:definition   """Real-time markets are markets where electricity is traded for immediate delivery. These markets allow for rapid adjustments to supply and demand imbalances that may arise due to unexpected changes in generation or consumption. Participants in real-time markets can include generators, consumers, and other market players who can respond quickly to changing conditions."""@en ;
+  skos:editorialNote
+                    """Though not explicitly defined in one sentence, within the EUR‑Lex MiFID/MiFIR legal framework, a real‑time market refers to a trading venue or platform committed to executing trades and publishing post‑trade data within the regulatory maximum latency (5 minutes) as required to maintain continuous, near-instant transparency to the market."""@en ;
+  skos:note         "real time markets which finalize dispatch for system resources"@en ;
+  skos:changeNote   "In Review"@en ;
+  owl:versionInfo   "1" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:31
+  a               skos:Concept ;
+  skos:prefLabel  "Injection congestion"@en, "Invoedingscongestie"@nl ;
+  skos:altLabel   "Generation congestion"@en ;
+  skos:definition """This refers to an imbalanced grid situation where the supply of electricity exceeds the available transportation capacity."""@en,
+                  """Dit verwijst naar situaties waarin de hoeveelheid opgewekte elektriciteit hoger is dan de capaciteit van het netwerk om deze op te nemen."""@nl ;
+  skos:broader    :86 ;
+  dct:identifier  "urn:uuid:2db4a30a-995a-51d0-8093-96581d118803" ;
+  owl:versionInfo "1" ;
+  skos:broadMatch elit:943-4 ;
+  skos:related    :29 ;
+#  skos:topConceptOf :Ontology ;
+  skos:inScheme   :Ontology .
+
+:32
+  a                 skos:Concept ;
+  skos:prefLabel    "Line"@en, "Verbinding"@nl ;
+  skos:definition   """"""@en,
+                    """Een kabel, lijn, een samenstel van één of meer serieel met elkaar verbonden kabel- en/of lijndelen met het doel om elektriciteit te transporteren of te distribueren. Een verbinding wordt gemarkeerd door twee knooppunten."""@nl ;
+  foaf:homepage     <https://alliander.atlassian.net/wiki/x/woErvQ> ;
+  skos:exactMatch   eq:Line ;
+  dct:identifier    "79db1600-7e52-536c-bec4-67f3f4162c8a" ;
+  owl:versionInfo   "1" ;
+  skos:inScheme     :Ontology ;
+  skos:topConceptOf :Ontology .
+
+:33
+  a                 skos:Concept ;
+  skos:prefLabel    "Connection Agreement"@en, "Aansluitovereenkomst"@nl ;
+  skos:definition   """Agreement between a connected party and a grid operator regarding the connection to a grid and the transportation of electricity over that grid;"""@en,
+                    """Overeenkomst tussen een aangeslotene en een netbeheerder betreffende de aansluiting op een net en het transport van elektriciteit over dat net;"""@nl ;
+  dct:identifier    "e7326935-b68b-5926-bd61-b86d3e786949" ;
+  owl:versionInfo   "1" ;
+  skos:exactMatch   lido:3, elit:631-14 ;
+  skos:related      :55 ;
+  skos:narrowMatch  amw:CustomerAgreement ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:34
+  a                 skos:Concept ;
+  skos:prefLabel    "D"@en, "D"@nl ;
+  skos:definition   "The abbreviation D is used to indicate which day congestion falls on. Thus, D-1 means the day before the congestion."@en,
+                    "De afkorting D wordt gebruikt om aan te geven op welke dag de congestie valt. Dus D-1 betekent de dag voor de congestie."@nl ;
+  dct:identifier    "bf83914c-020c-5995-b9a4-4fdb5da9d51d" ;
+  owl:versionInfo   "1" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:35
+  a                 skos:Concept ;
+  skos:prefLabel    "Demand Response"@en, "Vraagrespons"@nl ;
+  skos:altLabel     "Demand-side flexibility"@en ;
+  skos:definition   "Changes in electric usage by demand-side resources from their normal consumption patterns in response to changes in the price of electricity over time, or to incentive payments designed to induce lower electricity use at times of high wholesale market prices or when system reliability is jeopardized.”"@en,
+                    "Wijzigingen in het elektriciteitsverbruik door vraagzijde bronnen ten opzichte van hun normale verbruikspatronen als reactie op veranderingen in de prijs van elektriciteit in de tijd, of op prikkels die zijn ontworpen om een lager elektriciteitsverbruik te stimuleren op momenten van hoge groothandelsmarktprijzen of wanneer de systeembetrouwbaarheid in gevaar is.”"@nl ;
+  dct:identifier    "313dc094-9032-56ef-9839-1bd416279593" ;
+  owl:versionInfo   "1" ;
+  rdfs:seeAlso      <https://sympower.net/articles/what-is-demand-response> ;
+  skos:exactMatch   dsm:DemandResponse ;
+  skos:exactMatch   elit:944-20 ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:36
+  a                 skos:Concept ;
+  skos:prefLabel    "Demand Response Product "@en ;
+  skos:definition   "means products offered by DSOs for shifting (in time) and/or modulating (increase or decrease) electricity consumption and/or production through controlled operation by executing remedial actions.The shifting a shift in time can be stationary in nature or on individual call.Example: The curtailment product CBC-T has a stationary shift in time.refer to technologies and systems used to manage and adjust consumers' electricity demand in response to supply conditions. These products are critical in balancing the grid, enhancing reliability, and integrating renewable energy sources. The kind of remedial actions are derived from the D/R product properties."@en ;
+  skos:related      :35 ;
+  skos:relatedMatch dsm:DemandResponse ;
+  dct:identifier    "045251f6-4a46-5c48-b2c7-4fbc36d1af20" ;
+  owl:versionInfo   "1" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:37
+  a                 skos:Concept ;
+  skos:prefLabel    "Demand Side Response"@en ;
+  skos:definition   "means D/R products operated in line with operating constraints and consumer preferences, in response to signals from, and acting in agreement with, regulated electricity market participants"@en ;
+  skos:relatedMatch elit:944-25 ;
+  skos:relatedMatch dsm:DemandResponse ;
+  dct:identifier    "f4bf53f4-fc6e-59c2-b47f-8652cf37b70d" ;
+  owl:versionInfo   "1" ;
+  skos:inScheme     :Ontology ;
+  skos:topConceptOf :Ontology .
+
+:38
+  a                 skos:Concept ;
+  skos:prefLabel    "Demand Side Response Service System"@en ;
+  skos:definition   "represents an IT-system encapsulation of business functionality to support the services of the D/R products."@en ;
+  dct:identifier    "eb1fa053-a65d-5adb-80dd-63ff0959370a" ;
+  owl:versionInfo   "1" ;
+  skos:inScheme     :Ontology ;
+  skos:topConceptOf :Ontology .
+
+:39
+  a                 skos:Concept ;
+  skos:prefLabel    "Demand Side Response Service Provider"@en ;
+  skos:definition   "means an organization using ESAs to provide demand-side-related energy management services to regulated electricity market participants"@en ;
+  dct:identifier    "6481b129-b44c-5caf-96c4-1707860e9c7a" ;
+  owl:versionInfo   "1" ;
+  skos:inScheme     :Ontology ;
+  skos:topConceptOf :Ontology .
+
+:40
+  a                 skos:Concept ;
+  skos:prefLabel    "Sign Convention"@en, "Stroomrichting Conventie"@nl ;
+  skos:definition   """A sign convention is a choice of the physical significance of signs (plus or minus) for a set of quantities, in a case where the choice of sign is arbitrary. "Arbitrary" here means that the same physical system can be correctly described using different choices for the signs, as long as one set of definitions is used consistently. Disagreement about sign conventions is a frequent source of confusion, frustration, misunderstandings, and even outright errors."""@en ;
+  skos:altLabel     "SC" ;
+  foaf:homepage     <https://alliander.atlassian.net/wiki/x/AQBwyg> ;
+  owl:versionInfo   "1" ;
+  skos:narrower     :41 ;
+  skos:inScheme     :Ontology ;
+  skos:topConceptOf :Ontology .
+
+:41
+  a               skos:Concept ;
+  skos:prefLabel  "Passive Sign Convention"@en ;
+  skos:definition """the reference direction of the current variable (the arrow representing the direction of positive current) points into the positive reference terminal of the voltage variable. This means that if the voltage and current variables have positive values, current flows through the device from the positive to the negative terminal, doing work on the component, as occurs in a passive component. So power flowing into the component from the line is defined as positive; the power variable represents power dissipation in the component. Therefore:
+    - Active components (power sources) will have negative resistance and negative power flow
+    - Passive components (loads) will have positive resistance and positive power flow"""@en ;
+  skos:altLabel   "PSC" ;
+  skos:broader    :40 ;
+  foaf:homepage   <https://alliander.atlassian.net/wiki/x/AQBwyg> ;
+  rdfs:seeAlso    <https://en.wikipedia.org/wiki/Passive_sign_convention> ;
+  owl:versionInfo "1" ;
+#  skos:topConceptOf :Ontology ;
+  skos:inScheme   :Ontology .
+
+:42
+  a                 skos:Concept ;
+  skos:prefLabel    "Energy Smart Appliance (ESA)"@en ;
+  skos:definition   "means an appliance that can operate D/R products; it is communications-enabled and can respond \"automatically\" to operating constraints by shifting or modulating its electricity consumption and/ or production."@en ;
+  dct:identifier    "f88f8299-5f5c-5d43-b762-299e361b8824" ;
+  owl:versionInfo   "1" ;
+  skos:inScheme     :Ontology ;
+  skos:topConceptOf :Ontology .
+
+:43
+  a                 skos:Concept ;
+  skos:prefLabel    "Energy Consumer"@en, "Energie Afnemer"@nl ;
+  skos:definition   """refers to any entity—such as a device, system, or organization—that utilizes electrical energy supplied by a power source or grid. This encompasses a wide range of users, from household appliances and industrial machinery to entire facilities and infrastructures.
+    An energy consumer is used in grid-calculation to assign a load/generation profile on the point-of-common-coupling of a market participant in the role consumer or producer.
+    It has a reference to locate the point of control for executing a remedial action when operating a D/R product."""@en, """verwijst naar elke entiteit, zoals een apparaat, systeem of organisatie, die elektrische energie gebruikt die wordt geleverd door een energiebron of elektriciteitsnet. Dit omvat een breed scala aan gebruikers, van huishoudelijke apparaten en industriële machines tot volledige faciliteiten en infrastructuren.
+    Een energieverbruiker wordt in de netberekening gebruikt om een belastings-/opwekkingsprofiel toe te wijzen aan het koppelpunt van een marktdeelnemer in de rol verbruiker of producent.
+    Het heeft een referentie om het controlepunt te lokaliseren voor het uitvoeren van een herstelactie bij het gebruik van een D/R-product."""@nl ;
+  skos:note         """The EnergyConsumer can optionally be associated with a meter through the usage point and market evaluation point."""@en ;
+  skos:broader      :105 ;
+  skos:related      :75 ;
+  skos:broadMatch   eq:EnergyConsumer ;
+  skos:relatedMatch hemrm:Consumer, hemrm:Producer, amw:UsagePoint ;
+  dct:identifier    "558309d3-42a0-55d7-a8b8-854fe1502586" ;
+  owl:versionInfo   "1" ;
+  skos:inScheme     :Ontology ;
+  skos:topConceptOf :Ontology .
+
+:44
+  a                 skos:Concept ;
+  skos:prefLabel    "Asset Info"@en ;
+  skos:definition   "Among other things, the mechanical and physical characteristics of an conducting equipment (electrotechnical component)."@en ;
+  skos:exactMatch   amw:AssetInfo ;
+  skos:relatedMatch eq:ConductingEquipment ;
+  dct:identifier    "4caf64ef-15e0-5653-b334-e1b99f9f838e" ;
+  foaf:homepage     <https://alliander.atlassian.net/l/cp/Rm90h0nK> ;
+  owl:versionInfo   "1" ;
+  skos:inScheme     :Ontology ;
+  skos:topConceptOf :Ontology .
+
+:45
+  a                 skos:Concept ;
+  skos:prefLabel    "Estimation"@en ;
+  skos:definition   "An estimation (model, intuition) means an approximate calculation when the exact data is unavailable (assumptions)."@en ;
+  dc:source         "Data Science" ;
+  dct:identifier    "379014d4-5b12-57af-a199-e5426f743404" ;
+  owl:versionInfo   "1" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:46
+  a                 skos:Concept ;
+  skos:prefLabel    "Energy Carrier"@en, "Energiedrager"@nl ;
+  skos:definition   "A medium that contains usable energy"@en, "Een medium dat bruikbare energie bevat"@nl ;
+  foaf:homepage     "https://www.cbs.nl/nl-nl/onze-diensten/methoden/begrippen/energiedrager" ;
+  skos:exactMatch   <https://vocabs.cbs.nl/def/begrippen/830> ;
+  skos:inScheme     :Ontology ;
+  skos:topConceptOf :Ontology .
+
+:47
+  a                 skos:Concept ;
+  skos:prefLabel    "Flexible Customer"@en ;
+  skos:definition   "Role: means a customer that contributes to or intends to contribute to the provision of services for systems operators or the provision of wholesale market products via a service provider using CUs under his control"@en ;
+  skos:broadMatch   elit:944-1 ;
+  skos:relatedMatch maw:MarketRole, elit:944-24c, elit:944-8 ;
+  dct:identifier    "108ca909-a54d-55c5-b38b-399569ffab89" ;
+  owl:versionInfo   "1" ;
+  skos:inScheme     :Ontology ;
+  skos:topConceptOf :Ontology .
+
+:48
+  a                 skos:Concept ;
+  skos:prefLabel    "Forecast"@en ;
+  skos:definition   "A forecast (model, data) means an approximate calculation when the data is available.As an example, the expected (future) values for measurements on terminals (points on the grid) are based on a machine learning model and available meter readings."@en ;
+  skos:relatedMatch eq:EnergyArea, elit:1222-4 ;
+  dc:source         "Data Science" ;
+  dct:identifier    "39cc77c3-4fdb-5b10-b066-5226b72e9bbd" ;
+  owl:versionInfo   "1" ;
+  skos:inScheme     :Ontology ;
+  skos:topConceptOf :Ontology .
+
+:49
+  a                      skos:Concept ;
+  skos:prefLabel         "PowerTransformer"@en, "Vermogenstransformator"@nl ;
+  skos:altLabel          "Transformer"@en, "Transformator"@nl ;
+  skos:definition        """A static device with two or more windings which, by electromagnetic induction, converts a system of alternating voltage and current into another system of different voltage and current, usually of the same frequency."""@en,
+                         """Een statisch apparaat met twee of meer wikkelingen die door elektromagnetische inductie een systeem van wisselspanning en -stroom omzet in een ander systeem met een andere spanning en stroom, meestal van dezelfde frequentie."""@nl ;
+  skos:exactMatch        eq:PowerTransformer, eq:PowerTransformerEnd ;
+  skos:broaderTransitive eq:TransformerEnd ;
+  dc:source              "IEC 60050" ;
+  dct:identifier         "urn:uuid:aadaafa2-967f-50dc-b2a4-ee76e794322f" ;
+  foaf:homepage          <https://alliander.atlassian.net/l/cp/DysrmvsV> ;
+  owl:versionInfo        "1" ;
+  skos:inScheme          :Ontology ;
+  skos:topConceptOf      :Ontology .
+
+:50
+  a                 skos:Concept ;
+  skos:prefLabel    "Intermediate System Operator"@en ;
+  skos:definition   "means any DSO or TSO significantly affected by balancing and local services bids from SPU or SPG connected to another system."@en ;
+  dct:identifier    "urn:uuid:ffba03d4-117d-5066-ac4a-709dfe1227b8" ;
+  owl:versionInfo   "1" ;
+  skos:inScheme     :Ontology ;
+  skos:topConceptOf :Ontology .
+
+:51
+  a                 skos:Concept ;
+  skos:prefLabel    "Scenario"@en ;
+  skos:definition   """A scenario defines the operating parameters, when executing a study on a contingency. These operating parameters are:
+- the topological island (result of topology processing) of the power system on a given time (of time-frame).
+- the forecasted state of the power system on a given time-frame"""@en ;
+  skos:relatedMatch elit:1222-4 ;
+  dct:identifier    "urn:uuid:aadaafa2-967f-50dc-b2a4-ee76e794322f" ;
+  owl:versionInfo   "1" ;
+  skos:inScheme     :Ontology ;
+  skos:topConceptOf :Ontology .
+
+:52
+  a                 skos:Concept ;
+  skos:prefLabel    "Trace"@en, "Traject"@nl ;
+  skos:definition   """means an ordered sequence of connectivity nodes and conducting equipment in an electrical network graph. This sequence starts and ends at a connectivity node and alternates between:
+- Connectivity nodes, which represent points of electrical connection.
+- Conducting equipment, which connect two adjacent connectivity nodes and convey power or signals.
+"""@en, """Een geordende reeks van connectiviteitsknooppunten en geleidend materieel in een elektrisch netwerkdiagram. Deze reeks begint en eindigt bij een connectiviteitsknooppunt"""@nl ;
+  dct:identifier    "urn:uuid:42234cf6-99c1-50b2-8bfa-a9ebd113a9f3" ;
+  owl:versionInfo   "1" ;
+  skos:inScheme     :Ontology ;
+  skos:topConceptOf :Ontology .
+
+:53
+  a                 skos:Concept ;
+  skos:prefLabel    "Maintenance"@en, "Onderhoud"@nl ;
+  skos:definition   "The combination of all technical and management actions intended to retain an item in, or restore it to, a state in which it can perform as required"@en,
+                    "De combinatie van alle technische en beheersmaatregelen die bedoeld zijn om een object in een staat te behouden waarin het kan functioneren zoals vereist, of om het in die staat te herstellen."@nl ;
+  dct:identifier    "urn:uuid:927d4d77-9355-5892-a6ab-916c0b818ffb" ;
+  owl:versionInfo   "1" ;
+  skos:inScheme     :Ontology ;
+  skos:topConceptOf :Ontology .
+
+:54
+  a                 skos:Concept ;
+  skos:prefLabel    "Contingency"@en, "Onvoorziene omstandigheden"@nl ;
+  skos:definition   "A Measurement represents any measured, calculated or non-measured non-calculated quantity. Any piece of equipment may contain Measurements, e.g. a substation may have temperature measurements and door open indications, a transformer may have oil temperature and tank pressure measurements, a bay may contain a number of power flow measurements and a Breaker may contain a switch status measurement."@en ;
+  skos:exactMatch   elit:1222-10 ;
+  skos:exactMatch   cim:Contingency ;
+  foaf:homepage     <https://alliander.atlassian.net/l/cp/GDQyJ2PF> ;
+  rdfs:seeAlso      <https://alliander.atlassian.net/l/cp/E4u2ycRZ> ;
+  dct:identifier    "urn:uuid:16b97568-f784-57e7-898d-0d03a6b8e7be" ;
+  owl:versionInfo   "1" ;
+  skos:inScheme     :Ontology ;
+  skos:topConceptOf :Ontology .
+
+:55
+  a                 skos:Concept ;
+  skos:prefLabel    "Connection"@en, "Aansluiting"@nl ;
+  skos:definition   "One or more connections between a grid and an immovable property as referred to in Article 16 in the Grid Code, parts a through d, of the Property Valuation Act, or between a grid and another grid at a different voltage level (border supply)."@en,
+                    """Eén of meer verbindingen tussen een net en een onroerende zaak als bedoeld in artikel 16 in de netcode, onderdelen a tot en met d, van de Wet waardering onroerende zaken, dan wel tussen een net en een ander net op een ander spanningsniveau (grenslevering)."""@nl ;
+  owl:versionInfo   "1" ;
+  skos:relatedMatch elit:631-15, lido:126 ;
+  skos:inScheme     :Ontology ;
+  skos:topConceptOf :Ontology .
+
+:56
+  a               skos:Concept ;
+  skos:prefLabel  "Normal State"@en, "Normale toestand"@nl ;
+  skos:definition """A situation in which the system is within operational security limits in the N-situation and after the occurrence of any contingency from the contingency list, taking into account the effect of the available remedial actions"""@en,
+                  """Situatie waarin het systeem binnen de operationeleveiligheidsgrenzen in de N-situatie functioneert en nadat zich een uitvalsituatie uit de lijst van uitvalsituaties heeft voorgedaan, met inachtneming van het effect van de beschikbare remediërende maatregelen."""@nl ;
+  skos:broader    :59 ;
+  skos:broadMatch elit:1485-5 ;
+  skos:related    elit:1222-7 ;
+  owl:versionInfo "1" ;
+#  skos:topConceptOf :Ontology .
+  skos:inScheme   :Ontology .
+
+:57
+  a               skos:Concept ;
+  skos:prefLabel  "Alert state"@en, "Alarmtoestand"@nl ;
+  skos:definition """The system state in which the system is within operational security limits, but a contingency from the contingency list has been detected and in case of its occurrence the available remedial actions are not sufficient to keep the normal state"""@en,
+                  """Toestand van het systeem wanneer het zich binnen de operationeleveiligheidsgrenzen bevindt, maar een uitvalsituatie uit de lijst van uitvalsituaties is waargenomen waarbij, mocht die zich daadwerkelijk voordoen, de beschikbare remediërende maatregelen niet toereikend zijn om de normale toestand te handhaven;"""@nl ;
+  skos:broader    :59 ;
+  skos:broadMatch elit:1485-17 ;
+  skos:related    elit:1222-7 ;
+  owl:versionInfo "1" ;
+#  skos:topConceptOf :Ontology ;
+  skos:inScheme   :Ontology .
+
+:58
+  a               skos:Concept ;
+  skos:prefLabel  "Emergency state"@en, "Noodtoestand"@nl ;
+  skos:definition """The system state in which one or more operational security limits are violated."""@en,
+                  """Systeemtoestand waarin één of meer operationeleveiligheidsgrenzen worden geschonden."""@nl ;
+  skos:broader    :59 ;
+  skos:broadMatch elit:1485-37 ;
+  skos:related    elit:1222-7 ;
+  owl:versionInfo "1" ;
+#  skos:topConceptOf :Ontology ;
+  skos:inScheme   :Ontology .
+
+:59
+  a                 skos:Concept ;
+  skos:prefLabel    "System State"@en, "Systeemtoestand"@nl ;
+  skos:definition   """The operational state of the distribution system in relation to the operational security limits which can be normal state, alert state, emergency state, blackout state and restoration state;"""@en,
+                    """Operationele toestand van het distributiesysteem ten aanzien van de operationeleveiligheidsgrenzen. Een distributiesysteem kan zich bevinden in de normale toestand, de alarmtoestand, de noodtoestand, de black-outtoestand en de hersteltoestand."""@nl ;
+  skos:narrower     :56, :57, :58 ;
+  skos:relatedMatch elit:1485-36 ;
+  owl:versionInfo   "1" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:60
+  a                 skos:Concept ;
+  skos:prefLabel    "Operational security limits"@en ;
+  skos:definition   "The acceptable operating boundaries for secure grid operation such as thermal limits, voltage limits, short-circuit current limits, frequency and dynamic stability limits."@en ;
+  skos:exactMatch   elit:1222-7 ;
+  skos:related      :59 ;
+  skos:narrower     :71, :115 ;
+  owl:versionInfo   "1" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:61
+  a                 skos:Concept ;
+  dc:source         "Data Science" ;
+  dct:created       "2025-04-23"^^xsd:date ;
+  dct:identifier    "urn:uuid:bb133e6c-4565-51cb-a31f-26e5ab3d4d11" ;
+  owl:versionInfo   "1" ;
+  skos:definition   "A prediction is a statement about a specific future event. Forecasting and estimating are sub-disciplines of prediction"@en ;
+  skos:inScheme     :Ontology ;
+  skos:prefLabel    "Prediction"@en ;
+  skos:topConceptOf :Ontology .
+
+:62
+  a                  skos:Concept ;
+  skos:prefLabel     "Component"@en, "Component"@nl ;
+  skos:definition    """Constituent part of a device which cannot be physically divided into smaller parts without losing its particular function."""@en,
+                     """Een onverdeelbaar onderdeel van een apparaat dat zijn functie verliest als het in kleinere delen wordt gesplitst."""@nl ; ;
+  skos:editorialNote """It is an essential part that cannot be further divided without losing its purpose."""@en,
+                     """Het is een essentieel onderdeel dat niet verder kan worden opgedeeld zonder zijn doel te verliezen."""@nl ;
+  dc:source          "IEC 60050 (IEV 151-11-21)" ;
+  owl:versionInfo    "1" ;
+  skos:topConceptOf  :Ontology ;
+  skos:inScheme      :Ontology .
+
+:63
+  a                 skos:Concept ;
+  skos:prefLabel    "Energy System"@en, "Energie Systeem"@nl ;
+  skos:definition   """A system that includes all components and processes involved in the production, distribution, and consumption of energy, including generation sources, transmission networks, distribution systems, and end-use applications. It encompasses the entire energy value chain, from primary energy sources to final energy services, and includes both physical infrastructure and operational practices."""@en,
+                    """Een systeem dat alle componenten en processen omvat die betrokken zijn bij de productie, distributie en consumptie van energie, inclusief energiebronnen, transmissienetwerken, distributiesystemen en eindgebruikstoepassingen. Het omvat de gehele energiewaardeketen, van primaire energiebronnen tot eindenergievoorzieningen, en omvat zowel fysieke infrastructuur als operationele praktijken."""@nl ;
+  skos:editorialNote
+                    """The IPCC (Intergovernmental Panel on Climate Change) defines an energy system as: 'all components related to the production, conversion, delivery, and use of energy.' This encompasses generation, transport, storage, distribution, and consumption across sectors"""@en ;
+  skos:related      :81 ;
+  skos:changeNote   "In Review"@en ;
+  rdfs:seeAlso      <https://en.wikipedia.org/wiki/Energy_system> ;
+  owl:versionInfo   "1" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:64
+  a                 skos:Concept ;
+  skos:prefLabel    "Primary Substation"@en ;
+  skos:definition   """Three variants are defined, which could be derivable from the collection of equipment. The type and variant can be combined to indicate the concrete implementation of the substation."""@en,
+                    """Drie varianten zijn gedefinieerd, die afgeleid kunnen worden van de verzameling van apparatuur. Het type en de variant kunnen worden gecombineerd om de concrete implementatie van het station aan te geven."""@nl ;
+  skos:narrower     :65, :66, :67 ;
+  skos:relatedMatch eq:Substation, eq:VoltageLevel ;
+  foaf:homepage     <https://alliander.atlassian.net/wiki/x/R4YovQ> ;
+  rdfs:seeAlso      <https://www.phasetophase.nl/boek/boek_1_2.html#_2.4.6> ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:65
+  a              skos:Concept ;
+  skos:prefLabel "Primary Transforming Substation"@en, "Onderstation"@nl ;
+  skos:altLabel  "OS"@nl ;
+  skos:definition
+                 """Transforming - includes power transformer interconnecting two or more networks of different voltages levels"""@en,
+                 """Transformeren - omvat een krachtstroomtransformator die twee of meer netwerken van verschillende spanningsniveaus met elkaar verbindt."""@nl ;
+  skos:broader   :64 ;
+#  skos:topConceptOf :Ontology ;
+  skos:inScheme  :Ontology .
+
+:66
+  a              skos:Concept ;
+  skos:prefLabel "Primary Regulating SubStation"@en, "RegelStation"@nl ;
+  skos:altLabel  "RS" ;
+  skos:definition
+                 """Regulating - includes power transformer with special winding divided into several sections enabling the voltage to be varied at will."""@en,
+                 """Regulerend - omvat een transformator met speciale winding verdeeld in verschillende secties waardoor de spanning naar wens kan worden gevarieerd."""@nl ;
+  skos:broader   :64 ;
+#  skos:topConceptOf :Ontology ;
+  skos:inScheme  :Ontology .
+
+:67
+  a               skos:Concept ;
+  skos:prefLabel  "Primary Switching SubStation"@en, "SchakelStation"@nl ;
+  skos:altLabel   "SS"@nl ;
+  skos:definition """Switching - includes switchgear and usually busbars (Schakel)."""@en,
+                  """Schakelend - omvat schakelinstallaties en meestal rails."""@nl ;
+  skos:broader    :64 ;
+#  skos:topConceptOf :Ontology ;
+  skos:inScheme   :Ontology .
+
+:68
+  a                 skos:Concept ;
+  skos:prefLabel    "Asset Limit"@en, "Component Limiet Fysiek"@nl ;
+  skos:definition   """means is the maximum capacity, rating, or performance value—such as current, power, or load—that an asset can safely handle under specified operating and environmental conditions, as defined by standards or supplier specifications."""@en,
+                    """is de maximale capaciteit, beoordeling of prestatiewaarde, zoals stroom, vermogen of belasting, die een actief veilig kan verwerken onder gespecificeerde bedrijfs- en omgevingsomstandigheden, zoals gedefinieerd door normen of leveranciersspecificaties."""@nl ;
+  skos:changeNote   "In Review"@en ;
+  owl:versionInfo   "1" ;
+  skos:inScheme     :Ontology ;
+  skos:topConceptOf :Ontology .
+
+:69
+  a               skos:Concept ;
+  skos:prefLabel  "Feeder"@en, "Route"@nl ;
+  skos:altLabel   """MV-route"""@nl, """MS-route"""@nl ;
+  skos:definition """An electric line originating at a main substation and supplying one or more secondary substations"""@en,
+                  """Representatie van een (of meerdere) afgaande veld op een station. De route groepering bevat dan alle onderliggende netcomponenten die gevoed worden vanuit dit veld."""@nl ;
+  skos:editorialNote
+                  """the concept of a feeder is not always a direct class but is often modeled as a set of interconnected Equipment objects within a TopologicalIsland or ConnectivityNode. Sometimes, utilities create a specific class or use a Terminal or ConnectivityNode group to represent a feeder for operational or reporting purposes."""@en ;
+  skos:broader    :107 ;
+  skos:broadMatch eq:EquipmentContainer, tp:ConnectivityNodeContainer ;
+  dct:identifier  "urn:uuid:02e7ef9c-3b86-503e-8b1b-b6b1bdd8e8fe" ;
+  owl:versionInfo "1" ;
+  foaf:homepage   <https://alliander.atlassian.net/wiki/x/c4SGvQ> ;
+#  skos:topConceptOf :Ontology ;
+  skos:inScheme   :Ontology .
+
+:70
+  a               skos:Concept ;
+  skos:prefLabel  "BusbarSection"@en, "Rail"@nl ;
+  skos:definition """A busbar section is a part of a busbar system that can be isolated from the rest of the busbar system for maintenance or operational purposes. It is typically used in substations and switchyards to connect multiple circuits or equipment, allowing for flexibility in operation and maintenance."""@en,
+                  """Een railssectie is een deel van een railsysteem dat kan worden geïsoleerd van de rest van het railsysteem voor onderhouds- of operationele doeleinden. Het wordt meestal gebruikt in onderstations en schakelparken om meerdere circuits of apparatuur te verbinden, waardoor flexibiliteit in werking en onderhoud mogelijk is."""@nl ; ;
+  skos:exactMatch eq:BusbarSection ;
+  dct:identifier  "urn:uuid:d6012e43-5e6d-57ad-b7dc-9302e69f8cb5" ;
+  owl:versionInfo "1" ;
+  skos:broader    :105 ;
+  foaf:homepage   <https://alliander.atlassian.net/wiki/x/vwB4vg> ;
+#  skos:topConceptOf :Ontology ;
+  skos:inScheme   :Ontology .
+
+:71
+  a               skos:Concept ;
+  skos:prefLabel  "Equipment Operating Limit"@en, "Functionele Component Limiet"@nl ;
+  skos:definition """A generic limit that applies to a equipment item (e.g., line, breaker, transformer), representing its physical or operational capability such as current rating, voltage withstand, or thermal capacity."""@en,
+                  """Een generieke limiet die van toepassing is op materieel (bijv. lijn, schakelaar, transformator) en die de fysieke of operationele capaciteit ervan vertegenwoordigt, zoals stroomsterkte, spanningsweerstand of thermische capaciteit."""@nl ;
+  skos:broader    :133, :134 ;
+  skos:changeNote "In Review"@en ;
+  owl:versionInfo "1" ;
+#  skos:topConceptOf :Ontology ;
+  skos:inScheme   :Ontology .
+
+
+:72
+  a                 skos:Concept ;
+  skos:prefLabel    "Settlement Condition"@en, "Afreken Voorwaarde"@nl ;
+  skos:definition   "In the context of electricity markets and Demand Response (D/R) products, settlement conditions refer to the rules, processes, and criteria for calculating payments, penalties, and performance evaluations for participants who provide demand-side flexibility.The settlement conditions describe the amount of capacity that needs to be managed (mitigate, curtailled, etc) these conditions are communicated to agents (IT-components), to search for a possible solution based on a particular D/R product."@en,
+                    """In de context van elektriciteitsmarkten en vraagrespons (D/R) producten verwijzen afrekenvoorwaarden naar de regels, processen en criteria voor het berekenen van betalingen, boetes en prestatie-evaluaties voor deelnemers die vraagzijde flexibiliteit bieden. De afrekenvoorwaarden beschrijven de hoeveelheid capaciteit die beheerd moet worden (verminderen, beperken, etc.) deze voorwaarden worden gecommuniceerd naar agenten (IT-componenten), om te zoeken naar een mogelijke oplossing op basis van een bepaald D/R product."""@nl ;
+  dct:identifier    "urn:uuid:1acdd42f-10c7-5a1f-a0c4-49f6541e8999" ;
+  skos:relatedMatch elit:1485-93, elit:944-20 ;
+  skos:broadMatch   elit:2195-29 ;
+  skos:topConceptOf :Ontology ;
+  owl:versionInfo   "1" ;
+  skos:inScheme     :Ontology .
+
+:73
+  a               skos:Concept ;
+  skos:prefLabel  "Bay"@en, "Veld"@nl ;
+  skos:definition "Abstract designation of a coupling point on a rail. Contains the connection and protection, but a field can also be empty (in which case the switch does allow for something to be connected in the future)"@en,
+                  "Abstracte benoeming van een koppelpunt op een rail. Bevat de verbinding en de beveiliging, maar een veld kan ook leeg zijn (dan biedt de schakelinstallatie wel de mogelijkheid om in de toekomst iets te koppelen)"@nl ;
+  skos:editorialNote
+                  """Velden op een rail kunnen verbonden zijn met andere stations (kabelveld), een transformator (trafoveld) of met een andere rail in dezelfde installatie (koppelveld)"""@nl ;
+  skos:altLabel   "ALV", "Afgaand Veld"@nl ;
+  skos:note       "it's not a piece of equipment by itself but a container that groups components which are physically adjacent and functionally related."@en ;
+  skos:broadMatch eq:EquipmentContainer ;
+  skos:broader    :105 ;
+  dct:identifier  "urn:uuid:24441efb-914a-5b51-b0e0-8458c977d02e" ;
+  owl:versionInfo "1" ;
+#  skos:topConceptOf :Ontology ;
+  skos:inScheme   :Ontology .
+
+:74
+  a               skos:Concept ;
+  skos:prefLabel  "ACLineSegment"@en, "Kabel"@nl ;
+  skos:definition "Elektriciteitskabel waarmee elektrische energie kan worden getransporteerd of gedistribueerd. Kabels worden door middel van moffen galvanisch aan elkaar verbonden. Samen met de eindsluitingen vormt de gehele samenstelling van kabels waar door middel van een schakelaar de connectie met de netvoeding verbonden of verbroken kan worden, één Verbinding."@nl ;
+  skos:note       """LV-main cable"""@nl, """LS-hoofdkabel"""@nl ;
+  skos:broader    :105 ;
+  dct:identifier  "urn:uuid:443cb89d-6f1b-5298-ac54-d8cfe7350227" ;
+  rdfs:seeAlso    <https://phasetophase.nl/boek/boek_1_4.html#_4.1> ;
+  owl:versionInfo "1" ;
+#  skos:topConceptOf :Ontology ;
+  skos:inScheme   :Ontology .
+
+:75
+  a                 skos:Concept ;
+  skos:prefLabel    "Market Evaluation Point"@en ;
+  skos:definition   ""@en ;
+  skos:relatedMatch eq:EnergyConsumer, maw:MarketParticipant ;
+  skos:exactMatch   maw:MarketEvaluationPoint ;
+  skos:narrowMatch  lido:130, lido:161 ;
+  dct:identifier    "urn:uuid:801a94c4-14f0-52df-9904-21c119086668" ;
+  owl:versionInfo   "1" ;
+  skos:inScheme     :Ontology ;
+  skos:topConceptOf :Ontology .
+
+:76
+  a                 skos:Concept ;
+  skos:prefLabel    "Market Participant"@en ;
+  skos:definition   "means an actor enabling market participation in capacity management by grid energy balancing and congestion management operating by operating demand and response products."@en ;
+  skos:example      "An example of market participant on the grid and from the DSO perspective would be a customer using the grid to either consume electricity, produce electricity, or both." ;
+  skos:relatedMatch elit:944-25 ;
+  skos:exactMatch   elit:943-25, maw:MarketParticipant ;
+  dct:identifier    "urn:uuid:6818069a-c337-5661-bba4-912595695fd8" ;
+  owl:versionInfo   "1" ;
+  skos:inScheme     :Ontology ;
+  skos:topConceptOf :Ontology .
+
+:77
+  a                 skos:Concept ;
+  skos:prefLabel    "Current Violation"@en ;
+  skos:definition   """A situation where the current exceeds or falls below specified limits in the distribution system"""@en ;
+  skos:relatedMatch elit:631-31 ;
+  dct:identifier    "urn:uuid:3e2f3b1e-1f3e-5c4e-8f3a-5c6e7d8f9a0b" ;
+  owl:versionInfo   "1" ;
+  skos:inScheme     :Ontology ;
+  skos:topConceptOf :Ontology .
+
+:78
+  a                 skos:Concept ;
+  skos:prefLabel    "Voltage Violation"@en ;
+  skos:definition   "A situation where the voltage exceeds or falls below specified limits in the distribution system"@en ;
+  skos:relatedMatch elit:631-3 ;
+  skos:narrowMatch  elit:1485-145 ;
+  dct:identifier    "urn:uuid:4f5e6d7c-8b9a-0b1c-2d3e-4f5a6b7c8d9e" ;
+  owl:versionInfo   "1" ;
+  skos:inScheme     :Ontology ;
+  skos:topConceptOf :Ontology .
+
+:79
+  a                 skos:Concept ;
+  skos:prefLabel    "Active Power Violation"@en ;
+  skos:definition   "A situation where the active power exceeds or falls below specified limits in the distribution system"@en ;
+  skos:relatedMatch elit:631-20 ;
+  dct:identifier    "urn:uuid:5a6b7c8d-9e0f-1a2b-3c4d-5e6f7a8b9c0d" ;
+  owl:versionInfo   "1" ;
+  skos:inScheme     :Ontology ;
+  skos:topConceptOf :Ontology .
+
+:80
+  a                 skos:Concept ;
+  skos:prefLabel    "Reactive Power Violation"@en ;
+  skos:definition   "A situation where the reactive power exceeds or falls below specified limits in the distribution system"@en ;
+  skos:relatedMatch elit:631-28 ;
+  dct:identifier    "urn:uuid:6b7c8d9e-0f1a-2b3c-4d5e-6f7a8b9c0d1e" ;
+  owl:versionInfo   "1" ;
+  skos:inScheme     :Ontology ;
+  skos:topConceptOf :Ontology .
+
+:81
+  a                  skos:Concept ;
+  skos:prefLabel     "Energy System Integration"@en, "Energie Systeem Integratie"@nl ;
+  skos:definition    "Energy system integration means creating stronger links between different types of energy carriers (such as electricity, liquid, gas and solid fuels, heat and cold), energy infrastructure and consumption sectors. This integration supports the optimisation of the energy system to deliver decarbonised, reliable and resource-efficient energy services, at the least possible cost. "@en ;
+  skos:editorialNote """EU policy documents such as the EU Strategy for Energy System Integration (2020) explain 'energy system integration' as: 'the coordinated planning and operation of the energy system as a whole, across multiple energy carriers and connected infrastructure, and all final consumers.'
+The aim: optimise energy services by linking electricity, gas, heat, cooling, and fuels more closely, improving efficiency and facilitating decarbonization."""@en ;
+  skos:related       :63 ;
+  foaf:homepage      <https://energy.ec.europa.eu/topics/eus-energy-system/energy-system-integration_en> ;
+  skos:changeNote    "In Review"@en ;
+  dct:identifier     "urn:uuid:8d9e0f1a-2b3c-4d5e-6f7a-8b9c0d1e2f3a" ;
+  owl:versionInfo    "1" ;
+  skos:topConceptOf  :Ontology ;
+  skos:inScheme      :Ontology .
+
+:82
+  a               skos:Concept ;
+  skos:prefLabel  "Product"@en, "Product"@nl ;
+  skos:definition "Any interoperable good or service, including interconnected or related offering."@en ;
+  dc:source       "IEC 60050 (IEV 902-02-03, 904-01-07)" ;
+  skos:narrower   :83, :36 ;
+  skos:changeNote "In Review"@en ;
+  owl:versionInfo "1" ;
+  dct:identifier  "urn:uuid:7c8d9e0f-1a2b-3c4d-5e6f-7a8b9c0d1e2f" ;
+#  skos:topConceptOf :Ontology ;
+  skos:inScheme   :Ontology .
+
+:83
+  a                 skos:Concept ;
+  skos:prefLabel    "Market Product"@en, "Markt Product"@nl ;
+  skos:definition   "A product (good/service) actively operated in a specific market (e.g. electricity market)"@en ;
+  skos:editorialNote
+                    """For example, market products could include energy contracts, capacity or ancillary services exchanged using IEC 62325 standards"""@en ;
+  skos:broader      :82 ;
+  skos:exactMatch   maw:MarketProduct ;
+  skos:related      :36 ;
+  skos:relatedMatch elit:944-20, elit:1485-93 ;
+  skos:changeNote   "In Review"@en ;
+  owl:versionInfo   "1" ;
+  dct:identifier    "urn:uuid:9e0f1a2b-3c4d-5e6f-7a8b-9c0d1e2f3a4b" ;
+#  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:84
+  a                 skos:Concept ;
+  skos:prefLabel    "Voltage Agnostic"@en, "Spanningsonafhankelijk"@nl ;
+  skos:definition   "This means the ability of a device, system, or function to operate independently of the specific voltage level applied."@en ;
+  skos:editorialNote
+                    """Voltage agnostic refers to an IT system that operates independently of the voltage level. It can function effectively across a range of voltages without requiring specific adaptations or configurations for each voltage level."""@en ;
+  skos:changeNote   "In Review"@en ;
+  dct:identifier    "urn:uuid:0f1a2b3c-4d5e-6f7a-8b9c-0d1e2f3a4b5c" ;
+  owl:versionInfo   "1" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:85
+  a                 skos:Concept ;
+  skos:prefLabel    "Aangeslotene"@nl, "Connected Customer"@en ;
+  skos:definition   """A natural person or legal entity that is connected to the electricity grid. A connected customer can be a consumer, producer, or prosumer of electricity."""@en,
+                    """Een natuurlijk persoon of rechtspersoon die is aangesloten op het elektriciteitsnet. Een aangesloten klant kan een verbruiker, producent of prosument van elektriciteit zijn."""@nl ;
+  skos:exactMatch   lido:1 ;
+  skos:relatedMatch hemrm:PartyConnectedToTheGrid, hemrm:Producer, hemrm:Consumer, hemrm:FlexibilityServiceProvider ;
+  owl:versionInfo   "1" ;
+  skos:inScheme     :Ontology ;
+  skos:topConceptOf :Ontology .
+
+:86
+  a                 skos:Concept ;
+  skos:prefLabel    "Congestion"@en, "Congestie"@nl ;
+  skos:definition   """In the context of an electricity network, congestion means that there is too much demand or too much supply of electricity at a certain point in the network, causing the transport capacity of the network (cables, transformers, or connections) to be temporarily or structurally insufficient to handle all desired energy flows."""@en,
+                    """In de context van een elektriciteitsnetwerk betekent congestie dat er teveel vraag of teveel aanbod van elektriciteit is op een bepaald punt in het net, waardoor de transportcapaciteit van het netwerk (kabels, transformatoren of verbindingen) tijdelijk of structureel onvoldoende is om alle gewenste energiestromen te verwerken."""@nl ;
+  skos:exactMatch   elit:943-4 ;
+  skos:relatedMatch lido:33 ;
+  skos:narrower     :31, :28 ;
+  skos:related      :29 ;
+  owl:versionInfo   "1" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:87
+  a                 foaf:Agent, skos:Concept ;
+  skos:prefLabel    "Charge Point Operator"@en, "Laadpuntbeheerder"@nl ;
+  skos:altLabel     "CPO" ;
+  skos:definition   "means a Charge Point Operator represents a Market Participant with the Market Role responsible for the maintenance and commercial exploitation of and communication with the charge station."@en ;
+  dct:identifier    "urn:uuid:326993f1-1b8d-51e0-859f-2352fd9dfbfd" ;
+  owl:versionInfo   "1" ;
+  skos:inScheme     :Ontology ;
+  skos:topConceptOf :Ontology .
+
+:88
+  a                 skos:Concept ;
+  skos:prefLabel    "Grid Aware Charging"@en, "Net bewust Laden"@nl ;
+  skos:altLabel     "NBL" ;
+  skos:definition   "means Grid Aware Charging, also described as Grid Friendly Charging. Net bewust Laden is a term that describes the methodology of reducing peak loads on the (distribution) grid caused by electric vehicles charging at charge stations."@en ;
+  dct:identifier    "urn:uuid:fb57faf3-23c0-506e-ab9d-9f3fd0edac25" ;
+  owl:versionInfo   "1" ;
+  skos:inScheme     :Ontology ;
+  skos:topConceptOf :Ontology .
+
+:89
+  a                 skos:Concept ;
+  skos:prefLabel    "Ramp Up Period"@en, "Oplopende Periode"@nl ;
+  skos:definition   """Period at the beginning of the active interval expressed as a Duration, during which a registered resource moves from its former state to its requested state to comply with new operational condition.If there is no ramp up period, then all other rules are processed as if there were a ramp up period of zero length."""@en,
+                    """Periode aan het begin van het actieve interval, uitgedrukt als een duur, waarin een geregistreerde bron van zijn vorige staat naar zijn gevraagde staat beweegt om te voldoen aan nieuwe operationele voorwaarden. Als er geen oplopende periode is, worden alle andere regels verwerkt alsof er een oplopende periode van nul lengte was."""@nl ;
+  dct:identifier    "urn:uuid:52957a81-7d0e-505f-a685-0c60daa38fb8" ;
+  owl:versionInfo   "1" ;
+  skos:inScheme     :Ontology ;
+  skos:topConceptOf :Ontology .
+
+:90
+  a                 skos:Concept ;
+  skos:prefLabel    "Recovery Period"@en ;
+  skos:definition   """Period at the end of the Active availability window expressed as a Duration during which the effect of the response may be reversed while the system returns to its base operational condition.If negative, then the recovery period occurs within the bounds of the activation window, i.e. it ends at the same moment as does the activation window."""@en ;
+  dct:identifier    "urn:uuid:6a6b3bae-6ea8-5c86-80a8-2ecc65066691" ;
+  owl:versionInfo   "1" ;
+  skos:inScheme     :Ontology ;
+  skos:topConceptOf :Ontology .
+
+:91
+  a                 skos:Concept ;
+  skos:prefLabel    "Elementary Equipment"@en, "Elementaire Apparatuur"@nl ;
+  skos:definition   """An elementary equipment refers to a basic, indivisible component that performs a specific electrical or functional role and cannot be decomposed further within the modeling or operational framework"""@en,
+                    """Een elementaire apparatuur verwijst naar een basis, ondeelbaar component dat een specifieke elektrische of functionele rol vervult en niet verder kan worden ontleed binnen het model- of operationele kader"""@nl ; ;
+  owl:versionInfo   "1" ;
+  skos:broadMatch   eq:ConductingEquipment, eq:Equipment ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:92
+  a                 skos:Concept ;
+  skos:prefLabel    "Infeed"@en, "Terug Levering"@nl ;
+  skos:altLabel     "Export Energy"@en ;
+  skos:definition   "Infeed is the delivery of electricity to the grid by a producer or a consumer who generates electricity themselves."@en,
+                    "Teruglevering is het terugleveren van elektriciteit aan het net door een producent of een consument die zelf elektriciteit opwekt."@nl ;
+  foaf:homepage     <https://alliander.atlassian.net/wiki/x/BwKnxQ> ;
+  owl:versionInfo   "1" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:93
+  a                 skos:Concept ;
+  skos:prefLabel    "Schedule"@en, "Program"@nl ;
+  skos:definition   """means a timestamped representation of expected behaviour on related Registered Resource / Registered Inter Ties.
+  Schedules are requested by a Market Participant and are provided by the DSO. A schedule describes the capacity in (active and reactive power, current and, voltage) that is assigned to the Market Participant."""@en ;
+  dct:identifier    "urn:uuid:dd1d8e96-2bca-59de-bfb5-5875e5225458" ;
+  skos:relatedMatch elit:1485-44, elit:943-25 ;
+  skos:relatedMatch maw:RegisteredResource, maw:RegisteredInterTie ;
+  owl:versionInfo   "1" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:94
+  a                 skos:Concept ;
+  skos:prefLabel    "Programmable Time Unit"@en, "Programmeerbare Tijdseenheid"@nl ;
+  skos:altLabel     "PTU" ;
+  skos:definition   "represents a single timestamped entry within a schedule.Trading intervals in electricity markets (Program Time Unit or Imbalance Settlement Period). Effectively another term for a quarter-hour value."@en,
+                    "Een enkele tijdstempel binnen een schema. Handelsintervallen in elektriciteitsmarkten (Program Time Unit of Imbalance Settlement Period). Effectief een andere term voor een kwartierwaarde."@nl ;
+  dct:identifier    "urn:uuid:6b162f61-250f-584c-ba0e-81bda695e9cd" ;
+  skos:exactMatch   elit:2195-30 ;
+  owl:versionInfo   "1" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:95
+  a                 skos:Concept ;
+  skos:prefLabel    "Charging Station"@en ;
+  skos:definition   "It means the physical system where EVs can be charged, and is behind the point of common coupling."@en ;
+  dct:created       "2025-04-23"^^xsd:date ;
+  dct:identifier    "urn:uuid:9cf29ba3-b6cf-52fc-8e9a-6d95f8aed96f" ;
+  owl:versionInfo   "1" ;
+  skos:inScheme     :Ontology ;
+  skos:topConceptOf :Ontology .
+
+:96
+  a                 skos:Concept ;
+  skos:prefLabel    "Market Schedule"@en, "Marktschema"@nl ;
+  skos:definition   """means a planned timetable or schedule of energy transactions or trades within an electricity market. It represents how energy delivery or consumption is arranged over specific time intervals."""@en,
+                    """Een gepland tijdschema of schema van energietransacties of -handel binnen een elektriciteitsmarkt. Het geeft weer hoe energielevering of -verbruik is geregeld over specifieke tijdsintervallen."""@nl ;
+  skos:example      """A MarketSchedule might specify that a power producer will deliver 100 MW from 1 PM to 2 PM tomorrow."""@en ;
+  skos:relatedMatch elit:943-25 ;
+  skos:broadMatch   elit:1485-44 ;
+  dc:source         "IEC 61968-1" ;
+  dct:identifier    "urn:uuid:4f23391b-b464-5aa0-bde6-92983586dcd1" ;
+  owl:versionInfo   "1" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:97
+  a                 skos:Concept ;
+  skos:prefLabel    "Operational Constraints"@en, "Operationele Beperkingen"@nl ;
+  skos:definition   "means a condition for the market participant in which there is need to activate and comply with a remedial action to respect operational security limits"@en,
+                    "Een voorwaarde voor de marktdeelnemer waarin het nodig is om een herstelmaatregel te activeren en te voldoen aan operationele veiligheidslimieten"@nl ;
+  skos:altLabel     "OC" ;
+  dct:identifier    "urn:uuid:dc6108fb-8a0d-5d1a-adb2-a7c2196119da" ;
+  owl:versionInfo   "1" ;
+  skos:inScheme     :Ontology ;
+  skos:related      :98 ;
+  skos:relatedMatch elit:1485-1, elit:1222-7, elit:943-25 ;
+  skos:topConceptOf :Ontology .
+
+:98
+  a                 skos:Concept ;
+  skos:prefLabel    "Remedial Action"@en, "Herstelmaatregel"@nl ;
+  skos:altLabel     "RA"@en ;
+  skos:definition   """A remedial action is described by one of many grid state alterations applied to a grid model state or particular scenario in order to resolve one or more Identified constraints. Only costly remedial actions require a cost characteristic.
+Remedial action describes one or more actions that can be performed on a given power system model situation to eliminate one or more identified breaches of constraints. The remedial action can be costly, and have a cost characteristic, or non costly.
+"""@en ;
+  skos:editorialNote
+                    """"A named set of operating constraints imposed on one or more market participants or assets, which must be validated via real-time or near-real-time measurements, and whose purpose is to mitigate a specific system risk or condition."""@en ;
+  rdfs:seeAlso      <https://eepublicdownloads.entsoe.eu/clean-documents/EDI/Library/cim_based/Contingency%20list,%20remedial%20actions%20and%20additional%20constraints_document%20UML%20model%20and%20schema_v2.4.pdf> ;
+  rdfs:seeAlso      <https://eepublicdownloads.entsoe.eu/clean-documents/CIM_documents/Grid_Model_CIM/Remedial_action_settlement_document_UML_model_and_schema_v1.2.pdf> ;
+  skos:relatedMatch elit:1485-1 ;
+  skos:exactMatch   elit:1222-13 ;
+  dct:identifier    "urn:uuid:c9b6db85-b0a3-53bf-ab46-1aea6544a5db" ;
+  owl:versionInfo   "1" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:99
+  a                 skos:Concept ;
+  skos:prefLabel    "TenneT Pocket"@en, "TenneT Pocket"@nl ;
+  skos:definition   "means a coherent part of the interconnected system, operated by a single System Operator and shall include connected HV/MV/LV electrotechnical components.To divide the area of TenneT into pockets that are all connected to the 120 or 220 and 380 KV grid make net compartments."@en ;
+  dct:created       "2025-04-23"^^xsd:date ;
+  dct:identifier    "urn:uuid:62e227b4-7ce1-55ed-85ca-bf2b394af0ab" ;
+  owl:versionInfo   "1" ;
+  skos:inScheme     :Ontology ;
+  skos:related      elit:943-67 ;
+  skos:narrower     eq:ControlArea ;
+  skos:topConceptOf :Ontology .
+
+:100
+  a                 skos:Concept ;
+  skos:prefLabel    "Control Action"@en, "Controle Actie"@nl ;
+  skos:definition   """An intervention performed to control or adjust the state of an conducting equipment in the power system."""@en,
+                    """Een interventie die wordt uitgevoerd om de staat van een geleidend component in het elektriciteitsnet te beheersen of aan te passen."""@nl ; ;
+  skos:example      """Adjusting the forecasted energy load on a EnergyConsumer based on a settlement condition."""@en ;
+  skos:related      :98, :102 ;
+  dct:identifier    "urn:uuid:dd09ea05-7cf5-5113-9f85-57f5655e0b1a" ;
+  owl:versionInfo   "1" ;
+  skos:inScheme     :Ontology ;
+  skos:topConceptOf :Ontology .
+
+:102
+  a                 skos:Concept ;
+  skos:prefLabel    "Remedial Action Plan"@en ;
+  skos:altLabel     "RAP" ;
+  skos:definition   """A predefined set of actions to be taken by a system operator or utility to maintain or restore power system security and stability following a disturbance or outage. Actions may include generator redispatch, load shedding, or network reconfiguration."""@en ;
+  dct:identifier    "urn:uuid:0f1b6c3d-2a4e-5b8c-9f7d-8c1e2f3a4b5c" ;
+  owl:versionInfo   "1" ;
+  skos:inScheme     :Ontology ;
+  skos:related      :98 ;
+  skos:topConceptOf :Ontology .
+
+:103
+  a                 skos:Concept ;
+  skos:prefLabel    "Delivery Period"@en ;
+  skos:definition   """means the period of delivery of a during which the flexibility service provider delivers the full requested change of power in-feed to, or the full requested change of withdrawals from the system."""@en ;
+  skos:related      :98 ;
+  skos:narrowMatch  elit:2195-32 ;
+  dct:identifier    "urn:uuid:3c1f5b6a-7d8e-5f9b-8a1c-2b3d4e5f6a7b" ;
+  owl:versionInfo   "1" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:104
+  a                skos:Concept ;
+  skos:prefLabel   "Contingency Equipment"@en, "Knelpuntcomponent"@nl ;
+  skos:definition  """means an equipment identified in advance, or as a result of contingency analysis, to model and manage the impact of potential failures on the energy system."""@en,
+                   """is een component die van tevoren is geïdentificeerd, het gevolg van een contingentieanalyse, om de impact van potentiële storingen op het energy systeem te modelleren en te beheren."""@nl ;
+  skos:broadMatch  cim:ContingencyElement ;
+  skos:narrowMatch cim:ContingencyEquipment ;
+  skos:broader     :12 ;
+  skos:related     elit:1222-10 ;
+  dct:identifier   "urn:uuid:8cedf8d0-4909-5019-88ac-f0d904c0bf04" ;
+  owl:versionInfo  "1" ;
+#  skos:topConceptOf :Ontology ;
+  skos:inScheme    :Ontology .
+
+:105
+  a                 skos:Concept ;
+  skos:prefLabel    "Conducting Equipment"@en, "Geleidend Component"@nl ;
+  skos:definition   """means a component designed to carry an electric current."""@en,
+                    """een component ontworpen om een elektrische stroom te geleiden"""@nl ;
+  skos:altLabel     "Component"@nl ;
+  skos:broadMatch   eq:Equipment ;
+  skos:exactMatch   eq:ConductingEquipment ;
+  skos:example      """
+  - conductors (such as wires, busbars, and cables)
+  - connection components (such as terminals and joints)
+  """@en ;
+  skos:related      :62, :71, :104 ;
+  skos:related      elit:1222-10 ;
+  skos:narrower     :43, :70, :73 ;
+  dc:source         "IEC 60050 (IEV 151-11-25)" ;
+  rdfs:seeAlso      <https://electropedia.org/iev/iev.nsf/display?openform&ievref=151-11-25> ;
+  dct:identifier    "urn:uuid:8cedf8d0-4909-5019-88ac-f0d904c0bf04" ;
+  owl:versionInfo   "1" ;
+  skos:inScheme     :Ontology ;
+  skos:topConceptOf :Ontology .
+
+:106
+  a                 skos:Concept ;
+  skos:prefLabel    "Terminal"@en, "Terminal"@nl ;
+  skos:definition   """Conductive part of a device, intended for connection to external circuits."""@en,
+                    """Geleidend deel van een apparaat, bedoeld voor aansluiting op externe circuits."""@nl ;
+  skos:narrowMatch  eq:Terminal ;
+  skos:note         """This means a terminal is a point of electrical connection — a physical conductive component designed to connect a wire, a busbar, or another piece of equipment — allowing the flow of current into or out of the apparatus."""@en ;
+  dc:source         "IEC 60050 (IEV 151-12-12)" ;
+  dct:identifier    "urn:uuid:8cedf8d0-4909-5019-88ac-f0d904c0bf04" ;
+  foaf:homepage     <https://alliander.atlassian.net/l/cp/duZf6PeN> ;
+  rdfs:seeAlso      <https://netbeheer-nederland.github.io/docs/im-tc57cim/latest/schema/class/Terminal.html> ;
+  rdfs:seeAlso      <https://electropedia.org/iev/iev.nsf/display?openform&ievref=151-12-12> ;
+  owl:versionInfo   "1" ;
+  skos:inScheme     :Ontology ;
+  skos:topConceptOf :Ontology .
+
+:107
+  a                 skos:Concept ;
+  skos:prefLabel    "Equipment Container"@en, "Component container"@nl ;
+  skos:altLabel     "Composite equipment"@en ;
+  skos:definition   """Container or enclosure designed to provide an assembly of electrical equipment to fulfil specific purposes."""@en,
+                    """Container of behuizing, die is ontworpen om elektrische apparatuur samen te voegen voor specifieke doeleinden."""@nl ;
+  skos:narrowMatch  eq:EquipmentContainer ;
+  skos:editorialNote
+                    """"An equipment container acts as an composite equipment and refers to a higher-level assembly composed of multiple interconnected elementary equipment that together perform a more complex or coordinated function."""@en ;
+  skos:example      """A substation, which may include transformers, switchgear, and other equipment, is an example of an equipment container that houses various conducting equipment to manage and control electrical power flow."""@en ;
+  skos:example      """A busbar chamber, which contains busbars and associated connections, is an example of an equipment container that provides a physical and functional assembly for conducting equipment."""@en ;
+  skos:example      """A feeder section, which contains multiple cables, breakers and measurement devices to manage the flow of electricity in a specific section of the distribution network."""@en ;
+  foaf:homepage     <https://alliander.atlassian.net/l/cp/A87VmG3T> ;
+  dct:identifier    "urn:uuid:8cedf8d0-4909-5019-88ac-f0d904c0bf04" ;
+  owl:versionInfo   "1" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:108
+  a                 skos:Concept ;
+  skos:prefLabel    "Analog"@en, "Meeting"@nl ;
+  skos:definition   """Of a quantity or a system in which the information is represented by a physical variable that is continuous in time and/or magnitude."""@en,
+                    """Van een grootheid of een systeem waarbij de informatie wordt weergegeven door een fysieke variabele die continu is in tijd en/of grootte."""@nl ;
+  skos:exactMatch   op:Analog ;
+  skos:broadMatch   op:Measurement ;
+  dc:source         "IEC 60050 (IEV 351-41-24)" ;
+  dct:identifier    "urn:uuid:8cedf8d0-4909-5019-88ac-f0d904c0bf04" ;
+  foaf:homepage     <https://alliander.atlassian.net/wiki/x/e4_AvQ> ;
+  rdfs:seeAlso      <https://alliander.atlassian.net/wiki/x/xwd_wg> ;
+  rdfs:seeAlso      <https://electropedia.org/iev/iev.nsf/display?openform&ievref=351-41-24> ;
+  owl:versionInfo   "1" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:109
+  a                 skos:Concept ;
+  skos:prefLabel    "Topological Island"@en, "Topologisch Eiland"@nl ;
+  skos:definition   """An electrically connected subset of the network, that defines the topological boundary of a contingency."""@en,
+                    """"""@nl ;
+  skos:exactMatch   ssh:TopologicalIsland ;
+  skos:related      tp:TopologicalNode, elit:1222-10, cim:ContingencyEquipment ;
+  skos:note         """Only energised TopologicalNode-s shall be part of the topological island."""@en ;
+  skos:note         """The main role of TopologicalIsland is to group nodes that are internally connected and disconnected from all other groups in the network, allowing power flow and stability calculations to treat it as an independent network."""@en ;
+  skos:broadMatch   elit:1485-64 ;
+  foaf:homepage     <https://alliander.atlassian.net/l/cp/Y1DNs37g> ;
+  dct:identifier    "urn:uuid:8cedf8d0-4909-5019-88ac-f0d904c0bf04" ;
+  owl:versionInfo   "1" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:110
+  a                 skos:Concept ;
+  skos:prefLabel    "Curtailment"@en, "Afregeling"@nl ;
+  skos:definition   """means the deliberate reduction of electricity generation or consumption initiated by the system operator to manage congestion or ensure system security."""@en,
+                    """betekent dat de teruglevercapaciteit van een opwekinstallatie onder bepaalde voorwaarden tijdelijk wordt verminderd."""@nl ;
+  skos:broadMatch   elit:943-26, elit:1485-91 ;
+  dct:identifier    "urn:uuid:8cedf8d0-4909-5019-88ac-f0d904c0bf04" ;
+  owl:versionInfo   "1" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:111
+  a                 skos:Concept ;
+  skos:prefLabel    "Load curtailment"@en ;
+  skos:altLabel     "Load shedding"@en ;
+  skos:definition   """The deliberate disconnection or reduction of electrical load (typically by the system operator) to maintain the stability and integrity of the power system when there is a shortage of available generation or a risk of system collapse."""@en ;
+  skos:note         """EU legislation (such as network codes and Regulation (EU) 2019/943) frequently refers to load shedding as a last-resort measure under emergency conditions, when the power system is under stress and other measures (like redispatch, reserve activation, or voltage reductions) are no longer enough to keep it within operational limits."""@en ;
+  skos:exactMatch   elit:1485-109 ;
+  skos:broader      :110 ;
+  dct:identifier    "urn:uuid:8cedf8d0-4909-5019-88ac-f0d904c0bf04" ;
+  owl:versionInfo   "1" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:112
+  a                 skos:Concept ;
+  skos:prefLabel    "Generation curtailment"@en ;
+  skos:definition   """The deliberate disconnection or reducing a generator's output, such as wind or solar (typically by the system operator) to maintain grid stability or avoid overloading, when there is a shortage of available load or a risk of system collapse."""@en ;
+  skos:broader      :110 ;
+  dct:identifier    "urn:uuid:8cedf8d0-4909-5019-88ac-f0d904c0bf04" ;
+  owl:versionInfo   "1" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:113
+  a                  skos:Concept ;
+  skos:prefLabel     "N Limit"@en, "N Limiet"@nl ;
+  skos:definition    """The N Limit refers to situation where a forecasted or realised power flow violates operational security limits, such as (a) the thermal limit of element(s) of the grid or (b) voltage stability or (c) the angle stability limits of the grid."""@en,
+                     """"""@nl ;
+  skos:altLabel      """Congestion limit"""@en, """Congestie Limiet"""@nl ;
+  skos:editorialNote """The congestion limit is an example of the N Limit, beyond which congestion occurs."""@en ;
+  rdfs:seeAlso       <https://www.entsoe.eu/network_codes/cacm/> ;
+  rdfs:seeAlso       <https://energy.ec.europa.eu/topics/energy-efficiency/energy-efficiency-targets-directive-and-rules/energy-efficiency-directive_en> ;
+  skos:relatedMatch  elit:943-4, elit:1222-18, elit:1485-3 ;
+  skos:changeNote    "In Review"@en ;
+  dct:identifier     "urn:uuid:8cedf8d0-4909-5019-88ac-f0d904c0bf04" ;
+  owl:versionInfo    "1" ;
+  skos:topConceptOf  :Ontology ;
+  skos:inScheme      :Ontology .
+
+:114
+  a                 skos:Concept ;
+  skos:prefLabel    "N-1 Limit"@en, "N-1 Limiet"@nl ;
+  skos:altLabel     "BZIV" ;
+  skos:definition   """The N-1 Limit refers to the maximum allowable operational state of a power system such that, following the unexpected loss (contingency) of any single system element (such as a transmission line, transformer, or generator), the remaining elements within a control area are still capable of maintaining operational security. This means that no operational security limits—such as voltage, frequency, or thermal loading thresholds—are violated after the contingency occurs."""@en,
+                    """De N-1 Limiet verwijst naar de maximaal toelaatbare operationele staat van een elektriciteitssysteem, zodanig dat na het onverwachte verlies (contingentie) van een enkel systeemonderdeel (zoals een transmissielijn, transformator of generator), de resterende onderdelen binnen een controlegebied nog steeds in staat zijn om de operationele veiligheid te handhaven. Dit betekent dat er geen operationele veiligheidslimieten - zoals spannings-, frequentie- of thermische belastingsdrempels - worden overschreden nadat de contingentie zich voordoet."""@nl ; ;
+  skos:changeNote   "In Review"@en ;
+  skos:relatedMatch elit:1485-15, elit:1485-14 ;
+  dct:identifier    "urn:uuid:8cedf8d0-4909-5019-88ac-f0d904c0bf04" ;
+  owl:versionInfo   "1" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:115
+  a                 skos:Concept ;
+  skos:prefLabel    "System Operating Limit"@en, "Systeem Operationele Limiet"@nl ;
+  skos:definition   """An System Operating Limit defines the secure operational boundaries of the energy system—such as voltage, frequency, and load/generation capacity—within which flexibility services, including demand & response, can be safely activated by market-based flexibility providers. These limits ensure that system reliability and equipment protection are maintained while enabling market participation in grid balancing and congestion management, in line with EU electricity market design and regulatory frameworks."""@en,
+                    """Een Systeem Operationele Limiet definieert de veilige operationele grenzen van het energiesysteem - zoals spanning, frequentie en laad-/opwekkingscapaciteit - binnen welke flexibiliteitsdiensten, inclusief vraag & aanbod, veilig kunnen worden geactiveerd door marktgebaseerde flexibiliteitsaanbieders. Deze limieten zorgen ervoor dat de systeembetrouwbaarheid en apparatuurbescherming worden gehandhaafd, terwijl marktdeelname aan netbalancering en congestiebeheer wordt mogelijk gemaakt, in lijn met het EU-ontwerp van de elektriciteitsmarkt en regelgevende kaders."""@nl ;
+  skos:changeNote   "In Review"@en ;
+  rdfs:seeAlso      <https://www.nerc.com/pa/comp/guidance/EROEndorsedImplementationGuidance/System_Operating_Limit_definition_and_Exceedance_Clarification_endorsed.pdf> ;
+  dct:identifier    "urn:uuid:8cedf8d0-4909-5019-88ac-f0d904c0bf04" ;
+  owl:versionInfo   "1" ;
+  skos:broader      :60 ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:116
+  a                  skos:Concept ;
+  skos:prefLabel     "Maximum Continuous Load"@en, "Maximale Continue Belasting"@nl ;
+  skos:definition    "means the highest amount of power or current an asset can safely carry continuously under normal operating conditions, as specified by design standards or supplier ratings."@en,
+                     "betekent de hoogste hoeveelheid vermogen of stroom die een actief component veilig continu kan dragen onder normale bedrijfsomstandigheden, zoals gespecificeerd door ontwerpnormen of leveranciersbeoordelingen."@nl ; ;
+  skos:editorialNote "The load can be expressed in power or current."@en ;
+  skos:narrower      :117, :118, :119, :120 ;
+  skos:changeNote    "In Review"@en ;
+  dct:identifier     "urn:uuid:8cedf8d0-4909-5019-88ac-f0d904c0bf04" ;
+  owl:versionInfo    "1" ;
+  skos:topConceptOf  :Ontology ;
+  skos:inScheme      :Ontology .
+
+:117
+  a                 skos:Concept ;
+  skos:prefLabel    "Nominal Asset Limit"@en, "Nominale Component Limiet"@nl ;
+  skos:definition   "means the the maximum continuous load an electrical asset can safely sustain continuously under normal conditions, as defined by standards or supplier specifications. This value, known as the nominal asset limit, sets the standard maximum capacity for safe and reliable operation."@en,
+                    "betekent de maximale continue belasting die een elektrisch component veilig kan dragen onder normale omstandigheden, zoals gedefinieerd door normen of leveranciersspecificaties. Deze waarde, bekend als de nominale component limiet, stelt de standaard maximale capaciteit vast voor veilige en betrouwbare werking."@nl ; ;
+  skos:changeNote   "In Review"@en ;
+  skos:broader      :116 ;
+  dct:identifier    "urn:uuid:8cedf8d0-4909-5019-88ac-f0d904c0bf04" ;
+  owl:versionInfo   "1" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:118
+  a                 skos:Concept ;
+  skos:prefLabel    "Static Asset Limit"@en, "Statische Component Limiet"@nl ;
+  skos:definition   "means the maximum continuous load an electrical asset can carry under constant load and specific, location-based environmental conditions, defined by the asset’s nominal value at the maximum steady-state temperature."@en,
+                    "betekent de maximale continue belasting die een elektrisch component kan dragen onder constante belasting en specifieke, locatiegebonden omgevingsomstandigheden, gedefinieerd door de nominale waarde van het component bij de maximale stationaire temperatuur."@nl ; ; ;
+  skos:changeNote   "In Review"@en ;
+  skos:broader      :116 ;
+  dct:identifier    "urn:uuid:8cedf8d0-4909-5019-88ac-f0d904c0bf04" ;
+  owl:versionInfo   "1" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:119
+  a                 skos:Concept ;
+  skos:prefLabel    "Cyclic Asset Limit"@en, "Cyclische Component Limiet"@nl ;
+  skos:definition   "means the maximum load an electrical asset can safely carry over a defined period, based on a scaled, periodic load profile and considering environmental conditions that may change over time."@en,
+                    "betekent de maximale belasting die een elektrisch component veilig kan dragen over een gedefinieerde periode, gebaseerd op een geschaalde, periodieke belastingprofiel en rekening houdend met omgevingsomstandigheden die in de loop van de tijd kunnen veranderen."@nl ; ;
+  skos:changeNote   "In Review"@en ;
+  skos:broader      :116 ;
+  dct:identifier    "urn:uuid:8cedf8d0-4909-5019-88ac-f0d904c0bf04" ;
+  owl:versionInfo   "1" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:120
+  a                 skos:Concept ;
+  skos:prefLabel    "Dynamic Asset Limit"@en, "Dynamische Component Limiet"@nl ;
+  skos:definition   "means the real-time maximum load an electrical asset can safely carry, determined by a predicted load profile and current environmental conditions for short-term periods (intraday or day-ahead), and calculated using a validated model."@en,
+                    "betekent de maximale stroom die een elektrisch component veilig kan dragen, bepaald door een voorspeld belastingprofiel en actuele omgevingsomstandigheden voor kortetermijnperioden (intraday of dag vooruit), en berekend met behulp van een gevalideerd model."@nl ; ; ;
+  skos:changeNote   "In Review"@en ;
+  skos:broader      :116 ;
+  owl:versionInfo   "1" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:121
+  a                 skos:Concept ;
+  skos:prefLabel    "Resource"@en ;
+  skos:definition   "delivers the capability to modify generation injection and/or consumption patterns in the energy system (like electricity or gas). It is a market representation of an asset, or a group of assets having this capability. A Resource represents for example grid assets, energy generating units, energy consuming units, energy storing units or a virtual power plant."@en ;
+  skos:altLabel     "Flexibility Resource"@en ;
+  skos:editorialNote
+                    """A Resource is a market representation of an asset, or a group of assets having the capability to modify generation injection and/or consumption patterns in the energy system (like electricity or gas)."""@en ;
+  skos:example      """A Resource can be a single generator, a group of generators, or even a virtual power plant that aggregates multiple generation units to provide flexibility services to the grid."""@en ;
+  skos:related      elit:1485-44, elit:943-25 ;
+  dct:identifier    "urn:uuid:8cedf8d0-4909-5019-88ac-f0d904c0bf04" ;
+  owl:versionInfo   "1" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:122
+  a               skos:Concept ;
+  skos:prefLabel  "Circuit"@en ;
+  skos:definition "A ngm:Circuit is a Topology and is based on a combination of ngm:Islands and (closed) ngm:Bridges or Bridges based on a Powertransformer with a designated power supply. The most simple version of a Circuit is an Island, but can be aggregated to higher levels to form logical models like the Feeder"@en ;
+  skos:related    :69 ;
+  skos:broader    :27 ;
+  dct:identifier  "urn:uuid:8cedf8d0-4909-5019-88ac-f0d904c0bf04" ;
+  owl:versionInfo "1" ;
+#  skos:topConceptOf :Ontology ;
+  skos:inScheme   :Ontology .
+
+:123
+  a               skos:Concept ;
+  skos:prefLabel  "Island"@en, "NetEiland"@nl ;
+  skos:definition "An Island is the smallest not switchable part of the grid (Connectivity) were all Equipments have the same BaseVoltage."@en,
+                  "Een NetEiland is het kleinste niet-schakelbare deel van het net (Connectiviteit) waar alle Componenten dezelfde BasisSpanning hebben."@nl ;
+  skos:related    :122, :26 ;
+  skos:broader    :27 ;
+  dct:identifier  "urn:uuid:8cedf8d0-4909-5019-88ac-f0d904c0bf04" ;
+  owl:versionInfo "1" ;
+#  skos:topConceptOf :Ontology ;
+  skos:inScheme   :Ontology .
+
+:124
+  a               skos:Concept ;
+  skos:prefLabel  "Bridge"@en, "Brug"@nl ;
+  skos:definition "A Bridges form the boundaries of a Island and consists of a PowerTransformer or a combination of one or multiple switching Equipments."@en,
+                  "Een Brug vormt de grens van een NetEiland en bestaat uit een PowerTransformer of een combinatie van één of meerdere schakelcomponenten."@nl ; ;
+  skos:related    :26, :49, :122 ;
+  skos:broader    :27 ;
+  dct:identifier  "urn:uuid:8cedf8d0-4909-5019-88ac-f0d904c0bf04" ;
+  owl:versionInfo "1" ;
+#  skos:topConceptOf :Ontology ;
+  skos:inScheme   :Ontology .
+
+:125
+  a               skos:Concept ;
+  skos:prefLabel  "Asset Management"@en, "Assetbeheer"@nl ;
+  skos:definition "Asset Management in the energy domain encompasses systematically managing the energy assets in scope with their characteristics. It involves the strategic utilization of data, technology, and best practices to achieve optimal performance, cost-effectiveness, and sustainability of energy asset operations."@en ;
+  dct:identifier  "urn:uuid:8cedf8d0-4909-5019-88ac-f0d904c0bf04" ;
+  owl:versionInfo "1" ;
+  skos:broader    :25 ;
+#  skos:topConceptOf :Ontology ;
+  skos:inScheme   :Ontology .
+
+:126
+  a               skos:Concept ;
+  skos:prefLabel  "Grid Management"@en, "Netbeheer"@nl ;
+  skos:definition "It is the optimization of, and coordination in, the functionality of any energy grid. It involves avoidance and solving outages, enabling work* activities in the grid while ensuring the safety through all controls in the grid."@en ;
+  dct:identifier  "urn:uuid:8cedf8d0-4909-5019-88ac-f0d904c0bf04" ;
+  owl:versionInfo "1" ;
+  skos:broader    :25 ;
+#  skos:topConceptOf :Ontology ;
+  skos:inScheme   :Ontology .
+
+:127
+  a               skos:Concept ;
+  skos:prefLabel  "Capacity Management"@en, "Capaciteitsbeheer"@nl ;
+  skos:definition "Capacity management is the practice of aligning demand and response for transport and distribution capacity among DSO’s, TSO and market participants at total scope of the DSO’s energy system, at specific area’s and at timeframes, to ensure a safety through all controls in the system."@en ;
+  dct:identifier  "urn:uuid:8cedf8d0-4909-5019-88ac-f0d904c0bf04" ;
+  owl:versionInfo "1" ;
+  skos:broader    :25 ;
+#  skos:topConceptOf :Ontology ;
+  skos:inScheme   :Ontology .
+
+:128
+  a                 skos:Concept ;
+  skos:prefLabel    "Market Management"@en, "Marktbeheer"@nl ;
+  skos:definition   "Organize and coordinate transport and distribution capacity with several market participants under several national and international market mechanisms, currently limited to capacity management market(s) including the energy system reliability."@en ;
+  dct:identifier    "urn:uuid:8cedf8d0-4909-5019-88ac-f0d904c0bf04" ;
+  owl:versionInfo   "1" ;
+  skos:broader      :25 ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:129
+  a                 skos:Concept ;
+  skos:prefLabel    "Multiple Suppliers on a single Connection"@en, "Meerdere Leveranciers op een aansluiting"@nl ;
+  skos:altLabel     "MLOEA" ;
+  skos:definition   "means that more than one supplier can deliver energy to or take off energy from a single connection point to the energy system."@en,
+                    "betekent dat meer dan één leverancier energie kan leveren aan of energie kan afnemen van een enkel aansluitpunt op het energiesysteem."@nl ;
+  dct:identifier    "urn:uuid:8cedf8d0-4909-5019-88ac-f0d904c0bf04" ;
+  owl:versionInfo   "1" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:130
+  a                  skos:Concept ;
+  skos:prefLabel     "Ordinary contingency"@en ;
+  skos:altLabel      "Point Contingency"@en, "Point System Operation"@en ;
+  skos:definition    "Loss of a single element (branch, injection, etc.). These are more frequent / higher probability.” "@en ;
+  skos:example       "E.g. one transmission line goes out, one transformer, one generator, or one demand facility fails."@en ;
+  skos:editorialNote "These are more frequent / higher probability."@en ;
+  dct:identifier     "urn:uuid:8cedf8d0-4909-5019-88ac-f0d904c0bf04" ;
+  dct:source         "ENTSO-E" ;
+  skos:changeNote    "In Review"@en ;
+  skos:broader       :54 ;
+  owl:versionInfo    "1" ;
+#  skos:topConceptOf  :Ontology ;
+  skos:inScheme      :Ontology .
+
+:131
+  a                 skos:Concept ;
+  skos:prefLabel    "Exceptional contingency"@en ;
+  skos:altLabel     "Area Contingency"@en, "Area System Operation"@en ;
+  skos:definition   "Simultaneous loss of multiple elements that share a common cause. These are rarer than ordinary, but still foreseen in planning/operations."@en ;
+  skos:example      "E.g. multiple lines that share the same tower; cables in the same trench; multiple generators under a protection scheme failing together."@en ;
+  dct:identifier    "urn:uuid:8cedf8d0-4909-5019-88ac-f0d904c0bf04" ;
+  dct:source        "ENTSO-E" ;
+  skos:broader      :54 ;
+  owl:versionInfo   "1" ;
+#  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:132
+  a                  skos:Concept ;
+  skos:prefLabel     "Out-of-range contingency"@en ;
+  skos:definition    "Simultaneous loss of multiple elements without a common cause, or loss of generating modules exceeding some “reference incident” (i.e. very large severity or rare events)."@en ;
+  skos:example       "E.g. multiple independent failures, or large generation loss beyond what is usually assumed in planning."@en ;
+  skos:editorialNote "These are very rare, high‐impact."@en ;
+  dct:identifier     "urn:uuid:8cedf8d0-4909-5019-88ac-f0d904c0bf04" ;
+  dct:source         "ENTSO-E" ;
+  skos:broader       :54 ;
+  owl:versionInfo    "1" ;
+#  skos:topConceptOf  :Ontology ;
+  skos:inScheme      :Ontology .
+
+:133
+  a               skos:Concept ;
+  skos:prefLabel  "Conducting Equipment Limit"@en ;
+  skos:definition """A limit meaning the maximum load that conducting equipment (such as cables, busbars, or connectors) can safely carry without exceeding its thermal or design constraints, under specified operating and environmental conditions."""@en,
+                  """Een limiet voor de maximale belasting die geleidend materieel (zoals kabels, rails of connectoren) veilig kan dragen zonder de thermische of ontwerpbeperkingen te overschrijden, onder gespecificeerde bedrijfs- en omgevingsomstandigheden."""@nl ;
+  dct:identifier  "urn:uuid:8cedf8d0-4909-5019-88ac-f0d904c0bf04" ;
+  skos:scopeNote  "Intrinsic to device characteristics."@en ;
+  skos:broader    :71 ;
+  skos:changeNote "In Review"@en ;
+  owl:versionInfo "1" ;
+#  skos:topConceptOf :Ontology ;
+  skos:inScheme   :Ontology .
+
+:134
+  a               skos:Concept ;
+  skos:prefLabel  "Equipment Container Limit"@en, "Aggregeerde limiet"@nl ;
+  skos:altLabel   "System Limit - K&O" ;
+  skos:definition "A limit that applies to an equipment container (e.g., substation, bay, voltage level), representing aggregated or contextual security constraints such as transfer capacity, voltage stability, or short-circuit withstand."@en ;
+  skos:scopeNote  "Emerges from power system context rather than individual device properties."@en ;
+  skos:editorialNote
+                  """The System Limit is used by K&O for expressing the BZIV (BedrijsZekerInstallatieVermogen - Installatie) and a Chain (Keten) """@en,
+                  """De System Limit wordt door K&O gebruikt voor het uitdrukken van het BZIV (BedrijfsZekerInstallatieVermogen - Installatie) en een Keten (Keten)"""@nl ;
+  skos:broader    :71 ;
+  skos:changeNote "In Review"@en ;
+  owl:versionInfo "1" ;
+#  skos:topConceptOf :Ontology ;
+  skos:inScheme   :Ontology .
+
+:135
+  a                 skos:Concept ;
+  skos:prefLabel    "System Flexibility"@en ;
+  skos:definition   "System flexibility is defined as the ability of supply-side and demand-side resources to respond to system changes and uncertainties. Flexibility also includes the ability to store energy for delivery in the future and the operational flexibility to schedule/dispatch resources in the most efficient manner."@en ;
+  dct:identifier    "urn:uuid:8cedf8d0-4909-5019-88ac-f0d904c0bf04" ;
+  dct:source        "NERC" ;
+  rdfs:seeAlso      "https://www.nerc.com/pa/RAPA/ra/Reliability%20Assessments%20DL/IVGTF_Task_1_5_Final.pdf" ;
+  owl:versionInfo   "1" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+#:<number>
+#  a                 skos:Concept ;
+#  skos:prefLabel    ""@en ;
+#  skos:definition   ""@en ;
+# dct:identifier    ;
+#  owl:versionInfo   "1" ;
+#  skos:topConceptOf :Ontology ;
+#  skos:inScheme     :Ontology .

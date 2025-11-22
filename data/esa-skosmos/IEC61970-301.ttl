@@ -1,0 +1,70 @@
+@prefix :     <http://iec.ch/TC57/ns/CIM/> .
+@prefix rdf:  <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix skos: <http://www.w3.org/2004/02/skos/core#> .
+@prefix dct:  <http://purl.org/dc/terms/> .
+@prefix owl:  <http://www.w3.org/2002/07/owl#> .
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
+@prefix dcat: <http://www.w3.org/ns/dcat#> .
+@prefix foaf:  <http://xmlns.com/foaf/0.1/> .
+
+:Ontology
+  a               skos:ConceptScheme ;
+  dct:title       "IEC 61970 - Common Information Model"@en ;
+  dct:description "This vocabulary is describing the common information model from IEC 61970-301."@en ;
+  dct:language    "en-GB" ;
+  foaf:homepage   <https://netbeheer-nederland.github.io/docs/im-tc57cim/latest/index.html> ;
+  rdfs:seeAlso    "https://www.entsoe.eu/data/cim/" ;
+  rdfs:seeAlso    "https://ontology.tno.nl/IEC_CIM/" ;
+  rdfs:seeAlso    "https://zepben.github.io/evolve/docs/cim/cim100" ;
+  rdfs:seeAlso    "https://www.iso.org/obp/ui#home" ;
+  dcat:theme      "vocabulary"@en .
+
+owl:Class
+  a          rdfs:Class ;
+  rdfs:label "Class" .
+
+:Contingency
+  a                 owl:Class, skos:Concept ;
+  skos:prefLabel    "Contingency"@en ;
+  skos:definition   "An event (or sequence of events) that results in the loss or unavailability of one or more components of a power system (such as a generator, transmission line, transformer, etc.) that may affect system reliability or stability."@en ;
+  skos:example      """
+  This concept is central to contingency analysis, which evaluates how power systems perform under various failure scenarios, such as:
+  * Loss of a transmission line
+  * Generator failure
+  * Substation outage
+  """ ;
+  skos:inScheme     :Ontology ;
+  skos:topConceptOf :Ontology .
+
+:ContingencyCase
+  a                 owl:Class, skos:Concept ;
+  skos:prefLabel    "Contingency Case"@en ;
+  skos:definition   "A particular scenario or instance of a contingency event."@en ;
+  skos:related      :ContingencyEquipment ;
+  skos:inScheme     :Ontology ;
+  skos:topConceptOf :Ontology .
+
+:ContingencyElement
+  a                 owl:Class, skos:Concept ;
+  skos:prefLabel    "Contingency Element"@en ;
+  skos:definition   "An element of a system event to be studied by contingency analysis, representing a change in status of a single piece of equipment."@en ;
+  skos:inScheme     :Ontology ;
+  skos:topConceptOf :Ontology .
+
+:ContingencyEquipment
+  a                 owl:Class, skos:Concept ;
+  skos:prefLabel    "Contingency Equipment"@en ;
+  skos:definition   "Equipment whose in service status is to change, such as a power transformer or AC line segment."@en ;
+  skos:broader      :ContingencyElement ;
+  skos:inScheme     :Ontology ;
+  skos:topConceptOf :Ontology .
+
+:EnergyManagementSystem
+  a                 owl:Class, skos:Concept ;
+  skos:prefLabel    "Energy Management System"@en ;
+  skos:definition   """computer system comprising a software platform providing basic support services and a set of applications providing the functionality needed for the effective operation of electrical generation and transmission facilities so as to assure adequate security of energy supply at minimum cost"""@en ;
+  skos:altLabel     "EMS"@en ;
+  skos:inScheme     :Ontology ;
+  skos:topConceptOf :Ontology .
+

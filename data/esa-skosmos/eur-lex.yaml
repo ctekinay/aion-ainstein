@@ -1,0 +1,8 @@
+config:
+  type: file
+  location: eur-lex.config
+
+source:
+  type: file
+  location: eur-lex.ttl
+

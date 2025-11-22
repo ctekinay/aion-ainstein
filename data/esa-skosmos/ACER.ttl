@@ -1,0 +1,86 @@
+@prefix :        <http://data.acer.europa.eu/terms/> .
+@prefix skos:    <http://www.w3.org/2004/02/skos/core#> .
+@prefix dc:      <http://purl.org/dc/elements/1.1/> .
+@prefix dct:     <http://purl.org/dc/terms/> .
+@prefix dcat:    <http://www.w3.org/ns/dcat#> .
+@prefix xsd:     <http://www.w3.org/2001/XMLSchema#> .
+@prefix dcterms: <http://purl.org/dc/terms/> .
+@prefix schema:  <http://schema.org/> .
+@prefix owl:     <http://www.w3.org/2002/07/owl#> .
+@prefix foaf:    <http://xmlns.com/foaf/0.1/> .
+@prefix rdfs:    <http://www.w3.org/2000/01/rdf-schema#> .
+
+
+:Ontology
+  a                owl:Ontology, skos:ConceptScheme ;
+  skos:prefLabel   "Agency for the Cooperation of Energy Regulators"@en ;
+  dct:description  "Terminology that Agency for the Cooperation of Energy Regulators (ACER) uses in its publications."@en ;
+  dct:publisher    "EuroLex"@en ;
+  dct:rightsHolder "EuroLex"@en ;
+  dct:created      "2017-08-02"^^xsd:date ;
+  dct:modified     "2023-03-22"^^xsd:date ;
+  owl:versionIRI   <http://data.acer.europa.eu/terms/1.0> ;
+  foaf:homepage    "https://www.acer.europa.eu/#" ;
+  dcat:theme       "vocabulary"@en .
+
+:FG_DemandResponse
+  a                 skos:Collection ;
+  skos:prefLabel    "Framework Guideline - Demand Response Products"@en ;
+  skos:definition   """This Document contains the non-binding Framework Guideline on Demand Response, which the European Union Agency for the Cooperation of Energy Regulators (ACER) has prepared pursuant to Article 59(1)(e) of Regulation (EU) 2019/943 (‘Electricity Regulation’) and based on the request from the European Commission"""@en ;
+  skos:inScheme     :Ontology ;
+  skos:topConceptOf :Ontology ;
+  skos:member       :MeteringPoint, :RedispatchProducts, :RequestingSO ;
+  dcat:landingPage  "https://acer.europa.eu/sites/default/files/documents/Official_documents/Acts_of_the_Agency/Framework_Guidelines/Framework%20Guidelines/FG_DemandResponse.pdf" ;
+  dcat:theme        "vocabulary"@en .
+
+:MeteringPoint
+  a                 skos:Concept ;
+  skos:definition   "A physical location where the withdrawal and/or injection of active power is measured"@en ;
+  skos:inScheme     :Ontology ;
+  skos:prefLabel    "Metering Point"@en ;
+  skos:topConceptOf :Ontology .
+
+:RedispatchProducts
+  a                 skos:Concept ;
+  skos:definition   "A congestion management product that can be activated after the closure of the day-ahead market"@en ;
+  skos:inScheme     :Ontology ;
+  skos:prefLabel    "Redispatch products"@en ;
+  skos:topConceptOf :Ontology .
+
+:RequestingSO
+  a                 skos:Concept ;
+  skos:definition   "(or ‘procuring SO’) the SO (i) requesting data for detecting, forecasting and/or solving an issue (balancing, congestion, voltage) on its grid, and/or (ii) requesting the activation of resources for solving this issue"@en ;
+  skos:inScheme     :Ontology ;
+  skos:prefLabel    "Requesting SO"@en ;
+  skos:topConceptOf :Ontology .
+
+:ServiceProvider
+  a                 skos:Concept ;
+  skos:definition   "Role: means a market participant which has or intends to have a legal or contractual obligation to supply local or balancing services from at least one SPU or SPG"@en ;
+  skos:inScheme     :Ontology ;
+  skos:prefLabel    "Service Provider"@en ;
+  skos:altLabel     "SP" ;
+  skos:topConceptOf :Ontology .
+
+:ServiceProvidingGroup
+  a                 skos:Concept ;
+  skos:definition   "An aggregation of units and/or service-providing units connected to more than one connection point where they inject and/or withdraw electricity fulfilling the requirements to provide SO services either at the connection point or aggregated level."@en ;
+  skos:inScheme     :Ontology ;
+  skos:prefLabel    "Service Providing Group"@en ;
+  skos:altLabel     "SPG" ;
+  skos:topConceptOf :Ontology .
+
+:ServiceProvidingUnit
+  a                 skos:Concept ;
+  skos:definition   "A unit or ensemble of units connected to a single connection point of a SO network where they inject and/or withdraw electricity fulfilling the requirements to provide SO services. "@en ;
+  skos:inScheme     :Ontology ;
+  skos:prefLabel    "Service Providing Unit"@en ;
+  skos:altLabel     "SPU" ;
+  skos:topConceptOf :Ontology .
+
+:TechnicalResource
+  a                 skos:Concept ;
+  skos:definition   "means a distributed generation resource or an individual energy storage unit, or a demand unit or any other consumption device"@en ;
+  skos:inScheme     :Ontology ;
+  skos:prefLabel    "Technical Resource"@en ;
+  skos:topConceptOf :Ontology .

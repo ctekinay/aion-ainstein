@@ -1,0 +1,357 @@
+@prefix :      <http://vocabs.alliander.com/terms/aaio/> .
+@prefix skos:  <http://www.w3.org/2004/02/skos/core#> .
+@prefix dc:    <http://purl.org/dc/elements/1.1/> .
+@prefix dct:   <http://purl.org/dc/terms/> .
+@prefix dcat:  <http://www.w3.org/ns/dcat#> .
+@prefix xsd:   <http://www.w3.org/2001/XMLSchema#> .
+@prefix owl:   <http://www.w3.org/2002/07/owl#> .
+@prefix foaf:  <http://xmlns.com/foaf/0.1/> .
+@prefix rdfs:  <http://www.w3.org/2000/01/rdf-schema#> .
+
+@prefix cim:   <http://iec.ch/TC57/ns/CIM/> .
+@prefix eq:    <http://iec.ch/TC57/ns/CIM/CoreEquipment-EU/> .
+@prefix op:    <http://iec.ch/TC57/ns/CIM/Operation-EU/> .
+@prefix tp:    <http://iec.ch/TC57/ns/CIM/Topology-EU/> .
+@prefix ssh:   <http://iec.ch/TC57/ns/CIM/StateVariables-EU/> .
+@prefix dsm:   <http://iec.ch/TC57/2013/IEC62746/> .
+@prefix maw:   <http://iec.ch/TC57/2013/IEC62325/> .
+@prefix amw:   <http://iec.ch/TC57/IEC61968/> .
+@prefix hemrm: <http://vocabs.entsoe.com/terms/> .
+@prefix elit:  <http://data.europa.eu/eli/terms/> .
+@prefix lido:  <http://linkeddata.overheid.nl/terms/> .
+
+:Ontology
+  a               owl:Ontology, skos:ConceptScheme ;
+  skos:prefLabel  "Begrippen"@nl, "Concepts"@en ;
+  dct:description ""@en, ""@nl ;
+  dct:identifier  "urn:alliander:params:terms:ns:aaio" ;
+  dct:publisher   "Alliander"@en ;
+  dct:creator     "Alliander"@en ;
+  dct:created     "2025-10-10"^^xsd:date ;
+  dcat:theme      "vocabulary"@en ;
+  owl:versionIRI  <http://vocabs.alliander.com/terms/aaio/20251010> .
+
+
+:ActivationLayer
+  a                 skos:Concept ;
+  skos:prefLabel    "Activation layer"@en, "Activatielaag"@nl ;
+  skos:definition   "A layer that applies an activation function to an output."@en,
+                    "Een laag die een activatiefunctie toepast op een output."@nl ;
+  dct:identifier    "urn:uuid:0122fd70-3cd2-42e5-8e42-4869b76a5441" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:NeuralNetwork
+  a                 skos:Concept ;
+  skos:prefLabel    "Neural network"@en, "Neuraal netwerk"@nl ;
+  skos:definition   "A computational model composed of interconnected nodes that processes data in layers."@en,
+                    "Een computationeel model bestaande uit verbonden knooppunten die gegevens in lagen verwerkt."@nl ;
+  dct:identifier    "urn:uuid:46a83b65-c7fc-45cc-92b0-356fa24f52dd" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:Agent
+  a                 skos:Concept ;
+  skos:prefLabel    "Agent"@en, "Agent"@nl ;
+  skos:definition   "An abstract concept in computer science and artificial intelligence describing any entity - whether software, hardware, or biological - that perceives its environment through sensors and acts upon it through actuators to achieve specific goals."@en,
+                    "Een abstract concept in de informatica en kunstmatige intelligentie dat een entiteit beschrijft die zijn omgeving waarneemt via sensoren en erop reageert via actuatoren om specifieke doelen te bereiken."@nl ;
+  dct:identifier    "urn:uuid:8244ffc9-dd80-4c3e-840b-0190eb29a5ae" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:AgenticRAG
+  a                 skos:Concept ;
+  skos:prefLabel    "Agentic RAG"@en, "Agentic RAG"@nl ;
+  skos:definition   "A Retrieval-Augmented Generation system enhanced with autonomous AI agents that dynamically orchestrate the retrieval process through planning, reasoning, and decision-making."@en,
+                    "Een Retrieval-Augmented Generation systeem verbeterd met autonome AI-agenten die het retrievalproces dynamisch orkestreren via planning, redeneren en besluitvorming."@nl ;
+  dct:identifier    "urn:uuid:5640b5b2-ec3c-4320-b290-26aa08b74ab2" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:AIAgent
+  a                 skos:Concept ;
+  skos:prefLabel    "AI Agent"@en, "AI Agent"@nl ;
+  skos:definition   "A software system that uses AI techniques to autonomously perform tasks, make decisions, and interact with its environment or other agents."@en,
+                    "Een softwaresysteem dat AI-technieken gebruikt om autonoom taken uit te voeren, beslissingen te nemen en te communiceren met zijn omgeving of andere agenten."@nl ;
+  dct:identifier    "urn:uuid:ad100abd-56cc-44c5-8e33-4e6b279d625a" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:AgenticAI
+  a                 skos:Concept ;
+  skos:prefLabel    "Agentic AI"@en, "Agentic AI"@nl ;
+  skos:definition   "A term commonly used interchangeably with 'AI Agent' to describe software systems that operate with minimal human intervention."@en,
+                    "Een term die vaak wordt gebruikt als synoniem voor 'AI Agent' om softwaresystemen te beschrijven die met minimale menselijke tussenkomst werken."@nl ;
+  dct:identifier    "urn:uuid:99f87eb7-54ef-4f46-80e2-7f3ebe613347" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:Bias
+  a                 skos:Concept ;
+  skos:prefLabel    "Bias"@en, "Bias"@nl ;
+  skos:definition   "Systematic errors in AI systems that consistently favor certain groups, perspectives, or outcomes over others."@en,
+                    "Systematische fouten in AI-systemen die consequent bepaalde groepen, perspectieven of uitkomsten bevoordelen boven andere."@nl ;
+  dct:identifier    "urn:uuid:f7575c4e-b9e7-4efc-be64-aae4669870d1" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:Chatbot
+  a                 skos:Concept ;
+  skos:prefLabel    "Chatbot"@en, "Chatbot"@nl ;
+  skos:definition   "Software application that simulates human conversation through text or voice interfaces."@en,
+                    "Softwaretoepassing die menselijke conversatie simuleert via tekst- of spraakinterfaces."@nl ;
+  dct:identifier    "urn:uuid:49485f56-6d82-4a18-849d-7d857f10ce33" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:ContextEngineering
+  a                 skos:Concept ;
+  skos:prefLabel    "Context Engineering"@en, "Context Engineering"@nl ;
+  skos:definition   "The discipline of designing and building dynamic systems that provide AI models with the right information, tools, and structure to enable reliable task completion."@en,
+                    "De discipline van het ontwerpen en bouwen van dynamische systemen die AI-modellen voorzien van de juiste informatie, tools en structuur om betrouwbare taakuitvoering mogelijk te maken."@nl ;
+  dct:identifier    "urn:uuid:7772b16a-eda1-41c3-aa40-0bf08c08c1b0" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:ContextWindow
+  a                 skos:Concept ;
+  skos:prefLabel    "Context Window"@en, "Context Window"@nl ;
+  skos:definition   "The maximum number of tokens that an AI model can process simultaneously in a single forward pass."@en,
+                    "Het maximale aantal tokens dat een AI-model gelijktijdig kan verwerken in één voorwaartse stap."@nl ;
+  dct:identifier    "urn:uuid:162bc1ee-d21f-45da-a8e0-e30222599f08" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:DeepLearning
+  a                 skos:Concept ;
+  skos:prefLabel    "Deep Learning"@en, "Deep Learning"@nl ;
+  skos:definition   "A subset of machine learning using artificial neural networks with multiple layers to automatically learn hierarchical representations from data."@en,
+                    "Een subset van machine learning die gebruikmaakt van kunstmatige neurale netwerken met meerdere lagen om hiërarchische representaties automatisch uit gegevens te leren."@nl ;
+  dct:identifier    "urn:uuid:d3177953-b205-4ece-9043-d92da94846c5" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:Explainability
+  a                 skos:Concept ;
+  skos:prefLabel    "Explainability"@en, "Explainability"@nl ;
+  skos:definition   "The degree to which the internal mechanics, reasoning processes, and decision factors of an AI system can be understood and interpreted by humans."@en,
+                    "De mate waarin de interne werking, redeneerprocessen en beslissingsfactoren van een AI-systeem door mensen kunnen worden begrepen en geïnterpreteerd."@nl ;
+  dct:identifier    "urn:uuid:4efeeea7-ca62-4aee-8b3a-c55637b833b0" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:FoundationModel
+  a                 skos:Concept ;
+  skos:prefLabel    "Foundation Model"@en, "Foundation Model"@nl ;
+  skos:definition   "Large-scale AI models trained on vast, diverse datasets that can be adapted to perform a wide range of downstream tasks."@en,
+                    "Grootschalige AI-modellen getraind op uitgebreide, diverse datasets die kunnen worden aangepast om een breed scala aan taken uit te voeren."@nl ;
+  dct:identifier    "urn:uuid:4292309b-2e51-4664-ada6-c0a562762328" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:GenerativeAI
+  a                 skos:Concept ;
+  skos:prefLabel    "Generative AI"@en, "Generative AI"@nl ;
+  skos:definition   "AI systems that create novel content by learning patterns from training data and generating new instances."@en,
+                    "AI-systemen die nieuwe inhoud creëren door patronen te leren uit trainingsgegevens en nieuwe voorbeelden te genereren."@nl ;
+  dct:identifier    "urn:uuid:0dd16bb4-de7b-47be-884e-f8d8d7875978" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:GPT
+  a                 skos:Concept ;
+  skos:prefLabel    "Generative Pretrained Transformer (GPT)"@en, "Generative Pretrained Transformer (GPT)"@nl ;
+  skos:definition   "A family of transformer-based autoregressive language models pretrained on large text corpora to predict the next token in a sequence."@en,
+                    "Een familie van transformer-gebaseerde autoregressieve taalmodellen die zijn voorgetraind op grote tekstcorpora om het volgende token in een reeks te voorspellen."@nl ;
+  dct:identifier    "urn:uuid:2eb33afb-ed98-45dd-b830-6abaabfe804a" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:Hallucination
+  a                 skos:Concept ;
+  skos:prefLabel    "Hallucination"@en, "Hallucinatie"@nl ;
+  skos:definition   "When an AI model generates content that appears plausible and confident but is factually incorrect or fabricated."@en,
+                    "Wanneer een AI-model inhoud genereert die plausibel en overtuigend lijkt maar feitelijk onjuist of verzonnen is."@nl ;
+  dct:identifier    "urn:uuid:59ad5f45-0df6-4d75-bb0c-28cf1baf60da" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:KnowledgeGraph
+  a                 skos:Concept ;
+  skos:prefLabel    "Knowledge Graph (KG)"@en, "Knowledge Graph (KG)"@nl ;
+  skos:definition   "A structured representation of entities and the relationships between them, enriched with semantics for machine reasoning."@en,
+                    "Een gestructureerde representatie van entiteiten en hun onderlinge relaties, verrijkt met semantiek voor machine-redenering."@nl ;
+  dct:identifier    "urn:uuid:5294a350-b9c6-4c5f-a7ef-57ab77e1c195" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:LangChain
+  a                 skos:Concept ;
+  skos:prefLabel    "LangChain"@en, "LangChain"@nl ;
+  skos:definition   "An open-source framework for developing applications powered by language models."@en,
+                    "Een open-source framework voor het ontwikkelen van toepassingen aangedreven door taalmodellen."@nl ;
+  dct:identifier    "urn:uuid:addc3a7e-9fdf-4297-a446-11f9ac2bfc65" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:LangGraph
+  a                 skos:Concept ;
+  skos:prefLabel    "LangGraph"@en, "LangGraph"@nl ;
+  skos:definition   "An extension of LangChain for building stateful, multi-step agent workflows using graph-based representations."@en,
+                    "Een uitbreiding van LangChain voor het bouwen van stateful, meerstaps agent-workflows met behulp van grafiekgebaseerde representaties."@nl ;
+  dct:identifier    "urn:uuid:e7e94c82-0eef-4a8e-8bcb-42fa3b826dff" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:LLM
+  a                 skos:Concept ;
+  skos:prefLabel    "Large Language Model (LLM)"@en, "Large Language Model (LLM)"@nl ;
+  skos:definition   "A transformer-based neural network trained on trillions of tokens to predict the next token in a sequence."@en,
+                    "Een transformer-gebaseerd neuraal netwerk getraind op triljoenen tokens om het volgende token in een reeks te voorspellen."@nl ;
+  dct:identifier    "urn:uuid:ed49ed72-183c-4137-ba4e-bb75e8e900dd" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:MetaPrompt
+  a                 skos:Concept ;
+  skos:prefLabel    "Meta Prompt"@en, "Meta Prompt"@nl ;
+  skos:definition   "A high-level instruction template or system prompt that defines the overall behavior of an AI model."@en,
+                    "Een instructiesjabloon op hoog niveau of systeemprompt die het algemene gedrag van een AI-model definieert."@nl ;
+  dct:identifier    "urn:uuid:12679a5e-702b-48ca-8e75-12fb30593c9c" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:MCP
+  a                 skos:Concept ;
+  skos:prefLabel    "Model Context Protocol (MCP)"@en, "Model Context Protocol (MCP)"@nl ;
+  skos:definition   "An open-source standard protocol that enables AI applications to connect to external data sources and tools."@en,
+                    "Een open-source standaardprotocol dat AI-toepassingen in staat stelt verbinding te maken met externe gegevensbronnen en tools."@nl ;
+  dct:identifier    "urn:uuid:659a1c58-5930-4139-aafb-d72422ed8dcc" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:MultimodalAI
+  a                 skos:Concept ;
+  skos:prefLabel    "Multimodal AI"@en, "Multimodal AI"@nl ;
+  skos:definition   "AI systems capable of processing and generating content across multiple data modalities."@en,
+                    "AI-systemen die in staat zijn om inhoud te verwerken en te genereren over meerdere datamodaliteiten."@nl ;
+  dct:identifier    "urn:uuid:5474ce64-408c-4209-93cb-d7fcf17f0775" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:NLP
+  a                 skos:Concept ;
+  skos:prefLabel    "Natural Language Processing (NLP)"@en, "Natural Language Processing (NLP)"@nl ;
+  skos:definition   "A field of AI focused on enabling computers to understand and interact with human language."@en,
+                    "Een gebied binnen AI dat zich richt op het mogelijk maken van interactie tussen computers en menselijke taal."@nl ;
+  dct:identifier    "urn:uuid:dbe023f2-41e6-4b44-a359-86409c993fbf" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:Parameters
+  a                 skos:Concept ;
+  skos:prefLabel    "Parameters"@en, "Parameters"@nl ;
+  skos:definition   "Learnable internal variables of a neural network that determine how the model transforms inputs into outputs."@en,
+                    "Leerbare interne variabelen van een neuraal netwerk die bepalen hoe het model invoer omzet in uitvoer."@nl ;
+  dct:identifier    "urn:uuid:426df539-f234-4a70-b7cb-e472f56594f7" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:Prompt
+  a                 skos:Concept ;
+  skos:prefLabel    "Prompt"@en, "Prompt"@nl ;
+  skos:definition   "The structured input text provided to a language model to elicit a desired response."@en,
+                    "De gestructureerde invoertekst die aan een taalmodel wordt gegeven om een gewenste reactie uit te lokken."@nl ;
+  dct:identifier    "urn:uuid:96718db9-42ec-4a10-b635-9c74d4c812d2" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:PromptEngineering
+  a                 skos:Concept ;
+  skos:prefLabel    "Prompt Engineering"@en, "Prompt Engineering"@nl ;
+  skos:definition   "The practice of designing and optimizing prompts to improve AI model output quality."@en,
+                    "De praktijk van het ontwerpen en optimaliseren van prompts om de outputkwaliteit van AI-modellen te verbeteren."@nl ;
+  dct:identifier    "urn:uuid:e5c50c0e-e229-4cd2-b582-309bc68b7e2e" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:ReinforcementLearning
+  a                 skos:Concept ;
+  skos:prefLabel    "Reinforcement Learning"@en, "Reinforcement Learning"@nl ;
+  skos:definition   "A machine learning paradigm where an agent learns optimal behavior by interacting with an environment and receiving rewards."@en,
+                    "Een machine learning paradigma waarbij een agent optimaal gedrag leert door interactie met een omgeving en het ontvangen van beloningen."@nl ;
+  dct:identifier    "urn:uuid:c944fd3f-dbcf-4ab0-b3a6-f4f12ba8aeec" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:RAG
+  a                 skos:Concept ;
+  skos:prefLabel    "Retrieval-Augmented Generation (RAG)"@en, "Retrieval-Augmented Generation (RAG)"@nl ;
+  skos:definition   "An AI framework that enhances language models by retrieving relevant information before generating responses."@en,
+                    "Een AI-framework dat taalmodellen verbetert door relevante informatie op te halen voordat reacties worden gegenereerd."@nl ;
+  dct:identifier    "urn:uuid:6f1b98e5-3f4d-478c-81bc-5cde6102245f" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:SoftwareAgent
+  a                 skos:Concept ;
+  skos:prefLabel    "Software Agent"@en, "Software Agent"@nl ;
+  skos:definition   "A computer program that acts autonomously on behalf of users or other programs to accomplish tasks."@en,
+                    "Een computerprogramma dat autonoom handelt namens gebruikers of andere programma's om taken uit te voeren."@nl ;
+  dct:identifier    "urn:uuid:7012a70e-ea08-4697-8972-35d8d4002753" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:Temperature
+  a                 skos:Concept ;
+  skos:prefLabel    "Temperature"@en, "Temperature"@nl ;
+  skos:definition   "A sampling parameter that controls the randomness and creativity of model outputs."@en,
+                    "Een samplingparameter die de willekeur en creativiteit van modeluitvoer regelt."@nl ;
+  dct:identifier    "urn:uuid:ca0ad5dc-981f-4d36-9502-4f89826f6966" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:Token
+  a                 skos:Concept ;
+  skos:prefLabel    "Token"@en, "Token"@nl ;
+  skos:definition   "The basic unit of text processed by language models, representing words or sub-words."@en,
+                    "De basiseenheid van tekst die door taalmodellen wordt verwerkt, die woorden of deelwoorden vertegenwoordigt."@nl ;
+  dct:identifier    "urn:uuid:7381fa69-f470-451d-a018-b1c5cf1c743f" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:Transformer
+  a                 skos:Concept ;
+  skos:prefLabel    "Transformer"@en, "Transformer"@nl ;
+  skos:definition   "A neural network architecture that uses self-attention mechanisms to process sequential data in parallel."@en,
+                    "Een neuraal netwerkarchitectuur die zelf-attentie mechanismen gebruikt om sequentiële gegevens parallel te verwerken."@nl ;
+  dct:identifier    "urn:uuid:e8a9bbd2-a4c6-4340-9586-31f828e70124" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:VectorDatabase
+  a                 skos:Concept ;
+  skos:prefLabel    "Vector Database"@en, "Vector Database"@nl ;
+  skos:definition   "A specialized database optimized for storing and querying high-dimensional vector embeddings."@en,
+                    "Een gespecialiseerde database geoptimaliseerd voor het opslaan en opvragen van hoog-dimensionale vector-embeddings."@nl ;
+  dct:identifier    "urn:uuid:16b79a16-7bd9-4994-a255-b9a460e2fe04" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:VectorSearch
+  a                 skos:Concept ;
+  skos:prefLabel    "Vector Search"@en, "Vector Search"@nl ;
+  skos:definition   "Retrieving items whose embeddings are most similar to a query vector under a chosen distance metric."@en,
+                    "Het ophalen van items waarvan de embeddings het meest lijken op een queryvector volgens een gekozen afstandsmaat."@nl ;
+  dct:identifier    "urn:uuid:240466de-979c-4131-a7f5-cf9088742b7e" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:ZeroShotPrompting
+  a                 skos:Concept ;
+  skos:prefLabel    "Zero-Shot Prompting"@en, "Zero-Shot Prompting"@nl ;
+  skos:definition   "Providing a language model with a task description without any examples, relying on pretrained knowledge."@en,
+                    "Een taalmodel voorzien van een taakbeschrijving zonder voorbeelden, vertrouwend op voorgetrainde kennis."@nl ;
+  dct:identifier    "urn:uuid:8176fe3b-0de8-4286-a00d-0bd7c95644df" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .

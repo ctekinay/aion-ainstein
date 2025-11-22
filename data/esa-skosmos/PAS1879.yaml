@@ -1,0 +1,7 @@
+config:
+  type: file
+  location: PAS1879.config
+
+source:
+  type: file
+  location: PAS1879.ttl

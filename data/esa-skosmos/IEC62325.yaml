@@ -1,0 +1,8 @@
+config:
+  type: file
+  location: IEC62325.config
+
+source:
+  type: file
+  location: IEC62325.ttl
+

@@ -1,0 +1,423 @@
+@prefix : <http://iec.ch/TC57/ns/CIM/StateVariables-EU/> .
+@prefix cims: <http://iec.ch/TC57/1999/rdf-schema-extensions-19990926#> .
+@prefix dcat: <http://www.w3.org/ns/dcat#> .
+@prefix dct: <http://purl.org/dc/terms/> .
+@prefix foaf: <http://xmlns.com/foaf/0.1/> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix skos: <http://www.w3.org/2004/02/skos/core#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+:Ontology a owl:Ontology,
+        skos:ConceptScheme ;
+    owl:versionIRI :3.0 ;
+    dcat:keyword "SV" ;
+    dcat:theme "vocabulary"@en ;
+    dct:conformsTo "file://iec61970cim17v40_iec61968cim13v13a_iec62325cim03v17a.eap",
+        "urn:iso:std:iec:61970-301:ed-7:amd1",
+        "urn:iso:std:iec:61970-501:draft:ed-2",
+        "urn:iso:std:iec:61970-600-2:ed-1" ;
+    dct:creator "ENTSO-E CIM EG"@en ;
+    dct:description "This vocabulary is describing the state variables profile from IEC 61970-600-2."@en ;
+    dct:identifier "urn:uuid:767279cf-b7f6-4693-a5a1-7c7c0ead64c4" ;
+    dct:issued "2021-01-27T12:26:26+00:00"^^xsd:dateTime ;
+    dct:language "en-GB" ;
+    dct:modified "2020-10-12"^^xsd:date ;
+    dct:publisher "ENTSO-E"@en ;
+    dct:rights "Copyright"@en ;
+    dct:rightsHolder "ENTSO-E"@en ;
+    dct:title "IEC 61970 - State Variables (CGMES)"@en ;
+    foaf:homepage "https://www.entsoe.eu/digital/cim/cim-for-grid-models-exchange/" ;
+    owl:incompatibleWith <http://entsoe.eu/2009/profile1> ;
+    owl:priorVersion <http://entsoe.eu/CIM/StateVariables/4/1> ;
+    skos:topConceptOf :IdentifiedObject .
+
+### rdf Properties
+
+cims:belongsToCategory a rdf:Property ;
+    rdfs:label "CIM Profile" .
+
+### rdfs Classes
+
+owl:Class a rdfs:Class ;
+    rdfs:label "Class" .
+
+### Classes
+
+:ACDCConverter a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "ACDCConverter"@en ;
+    skos:definition "A unit with valves for three phases, together with unit control equipment, essential protective and switching devices, DC storage capacitors, phase reactors and auxiliaries, if any, used for conversion."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_StateVariablesProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:002d8113-44b0-51ed-8728-4cf3fd084e95" ;
+    skos:broader :ConductingEquipment ;
+    skos:inScheme :Ontology ;
+    skos:narrower :CsConverter,
+        :VsConverter .
+
+:ACDCTerminal a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "ACDCTerminal"@en ;
+    skos:definition "An electrical connection point (AC or DC) to a piece of conducting equipment. Terminals are connected at physical connection points called connectivity nodes."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_StateVariablesProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:dcc8f312-b5c2-5459-ae91-55fe8792efc2" ;
+    skos:broader :IdentifiedObject ;
+    skos:inScheme :Ontology ;
+    skos:narrower :Terminal .
+
+:ActivePower a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "ActivePower"@en ;
+    skos:definition "Product of RMS value of the voltage and the RMS value of the in-phase component of the current."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_StateVariablesProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:714c9308-ce4e-51a4-86c9-a0313436dec1" ;
+    skos:inScheme :Ontology ;
+    skos:topConceptOf :Ontology .
+
+:AngleDegrees a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "AngleDegrees"@en ;
+    skos:definition "Measurement of angle in degrees."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_StateVariablesProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:c58082df-efcb-50d5-9f92-3763ad02b26a" ;
+    skos:inScheme :Ontology ;
+    skos:topConceptOf :Ontology .
+
+:Boolean a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "Boolean"@en ;
+    skos:definition "A type with the value space \"true\" and \"false\"."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_StateVariablesProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:2aba609b-83ad-5a3c-b514-41056de614a4" ;
+    skos:inScheme :Ontology .
+
+:ConductingEquipment a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "ConductingEquipment"@en ;
+    skos:definition "The parts of the AC power system that are designed to carry current or that are conductively connected through terminals."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_StateVariablesProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:1c2ca127-c6f7-5aa3-b4da-b4d73b2367a4" ;
+    skos:inScheme :Ontology ;
+    skos:narrower :ACDCConverter,
+        :Switch ;
+    skos:topConceptOf :Ontology .
+
+:CsConverter a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "CsConverter"@en ;
+    skos:definition """DC side of the current source converter (CSC).
+The firing angle controls the dc voltage at the converter, both for rectifier and inverter. The difference between the dc voltages of the rectifier and inverter determines the dc current. The extinction angle is used to limit the dc voltage at the inverter, if needed, and is not used in active power control. The firing angle, transformer tap position and number of connected filters are the primary means to control a current source dc line. Higher level controls are built on top, e.g. dc voltage, dc current and active power. From a steady state perspective it is sufficient to specify the wanted active power transfer (ACDCConverter.targetPpcc) and the control functions will set the dc voltage, dc current, firing angle, transformer tap position and number of connected filters to meet this. Therefore attributes targetAlpha and targetGamma are not applicable in this case.
+The reactive power consumed by the converter is a function of the firing angle, transformer tap position and number of connected filter, which can be approximated with half of the active power. The losses is a function of the dc voltage and dc current.
+The attributes minAlpha and maxAlpha define the range of firing angles for rectifier operation between which no discrete tap changer action takes place. The range is typically 10-18 degrees.
+The attributes minGamma and maxGamma define the range of extinction angles for inverter operation between which no discrete tap changer action takes place. The range is typically 17-20 degrees."""@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_StateVariablesProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:b795677d-eb5d-5655-99fb-e1593b0f794c" ;
+    skos:broader :ACDCConverter ;
+    skos:inScheme :Ontology .
+
+:CurrentFlow a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "CurrentFlow"@en ;
+    skos:definition "Electrical current with sign convention: positive flow is out of the conducting equipment into the connectivity node. Can be both AC and DC."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_StateVariablesProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:1463f4af-9f01-5182-96c0-14ee8c0a414e" ;
+    skos:inScheme :Ontology ;
+    skos:topConceptOf :Ontology .
+
+:Date a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "Date"@en ;
+    skos:definition "Date as \"yyyy-mm-dd\", which conforms with ISO 8601. UTC time zone is specified as \"yyyy-mm-ddZ\". A local timezone relative UTC is specified as \"yyyy-mm-dd(+/-)hh:mm\"."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_StateVariablesProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:07e0ee78-a987-5790-85b7-97fcafb26280" ;
+    skos:inScheme :Ontology .
+
+:DCTopologicalIsland a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "DCTopologicalIsland"@en ;
+    skos:definition """An electrically connected subset of the network. DC topological islands can change as the current network state changes, e.g. due to: 
+- disconnect switches or breakers changing state in a SCADA/EMS.
+- manual creation, change or deletion of topological nodes in a planning tool.
+Only energised TopologicalNode-s shall be part of the topological island."""@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_StateVariablesProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:cc7becf5-0921-523d-8ff9-b4ecf00fcf92" ;
+    skos:broader :IdentifiedObject ;
+    skos:inScheme :Ontology .
+
+:DCTopologicalNode a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "DCTopologicalNode"@en ;
+    skos:definition "DC bus."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_StateVariablesProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:690dd1c5-bfc9-59ec-9d52-b736b2630d1a" ;
+    skos:broader :IdentifiedObject ;
+    skos:inScheme :Ontology .
+
+:Float a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "Float"@en ;
+    skos:definition "A floating point number. The range is unspecified and not limited."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_StateVariablesProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:5fdbc5b8-0696-513d-8655-8d96d6b2f46c" ;
+    skos:inScheme :Ontology .
+
+:IdentifiedObject a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "IdentifiedObject"@en ;
+    skos:definition "This is a root class to provide common identification for all classes needing identification and naming attributes."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_StateVariablesProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:8b608154-3ad1-578c-8f96-14986c5f7b0b" ;
+    skos:inScheme :Ontology ;
+    skos:narrower :ACDCTerminal,
+        :DCTopologicalIsland,
+        :DCTopologicalNode,
+        :TopologicalIsland ;
+    skos:topConceptOf :Ontology .
+
+:ReactivePower a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "ReactivePower"@en ;
+    skos:definition "Product of RMS value of the voltage and the RMS value of the quadrature component of the current."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_StateVariablesProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:315640ab-1578-5f2f-a466-202874a89696" ;
+    skos:inScheme :Ontology ;
+    skos:topConceptOf :Ontology .
+
+:ShuntCompensator a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "ShuntCompensator"@en ;
+    skos:definition "A shunt capacitor or reactor or switchable bank of shunt capacitors or reactors. A section of a shunt compensator is an individual capacitor or reactor. A negative value for bPerSection indicates that the compensator is a reactor. ShuntCompensator is a single terminal device.  Ground is implied."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_StateVariablesProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:42f4365c-0496-51f3-a0d0-101cca939fc6" ;
+    skos:inScheme :Ontology ;
+    skos:topConceptOf :Ontology .
+
+:String a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "String"@en ;
+    skos:definition "A string consisting of a sequence of characters. The character encoding is UTF-8. The string length is unspecified and unlimited."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_StateVariablesProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:f2380b10-814b-5e86-9c8d-23fa8037070b" ;
+    skos:inScheme :Ontology .
+
+:SvInjection a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "SvInjection"@en ;
+    skos:definition "The SvInjection reports the calculated bus injection minus the sum of the terminal flows. The terminal flow is positive out from the bus (load sign convention) and bus injection has positive flow into the bus. SvInjection may have the remainder after state estimation or slack after power flow calculation."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_StateVariablesProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:259af9f6-1b94-5ced-a412-0151cbd96768" ;
+    skos:inScheme :Ontology ;
+    skos:topConceptOf :Ontology .
+
+:SvPowerFlow a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "SvPowerFlow"@en ;
+    skos:definition "State variable for power flow. Load convention is used for flow direction. This means flow out from the TopologicalNode into the equipment is positive."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_StateVariablesProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:3f2ddb03-695d-5e96-bc18-b7095d5176c8" ;
+    skos:inScheme :Ontology ;
+    skos:topConceptOf :Ontology .
+
+:SvShuntCompensatorSections a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "SvShuntCompensatorSections"@en ;
+    skos:definition "State variable for the number of sections in service for a shunt compensator."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_StateVariablesProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:64d2359c-01df-5ef5-a158-6466e42db254" ;
+    skos:inScheme :Ontology ;
+    skos:topConceptOf :Ontology .
+
+:SvStatus a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "SvStatus"@en ;
+    skos:definition "State variable for status."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_StateVariablesProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:4a16a08b-14c9-5a88-a756-7e3711bd1a24" ;
+    skos:inScheme :Ontology ;
+    skos:topConceptOf :Ontology .
+
+:SvSwitch a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "SvSwitch"@en ;
+    skos:definition "State variable for switch. "@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_StateVariablesProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:7b92d15c-0afa-52da-b38e-051a4a1a9a95" ;
+    skos:inScheme :Ontology ;
+    skos:topConceptOf :Ontology .
+
+:SvTapStep a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "SvTapStep"@en ;
+    skos:definition "State variable for transformer tap step. "@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_StateVariablesProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:feaa8eca-2fe6-5bf2-b1b2-fcf13cfc1c53" ;
+    skos:inScheme :Ontology ;
+    skos:topConceptOf :Ontology .
+
+:SvVoltage a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "SvVoltage"@en ;
+    skos:definition "State variable for voltage."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_StateVariablesProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:b0de013c-3633-5f15-8d60-b06507461664" ;
+    skos:inScheme :Ontology ;
+    skos:topConceptOf :Ontology .
+
+:Switch a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "Switch"@en ;
+    skos:definition "A generic device designed to close, or open, or both, one or more electric circuits.  All switches are two terminal devices including grounding switches. The ACDCTerminal.connected at the two sides of the switch shall not be considered for assessing switch connectivity, i.e. only Switch.open, .normalOpen and .locked are relevant."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_StateVariablesProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:474fb552-704a-53c8-8ab1-dd02a6856f78" ;
+    skos:broader :ConductingEquipment ;
+    skos:inScheme :Ontology .
+
+:TapChanger a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "TapChanger"@en ;
+    skos:definition "Mechanism for changing transformer winding tap positions."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_StateVariablesProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:e6b290d7-d260-5cfa-b1ee-076348b92afa" ;
+    skos:inScheme :Ontology ;
+    skos:topConceptOf :Ontology .
+
+:Terminal a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "Terminal"@en ;
+    skos:definition "An AC electrical connection point to a piece of conducting equipment. Terminals are connected at physical connection points called connectivity nodes."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_StateVariablesProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:c8ce7324-3947-5a38-9b7d-18d0b10d1b6a" ;
+    skos:broader :ACDCTerminal ;
+    skos:inScheme :Ontology .
+
+:TopologicalIsland a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "TopologicalIsland"@en ;
+    skos:definition """An electrically connected subset of the network. Topological islands can change as the current network state changes, e.g. due to: 
+- disconnect switches or breakers changing state in a SCADA/EMS.
+- manual creation, change or deletion of topological nodes in a planning tool.
+Only energised TopologicalNode-s shall be part of the topological island."""@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_StateVariablesProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:21104c55-69b9-5ff3-811d-aa037afccacc" ;
+    skos:broader :IdentifiedObject ;
+    skos:inScheme :Ontology .
+
+:TopologicalNode a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "TopologicalNode"@en ;
+    skos:definition """For a detailed substation model a topological node is a set of connectivity nodes that, in the current network state, are connected together through any type of closed switches, including  jumpers. Topological nodes change as the current network state changes (i.e., switches, breakers, etc. change state).
+For a planning model, switch statuses are not used to form topological nodes. Instead they are manually created or deleted in a model builder tool. Topological nodes maintained this way are also called "busses"."""@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_StateVariablesProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:c9a678fe-a7ed-5900-b72c-90a6d1395e4b" ;
+    skos:inScheme :Ontology ;
+    skos:topConceptOf :Ontology .
+
+:UnitMultiplier a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "UnitMultiplier"@en ;
+    skos:definition """The unit multipliers defined for the CIM.  When applied to unit symbols, the unit symbol is treated as a derived unit. Regardless of the contents of the unit symbol text, the unit symbol shall be treated as if it were a single-character unit symbol. Unit symbols should not contain multipliers, and it should be left to the multiplier to define the multiple for an entire data type. 
+
+For example, if a unit symbol is "m2Pers" and the multiplier is "k", then the value is k(m**2/s), and the multiplier applies to the entire final value, not to any individual part of the value. This can be conceptualized by substituting a derived unit symbol for the unit type. If one imagines that the symbol "Þ" represents the derived unit "m2Pers", then applying the multiplier "k" can be conceptualized simply as "kÞ".
+
+For example, the SI unit for mass is "kg" and not "g".  If the unit symbol is defined as "kg", then the multiplier is applied to "kg" as a whole and does not replace the "k" in front of the "g". In this case, the multiplier of "m" would be used with the unit symbol of "kg" to represent one gram.  As a text string, this violates the instructions in IEC 80000-1. However, because the unit symbol in CIM is treated as a derived unit instead of as an SI unit, it makes more sense to conceptualize the "kg" as if it were replaced by one of the proposed replacements for the SI mass symbol. If one imagines that the "kg" were replaced by a symbol "Þ", then it is easier to conceptualize the multiplier "m" as creating the proper unit "mÞ", and not the forbidden unit "mkg"."""@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_StateVariablesProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:da1e97b6-46f2-506a-864d-a1928da28823" ;
+    skos:inScheme :Ontology ;
+    skos:topConceptOf :Ontology .
+
+:UnitSymbol a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "UnitSymbol"@en ;
+    skos:definition """The derived units defined for usage in the CIM. In some cases, the derived unit is equal to an SI unit. Whenever possible, the standard derived symbol is used instead of the formula for the derived unit. For example, the unit symbol Farad is defined as "F" instead of "CPerV". In cases where a standard symbol does not exist for a derived unit, the formula for the unit is used as the unit symbol. For example, density does not have a standard symbol and so it is represented as "kgPerm3". With the exception of the "kg", which is an SI unit, the unit symbols do not contain multipliers and therefore represent the base derived unit to which a multiplier can be applied as a whole. 
+Every unit symbol is treated as an unparseable text as if it were a single-letter symbol. The meaning of each unit symbol is defined by the accompanying descriptive text and not by the text contents of the unit symbol.
+To allow the widest possible range of serializations without requiring special character handling, several substitutions are made which deviate from the format described in IEC 80000-1. The division symbol "/" is replaced by the letters "Per". Exponents are written in plain text after the unit as "m3" instead of being formatted as "m" with a superscript of 3  or introducing a symbol as in "m^3". The degree symbol "°" is replaced with the letters "deg". Any clarification of the meaning for a substitution is included in the description for the unit symbol.
+Non-SI units are included in list of unit symbols to allow sources of data to be correctly labelled with their non-SI units (for example, a GPS sensor that is reporting numbers that represent feet instead of meters). This allows software to use the unit symbol information correctly convert and scale the raw data of those sources into SI-based units. 
+The integer values are used for harmonization with IEC 61850."""@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_StateVariablesProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:2b86bebf-8621-5689-9e2b-abe7022cd8e8" ;
+    skos:inScheme :Ontology ;
+    skos:topConceptOf :Ontology .
+
+:Voltage a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "Voltage"@en ;
+    skos:definition "Electrical voltage, can be both AC and DC."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_StateVariablesProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:de9784d8-80f3-52d9-a91c-3db766025880" ;
+    skos:inScheme :Ontology ;
+    skos:topConceptOf :Ontology .
+
+:VsConverter a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "VsConverter"@en ;
+    skos:definition "DC side of the voltage source converter (VSC)."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_StateVariablesProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:daf52b1c-f3dc-52d1-bd19-caeefa359bcb" ;
+    skos:broader :ACDCConverter ;
+    skos:inScheme :Ontology .
+

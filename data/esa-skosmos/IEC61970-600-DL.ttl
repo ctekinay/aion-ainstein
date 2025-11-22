@@ -1,0 +1,255 @@
+@prefix : <http://iec.ch/TC57/ns/CIM/DiagramLayout-EU/> .
+@prefix cims: <http://iec.ch/TC57/1999/rdf-schema-extensions-19990926#> .
+@prefix dcat: <http://www.w3.org/ns/dcat#> .
+@prefix dct: <http://purl.org/dc/terms/> .
+@prefix foaf: <http://xmlns.com/foaf/0.1/> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix skos: <http://www.w3.org/2004/02/skos/core#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+:Ontology a owl:Ontology,
+        skos:ConceptScheme ;
+    owl:versionIRI :3.0 ;
+    dcat:keyword "DL" ;
+    dcat:theme "vocabulary"@en ;
+    dct:conformsTo "file://iec61970cim17v40_iec61968cim13v13a_iec62325cim03v17a.eap",
+        "urn:iso:std:iec:61970-301:ed-7:amd1",
+        "urn:iso:std:iec:61970-501:draft:ed-2",
+        "urn:iso:std:iec:61970-600-2:ed-1" ;
+    dct:creator "ENTSO-E CIM EG"@en ;
+    dct:description "This vocabulary is describing the diagram layout profile from IEC 61970-453."@en ;
+    dct:identifier "urn:uuid:7b269643-3da3-4dd0-83e8-58d7f13ee3bc" ;
+    dct:issued "2021-01-27T12:18:26+00:00"^^xsd:dateTime ;
+    dct:language "en-GB" ;
+    dct:modified "2020-10-12"^^xsd:date ;
+    dct:publisher "ENTSO-E"@en ;
+    dct:rights "Copyright"@en ;
+    dct:rightsHolder "ENTSO-E"@en ;
+    dct:title "IEC 61970 - Diagram Layout (CGMES)"@en ;
+    foaf:homepage "https://www.entsoe.eu/digital/cim/cim-for-grid-models-exchange/" ;
+    owl:incompatibleWith <http://entsoe.eu/2009/profile1> ;
+    owl:priorVersion <http://entsoe.eu/CIM/DiagramLayout/3/1> ;
+    skos:topConceptOf :IdentifiedObject .
+
+### rdf Properties
+
+cims:belongsToCategory a rdf:Property ;
+    rdfs:label "CIM Profile" .
+
+### rdfs Classes
+
+owl:Class a rdfs:Class ;
+    rdfs:label "Class" .
+
+### Classes
+
+:AngleDegrees a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "AngleDegrees"@en ;
+    skos:definition "Measurement of angle in degrees."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_DiagramLayoutProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:9d65b64f-268c-556e-880d-d1d7f6bdd6fb" ;
+    skos:inScheme :Ontology ;
+    skos:topConceptOf :Ontology .
+
+:Boolean a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "Boolean"@en ;
+    skos:definition "A type with the value space \"true\" and \"false\"."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_DiagramLayoutProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:fbe4d60d-5e8c-5cbc-8204-5e50493b49e9" ;
+    skos:inScheme :Ontology .
+
+:Date a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "Date"@en ;
+    skos:definition "Date as \"yyyy-mm-dd\", which conforms with ISO 8601. UTC time zone is specified as \"yyyy-mm-ddZ\". A local timezone relative UTC is specified as \"yyyy-mm-dd(+/-)hh:mm\"."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_DiagramLayoutProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:564b9185-6199-533f-b0c1-dc29c76c7c51" ;
+    skos:inScheme :Ontology .
+
+:Diagram a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "Diagram"@en ;
+    skos:definition "The diagram being exchanged. The coordinate system is a standard Cartesian coordinate system and the orientation attribute defines the orientation. The initial view related attributes can be used to specify an initial view with the x,y coordinates of the diagonal points."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_DiagramLayoutProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:439e5289-5119-5241-b402-12ba8995be78" ;
+    skos:broader :IdentifiedObject ;
+    skos:inScheme :Ontology .
+
+:DiagramObject a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "DiagramObject"@en ;
+    skos:definition "An object that defines one or more points in a given space. This object can be associated with anything that specializes IdentifiedObject. For single line diagrams such objects typically include such items as analog values, breakers, disconnectors, power transformers, and transmission lines."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_DiagramLayoutProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:f8cbc45d-62ed-5cc9-ba34-edcfd72ae81c" ;
+    skos:broader :IdentifiedObject ;
+    skos:inScheme :Ontology ;
+    skos:narrower :TextDiagramObject .
+
+:DiagramObjectGluePoint a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "DiagramObjectGluePoint"@en ;
+    skos:definition "This is used for grouping diagram object points from different diagram objects that are considered to be glued together in a diagram even if they are not at the exact same coordinates."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_DiagramLayoutProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:861428ff-2b16-5e9f-bff3-ffffdd55ab4f" ;
+    skos:inScheme :Ontology ;
+    skos:topConceptOf :Ontology .
+
+:DiagramObjectPoint a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "DiagramObjectPoint"@en ;
+    skos:definition "A point in a given space defined by 3 coordinates and associated to a diagram object.  The coordinates may be positive or negative as the origin does not have to be in the corner of a diagram.  "@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_DiagramLayoutProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:b5bf2ae3-3ba0-5355-a006-b3d4a4b35291" ;
+    skos:inScheme :Ontology ;
+    skos:topConceptOf :Ontology .
+
+:DiagramObjectStyle a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "DiagramObjectStyle"@en ;
+    skos:definition "A reference to a style used by the originating system for a diagram object.  A diagram object style describes information such as line thickness, shape such as circle or rectangle etc, and colour."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_DiagramLayoutProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:946850c2-28a5-564a-8d17-d1774f72f138" ;
+    skos:broader :IdentifiedObject ;
+    skos:inScheme :Ontology .
+
+:DiagramStyle a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "DiagramStyle"@en ;
+    skos:definition "The diagram style refers to a style used by the originating system for a diagram.  A diagram style describes information such as schematic, geographic, etc."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_DiagramLayoutProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:9996f43e-176c-5131-9cc2-16c2baddc804" ;
+    skos:broader :IdentifiedObject ;
+    skos:inScheme :Ontology .
+
+:Float a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "Float"@en ;
+    skos:definition "A floating point number. The range is unspecified and not limited."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_DiagramLayoutProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:088835ee-0d2d-5b8d-915b-17114758de90" ;
+    skos:inScheme :Ontology .
+
+:IdentifiedObject a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "IdentifiedObject"@en ;
+    skos:definition "This is a root class to provide common identification for all classes needing identification and naming attributes."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_DiagramLayoutProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:2a415020-d592-5657-8016-f1558e7169eb" ;
+    skos:inScheme :Ontology ;
+    skos:narrower :Diagram,
+        :DiagramObject,
+        :DiagramObjectStyle,
+        :DiagramStyle,
+        :VisibilityLayer ;
+    skos:topConceptOf :Ontology .
+
+:Integer a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "Integer"@en ;
+    skos:definition "An integer number. The range is unspecified and not limited."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_DiagramLayoutProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:2213f84e-a39f-577a-aa45-1e714b19a9df" ;
+    skos:inScheme :Ontology .
+
+:OrientationKind a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "OrientationKind"@en ;
+    skos:definition "The orientation of the coordinate system with respect to top, left, and the coordinate number system."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_DiagramLayoutProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:e620bf70-21f4-577f-9a82-24a68f2bcdb8" ;
+    skos:inScheme :Ontology ;
+    skos:topConceptOf :Ontology .
+
+:String a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "String"@en ;
+    skos:definition "A string consisting of a sequence of characters. The character encoding is UTF-8. The string length is unspecified and unlimited."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_DiagramLayoutProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:3e76b39d-eb74-5470-ada0-e8d23c6cbb22" ;
+    skos:inScheme :Ontology .
+
+:TextDiagramObject a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "TextDiagramObject"@en ;
+    skos:definition "A diagram object for placing free-text or text derived from an associated domain object."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_DiagramLayoutProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:74f6e41a-0c0e-5019-bf90-acd2d55242c2" ;
+    skos:broader :DiagramObject ;
+    skos:inScheme :Ontology .
+
+:UnitMultiplier a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "UnitMultiplier"@en ;
+    skos:definition """The unit multipliers defined for the CIM.  When applied to unit symbols, the unit symbol is treated as a derived unit. Regardless of the contents of the unit symbol text, the unit symbol shall be treated as if it were a single-character unit symbol. Unit symbols should not contain multipliers, and it should be left to the multiplier to define the multiple for an entire data type.
+
+For example, if a unit symbol is "m2Pers" and the multiplier is "k", then the value is k(m**2/s), and the multiplier applies to the entire final value, not to any individual part of the value. This can be conceptualized by substituting a derived unit symbol for the unit type. If one imagines that the symbol "Þ" represents the derived unit "m2Pers", then applying the multiplier "k" can be conceptualized simply as "kÞ".
+
+For example, the SI unit for mass is "kg" and not "g".  If the unit symbol is defined as "kg", then the multiplier is applied to "kg" as a whole and does not replace the "k" in front of the "g". In this case, the multiplier of "m" would be used with the unit symbol of "kg" to represent one gram.  As a text string, this violates the instructions in IEC 80000-1. However, because the unit symbol in CIM is treated as a derived unit instead of as an SI unit, it makes more sense to conceptualize the "kg" as if it were replaced by one of the proposed replacements for the SI mass symbol. If one imagines that the "kg" were replaced by a symbol "Þ", then it is easier to conceptualize the multiplier "m" as creating the proper unit "mÞ", and not the forbidden unit "mkg"."""@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_DiagramLayoutProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:425236ce-370e-5f11-b992-05a9bd6d37eb" ;
+    skos:inScheme :Ontology ;
+    skos:topConceptOf :Ontology .
+
+:UnitSymbol a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "UnitSymbol"@en ;
+    skos:definition """The derived units defined for usage in the CIM. In some cases, the derived unit is equal to an SI unit. Whenever possible, the standard derived symbol is used instead of the formula for the derived unit. For example, the unit symbol Farad is defined as "F" instead of "CPerV". In cases where a standard symbol does not exist for a derived unit, the formula for the unit is used as the unit symbol. For example, density does not have a standard symbol and so it is represented as "kgPerm3". With the exception of the "kg", which is an SI unit, the unit symbols do not contain multipliers and therefore represent the base derived unit to which a multiplier can be applied as a whole.
+Every unit symbol is treated as an unparseable text as if it were a single-letter symbol. The meaning of each unit symbol is defined by the accompanying descriptive text and not by the text contents of the unit symbol.
+To allow the widest possible range of serializations without requiring special character handling, several substitutions are made which deviate from the format described in IEC 80000-1. The division symbol "/" is replaced by the letters "Per". Exponents are written in plain text after the unit as "m3" instead of being formatted as "m" with a superscript of 3  or introducing a symbol as in "m^3". The degree symbol "°" is replaced with the letters "deg". Any clarification of the meaning for a substitution is included in the description for the unit symbol.
+Non-SI units are included in list of unit symbols to allow sources of data to be correctly labelled with their non-SI units (for example, a GPS sensor that is reporting numbers that represent feet instead of meters). This allows software to use the unit symbol information correctly convert and scale the raw data of those sources into SI-based units.
+The integer values are used for harmonization with IEC 61850."""@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_DiagramLayoutProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:fad2b957-8547-56f6-bb38-f9d66a456389" ;
+    skos:inScheme :Ontology ;
+    skos:topConceptOf :Ontology .
+
+:VisibilityLayer a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "VisibilityLayer"@en ;
+    skos:definition """Layers are typically used for grouping diagram objects according to themes and scales. Themes are used to display or hide certain information (e.g., lakes, borders), while scales are used for hiding or displaying information depending on the current zoom level (hide text when it is too small to be read, or when it exceeds the screen size). This is also called de-cluttering.
+CIM based graphics exchange supports an m:n relationship between diagram objects and layers. The importing system shall convert an m:n case into an appropriate 1:n representation if the importing system does not support m:n."""@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_DiagramLayoutProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:bde97cf2-f17e-572a-861e-88e9e177b217" ;
+    skos:broader :IdentifiedObject ;
+    skos:inScheme :Ontology .
+

@@ -1,0 +1,367 @@
+@prefix : <http://iec.ch/TC57/ns/CIM/EquipmentBoundary-EU/> .
+@prefix cims: <http://iec.ch/TC57/1999/rdf-schema-extensions-19990926#> .
+@prefix dcat: <http://www.w3.org/ns/dcat#> .
+@prefix dct: <http://purl.org/dc/terms/> .
+@prefix foaf: <http://xmlns.com/foaf/0.1/> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix skos: <http://www.w3.org/2004/02/skos/core#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+:Ontology a owl:Ontology,
+        skos:ConceptScheme ;
+    owl:versionIRI :3.0 ;
+    dcat:keyword "EQBD" ;
+    dcat:theme "vocabulary"@en ;
+    dct:conformsTo "file://iec61970cim17v40_iec61968cim13v13a_iec62325cim03v17a.eap",
+        "urn:iso:std:iec:61970-301:ed-7:amd1",
+        "urn:iso:std:iec:61970-501:draft:ed-2",
+        "urn:iso:std:iec:61970-600-2:ed-1" ;
+    dct:creator "ENTSO-E CIM EG"@en ;
+    dct:description "This vocabulary is describing the equipment boundary profile from IEC 61970-600-2."@en ;
+    dct:identifier "urn:uuid:1e79354a-ccc2-434b-bab3-3dc4a08df5ea" ;
+    dct:issued "2021-01-27T12:30:44+00:00"^^xsd:dateTime ;
+    dct:language "en-GB" ;
+    dct:modified "2020-10-12"^^xsd:date ;
+    dct:publisher "ENTSO-E"@en ;
+    dct:rights "Copyright"@en ;
+    dct:rightsHolder "ENTSO-E"@en ;
+    dct:title "IEC 61970 - Equipment Boundary (CGMES)"@en ;
+    foaf:homepage "https://www.entsoe.eu/digital/cim/cim-for-grid-models-exchange/" ;
+    owl:incompatibleWith <http://entsoe.eu/2009/profile1> ;
+    owl:priorVersion <http://entsoe.eu/CIM/EquipmentBoundary/3/1> ;
+    skos:topConceptOf :IdentifiedObject .
+
+### rdf Properties
+
+cims:belongsToCategory a rdf:Property ;
+    rdfs:label "CIM Profile" .
+
+### rdfs Classes
+
+owl:Class a rdfs:Class ;
+    rdfs:label "Class" .
+
+### Classes
+
+:ACDCTerminal a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "ACDCTerminal"@en ;
+    skos:definition "An electrical connection point (AC or DC) to a piece of conducting equipment. Terminals are connected at physical connection points called connectivity nodes."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_EquipmentBoundaryProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:69b828eb-1622-506a-aa73-8f75576531f1" ;
+    skos:broader :IdentifiedObject ;
+    skos:inScheme :Ontology ;
+    skos:narrower :Terminal .
+
+:BaseVoltage a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "BaseVoltage"@en ;
+    skos:definition "Defines a system base voltage which is referenced. "@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_EquipmentBoundaryProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:5a11ad37-4e09-5446-80e5-92d6cd49935c" ;
+    skos:broader :IdentifiedObject ;
+    skos:inScheme :Ontology .
+
+:Bay a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "Bay"@en ;
+    skos:definition "A collection of power system resources (within a given substation) including conducting equipment, protection relays, measurements, and telemetry.  A bay typically represents a physical grouping related to modularization of equipment."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_EquipmentBoundaryProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:4f434276-31bf-5fa6-9452-79a5898852d2" ;
+    skos:broader :EquipmentContainer ;
+    skos:inScheme :Ontology .
+
+:Boolean a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "Boolean"@en ;
+    skos:definition "A type with the value space \"true\" and \"false\"."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_EquipmentBoundaryProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:86dc0d20-bb29-53ee-b11e-8d06ac00fb54" ;
+    skos:inScheme :Ontology .
+
+:BoundaryPoint a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "BoundaryPoint"@en ;
+    skos:definition "Designates a connection point at which one or more model authority sets shall connect to. The location of the connection point as well as other properties are agreed between organisations responsible for the interconnection, hence all attributes of the class represent this agreement.  It is primarily used in a boundary model authority set which can contain one or many BoundaryPoint-s among other Equipment-s and their connections."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_EquipmentBoundaryProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:b065b4e0-d76e-5cf4-8f63-616e659b077a" ;
+    skos:broader :PowerSystemResource ;
+    skos:inScheme :Ontology .
+
+:ConductingEquipment a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "ConductingEquipment"@en ;
+    skos:definition "The parts of the AC power system that are designed to carry current or that are conductively connected through terminals."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_EquipmentBoundaryProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:48998b39-1681-5339-8611-c6b942398de3" ;
+    skos:broader :Equipment ;
+    skos:inScheme :Ontology ;
+    skos:narrower :Connector .
+
+:ConnectivityNode a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "ConnectivityNode"@en ;
+    skos:definition "Connectivity nodes are points where terminals of AC conducting equipment are connected together with zero impedance."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_EquipmentBoundaryProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:728e729f-8b2c-5cf8-9d66-7c1f918bdc98" ;
+    skos:broader :IdentifiedObject ;
+    skos:inScheme :Ontology .
+
+:ConnectivityNodeContainer a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "ConnectivityNodeContainer"@en ;
+    skos:definition "A base class for all objects that may contain connectivity nodes or topological nodes."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_EquipmentBoundaryProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:25a0f399-4f82-5c83-939c-45cba46f17ca" ;
+    skos:broader :PowerSystemResource ;
+    skos:inScheme :Ontology ;
+    skos:narrower :EquipmentContainer .
+
+:Connector a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "Connector"@en ;
+    skos:definition "A conductor, or group of conductors, with negligible impedance, that serve to connect other conducting equipment within a single substation and are modelled with a single logical terminal."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_EquipmentBoundaryProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:f7c5aba3-4c0a-5920-b594-46b8ce3b4f56" ;
+    skos:broader :ConductingEquipment ;
+    skos:inScheme :Ontology ;
+    skos:narrower :Junction .
+
+:Date a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "Date"@en ;
+    skos:definition "Date as \"yyyy-mm-dd\", which conforms with ISO 8601. UTC time zone is specified as \"yyyy-mm-ddZ\". A local timezone relative UTC is specified as \"yyyy-mm-dd(+/-)hh:mm\"."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_EquipmentBoundaryProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:7916051c-a139-5cd2-8d70-0d210f61243d" ;
+    skos:inScheme :Ontology .
+
+:EnergySchedulingType a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "EnergySchedulingType"@en ;
+    skos:definition "Used to define the type of generation for scheduling purposes."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_EquipmentBoundaryProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:f58163e1-7152-50d4-b097-e42c6433e555" ;
+    skos:broader :IdentifiedObject ;
+    skos:inScheme :Ontology .
+
+:Equipment a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "Equipment"@en ;
+    skos:definition "The parts of a power system that are physical devices, electronic or mechanical."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_EquipmentBoundaryProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:04a331cc-c072-59a8-8616-87ff4be4a481" ;
+    skos:broader :PowerSystemResource ;
+    skos:inScheme :Ontology ;
+    skos:narrower :ConductingEquipment .
+
+:EquipmentContainer a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "EquipmentContainer"@en ;
+    skos:definition "A modelling construct to provide a root class for containing equipment. "@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_EquipmentBoundaryProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:e7105e0c-68ac-5d28-9e00-454c3922ddaf" ;
+    skos:broader :ConnectivityNodeContainer ;
+    skos:inScheme :Ontology ;
+    skos:narrower :Bay,
+        :Line,
+        :Substation,
+        :VoltageLevel .
+
+:Float a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "Float"@en ;
+    skos:definition "A floating point number. The range is unspecified and not limited."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_EquipmentBoundaryProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:fffc525a-9ec9-5ddf-bde5-228e0961e711" ;
+    skos:inScheme :Ontology .
+
+:GeographicalRegion a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "GeographicalRegion"@en ;
+    skos:definition "A geographical region of a power system network model."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_EquipmentBoundaryProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:fbb469c4-9a68-5011-aff6-9251092b4ab3" ;
+    skos:broader :IdentifiedObject ;
+    skos:inScheme :Ontology .
+
+:IdentifiedObject a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "IdentifiedObject"@en ;
+    skos:definition "This is a root class to provide common identification for all classes needing identification and naming attributes."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_EquipmentBoundaryProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:a101562d-c0f9-5336-8ce8-f49a21e7465f" ;
+    skos:inScheme :Ontology ;
+    skos:narrower :ACDCTerminal,
+        :BaseVoltage,
+        :ConnectivityNode,
+        :EnergySchedulingType,
+        :GeographicalRegion,
+        :PowerSystemResource,
+        :SubGeographicalRegion ;
+    skos:topConceptOf :Ontology .
+
+:Junction a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "Junction"@en ;
+    skos:definition "A point where one or more conducting equipments are connected with zero resistance."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_EquipmentBoundaryProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:a4448b5d-6738-55e4-8f53-0961b8bd7801" ;
+    skos:broader :Connector ;
+    skos:inScheme :Ontology .
+
+:Line a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "Line"@en ;
+    skos:definition "Contains equipment beyond a substation belonging to a power transmission line. "@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_EquipmentBoundaryProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:31f919be-31e1-5679-adc7-dca00a9ac7ba" ;
+    skos:broader :EquipmentContainer ;
+    skos:inScheme :Ontology .
+
+:PowerSystemResource a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "PowerSystemResource"@en ;
+    skos:definition "A power system resource (PSR) can be an item of equipment such as a switch, an equipment container containing many individual items of equipment such as a substation, or an organisational entity such as sub-control area. Power system resources can have measurements associated."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_EquipmentBoundaryProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:0ee50e01-6d06-5fc6-b28c-c4f3eee0b2d7" ;
+    skos:broader :IdentifiedObject ;
+    skos:inScheme :Ontology ;
+    skos:narrower :BoundaryPoint,
+        :ConnectivityNodeContainer,
+        :Equipment .
+
+:String a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "String"@en ;
+    skos:definition "A string consisting of a sequence of characters. The character encoding is UTF-8. The string length is unspecified and unlimited."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_EquipmentBoundaryProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:ffb8185e-96e7-514b-b842-7b9ca4a3cc97" ;
+    skos:inScheme :Ontology .
+
+:SubGeographicalRegion a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "SubGeographicalRegion"@en ;
+    skos:definition "A subset of a geographical region of a power system network model."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_EquipmentBoundaryProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:14d40e35-2889-5453-9e71-ea583c25aa83" ;
+    skos:broader :IdentifiedObject ;
+    skos:inScheme :Ontology .
+
+:Substation a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "Substation"@en ;
+    skos:definition "A collection of equipment for purposes other than generation or utilization, through which electric energy in bulk is passed for the purposes of switching or modifying its characteristics. "@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_EquipmentBoundaryProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:4f20cf73-c24b-52e7-a053-67646874269a" ;
+    skos:broader :EquipmentContainer ;
+    skos:inScheme :Ontology .
+
+:Terminal a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "Terminal"@en ;
+    skos:definition "An AC electrical connection point to a piece of conducting equipment. Terminals are connected at physical connection points called connectivity nodes."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_EquipmentBoundaryProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:eda643cb-e49f-5a18-bcbe-5b8a4be316ad" ;
+    skos:broader :ACDCTerminal ;
+    skos:inScheme :Ontology .
+
+:UnitMultiplier a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "UnitMultiplier"@en ;
+    skos:definition """The unit multipliers defined for the CIM.  When applied to unit symbols, the unit symbol is treated as a derived unit. Regardless of the contents of the unit symbol text, the unit symbol shall be treated as if it were a single-character unit symbol. Unit symbols should not contain multipliers, and it should be left to the multiplier to define the multiple for an entire data type. 
+
+For example, if a unit symbol is "m2Pers" and the multiplier is "k", then the value is k(m**2/s), and the multiplier applies to the entire final value, not to any individual part of the value. This can be conceptualized by substituting a derived unit symbol for the unit type. If one imagines that the symbol "Þ" represents the derived unit "m2Pers", then applying the multiplier "k" can be conceptualized simply as "kÞ".
+
+For example, the SI unit for mass is "kg" and not "g".  If the unit symbol is defined as "kg", then the multiplier is applied to "kg" as a whole and does not replace the "k" in front of the "g". In this case, the multiplier of "m" would be used with the unit symbol of "kg" to represent one gram.  As a text string, this violates the instructions in IEC 80000-1. However, because the unit symbol in CIM is treated as a derived unit instead of as an SI unit, it makes more sense to conceptualize the "kg" as if it were replaced by one of the proposed replacements for the SI mass symbol. If one imagines that the "kg" were replaced by a symbol "Þ", then it is easier to conceptualize the multiplier "m" as creating the proper unit "mÞ", and not the forbidden unit "mkg"."""@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_EquipmentBoundaryProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:e01cdf2c-c262-5807-986b-068cc38215c0" ;
+    skos:inScheme :Ontology ;
+    skos:topConceptOf :Ontology .
+
+:UnitSymbol a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "UnitSymbol"@en ;
+    skos:definition """The derived units defined for usage in the CIM. In some cases, the derived unit is equal to an SI unit. Whenever possible, the standard derived symbol is used instead of the formula for the derived unit. For example, the unit symbol Farad is defined as "F" instead of "CPerV". In cases where a standard symbol does not exist for a derived unit, the formula for the unit is used as the unit symbol. For example, density does not have a standard symbol and so it is represented as "kgPerm3". With the exception of the "kg", which is an SI unit, the unit symbols do not contain multipliers and therefore represent the base derived unit to which a multiplier can be applied as a whole. 
+Every unit symbol is treated as an unparseable text as if it were a single-letter symbol. The meaning of each unit symbol is defined by the accompanying descriptive text and not by the text contents of the unit symbol.
+To allow the widest possible range of serializations without requiring special character handling, several substitutions are made which deviate from the format described in IEC 80000-1. The division symbol "/" is replaced by the letters "Per". Exponents are written in plain text after the unit as "m3" instead of being formatted as "m" with a superscript of 3  or introducing a symbol as in "m^3". The degree symbol "°" is replaced with the letters "deg". Any clarification of the meaning for a substitution is included in the description for the unit symbol.
+Non-SI units are included in list of unit symbols to allow sources of data to be correctly labelled with their non-SI units (for example, a GPS sensor that is reporting numbers that represent feet instead of meters). This allows software to use the unit symbol information correctly convert and scale the raw data of those sources into SI-based units. 
+The integer values are used for harmonization with IEC 61850."""@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_EquipmentBoundaryProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:6786b0b9-8e2c-5b79-98cc-27e6c0c38ae6" ;
+    skos:inScheme :Ontology ;
+    skos:topConceptOf :Ontology .
+
+:Voltage a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "Voltage"@en ;
+    skos:definition "Electrical voltage, can be both AC and DC."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_EquipmentBoundaryProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:f6984a48-c2fc-5b95-ab97-e207ce8f6276" ;
+    skos:inScheme :Ontology ;
+    skos:topConceptOf :Ontology .
+
+:VoltageLevel a owl:Class,
+        skos:Concept ;
+    skos:prefLabel "VoltageLevel"@en ;
+    skos:definition "A collection of equipment at one common system voltage forming a switchgear. The equipment typically consists of breakers, busbars, instrumentation, control, regulation and protection devices as well as assemblies of all these."@en ;
+    owl:versionInfo "3.0" ;
+    cims:belongsToCategory "Package_EquipmentBoundaryProfile" ;
+    dct:created "2025-08-04"^^xsd:date ;
+    dct:identifier "urn:uuid:eebd31c3-5dba-5275-b289-92a668fd2be4" ;
+    skos:broader :EquipmentContainer ;
+    skos:inScheme :Ontology .
+

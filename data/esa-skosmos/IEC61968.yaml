@@ -1,0 +1,8 @@
+config:
+  type: file
+  location: IEC61968.config
+
+source:
+  type: file
+  location: IEC61968.ttl
+

@@ -1,0 +1,179 @@
+@prefix :     <http://iec.ch/TC57/IEC61968/> .
+@prefix xs:   <http://www.w3.org/2001/XMLSchema#> .
+@prefix dc:   <http://purl.org/dc/elements/1.1/> .
+@prefix eu:   <http://iec.ch/TC57/CIM100-European#> .
+@prefix sh:   <http://www.w3.org/ns/shacl#> .
+@prefix dct:  <http://purl.org/dc/terms/> .
+@prefix owl:  <http://www.w3.org/2002/07/owl#> .
+@prefix rdf:  <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
+@prefix dcat: <http://www.w3.org/ns/dcat#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix skos: <http://www.w3.org/2004/02/skos/core#> .
+
+owl:Class
+  a          rdfs:Class ;
+  rdfs:label "Class" .
+
+:Ontology
+  a                owl:Ontology, skos:ConceptScheme ;
+  dct:description  "This vocabulary supports meters, assets and work."@en ;
+  dct:identifier   "urn:iec61968.351:tc57wg14" ;
+  dct:language     "en-GB" ;
+  dct:creator      "IEC TC57 Working Group" ;
+  dct:modified     "2020-10-12"^^xsd:date ;
+  dct:title        "IEC 61968 - Meters, Assets and Work"@en ;
+  owl:versionIRI   <http://iec.ch/TC57/IEC61968/1.0> ;
+  dcat:landingPage "https://www.entsoe.eu/data/cim/" ;
+  dcat:theme       "vocabulary"@en .
+
+:Asset
+  a                 owl:Class, skos:Concept ;
+  skos:prefLabel    "Asset"@en ;
+  skos:definition   """
+  An Asset is a tangible resource of the utility, including power system equipment, end devices, vehicles, tools, cabinets, buildings, etc.
+  For electrical network equipment, the function of the asset is modelled with the PowerSystemResource hierarchy, defined fully 9 in the wires model (refer to IEC 61970-301 and model package IEC61970::Wires ).
+  Asset description places emphasis on the physical characteristics and the lifecycle of the equipment performing that function, and relies on PowerSystemResource hierarchy for electrical connectivity."""@en ;
+  skos:note         """An Asset instance is a managed resource that can be in operation or in stock, and that is characterised with its lifecycle attribute, the possible values being defined by the compound LifecycleDate."""@en ;
+  owl:versionInfo   "1.0" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:AssetInfo
+  a                 owl:Class, skos:Concept ;
+  skos:prefLabel    "Asset Info"@en ;
+  skos:definition   """AssetInfo is the container for datasheet information about Asset and AssetModel, and it can also be referenced by multiple instances of Asset and PowerSystemResource (i.e., shared)."""@en ;
+  owl:versionInfo   "1.0" ;
+  skos:related      :AssetModel ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:AssetModel
+  a                 owl:Class, skos:Concept ;
+  skos:prefLabel    "Asset Model"@en ;
+  skos:definition   """It represents the model of an Asset , either a product of a specific manufacturer ( ProductAssetModel ) or a generic asset model or material item"""@en ;
+  owl:versionInfo   "1.0" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:AssetManagement
+  a                 skos:Concept ;
+  skos:prefLabel    "Asset Management"@en ;
+  skos:definition   "Asset Management in the energy domain encompasses systematically managing the energy assets in scope with their characteristics. It involves the strategic utilization of data, technology, and best practices to achieve optimal performance, cost-effectiveness, and sustainability of energy asset operations."@en ;
+  owl:versionInfo   "1.0" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:UsagePoint
+  a                 owl:Class, skos:Concept ;
+  skos:prefLabel    "Usage Point"@en ;
+  skos:definition   """
+  A UsagePoint is the logical or physical point in the network to which meter readings or events may be attributed. It is used at the place where a physical and virtual meter may be located.</br>
+  This class provides the link between the network-oriented model of electrically connected equipment ( PowerSystemResource specialisations) and the asset and premises-oriented model of the metering domain."""@en ;
+  owl:versionInfo   "1.0" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:EndDevice
+  a                 owl:Class, skos:Concept ;
+  skos:prefLabel    "EndDevice"@en ;
+  skos:definition   """Asset container that performs one or more end device functions."""@en ;
+  skos:example      """One type of end device is a meter which can perform metering, load management, connect/disconnect, accounting functions, etc. Some end devices, such as ones monitoring and controlling air conditioners, refrigerators, pool pumps may be connected to a meter."""@en ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:Meter
+  a                 owl:Class, skos:Concept ;
+  skos:prefLabel    "Meter"@en ;
+  skos:definition   """Physical asset that performs the metering role of the usage point. Used for measuring consumption and detection of events."""@en ;
+  skos:broader      :EndDevice ;
+  skos:note         """A virtual meter is realised in the absence of real world hardware and for example can be defined to perform functions such as aggregating the consumption for two or more physical meters."""@en ;
+  skos:related      :UsagePoint, :MeterReading ;
+  owl:versionInfo   "1.0" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:MeterReading
+  a                 owl:Class, skos:Concept ;
+  skos:prefLabel    "Meter Reading"@en ;
+  skos:definition   """Set of values obtained from the meter from a usage point."""@en ;
+  skos:related      :Meter ;
+  owl:versionInfo   "1.0" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:Agreement
+  a               owl:Class, skos:Concept ;
+  skos:prefLabel  "Agreement"@en ;
+  skos:definition """
+  Formal agreement between two parties defining the terms and conditions for a set of services. The specifics of the services are, in turn, defined via one or more service agreements.
+  """@en ;
+  skos:narrower   :CustomerAgreement ;
+  owl:versionInfo "1.0" ;
+#  skos:topConceptOf :Ontology ;
+  skos:inScheme   :Ontology .
+
+:Customer
+  a                 owl:Class, skos:Concept ;
+  skos:prefLabel    "Customer"@en ;
+  skos:definition   """Organisation receiving services from service supplier."""@en ;
+  skos:related      :UsagePoint ;
+  owl:versionInfo   "1.0" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:CustomerAgreement
+  a                 owl:Class, skos:Concept ;
+  skos:prefLabel    "CustomerAgreement"@en ;
+  skos:definition   """
+  Agreement between the customer and the service supplier to pay for service at a specific service location. It records certain billing information about the type of service provided at the service location and is used during charge creation to determine the type of service.
+  """@en ;
+  skos:related      :UsagePoint, :Customer ;
+  skos:broader      :Agreement ;
+  owl:versionInfo   "1.0" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:PricingStructure
+  a                 owl:Class, skos:Concept ;
+  skos:prefLabel    "PricingStructure"@en ;
+  skos:definition   """
+  Grouping of pricing components and prices used in the creation of customer charges and the eligibility criteria under which these terms may be offered to a customer. The reasons for grouping include state, customer classification, site characteristics, classification (i.e. fee price structure, deposit price structure, electric service price structure, etc.) and accounting requirements.
+  """@en ;
+  skos:related      :UsagePoint, :Customer ;
+  owl:versionInfo   "1.0" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:Tariff
+  a                 owl:Class, skos:Concept ;
+  skos:prefLabel    "Tariff"@en ;
+  skos:definition   """
+  Document, approved by the responsible regulatory agency, listing the terms and conditions, including a schedule of prices, under which utility services will be provided. It has a unique number within the state or province. For rate schedules it is frequently allocated by the affiliated Public utilities commission (PUC).
+  """@en ;
+  skos:related      :CustomerAgreement ;
+  owl:versionInfo   "1.0" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:Location
+  a                 owl:Class, skos:Concept ;
+  skos:prefLabel    "Location"@en ;
+  skos:definition   """
+  The place, scene, or point of something where someone or something has been, is, and/or will be at a given moment in time. It can be defined with one or more position points (coordinates) in a given coordinate system.
+  """@en ;
+  skos:related      :UsagePoint, :Customer ;
+  owl:versionInfo   "1.0" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:PositionPoint
+  a                 owl:Class, skos:Concept ;
+  skos:prefLabel    "PositionPoint"@en ;
+  skos:definition   """
+  Set of spatial coordinates that determine a point, defined in the coordinate system specified in 'Location.CoordinateSystem'. Use a single position point instance to describe a point-oriented location. Use a sequence of position points to describe a line-oriented object (physical location of non-point oriented objects like cables or lines), or area of an object (like a substation or a geographical zone - in this case, have first and last position point with the same values).
+  """@en ;
+  skos:related      :Location ;
+  owl:versionInfo   "1.0" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .

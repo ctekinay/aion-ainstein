@@ -1,0 +1,8 @@
+config:
+  type: file
+  location: IEC62746.config
+
+source:
+  type: file
+  location: IEC62746.ttl
+

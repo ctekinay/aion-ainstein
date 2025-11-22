@@ -1,0 +1,203 @@
+@prefix :     <http://linkeddata.bsigroup.com/pas/1879/> .
+@prefix xs:   <http://www.w3.org/2001/XMLSchema#> .
+@prefix dc:   <http://purl.org/dc/elements/1.1/> .
+@prefix sh:   <http://www.w3.org/ns/shacl#> .
+@prefix dct:  <http://purl.org/dc/terms/> .
+@prefix owl:  <http://www.w3.org/2002/07/owl#> .
+@prefix foaf: <http://xmlns.com/foaf/0.1/> .
+@prefix rdf:  <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
+@prefix dcat: <http://www.w3.org/ns/dcat#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix skos: <http://www.w3.org/2004/02/skos/core#> .
+
+:Ontology
+  a               owl:Ontology, skos:ConceptScheme ;
+  dct:title       "PAS1879 - Energy smart appliances (BSI)" ;
+  dct:creator     "British Standards Institution" ;
+  dct:description "The terms and definitions from PAS 1879:2021" ;
+  foaf:homepage   "https://www.bsigroup.com/globalassets/localfiles/en-th/about-bsi/energy-smart-appliances-programme/bsi-pas-1879-2021-energy-smart-appliances-demand-side-response-operation-th.pdf?utm_source=chatgpt.com" ;
+  dct:issued      "2021-05-31"^^<http://www.w3.org/2001/XMLSchema#date> .
+
+:Aggregator
+  a                 skos:Concept ;
+  skos:definition   "Service provider that manages energy consumption or production for a group of users."@en ;
+  skos:inScheme     :Ontology ;
+  skos:prefLabel    "Aggregator"@en ;
+  skos:topConceptOf :Ontology .
+
+:Appliance
+  a                 skos:Concept ;
+  skos:definition   "System or device that uses, stores, exports, or generates electrical energy."@en ;
+  skos:inScheme     :Ontology ;
+  skos:prefLabel    "Appliance"@en ;
+  skos:topConceptOf :Ontology .
+
+:Asset
+  a                 skos:Concept ;
+  skos:definition   "Entity of value to individuals or organizations."@en ;
+  skos:inScheme     :Ontology ;
+  skos:prefLabel    "Asset"@en ;
+  skos:topConceptOf :Ontology .
+
+:CertificateOrganization
+  a                 skos:Concept ;
+  skos:definition   "Entity certifying public key ownership through digital certificates."@en ;
+  skos:inScheme     :Ontology ;
+  skos:prefLabel    "Certificate organization"@en ;
+  skos:topConceptOf :Ontology .
+
+:Consumer
+  a                 skos:Concept ;
+  skos:definition   "User with authority to contract DSR services and connect ESAs."@en ;
+  skos:inScheme     :Ontology ;
+  skos:prefLabel    "Consumer"@en ;
+  skos:topConceptOf :Ontology .
+
+:ConsumersAuthorizedRepresentative
+  a                 skos:Concept ;
+  skos:definition   "Individual acting on behalf of a consumer in vulnerable situations."@en ;
+  skos:inScheme     :Ontology ;
+  skos:prefLabel    "Consumer's authorized representative"@en ;
+  skos:topConceptOf :Ontology .
+
+:CustomerEnergyManager
+  a                 skos:Concept ;
+  skos:definition   "Entity managing ESAs at a supply point for DSR purposes."@en ;
+  skos:inScheme     :Ontology ;
+  skos:prefLabel    "Customer energy manager"@en ;
+  skos:topConceptOf :Ontology .
+
+:CyberHygiene
+  a                 skos:Concept ;
+  skos:definition   "Practices for secure and healthy operation of digital systems."@en ;
+  skos:inScheme     :Ontology ;
+  skos:prefLabel    "Cyber hygiene"@en ;
+  skos:topConceptOf :Ontology .
+
+:DataAndInformationSharingAgreement
+  a                 skos:Concept ;
+  skos:definition   "Agreement governing data sharing policies and processes."@en ;
+  skos:inScheme     :Ontology ;
+  skos:prefLabel    "Data and information sharing agreement"@en ;
+  skos:topConceptOf :Ontology .
+
+:DemandSideResponse
+  a                 skos:Concept ;
+  skos:definition   "Control of electricity use/production through ESAs in response to market signals."@en ;
+  skos:inScheme     :Ontology ;
+  skos:prefLabel    "Demand side response"@en ;
+  skos:topConceptOf :Ontology .
+
+:DemandSideResponseServiceProvider
+  a                 skos:Concept ;
+  skos:definition   "Provider of energy management services using ESAs."@en ;
+  skos:inScheme     :Ontology ;
+  skos:prefLabel    "Demand side response service provider"@en ;
+  skos:topConceptOf :Ontology .
+
+:EnergyGateway
+  a                 skos:Concept ;
+  skos:definition   "Bridge connecting internal and external DSR-related devices."@en ;
+  skos:inScheme     :Ontology ;
+  skos:prefLabel    "Energy gateway"@en ;
+  skos:topConceptOf :Ontology .
+
+:EnergySmartAppliance
+  a                 skos:Concept ;
+  skos:definition   "Appliance that can respond to grid signals automatically."@en ;
+  skos:inScheme     :Ontology ;
+  skos:prefLabel    "Energy smart appliance"@en ;
+  skos:topConceptOf :Ontology .
+
+:HeatingVentilationAndAirConditioning
+  a                 skos:Concept ;
+  skos:definition   "Appliances for climate control in homes or businesses."@en ;
+  skos:inScheme     :Ontology ;
+  skos:prefLabel    "Heating, ventilation and air conditioning"@en ;
+  skos:topConceptOf :Ontology .
+
+:Interoperability
+  a                 skos:Concept ;
+  skos:definition   "ESA and CEM ability to function across multiple DSRSP services."@en ;
+  skos:inScheme     :Ontology ;
+  skos:prefLabel    "Interoperability"@en ;
+  skos:topConceptOf :Ontology .
+
+:NationalRegulatoryAuthority
+  a                 skos:Concept ;
+  skos:definition   "Government-appointed body regulating the electricity market."@en ;
+  skos:inScheme     :Ontology ;
+  skos:prefLabel    "National regulatory authority"@en ;
+  skos:topConceptOf :Ontology .
+
+:PersonalData
+  a                 skos:Concept ;
+  skos:definition   "Information identifying or relating to an individual."@en ;
+  skos:inScheme     :Ontology ;
+  skos:prefLabel    "Personal data"@en ;
+  skos:topConceptOf :Ontology .
+
+:Premises
+  a                 skos:Concept ;
+  skos:definition   "Location with one or more ESAs owned or used by a consumer."@en ;
+  skos:inScheme     :Ontology ;
+  skos:prefLabel    "Premises"@en ;
+  skos:topConceptOf :Ontology .
+
+:PremisesAreaNetwork
+  a                 skos:Concept ;
+  skos:definition   "Internal network connecting smart appliances and devices."@en ;
+  skos:inScheme     :Ontology ;
+  skos:prefLabel    "Premises area network"@en ;
+  skos:topConceptOf :Ontology .
+
+:RegistrationOrganization
+  a                 skos:Concept ;
+  skos:definition   "Entity responsible for approving qualified DSRSPs."@en ;
+  skos:inScheme     :Ontology ;
+  skos:prefLabel    "Registration organization"@en ;
+  skos:topConceptOf :Ontology .
+
+:RegulatedElectricityMarketParticipant
+  a                 skos:Concept ;
+  skos:definition   "Organization engaged in electricity market operations."@en ;
+  skos:inScheme     :Ontology ;
+  skos:prefLabel    "Regulated electricity market participant"@en ;
+  skos:topConceptOf :Ontology .
+
+:Security
+  a                 skos:Concept ;
+  skos:definition   "State of protection against malicious digital threats."@en ;
+  skos:inScheme     :Ontology ;
+  skos:prefLabel    "Security"@en ;
+  skos:topConceptOf :Ontology .
+
+:SmartEvChargepoint
+  a                 skos:Concept ;
+  skos:definition   "Smart equipment for charging or discharging electric vehicles."@en ;
+  skos:inScheme     :Ontology ;
+  skos:prefLabel    "Smart EV chargepoint"@en ;
+  skos:topConceptOf :Ontology .
+
+:SmartMeter
+  a                 skos:Concept ;
+  skos:definition   "Electricity meter with smart functionality."@en ;
+  skos:inScheme     :Ontology ;
+  skos:prefLabel    "Smart meter"@en ;
+  skos:topConceptOf :Ontology .
+
+:SupplyPoint
+  a                 skos:Concept ;
+  skos:definition   "Connection point between premises and the electricity network."@en ;
+  skos:inScheme     :Ontology ;
+  skos:prefLabel    "Supply point"@en ;
+  skos:topConceptOf :Ontology .
+
+:VendorLockIn
+  a                 skos:Concept ;
+  skos:definition   "Mechanisms restricting ESA interoperability to a specific vendor."@en ;
+  skos:inScheme     :Ontology ;
+  skos:prefLabel    "Vendor lock-in"@en ;
+  skos:topConceptOf :Ontology .
+

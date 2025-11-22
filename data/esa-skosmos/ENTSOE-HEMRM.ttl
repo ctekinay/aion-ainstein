@@ -1,0 +1,849 @@
+@prefix :       <http://vocabs.entsoe.com/terms/> .
+@prefix skos:   <http://www.w3.org/2004/02/skos/core#> .
+@prefix dct:    <http://purl.org/dc/terms/> .
+@prefix dcat:   <http://www.w3.org/ns/dcat#> .
+@prefix xsd:    <http://www.w3.org/2001/XMLSchema#> .
+@prefix schema: <http://schema.org/> .
+@prefix owl:    <http://www.w3.org/2002/07/owl#> .
+@prefix org:    <http://www.w3.org/ns/org#> .
+@prefix foaf:   <http://xmlns.com/foaf/0.1/> .
+@prefix rdf:    <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs:   <http://www.w3.org/2000/01/rdf-schema#> .
+
+:Ontology
+  a                owl:Ontology, skos:ConceptScheme ;
+  skos:prefLabel   "Harmonized Electricity Market Role Model (ENTSO-E)"@en ;
+  dct:description  "Terminology that ENTSO-E uses in its publications to facilitate dialogue between the market participants from different countries through the designation of a single name for each role and domain that are prevalent within the electricity market."@en ;
+  dct:identifier   "urn:uuid:48170043-3c6d-476d-b5d6-452bec944f42" ;
+  dct:creator      "ENTSO-E"@en ;
+  dct:issued       "2021-01-27T12:09:21Z"^^xsd:dateTime ;
+  dct:language     "en-GB" ;
+  dct:publisher    "ENTSO-E"@en ;
+  dct:rights       "Copyright"@en ;
+  dct:rightsHolder "ENTSO-E"@en ;
+  dct:created      "2025-04-20"^^xsd:date ;
+  dct:modified     "2025-04-20"^^xsd:date ;
+  dcat:theme       "vocabulary"@en ;
+  foaf:homepage    <https://www.entsoe.eu/data/market-roles/> ;
+  owl:versionIRI   <http://www.omg.org/spec/NIEM-UML/20150201/NIEM_Common_Profile> ;
+  owl:versionInfo  "20150201-0" .
+
+:4000
+  a              skos:Collection ;
+  skos:prefLabel "Agent Collection"@en ;
+  skos:definition
+                 """A collection of HEMRM's terms and definitions in relation to agents or actors that perform actions."""@en ;
+  skos:inScheme  :Ontology ;
+  skos:member    :AlignmentAgent, :BalanceResponsibleParty, :BalancingServiceProvider, :BillingAgent,
+                 :CapacityCoordinator, :CapacityTrader, :Consumer, :ConsumptionResponsibleParty,
+                 :CoordinationCentreOperator, :DataAccessProvider, :DataProvider, :EnergyServiceCompany, :EnergyTrader,
+                 :FlexibilityServiceProvider, :GridAccessProvider, :ImbalanceSettlementResponsible,
+                 :InterconnectionTradeResponsible, :LocalServiceProvider, :MarketInformationAggregator, :MarketOperator,
+                 :MeterAdministrator, :MeterOperator, :MeteredDataAdministrator, :MeteredDataAggregator,
+                 :MeteredDataCollector, :MeteredDataResponsible, :MeteringPointAdministrator, :ModelMergingAgent,
+                 :ModellingAuthority ;
+  dcat:theme     "vocabulary"@en .
+
+:4001
+  a              skos:Collection ;
+  skos:prefLabel "Role Collection"@en ;
+  skos:definition
+                 """A collection of HEMRM's terms and definitions in relation to role that is the responsibility for performing specific activities."""@en ;
+  skos:inScheme  :Ontology ;
+  skos:member    :ModellingAuthority ;
+  dcat:theme     "vocabulary"@en .
+
+foaf:Agent
+  a          rdfs:Class ;
+  rdfs:label "Agent" .
+
+org:Role
+  a          rdfs:Class ;
+  rdfs:label "Role" .
+
+:AlignmentAgent
+  a                 foaf:Agent, skos:Concept ;
+  dct:created       "2023-04-20"^^xsd:date ;
+  dct:identifier    "EAID_63B23FFB_1B73_4d8f_82C7_1278767492D7" ;
+  dct:modified      "2023-06-02"^^xsd:date ;
+  owl:versionInfo   "1" ;
+  skos:definition   "A party responsible for aligning the forecasts and/or the verification of the Bidding Zones net positions."@en ;
+  skos:inScheme     :Ontology ;
+  skos:prefLabel    "Alignment Agent"@en ;
+  skos:topConceptOf :Ontology .
+
+:BalanceResponsibleParty
+  a                 foaf:Agent, skos:Concept ;
+  dct:created       "2017-09-26"^^xsd:date ;
+  dct:identifier    "EAID_D1BAB29F_7EDD_4183_8263_A6C2477E925E" ;
+  dct:modified      "2023-06-28"^^xsd:date ;
+  skos:narrower     :ConsumptionResponsibleParty ;
+  owl:versionInfo   "1" ;
+  skos:definition   """A party financially accountable for its imbalances.
+
+**
+Based on:
+**
+
+[_Consolidated text: Commission Regulation (EU) 2017/2195 - Art.2 Definitions_](https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX%3A02017R2195-20220619)
+[_._](https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=uriserv:OJ.L_.2017.312.01.0006.01.ENG&toc=OJ:L:2017:312:TOC \\l d1e325-6-1)
+
+**
+Additional information:
+**
+
+A balance responsibility requires a contract proving financial security with the Imbalance Settlement Responsible of the Scheduling Area entitling the party to operate in the market.
+Imbalance means an energy volume calculated for a Balance Responsible Party and representing the difference between the allocated volume attributed to that Balance Responsible Party and the final position of that Balance Responsible Party, including any imbalance adjustment applied to that Balance Responsible Party, within a given imbalance settlement period."""@en ;
+  skos:inScheme     :Ontology ;
+  skos:broadMatch   <https://vocabs.eur-lex.europa.eu/terms/2195-7> ;
+  skos:prefLabel    "Balance Responsible Party"@en ;
+  dct:source        "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX%3A02017R2195-20220619" ;
+  skos:topConceptOf :Ontology .
+
+:BalancingServiceProvider
+  a                 foaf:Agent, skos:Concept ;
+  dct:created       "2018-09-27"^^xsd:date ;
+  dct:identifier    "EAID_2C2DC0C9_702D_42ea_9056_30F2E78775E1" ;
+  dct:modified      "2023-06-28"^^xsd:date ;
+  owl:versionInfo   "1" ;
+  skos:definition   """A party providing energy balancing services to the energy or capacity market.
+
+**
+Additional information:
+**
+
+Balancing services can be balancing energy and/or balancing capacity.
+This is a type of Flexibility Service Provider.
+
+**
+Based on:
+**
+
+[_Consolidated text: Commission Regulation (EU) 2017/2195 - Art.2 Definitions_](https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX%3A02017R2195-20220619 \\l PP2Contents)
+ and
+_
+
+_
+[_Consolidated text: Regulation (EU) 2019/943_](https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX%3A02019R0943-20220623)
+."""@en ;
+  skos:inScheme     :Ontology ;
+  skos:prefLabel    "Balancing Service Provider"@en ;
+  skos:topConceptOf :Ontology .
+
+:BillingAgent
+  a                 foaf:Agent, skos:Concept ;
+  dct:created       "2017-09-26"^^xsd:date ;
+  dct:identifier    "EAID_3E4D28F3_85DC_45fe_A4FD_D6332850E787" ;
+  dct:modified      "2018-07-03"^^xsd:date ;
+  owl:versionInfo   "1" ;
+  skos:definition   "The party responsible for invoicing a concerned party."@en ;
+  skos:inScheme     :Ontology ;
+  skos:prefLabel    "Billing Agent"@en ;
+  skos:topConceptOf :Ontology .
+
+:CapacityCoordinator
+  a                 foaf:Agent, skos:Concept ;
+  dct:created       "2023-06-27"^^xsd:date ;
+  dct:identifier    "EAID_2E85EC82_A59C_4161_9DDA_1A80D63A5C89" ;
+  dct:modified      "2023-06-27"^^xsd:date ;
+  owl:versionInfo   "1" ;
+  skos:definition   """A party that has a contract to participate in the Capacity Market to acquire capacity through a Transmission Capacity Allocator.
+**
+Additional information:
+**
+The capacity may be acquired on behalf of an Interconnection Trade Responsible or for sale on secondary capacity markets."""@en ;
+  skos:inScheme     :Ontology ;
+  skos:prefLabel    "Capacity Coordinator "@en ;
+  skos:topConceptOf :Ontology .
+
+:CapacityTrader
+  a                 foaf:Agent, skos:Concept ;
+  dct:created       "2017-09-26"^^xsd:date ;
+  dct:identifier    "EAID_6B4DCACB_23F3_4669_AB63_5B8BEE079906" ;
+  dct:modified      "2023-04-20"^^xsd:date ;
+  owl:versionInfo   "1" ;
+  skos:definition   """A party that has a contract to participate in the Capacity Market to acquire capacity through a Transmission Capacity Allocator.
+**
+Additional information:
+**
+The capacity may be acquired on behalf of an Interconnection Trade Responsible or for sale on secondary capacity markets."""@en ;
+  skos:inScheme     :Ontology ;
+  skos:prefLabel    "Capacity Trader"@en ;
+  skos:topConceptOf :Ontology .
+
+:Consumer
+  a                 foaf:Agent, skos:Concept ;
+  dct:created       "2017-09-26"^^xsd:date ;
+  dct:identifier    "EAID_7F8D19EA_F975_43fd_827A_CE8FFF81C071" ;
+  dct:modified      "2021-12-09"^^xsd:date ;
+  owl:versionInfo   "1" ;
+  skos:definition   """A party that consumes energy.
+**
+Additional information:
+**
+This is a Type of Party Connected to the Grid."""@en ;
+  skos:inScheme     :Ontology ;
+  skos:broader      :PartyConnectedToTheGrid ;
+  skos:prefLabel    "Consumer"@en ;
+  skos:topConceptOf :Ontology .
+
+:ConsumptionResponsibleParty
+  a                 foaf:Agent, skos:Concept ;
+  dct:created       "2017-09-26"^^xsd:date ;
+  dct:identifier    "EAID_F4D7E466_65C1_4478_A79F_929B469C3F45" ;
+  dct:modified      "2019-10-17"^^xsd:date ;
+  skos:broader      :BalanceResponsibleParty ;
+  owl:versionInfo   "1" ;
+  skos:definition   """A Consumption Responsible Party is responsible for its imbalances, meaning the difference between the energy volume physically withdrawn from the system and the final nominated energy volume, including any imbalance adjustment within a given imbalance settlement period.
+**
+**
+**
+Additional information:
+**
+This is a type of Balance Responsible Party."""@en ;
+  skos:inScheme     :Ontology ;
+  skos:prefLabel    "Consumption Responsible Party"@en ;
+  skos:topConceptOf :Ontology .
+
+:ControlAreaOperator
+  a                 org:Role, skos:Concept ;
+  dct:created       "2017-09-26"^^xsd:date ;
+  dct:identifier    "EAID_B1297B9B_78F4_44d9_BAD1_B80EFA90BE5D" ;
+  dct:modified      "2018-07-03"^^xsd:date ;
+  owl:versionInfo   "1" ;
+  skos:definition   """Responsible for:
+The coordination of exchange programs between its related Market Balance Areas and for the exchanges between its associated Control Areas.
+The load frequency control for its own area.
+The coordination of the correction of time deviations."""@en ;
+  skos:inScheme     :Ontology ;
+  skos:prefLabel    "Control Area Operator"@en ;
+  skos:topConceptOf :Ontology .
+
+:ControlBlockOperator
+  a                 org:Role, skos:Concept ;
+  dct:created       "2017-09-26"^^xsd:date ;
+  dct:identifier    "EAID_EAF48EC2_CE2A_4c22_B9D0_44FA3D60D96A" ;
+  dct:modified      "2018-07-03"^^xsd:date ;
+  owl:versionInfo   "1" ;
+  skos:definition   """Responsible for:
+The coordination of exchanges between its associated Control Blocks and the organisation of the coordination of exchange programs between its related Control Areas.
+The load frequency control within its own block and ensuring that its Control Areas respect their obligations in respect to load frequency control and time deviation.
+The organisation of the settlement and/or compensation between its Control Areas."""@en ;
+  skos:inScheme     :Ontology ;
+  skos:prefLabel    "Control Block Operator"@en ;
+  skos:topConceptOf :Ontology .
+
+:CoordinatedCapacityCalculator
+  a                 org:Role, skos:Concept ;
+  dct:created       "2017-09-26"^^xsd:date ;
+  dct:identifier    "EAID_DB68E2E0_DDA6_459a_842A_07413D130CB6" ;
+  dct:modified      "2023-06-28"^^xsd:date ;
+  owl:versionInfo   "1" ;
+  skos:definition   """Coordinated Capacity Calculator is the entity or entities with the task of calculating transmission capacity, at regional level or above.
+**
+Source:
+**
+[_Consolidated text: Commission Regulation (EU) 2015/1222_](https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX%3A02015R1222-20210315)
+."""@en ;
+  skos:inScheme     :Ontology ;
+  skos:prefLabel    "Coordinated Capacity Calculator"@en ;
+  skos:topConceptOf :Ontology .
+
+:CoordinationCentreOperator
+  a                 foaf:Agent, skos:Concept ;
+  dct:created       "2017-09-26"^^xsd:date ;
+  dct:identifier    "EAID_DB75C341_DF21_45de_BE9B_8430B8C300A3" ;
+  dct:modified      "2019-05-07"^^xsd:date ;
+  owl:versionInfo   "1" ;
+  skos:definition   "A party responsible for the coordination of its Coordination Centre Zone in respect of scheduling, load frequency control, time deviation and compensation of unintentional deviation."@en ;
+  skos:inScheme     :Ontology ;
+  skos:prefLabel    "Coordination Centre Operator"@en ;
+  skos:topConceptOf :Ontology .
+
+:DataAccessProvider
+  a                 foaf:Agent, skos:Concept ;
+  dct:created       "2024-06-19"^^xsd:date ;
+  dct:identifier    "EAID_33227275_138F_445a_BCAD_BD482C906FDC" ;
+  dct:modified      "2024-12-04"^^xsd:date ;
+  owl:versionInfo   "1" ;
+  skos:definition   """A party responsible for facilitating access to data by the party connected to the grid or by other parties.
+**
+Based on:
+**
+[_Commission Implementing Regulation (EU) 2023/1162_](https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX%3A32023R1162&qid=1687340572228)
+."""@en ;
+  skos:inScheme     :Ontology ;
+  skos:prefLabel    "Data Access Provider"@en ;
+  skos:topConceptOf :Ontology .
+
+:DataProvider
+  a                 foaf:Agent, skos:Concept ;
+  dct:created       "2017-09-26"^^xsd:date ;
+  dct:identifier    "EAID_34238A6B_C526_4cc4_AAB8_8A9F6B70E624" ;
+  dct:modified      "2023-06-28"^^xsd:date ;
+  owl:versionInfo   "1" ;
+  skos:definition   """A party that has a mandate to provide information to other parties in the energy market.
+**
+Additional information:
+**
+For example, due to
+[_Consolidated text: Commission Regulation (EU) No 543/2013_](https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX%3A02013R0543-20200101)
+, a data provider may be a Transmission System Operator or a third party agreed by a TSO."""@en ;
+  skos:inScheme     :Ontology ;
+  skos:prefLabel    "Data Provider"@en ;
+  skos:topConceptOf :Ontology .
+
+:EnergyServiceCompany
+  a                 foaf:Agent, skos:Concept ;
+  dct:created       "2017-10-02"^^xsd:date ;
+  dct:identifier    "EAID_2034CE87_3E4B_4ed4_8838_FD78909D3213" ;
+  dct:modified      "2021-12-09"^^xsd:date ;
+  owl:versionInfo   "1" ;
+  skos:definition   "A party offering energy-related services to the Party Connected to Grid, but not directly active in the energy value chain or the physical infrastructure itself. The Energy Service Company (ESCO) may provide insight services as well as energy management services."@en ;
+  skos:inScheme     :Ontology ;
+  skos:prefLabel    "Energy Service Company"@en ;
+  skos:topConceptOf :Ontology .
+
+:EnergySupplier
+  a                 org:Role, skos:Concept ;
+  dct:created       "2017-09-26"^^xsd:date ;
+  dct:identifier    "EAID_19C90583_345B_4a36_9317_1E6007698990" ;
+  dct:modified      "2023-06-28"^^xsd:date ;
+  owl:versionInfo   "1" ;
+  skos:definition   """An Energy Supplier delivers energy to or takes energy from a Party Connected to the Grid at an Accounting Point.
+**
+Additional information:
+**
+An Accounting Point can have only one Energy Supplier.
+When additional suppliers (with firm (block) energy contracts) are involved, the Energy Supplier delivers/takes the difference between contracted and established (e.g. measured or calculated) production/consumption."""@en ;
+  skos:inScheme     :Ontology ;
+  skos:prefLabel    "Energy Supplier"@en ;
+  skos:topConceptOf :Ontology .
+
+:EnergyTrader
+  a                 foaf:Agent, skos:Concept ;
+  dct:created       "2017-09-26"^^xsd:date ;
+  dct:identifier    "EAID_B51476BD_3B30_4072_A9D7_B49AF21E56EF" ;
+  dct:modified      "2020-02-13"^^xsd:date ;
+  owl:versionInfo   "1" ;
+  skos:definition   "A party that is selling or buying energy."@en ;
+  skos:inScheme     :Ontology ;
+  skos:prefLabel    "Energy Trader"@en ;
+  skos:topConceptOf :Ontology .
+
+:FlexibilityServiceProvider
+  a                 foaf:Agent, skos:Concept ;
+  dct:created       "2023-04-25"^^xsd:date ;
+  dct:identifier    "EAID_02EB5D9D_402D_4859_AE29_A5BECAC85796" ;
+  dct:modified      "2023-06-28"^^xsd:date ;
+  owl:versionInfo   "1" ;
+  skos:definition   """A party that offers flexibility services based on acquired (aggregated) Resources.
+**
+Additional information:
+**
+Flexibility is used to meet the needs of System Operators or other energy market participants on different energy-, power- or capacity marketplaces. Flexibility Services may be balancing services, non-frequency ancillary services, congestion management services etc."""@en ;
+  skos:inScheme     :Ontology ;
+  skos:prefLabel    "Flexibility Service Provider"@en ;
+  skos:topConceptOf :Ontology .
+
+:GridAccessProvider
+  a                 foaf:Agent, skos:Concept ;
+  dct:created       "2017-09-26"^^xsd:date ;
+  dct:identifier    "EAID_ACF1670F_AB75_4de2_A293_9D56AFA0F617" ;
+  dct:modified      "2023-06-02"^^xsd:date ;
+  owl:versionInfo   "1" ;
+  skos:definition   """A party responsible for providing access to the grid.
+**
+Additional information:
+**
+The Grid Access Provider allows a Party Connected to the Grid to take energy from or put energy into the grid through an Accounting Point.
+The Grid Access Provider is also responsible for creating and terminating Accounting Points."""@en ;
+  skos:inScheme     :Ontology ;
+  skos:prefLabel    "Grid Access Provider"@en ;
+  skos:topConceptOf :Ontology .
+
+:GridOperator
+  a                 foaf:Agent, skos:Concept ;
+  dct:created       "2017-09-26"^^xsd:date ;
+  dct:identifier    "EAID_F5F4FFB2_1F39_4418_A73C_FD6D1A67EC8F" ;
+  dct:modified      "2018-07-03"^^xsd:date ;
+  owl:versionInfo   "1" ;
+  skos:definition   "A party that operates one or more grids."@en ;
+  skos:inScheme     :Ontology ;
+  skos:prefLabel    "Grid Operator"@en ;
+  skos:topConceptOf :Ontology .
+
+:ImbalanceSettlementResponsible
+  a                 foaf:Agent, skos:Concept ;
+  dct:created       "2017-09-26"^^xsd:date ;
+  dct:identifier    "EAID_2F6A24F7_799A_4917_BB6F_3C68D00E6031" ;
+  dct:modified      "2024-11-22"^^xsd:date ;
+  owl:versionInfo   "1" ;
+  skos:definition   """A party responsible for determination of the difference between the nominated energy quantities and the delivered energy quantities in a Scheduling Area.
+**
+Additional information:
+**
+The Imbalance Settlement Responsible may delegate the invoicing responsibility to a more generic role such as a Billing Agent.”"""@en ;
+  skos:inScheme     :Ontology ;
+  skos:prefLabel    "Imbalance Settlement Responsible"@en ;
+  skos:topConceptOf :Ontology .
+
+:InterconnectionTradeResponsible
+  a                 foaf:Agent, skos:Concept ;
+  dct:created       "2017-09-26"^^xsd:date ;
+  dct:identifier    "EAID_664C34E0_84E1_47d3_8A8C_D14FE4B0C63F" ;
+  dct:modified      "2020-05-07"^^xsd:date ;
+  skos:broader      :BalanceResponsibleParty ;
+  owl:versionInfo   "1" ;
+  skos:definition   """Is a Balance Responsible Party or depends on one. He is recognise by the Nomination Validator for the nomination of already allocated capacity.
+**
+Additional information:
+**
+This is a type of Balance Responsible Party."""@en ;
+  skos:inScheme     :Ontology ;
+  skos:prefLabel    "Interconnection Trade Responsible"@en ;
+  skos:topConceptOf :Ontology .
+
+:LfcOperator
+  a                 org:Role, skos:Concept ;
+  dct:created       "2018-04-10"^^xsd:date ;
+  dct:identifier    "EAID_7B4CC733_C03E_439a_BA75_A5F72DCA9816" ;
+  dct:modified      "2019-06-26"^^xsd:date ;
+  owl:versionInfo   "1" ;
+  skos:definition   """Responsible for the load frequency control for its LFC Area or LFC Block.
+**
+Additional information:
+**
+This role is typically performed by a TSO."""@en ;
+  skos:inScheme     :Ontology ;
+  skos:prefLabel    "LFC Operator"@en ;
+  skos:topConceptOf :Ontology .
+
+:LocalServiceProvider
+  a                 foaf:Agent, skos:Concept ;
+  dct:created       "2024-10-02"^^xsd:date ;
+  dct:identifier    "EAID_437BB2EA_1B00_4f72_8350_AD3493656615" ;
+  dct:modified      "2024-10-02"^^xsd:date ;
+  owl:versionInfo   "1" ;
+  skos:inScheme     :Ontology ;
+  skos:prefLabel    "Local service provider"@en ;
+  skos:topConceptOf :Ontology .
+
+:MarketInformationAggregator
+  a                 foaf:Agent, skos:Concept ;
+  dct:created       "2017-09-26"^^xsd:date ;
+  dct:identifier    "EAID_0739A2E0_1C5E_4af7_91EF_5CD1AB66DB6F" ;
+  dct:modified      "2023-04-20"^^xsd:date ;
+  owl:versionInfo   "1" ;
+  skos:definition   """A party that provides market related information that has been compiled from the figures supplied by different actors in the market. This information may also be published or distributed for general use.
+**
+Additional information:
+**
+The Market Information Aggregator may receive information from any market participant that is relevant for publication or distribution."""@en ;
+  skos:inScheme     :Ontology ;
+  skos:prefLabel    "Market Information Aggregator"@en ;
+  skos:topConceptOf :Ontology .
+
+:MarketOperator
+  a                 foaf:Agent, skos:Concept ;
+  dct:created       "2017-09-26"^^xsd:date ;
+  dct:identifier    "EAID_59852A81_AB4B_4f96_9F94_BBB69F8C5492" ;
+  dct:modified      "2023-06-28"^^xsd:date ;
+  owl:versionInfo   "1" ;
+  skos:definition   """A party that provides a service whereby the offers to sell energy are matched with bids to buy energy.
+**
+Based on:
+**
+[_Consolidated text: Regulation (EU) 2019/943_](https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX%3A02019R0943-20220623).
+**
+Additional information:
+**
+This activity can be conducted in the forward, days-ahead and/or intraday timeframes, and can be combined with transmission capacity allocation in the context of market coupling.
+This is usually an energy/power exchange or platform."""@en ;
+  skos:inScheme     :Ontology ;
+  skos:prefLabel    "Market Operator"@en ;
+  skos:topConceptOf :Ontology .
+
+:MeritOrderListResponsible
+  a                 org:Role, skos:Concept ;
+  dct:created       "2017-09-26"^^xsd:date ;
+  dct:identifier    "EAID_0875E72C_2DC1_4033_978A_72FDA3114B9A" ;
+  dct:modified      "2019-05-07"^^xsd:date ;
+  owl:versionInfo   "1" ;
+  skos:definition   "Responsible for the management of the available tenders for all Acquiring LFC Operators to establish the order of the reserve capacity that can be activated."@en ;
+  skos:inScheme     :Ontology ;
+  skos:prefLabel    "Merit Order List Responsible"@en ;
+  skos:topConceptOf :Ontology .
+
+:MeterAdministrator
+  a                 foaf:Agent, skos:Concept ;
+  dct:created       "2017-09-26"^^xsd:date ;
+  dct:identifier    "EAID_E0BDE5C0_F3C5_4c4b_A58D_8158F5FDEDD8" ;
+  dct:modified      "2018-07-03"^^xsd:date ;
+  owl:versionInfo   "1" ;
+  skos:definition   "A party responsible for keeping a database of meters."@en ;
+  skos:inScheme     :Ontology ;
+  skos:prefLabel    "Meter Administrator"@en ;
+  skos:topConceptOf :Ontology .
+
+:MeterOperator
+  a                 foaf:Agent, skos:Concept ;
+  dct:created       "2017-09-26"^^xsd:date ;
+  dct:identifier    "EAID_E4267B94_3449_46e5_BBEE_922691B22B77" ;
+  dct:modified      "2018-07-03"^^xsd:date ;
+  owl:versionInfo   "1" ;
+  skos:definition   "A party responsible for installing, maintaining, testing, certifying and decommissioning physical meters."@en ;
+  skos:inScheme     :Ontology ;
+  skos:prefLabel    "Meter Operator"@en ;
+  skos:topConceptOf :Ontology .
+
+:MeteredDataAdministrator
+  a                 foaf:Agent, skos:Concept ;
+  dct:created       "2019-08-13"^^xsd:date ;
+  dct:identifier    "EAID_5E52AABA_24F4_4189_A564_FACD927828C2" ;
+  dct:modified      "2019-08-13"^^xsd:date ;
+  owl:versionInfo   "1" ;
+  skos:definition   "A party responsible for storing and distributing validated measured data."@en ;
+  skos:inScheme     :Ontology ;
+  skos:prefLabel    "Metered Data Administrator"@en ;
+  skos:topConceptOf :Ontology .
+
+:MeteredDataAggregator
+  a                 foaf:Agent, skos:Concept ;
+  dct:created       "2017-09-26"^^xsd:date ;
+  dct:identifier    "EAID_F877B09C_C38F_4584_9EE1_240B22CF6672" ;
+  dct:modified      "2020-04-15"^^xsd:date ;
+  owl:versionInfo   "1" ;
+  skos:definition   "A party responsible for the establishment and qualification of measured data from the Metered Data Responsible. This data is aggregated according to a defined set of market rules."@en ;
+  skos:inScheme     :Ontology ;
+  skos:prefLabel    "Metered Data Aggregator"@en ;
+  skos:topConceptOf :Ontology .
+
+:MeteredDataCollector
+  a                 foaf:Agent, skos:Concept ;
+  dct:created       "2017-09-26"^^xsd:date ;
+  dct:identifier    "EAID_70E5988D_56AD_4553_B990_7F5A9A48A36F" ;
+  dct:modified      "2018-07-03"^^xsd:date ;
+  owl:versionInfo   "1" ;
+  skos:definition   "A party responsible for meter reading and quality control of the reading."@en ;
+  skos:inScheme     :Ontology ;
+  skos:prefLabel    "Metered Data Collector"@en ;
+  skos:topConceptOf :Ontology .
+
+:MeteredDataResponsible
+  a                 foaf:Agent, skos:Concept ;
+  dct:created       "2017-09-26"^^xsd:date ;
+  dct:identifier    "EAID_5CC6573C_95A3_42ee_A5AF_9F7FB32609DE" ;
+  dct:modified      "2020-04-15"^^xsd:date ;
+  owl:versionInfo   "1" ;
+  skos:definition   "A party responsible for the establishment and validation of measured data based on the collected data received from the Metered Data Collector. The party is responsible for the history of metered data for a Metering Point."@en ;
+  skos:inScheme     :Ontology ;
+  skos:prefLabel    "Metered Data Responsible"@en ;
+  skos:topConceptOf :Ontology .
+
+:MeteringPointAdministrator
+  a                 foaf:Agent, skos:Concept ;
+  dct:created       "2017-09-26"^^xsd:date ;
+  dct:identifier    "EAID_0F6CA3A9_92D7_41df_AC54_B29C08C73302" ;
+  dct:modified      "2020-04-15"^^xsd:date ;
+  owl:versionInfo   "1" ;
+  skos:definition   "A party responsible for administrating and making available the Metering Point characteristics, including registering the parties linked to the Metering Point."@en ;
+  skos:inScheme     :Ontology ;
+  skos:prefLabel    "Metering Point Administrator"@en ;
+  skos:topConceptOf :Ontology .
+
+:ModelMergingAgent
+  a                 foaf:Agent, skos:Concept ;
+  dct:created       "2020-09-22"^^xsd:date ;
+  dct:identifier    "EAID_A3B57672_DA12_4100_A236_CC40B9C167D7" ;
+  dct:modified      "2023-06-28"^^xsd:date ;
+  owl:versionInfo   "1" ;
+  skos:definition   "A party responsible for establishing a merged grid model and ensuring its completeness, consistency and quality."@en ;
+  skos:inScheme     :Ontology ;
+  skos:prefLabel    "Model Merging Agent"@en ;
+  skos:topConceptOf :Ontology .
+
+:ModellingAuthority
+  a                 foaf:Agent, skos:Concept ;
+  dct:created       "2020-09-22"^^xsd:date ;
+  dct:identifier    "EAID_BDA0A600_4C04_4620_BE37_DBD8910BBF35" ;
+  dct:modified      "2021-12-14"^^xsd:date ;
+  owl:versionInfo   "1" ;
+  skos:definition   "A party accountable for the sourcing, consistency and quality of one or more model datasets."@en ;
+  skos:inScheme     :Ontology ;
+  skos:prefLabel    "Modelling Authority"@en ;
+  skos:topConceptOf :Ontology .
+
+:NominatedElectricityMarketOperator
+  a                 foaf:Agent, skos:Concept ;
+  dct:created       "2018-04-11"^^xsd:date ;
+  dct:identifier    "EAID_0A67BAF9_DACA_4b5f_9FD0_2283C43B728D" ;
+  dct:modified      "2023-06-28"^^xsd:date ;
+  owl:versionInfo   "1" ;
+  skos:definition   """An entity designated by the competent authority to perform tasks related to single day-ahead or single intraday coupling.
+**
+Source:
+**
+[_Consolidated text: Commission Regulation (EU) 2015/1222_](https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX%3A02015R1222-20210315).
+**
+Additional information
+**
+:
+A NEMO performs MCO (Market Coupling Operator) and CCP (Central Counter Party) functions.
+A NEMO runs a power exchange related to day-ahead or intraday market.
+A NEMO is a type of Market Operator."""@en ;
+  skos:inScheme     :Ontology ;
+  skos:prefLabel    "Nominated Electricity Market Operator"@en ;
+  skos:topConceptOf :Ontology .
+
+:NominationValidator
+  a                 org:Role, skos:Concept ;
+  dct:created       "2017-09-26"^^xsd:date ;
+  dct:identifier    "EAID_E5FD457B_0EEB_4238_9FCC_32E6ECD86D2E" ;
+  dct:modified      "2018-07-03"^^xsd:date ;
+  owl:versionInfo   "1" ;
+  skos:definition   "Has the responsibility of ensuring that all capacity nominated is within the allowed limits and confirming all valid nominations to all involved parties. He informs the Interconnection Trade Responsible of the maximum nominated capacity allowed. Depending on market rules for a given interconnection the corresponding System Operators may appoint one Nomination Validator."@en ;
+  skos:inScheme     :Ontology ;
+  skos:prefLabel    "Nomination Validator"@en ;
+  skos:topConceptOf :Ontology .
+
+:PartyAdministrator
+  a                 foaf:Agent, skos:Concept ;
+  dct:created       "2019-08-14"^^xsd:date ;
+  dct:identifier    "EAID_675F7B27_2F32_4ee3_B026_AA9DFF5C6E81" ;
+  dct:modified      "2019-08-14"^^xsd:date ;
+  owl:versionInfo   "1" ;
+  skos:definition   "A party responsible for maintaining party characteristics for the energy sector."@en ;
+  skos:inScheme     :Ontology ;
+  skos:prefLabel    "Party Administrator"@en ;
+  skos:topConceptOf :Ontology .
+
+:PartyConnectedToTheGrid
+  a                 foaf:Agent, skos:Concept ;
+  dct:created       "2017-09-26"^^xsd:date ;
+  dct:identifier    "EAID_FE24D7A4_9AEA_44f5_A66D_9A6F8AE009D4" ;
+  dct:modified      "2022-01-20"^^xsd:date ;
+  owl:versionInfo   "1" ;
+  skos:narrower     :Producer, :Consumer ;
+  skos:related      :EnergySupplier, :FlexibilityServiceProvider, :GridAccessProvider ;
+  skos:definition   "A party that contracts for the right to take out or feed in energy at an Accounting Point."@en ;
+  skos:inScheme     :Ontology ;
+  skos:prefLabel    "Party Connected to the Grid"@en ;
+  skos:topConceptOf :Ontology .
+
+:PermissionAdministrator
+  a                 foaf:Agent, skos:Concept ;
+  dct:created       "2019-02-21"^^xsd:date ;
+  dct:identifier    "EAID_80A7F1BA_C97D_43b5_99AE_FA232249B2BD" ;
+  dct:modified      "2024-06-19"^^xsd:date ;
+  owl:versionInfo   "1" ;
+  skos:definition   """A party responsible for administrating a register of permissions for a domain. The permission Administrator makes this information available on request for entitled parties in the sector.
+**
+Based on:
+**
+[_Commission Implementing Regulation (EU) 2023/1162_](https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX%3A32023R1162&qid=1687340572228)."""@en ;
+  skos:inScheme     :Ontology ;
+  skos:prefLabel    "Permission Administrator"@en ;
+  skos:topConceptOf :Ontology .
+
+:Producer
+  a               foaf:Agent, skos:Concept ;
+  dct:created     "2017-09-26"^^xsd:date ;
+  dct:identifier  "EAID_BAECCF32_F8BA_49b7_9DBC_B4EC3DE6886F" ;
+  dct:modified    "2023-06-28"^^xsd:date ;
+  skos:broader    :PartyConnectedToTheGrid ;
+  owl:versionInfo "1" ;
+  skos:definition """A party that generates electricity.
+**
+Additional information:
+**
+This is a type of Party Connected to the Grid.
+**
+Based on:
+**
+[_Consolidated text: Directive (EU) 2019/944_](https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX%3A02019L0944-20220623)."""@en ;
+  skos:prefLabel  "Producer"@en ;
+  skos:inScheme   :Ontology .
+
+:ProductionResponsibleParty
+  a                 skos:Concept ;
+  dct:created       "2017-09-26"^^xsd:date ;
+  dct:identifier    "EAID_AE93006D_11F6_4a83_8485_9EE670999458" ;
+  dct:modified      "2019-10-17"^^xsd:date ;
+  owl:versionInfo   "1" ;
+  skos:definition   """A Production Responsible Party is responsible for its imbalances, meaning the difference between the energy volume physically injected to the system and the final nominated energy volume, including any imbalance adjustment within a given imbalance settlement period.
+**
+Additional information:
+**
+This is a type of Balance Responsible Party."""@en ;
+  skos:inScheme     :Ontology ;
+  skos:prefLabel    "Production Responsible Party"@en ;
+  skos:topConceptOf :Ontology .
+
+:ReconciliationAccountable
+  a                 skos:Concept ;
+  dct:created       "2017-09-26"^^xsd:date ;
+  dct:identifier    "EAID_758316FE_4C1D_4a96_9984_8C8412A7B656" ;
+  dct:modified      "2018-07-03"^^xsd:date ;
+  owl:versionInfo   "1" ;
+  skos:definition   "A party that is financially accountable for the reconciled volume of energy products for a profiled Accounting Point."@en ;
+  skos:inScheme     :Ontology ;
+  skos:prefLabel    "Reconciliation Accountable"@en ;
+  skos:topConceptOf :Ontology .
+
+:ReconciliationResponsible
+  a                 foaf:Agent, skos:Concept ;
+  dct:created       "2017-09-26"^^xsd:date ;
+  dct:identifier    "EAID_EC93EA4F_D2A5_4446_A62D_856925940437" ;
+  dct:modified      "2023-04-20"^^xsd:date ;
+  owl:versionInfo   "1" ;
+  skos:definition   """A party that is responsible for reconciling, within a Metering Grid Area, the volumes used in the imbalance settlement process for profiled Accounting Points and the actual measured quantities.
+**
+Additional information:
+**
+The Reconciliation Responsible may delegate the invoicing responsibility to a more generic role such as a Billing Agent."""@en ;
+  skos:inScheme     :Ontology ;
+  skos:prefLabel    "Reconciliation Responsible"@en ;
+  skos:topConceptOf :Ontology .
+
+:ReserveAllocator
+  a                 org:Role, skos:Concept ;
+  dct:created       "2017-09-26"^^xsd:date ;
+  dct:identifier    "EAID_D481504E_2446_4e3b_B597_2677C6BC7467" ;
+  dct:modified      "2020-05-06"^^xsd:date ;
+  owl:versionInfo   "1" ;
+  skos:definition   "Informs the market of reserve requirements, receives bids against the requirements and in compliance with the prequalification criteria, determines which bids meet requirements and assigns bids."@en ;
+  skos:inScheme     :Ontology ;
+  skos:prefLabel    "Reserve Allocator"@en ;
+  skos:topConceptOf :Ontology .
+
+:ResourceAggregator
+  a                 foaf:Agent, skos:Concept ;
+  dct:created       "2018-09-27"^^xsd:date ;
+  dct:identifier    "EAID_DF3D0F11_CE21_4a08_ADFE_FDD2CFCD5A34" ;
+  dct:modified      "2023-04-20"^^xsd:date ;
+  owl:versionInfo   "1" ;
+  skos:definition   """A party that aggregates Resources for usage by other market participants.
+**
+Additional information:
+**
+The aggregation must be defined by market rules."""@en ;
+  skos:inScheme     :Ontology ;
+  skos:prefLabel    "Resource Aggregator"@en ;
+  skos:topConceptOf :Ontology .
+
+:ResourceCapacityMechanismOperator
+  a                 foaf:Agent, skos:Concept ;
+  dct:created       "2021-06-02"^^xsd:date ;
+  dct:identifier    "EAID_2032143C_9AE5_4e0a_832D_44D94CF79CAA" ;
+  dct:modified      "2021-12-14"^^xsd:date ;
+  owl:versionInfo   "1" ;
+  skos:definition   """A party responsible to operate the resource capacity mechanism in a member state.
+**
+Additional information:
+**
+It can either be the TSO or an independent party. A Resource Capacity Mechanism Operator can contract one or several Resource capacity market units, and a Resource Capacity Market Unit can only be contracted by one Resource Capacity Mechanism Operator."""@en ;
+  skos:inScheme     :Ontology ;
+  skos:prefLabel    "Resource Capacity Mechanism Operator"@en ;
+  skos:topConceptOf :Ontology .
+
+:ResourceProvider
+  a                 org:Role, skos:Concept ;
+  dct:created       "2017-09-26"^^xsd:date ;
+  dct:identifier    "EAID_1700BB69_B04A_44e7_8C5E_C536AFCC54B9" ;
+  dct:modified      "2019-02-21"^^xsd:date ;
+  owl:versionInfo   "1" ;
+  skos:definition   "A role that manages a resource and provides production/consumption schedules for it, if required."@en ;
+  skos:inScheme     :Ontology ;
+  skos:prefLabel    "Resource Provider"@en ;
+  skos:topConceptOf :Ontology .
+
+:SchedulingAgent
+  a                 foaf:Agent, skos:Concept ;
+  dct:created       "2017-09-26"^^xsd:date ;
+  dct:identifier    "EAID_42CC28E5_05E2_41c4_A098_BFB28DC7C315" ;
+  dct:modified      "2023-06-28"^^xsd:date ;
+  owl:versionInfo   "1" ;
+  skos:definition   """The entity or entities with the task of providing schedules.
+**
+Source:
+**
+[_Consolidated text: Commission Regulation (EU) 2017/1485_](https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX%3A02017R1485-20210315).
+**
+Additional information:
+**
+A party that is responsible for the schedule information and its exchange on behalf of a Balance Responsible Party."""@en ;
+  skos:inScheme     :Ontology ;
+  skos:prefLabel    "Scheduling Agent"@en ;
+  skos:topConceptOf :Ontology .
+
+:SchedulingAreaResponsible
+  a                 org:Role, skos:Concept ;
+  dct:created       "2019-02-20"^^xsd:date ;
+  dct:identifier    "EAID_165373E5_0EEF_4370_9197_4174F7895E6D" ;
+  dct:modified      "2019-08-13"^^xsd:date ;
+  owl:versionInfo   "1" ;
+  skos:definition   """A party responsible for the coordination of nominated volumes within a Scheduling Area.
+**
+Additional information:
+**
+This role is typically performed by a TSO."""@en ;
+  skos:inScheme     :Ontology ;
+  skos:prefLabel    "Scheduling Area Responsible"@en ;
+  skos:topConceptOf :Ontology .
+
+:SystemOperator
+  a                 foaf:Agent, skos:Concept ;
+  dct:created       "2018-04-11"^^xsd:date ;
+  dct:identifier    "EAID_99DBAB4E_BBC0_47a2_8FBF_120F4C769F66" ;
+  dct:modified      "2023-06-28"^^xsd:date ;
+  owl:versionInfo   "1" ;
+  skos:definition   """A party responsible for operating, ensuring the maintenance of and, if necessary, developing the system in a given area and, where applicable, its interconnections with other systems, and for ensuring the long-term ability of the system to meet reasonable demands for the distribution or transmission of energy.
+**
+Based on:
+**
+[_Consolidated text: Directive (EU) 2019/944_](https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX%3A02019L0944-20220623)."""@en ;
+  skos:inScheme     :Ontology ;
+  skos:prefLabel    "System Operator"@en ;
+  skos:topConceptOf :Ontology .
+
+:TradeResponsibleParty
+  a                 skos:Concept ;
+  dct:created       "2017-09-26"^^xsd:date ;
+  dct:identifier    "EAID_3CC63816_E292_45fc_B30B_82A4E39068F6" ;
+  dct:modified      "2023-04-20"^^xsd:date ;
+  skos:broader      :BalanceResponsibleParty ;
+  owl:versionInfo   "1" ;
+  skos:definition   """A party who can be brought to rights, legally and financially, for any imbalance between energy nominated and consumed for all associated Accounting Points.
+**
+Additional information:
+**
+A power exchange without any privileged responsibilities acts as a Trade Responsible Party.
+This is a type of Balance Responsible Party."""@en ;
+  skos:inScheme     :Ontology ;
+  skos:prefLabel    "Trade Responsible Party"@en ;
+  skos:topConceptOf :Ontology .
+
+:TransmissionCapacityAllocator
+  a                 org:Role, skos:Concept ;
+  dct:created       "2017-09-26"^^xsd:date ;
+  dct:identifier    "EAID_21DC5453_89CC_4ca2_9D79_3058F0435846" ;
+  dct:modified      "2021-12-14"^^xsd:date ;
+  owl:versionInfo   "1" ;
+  skos:definition   """The Transmission Capacity Allocator manages, on behalf of the System Operators, the allocation of available transmission capacity for a Bidding Zone Border. He offers the available transmission capacity to the market, allocates the available transmission capacity to individual Capacity Traders and calculates the billing amount of already allocated capacities to the Capacity Traders.
+**
+Additional information
+**
+The single allocation platform established by all TSOs for Forward Capacity Allocation performs the role of a Transmission Capacity Allocator."""@en ;
+  skos:inScheme     :Ontology ;
+  skos:prefLabel    "Transmission Capacity Allocator"@en ;
+  skos:topConceptOf :Ontology .
+
+:MeteringPoint
+  a                 owl:Class, skos:Concept ;
+  dct:created       "2017-09-26"^^xsd:date ;
+  owl:versionInfo   "1" ;
+  skos:definition   "A physical location where the withdrawal and/or injection of active power is measured"@en ;
+  skos:inScheme     :Ontology ;
+  skos:prefLabel    "Metering Point"@en ;
+  skos:topConceptOf :Ontology .
