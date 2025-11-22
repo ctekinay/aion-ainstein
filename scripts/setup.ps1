@@ -46,11 +46,11 @@ function Test-Docker {
 
 # Start Docker services
 function Start-Services {
-    Write-Host "Starting Weaviate and Ollama..." -ForegroundColor Yellow
+    Write-Host "Starting Weaviate..." -ForegroundColor Yellow
     docker compose up -d
 
-    Write-Host "Waiting for services to be ready..." -ForegroundColor Yellow
-    Start-Sleep -Seconds 10
+    Write-Host "Waiting for Weaviate to be ready..." -ForegroundColor Yellow
+    Start-Sleep -Seconds 5
 
     # Wait for Weaviate
     $maxRetries = 30
@@ -75,37 +75,6 @@ function Start-Services {
         exit 1
     }
 
-    # Wait for Ollama
-    $retryCount = 0
-    do {
-        try {
-            $response = Invoke-WebRequest -Uri "http://localhost:11434/api/tags" -UseBasicParsing -TimeoutSec 2
-            if ($response.StatusCode -eq 200) {
-                Write-Host "  Ollama: Ready" -ForegroundColor Green
-                break
-            }
-        }
-        catch {
-            $retryCount++
-            Write-Host "  Waiting for Ollama... ($retryCount/$maxRetries)" -ForegroundColor Gray
-            Start-Sleep -Seconds 2
-        }
-    } while ($retryCount -lt $maxRetries)
-
-    Write-Host ""
-}
-
-# Pull Ollama models
-function Get-OllamaModels {
-    Write-Host "Pulling Ollama models (this may take a while)..." -ForegroundColor Yellow
-
-    Write-Host "  Pulling nomic-embed-text..." -ForegroundColor Gray
-    docker compose exec -T ollama ollama pull nomic-embed-text
-
-    Write-Host "  Pulling llama3.2..." -ForegroundColor Gray
-    docker compose exec -T ollama ollama pull llama3.2
-
-    Write-Host "  Models: Ready" -ForegroundColor Green
     Write-Host ""
 }
 
@@ -137,11 +106,29 @@ function Initialize-EnvFile {
         Write-Host "Creating .env file from template..." -ForegroundColor Yellow
         Copy-Item .env.example .env
         Write-Host "  .env file: Created" -ForegroundColor Green
+        Write-Host ""
+        Write-Host "  IMPORTANT: Edit .env and add your OpenAI API key!" -ForegroundColor Yellow
+        Write-Host "  notepad .env" -ForegroundColor Gray
+        Write-Host ""
     }
     else {
         Write-Host "  .env file: Already exists (skipping)" -ForegroundColor Gray
     }
     Write-Host ""
+}
+
+# Check for OpenAI API key
+function Test-OpenAIKey {
+    if (Test-Path ".env") {
+        $envContent = Get-Content ".env" -Raw
+        if ($envContent -match "OPENAI_API_KEY=your-openai-api-key-here" -or $envContent -match "OPENAI_API_KEY=$") {
+            Write-Host "WARNING: OpenAI API key not configured!" -ForegroundColor Yellow
+            Write-Host "Please edit .env and add your OpenAI API key before running 'aion init'" -ForegroundColor Yellow
+            Write-Host ""
+            return $false
+        }
+    }
+    return $true
 }
 
 # Initialize data
@@ -156,24 +143,45 @@ function Initialize-Data {
 function Main {
     Test-Docker
     Start-Services
-    Get-OllamaModels
     Initialize-PythonEnv
     Initialize-EnvFile
-    Initialize-Data
+
+    $hasKey = Test-OpenAIKey
+
+    if ($hasKey) {
+        Initialize-Data
+    }
 
     Write-Host "===================================" -ForegroundColor Cyan
     Write-Host "Setup Complete!" -ForegroundColor Green
     Write-Host "===================================" -ForegroundColor Cyan
     Write-Host ""
-    Write-Host "To start using AION-AINSTEIN:" -ForegroundColor White
-    Write-Host ""
-    Write-Host "  1. Activate the virtual environment:" -ForegroundColor White
-    Write-Host "     .\.venv\Scripts\Activate.ps1" -ForegroundColor Yellow
-    Write-Host ""
-    Write-Host "  2. Start interactive mode:" -ForegroundColor White
+
+    if (-not $hasKey) {
+        Write-Host "Next steps:" -ForegroundColor White
+        Write-Host ""
+        Write-Host "  1. Add your OpenAI API key to .env:" -ForegroundColor White
+        Write-Host "     notepad .env" -ForegroundColor Yellow
+        Write-Host ""
+        Write-Host "  2. Activate the virtual environment:" -ForegroundColor White
+        Write-Host "     .\.venv\Scripts\Activate.ps1" -ForegroundColor Yellow
+        Write-Host ""
+        Write-Host "  3. Initialize the data:" -ForegroundColor White
+        Write-Host "     aion init" -ForegroundColor Yellow
+        Write-Host ""
+    }
+    else {
+        Write-Host "To start using AION-AINSTEIN:" -ForegroundColor White
+        Write-Host ""
+        Write-Host "  1. Activate the virtual environment:" -ForegroundColor White
+        Write-Host "     .\.venv\Scripts\Activate.ps1" -ForegroundColor Yellow
+        Write-Host ""
+    }
+
+    Write-Host "  Start interactive mode:" -ForegroundColor White
     Write-Host "     aion interactive" -ForegroundColor Yellow
     Write-Host ""
-    Write-Host "  3. Or run a query:" -ForegroundColor White
+    Write-Host "  Or run a query:" -ForegroundColor White
     Write-Host '     aion query "What is IEC 61970?"' -ForegroundColor Yellow
     Write-Host ""
 }

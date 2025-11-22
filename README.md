@@ -4,14 +4,14 @@ Multi-Agent RAG (Retrieval-Augmented Generation) System for Energy System Archit
 
 ## Overview
 
-AION-AINSTEIN is a local-first RAG system built on [Weaviate](https://weaviate.io/) that enables intelligent querying of energy sector knowledge bases including:
+AION-AINSTEIN is a local Weaviate-based RAG system with OpenAI embeddings that enables intelligent querying of energy sector knowledge bases including:
 
 - **SKOS/RDF Vocabularies**: IEC 61970/61968/62325 standards, CIM models, and domain ontologies
 - **Architectural Decision Records (ADRs)**: Design decisions and rationale
 - **Data Governance Policies**: Compliance, data quality, and management policies
 - **Architecture Principles**: System design and governance principles
 
-The system uses a multi-agent architecture inspired by [Weaviate's Elysia](https://weaviate.io/blog/elysia-agentic-rag) framework, with specialized agents for different knowledge domains.
+The system uses a multi-agent architecture inspired by [Weaviate's Elysia](https://weaviate.io/blog/elysia-agentic-rag) framework.
 
 ## Architecture
 
@@ -30,7 +30,7 @@ The system uses a multi-agent architecture inspired by [Weaviate's Elysia](https
     └───────────────┘   └─────────────────┘   └─────────────┘
                 │                 │                 │
     ┌───────────▼─────────────────▼─────────────────▼─────────┐
-    │                    Weaviate (Local)                     │
+    │                    Weaviate (Local Docker)              │
     │                                                         │
     │  ┌──────────┐  ┌──────────────────┐  ┌───────────────┐ │
     │  │Vocabulary│  │ArchitecturalDec. │  │PolicyDocument │ │
@@ -39,9 +39,9 @@ The system uses a multi-agent architecture inspired by [Weaviate's Elysia](https
     └─────────────────────────────────────────────────────────┘
                               │
     ┌─────────────────────────▼───────────────────────────────┐
-    │                    Ollama (Local LLM)                   │
-    │         Embeddings: nomic-embed-text                    │
-    │         Generation: llama3.2                            │
+    │                    OpenAI API                           │
+    │         Embeddings: text-embedding-3-small              │
+    │         Generation: gpt-4o-mini                         │
     └─────────────────────────────────────────────────────────┘
 ```
 
@@ -49,31 +49,17 @@ The system uses a multi-agent architecture inspired by [Weaviate's Elysia](https
 
 - **Docker Desktop** (with WSL2 on Windows)
 - **Python 3.10+** (3.12 recommended)
-- **NVIDIA GPU** (optional, for faster local LLM inference)
+- **OpenAI API Key**
 
 ## Quick Start (Windows)
 
-### Option A: Automated Setup
+### 1. Start Weaviate
 
 ```powershell
-# Run from project root in PowerShell
-.\scripts\setup.ps1
-```
-
-### Option B: Manual Setup
-
-#### 1. Start the Infrastructure
-
-```powershell
-# Start Weaviate and Ollama
 docker compose up -d
-
-# Pull the required Ollama models (this takes a few minutes)
-docker compose exec ollama ollama pull nomic-embed-text
-docker compose exec ollama ollama pull llama3.2
 ```
 
-#### 2. Install Python Dependencies
+### 2. Install Python Dependencies
 
 ```powershell
 # Create virtual environment
@@ -86,16 +72,22 @@ python -m venv .venv
 pip install -e .
 ```
 
-#### 3. Configure Environment
+### 3. Configure Environment
 
 ```powershell
 # Copy example configuration
 Copy-Item .env.example .env
 
-# Edit .env if needed (defaults work for local setup)
+# Edit and add your OpenAI API key
+notepad .env
 ```
 
-#### 4. Initialize and Ingest Data
+Add your API key to `.env`:
+```
+OPENAI_API_KEY=sk-your-api-key-here
+```
+
+### 4. Initialize and Ingest Data
 
 ```powershell
 # Initialize collections and ingest all data
@@ -105,7 +97,7 @@ aion init
 aion status
 ```
 
-#### 5. Query the System
+### 5. Query the System
 
 ```powershell
 # Interactive mode
@@ -119,26 +111,6 @@ aion query "What decisions have been made about security?" --agent architecture
 
 # Search directly
 aion search "data quality" --collection policy
-```
-
-## Quick Start (Linux/macOS)
-
-```bash
-# Run automated setup
-./scripts/setup.sh
-
-# Or manually:
-docker compose up -d
-docker compose exec ollama ollama pull nomic-embed-text
-docker compose exec ollama ollama pull llama3.2
-
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -e .
-
-cp .env.example .env
-aion init
-aion interactive
 ```
 
 ## CLI Commands
@@ -210,7 +182,7 @@ aion-ainstein/
 ├── scripts/
 │   ├── setup.ps1             # Windows setup script
 │   └── setup.sh              # Linux/macOS setup script
-├── docker-compose.yml         # Weaviate + Ollama
+├── docker-compose.yml         # Weaviate
 ├── requirements.txt
 ├── pyproject.toml
 └── .env.example
@@ -223,35 +195,9 @@ Environment variables (`.env`):
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `WEAVIATE_URL` | `http://localhost:8080` | Weaviate HTTP endpoint |
-| `WEAVIATE_IS_LOCAL` | `True` | Use local Weaviate instance |
-| `OLLAMA_URL` | `http://localhost:11434` | Ollama API endpoint |
-| `OLLAMA_EMBEDDING_MODEL` | `nomic-embed-text` | Embedding model |
-| `OLLAMA_CHAT_MODEL` | `llama3.2` | Generation model |
-
-## Using with OpenAI (Optional)
-
-To use OpenAI instead of local Ollama (faster, but requires API key):
-
-```powershell
-# In .env
-OPENAI_API_KEY=your-api-key
-OPENAI_EMBEDDING_MODEL=text-embedding-3-small
-OPENAI_CHAT_MODEL=gpt-4o-mini
-```
-
-## GPU Support on Windows
-
-For GPU acceleration with Ollama on Windows:
-
-1. Install [NVIDIA drivers](https://www.nvidia.com/Download/index.aspx) for Windows
-2. Enable WSL2 in Docker Desktop settings
-3. Docker Desktop automatically enables GPU passthrough
-
-To verify GPU is working:
-```powershell
-docker compose exec ollama ollama run llama3.2 "Hello"
-# Should respond quickly if GPU is active
-```
+| `OPENAI_API_KEY` | (required) | Your OpenAI API key |
+| `OPENAI_EMBEDDING_MODEL` | `text-embedding-3-small` | Embedding model |
+| `OPENAI_CHAT_MODEL` | `gpt-4o-mini` | Chat model |
 
 ## Python API Usage
 
@@ -300,12 +246,11 @@ asyncio.run(main())
 ### Docker issues on Windows
 
 ```powershell
-# Check if containers are running
+# Check if container is running
 docker ps
 
 # View logs
 docker compose logs weaviate
-docker compose logs ollama
 
 # Restart services
 docker compose restart
@@ -316,9 +261,6 @@ docker compose restart
 ```powershell
 # Test Weaviate is responding
 Invoke-WebRequest -Uri "http://localhost:8080/v1/.well-known/ready"
-
-# Test Ollama is responding
-Invoke-WebRequest -Uri "http://localhost:11434/api/tags"
 ```
 
 ### Reset everything

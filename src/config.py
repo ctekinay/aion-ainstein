@@ -23,12 +23,7 @@ class Settings(BaseSettings):
     wcd_url: Optional[str] = Field(default=None)
     wcd_api_key: Optional[str] = Field(default=None)
 
-    # Ollama Configuration
-    ollama_url: str = Field(default="http://localhost:11434")
-    ollama_embedding_model: str = Field(default="nomic-embed-text")
-    ollama_chat_model: str = Field(default="llama3.2")
-
-    # OpenAI Configuration (optional)
+    # OpenAI Configuration
     openai_api_key: Optional[str] = Field(default=None)
     openai_embedding_model: str = Field(default="text-embedding-3-small")
     openai_chat_model: str = Field(default="gpt-4o-mini")

@@ -10,42 +10,17 @@ services:
       QUERY_DEFAULTS_LIMIT: 25
       AUTHENTICATION_ANONYMOUS_ACCESS_ENABLED: 'true'
       PERSISTENCE_DATA_PATH: '/var/lib/weaviate'
-      DEFAULT_VECTORIZER_MODULE: 'none'
+      DEFAULT_VECTORIZER_MODULE: 'text2vec-openai'
       ENABLE_API_BASED_MODULES: 'true'
-      ENABLE_MODULES: 'text2vec-ollama,generative-ollama'
+      ENABLE_MODULES: 'text2vec-openai,generative-openai'
       CLUSTER_HOSTNAME: 'node1'
-      # Ollama connection
-      OLLAMA_API_ENDPOINT: 'http://ollama:11434'
     volumes:
       - weaviate_data:/var/lib/weaviate
-    networks:
-      - aion-network
-    depends_on:
-      - ollama
     healthcheck:
       test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:8080/v1/.well-known/ready || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 5
 
-  ollama:
-    image: ollama/ollama:latest
-    container_name: ollama-aion
-    restart: unless-stopped
-    ports:
-      - "11434:11434"
-    volumes:
-      - ollama_data:/root/.ollama
-    networks:
-      - aion-network
-    # GPU support: On Windows with Docker Desktop, GPU passthrough works automatically
-    # if you have WSL2 + NVIDIA drivers installed. No special configuration needed.
-    # For CPU-only mode, this works as-is.
-
 volumes:
   weaviate_data:
-  ollama_data:
-
-networks:
-  aion-network:
-    driver: bridge

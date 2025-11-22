@@ -61,30 +61,24 @@ class CollectionManager:
                 self.client.collections.delete(collection_name)
 
     def _get_vectorizer_config(self):
-        """Get vectorizer configuration based on settings."""
-        if settings.openai_api_key:
-            # Use OpenAI embeddings
-            return Configure.Vectorizer.text2vec_openai(
-                model=settings.openai_embedding_model,
+        """Get vectorizer configuration for OpenAI."""
+        if not settings.openai_api_key:
+            raise ValueError(
+                "OPENAI_API_KEY is required. Please set it in your .env file."
             )
-        else:
-            # Use Ollama embeddings (local)
-            return Configure.Vectorizer.text2vec_ollama(
-                api_endpoint=settings.ollama_url,
-                model=settings.ollama_embedding_model,
-            )
+        return Configure.Vectorizer.text2vec_openai(
+            model=settings.openai_embedding_model,
+        )
 
     def _get_generative_config(self):
-        """Get generative model configuration based on settings."""
-        if settings.openai_api_key:
-            return Configure.Generative.openai(
-                model=settings.openai_chat_model,
+        """Get generative model configuration for OpenAI."""
+        if not settings.openai_api_key:
+            raise ValueError(
+                "OPENAI_API_KEY is required. Please set it in your .env file."
             )
-        else:
-            return Configure.Generative.ollama(
-                api_endpoint=settings.ollama_url,
-                model=settings.ollama_chat_model,
-            )
+        return Configure.Generative.openai(
+            model=settings.openai_chat_model,
+        )
 
     def _create_vocabulary_collection(self) -> None:
         """Create collection for SKOS/OWL vocabulary concepts."""
