@@ -32,6 +32,9 @@ ENV/
 *.swo
 *~
 
+# Claude Code
+.claude/settings.local.json
+
 # Environment
 .env
 .env.local
@@ -56,3 +59,6 @@ Thumbs.db
 # Temporary files
 *.tmp
 *.temp
+
+# Resource files
+resources.txt
