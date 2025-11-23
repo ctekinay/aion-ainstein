@@ -197,13 +197,13 @@ class DocumentLoader:
         except ImportError:
             pass
 
-        # Fall back to PyPDF2
+        # Fall back to pypdf (successor to PyPDF2)
         try:
-            yield from self._load_pdf_pypdf2_chunked(file_path)
+            yield from self._load_pdf_pypdf_chunked(file_path)
         except ImportError:
             logger.error(
-                "Neither pymupdf nor PyPDF2 installed. "
-                "Run: pip install pymupdf or pip install PyPDF2"
+                "Neither pymupdf nor pypdf installed. "
+                "Run: pip install pymupdf or pip install pypdf"
             )
 
     def _load_pdf_pymupdf_chunked(self, file_path: Path) -> Iterator[PolicyDocument]:
@@ -241,9 +241,9 @@ class DocumentLoader:
         except Exception as e:
             logger.error(f"Failed to parse PDF with PyMuPDF {file_path}: {e}")
 
-    def _load_pdf_pypdf2_chunked(self, file_path: Path) -> Iterator[PolicyDocument]:
-        """Load PDF using PyPDF2 and yield chunks."""
-        from PyPDF2 import PdfReader
+    def _load_pdf_pypdf_chunked(self, file_path: Path) -> Iterator[PolicyDocument]:
+        """Load PDF using pypdf and yield chunks."""
+        from pypdf import PdfReader
 
         try:
             reader = PdfReader(str(file_path))
@@ -274,7 +274,7 @@ class DocumentLoader:
                 )
 
         except Exception as e:
-            logger.error(f"Failed to parse PDF with PyPDF2 {file_path}: {e}")
+            logger.error(f"Failed to parse PDF with pypdf {file_path}: {e}")
 
     def _extract_title(self, file_path: Path, paragraphs: list[str]) -> str:
         """Extract title from filename or first paragraph.
