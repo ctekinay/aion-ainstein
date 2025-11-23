@@ -1,0 +1,519 @@
+"""Command-line interface for the AION-AINSTEIN RAG system."""
+
+import asyncio
+import logging
+import sys
+from pathlib import Path
+from typing import Optional
+
+import typer
+from rich.console import Console
+from rich.table import Table
+from rich.panel import Panel
+from rich.markdown import Markdown
+from rich.progress import Progress, SpinnerColumn, TextColumn
+
+from .config import settings
+from .weaviate.client import get_weaviate_client, weaviate_client
+from .weaviate.collections import CollectionManager
+from .weaviate.ingestion import DataIngestionPipeline
+from .agents import OrchestratorAgent
+
+# Set up logging
+logging.basicConfig(
+    level=getattr(logging, settings.log_level.upper()),
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+)
+logger = logging.getLogger(__name__)
+
+# CLI app
+app = typer.Typer(
+    name="aion",
+    help="AION-AINSTEIN: Multi-Agent RAG System for Energy System Architecture",
+    add_completion=False,
+)
+console = Console()
+
+
+# Valid OpenAI models supported by Weaviate
+VALID_OPENAI_CHAT_MODELS = [
+    "gpt-3.5-turbo", "gpt-3.5-turbo-16k", "gpt-3.5-turbo-1106",
+    "gpt-4", "gpt-4-32k", "gpt-4-1106-preview", "gpt-4o", "gpt-4o-mini"
+]
+VALID_OPENAI_EMBEDDING_MODELS = [
+    "text-embedding-3-small", "text-embedding-3-large", "text-embedding-ada-002"
+]
+
+
+@app.command()
+def config():
+    """Show current configuration (for debugging)."""
+    console.print(Panel("Current Configuration", style="bold blue"))
+
+    table = Table(title="Settings")
+    table.add_column("Setting", style="cyan")
+    table.add_column("Value", style="green")
+    table.add_column("Status", style="yellow")
+
+    # Weaviate settings
+    table.add_row("WEAVIATE_URL", settings.weaviate_url, "OK")
+    table.add_row("WEAVIATE_IS_LOCAL", str(settings.weaviate_is_local), "OK")
+
+    # OpenAI settings
+    api_key_status = "OK" if settings.openai_api_key else "[red]MISSING[/red]"
+    api_key_display = f"{settings.openai_api_key[:10]}..." if settings.openai_api_key else "[red]Not set[/red]"
+    table.add_row("OPENAI_API_KEY", api_key_display, api_key_status)
+
+    embedding_status = "OK" if settings.openai_embedding_model in VALID_OPENAI_EMBEDDING_MODELS else "[red]INVALID[/red]"
+    table.add_row("OPENAI_EMBEDDING_MODEL", settings.openai_embedding_model, embedding_status)
+
+    chat_status = "OK" if settings.openai_chat_model in VALID_OPENAI_CHAT_MODELS else "[red]INVALID[/red]"
+    table.add_row("OPENAI_CHAT_MODEL", settings.openai_chat_model, chat_status)
+
+    console.print(table)
+
+    # Show validation errors
+    errors = []
+    if not settings.openai_api_key:
+        errors.append("OPENAI_API_KEY is not set")
+    if settings.openai_embedding_model not in VALID_OPENAI_EMBEDDING_MODELS:
+        errors.append(f"OPENAI_EMBEDDING_MODEL '{settings.openai_embedding_model}' is not valid. Use one of: {', '.join(VALID_OPENAI_EMBEDDING_MODELS)}")
+    if settings.openai_chat_model not in VALID_OPENAI_CHAT_MODELS:
+        errors.append(f"OPENAI_CHAT_MODEL '{settings.openai_chat_model}' is not valid. Use one of: {', '.join(VALID_OPENAI_CHAT_MODELS)}")
+
+    if errors:
+        console.print("\n[bold red]Configuration Errors:[/bold red]")
+        for error in errors:
+            console.print(f"  [red]• {error}[/red]")
+        console.print("\n[yellow]Fix these in your .env file and try again.[/yellow]")
+    else:
+        console.print("\n[green]Configuration is valid![/green]")
+
+
+@app.command()
+def init(
+    recreate: bool = typer.Option(
+        False, "--recreate", "-r", help="Recreate collections if they exist"
+    ),
+):
+    """Initialize Weaviate collections and ingest data."""
+    console.print(Panel("Initializing AION-AINSTEIN RAG System", style="bold blue"))
+
+    # Show current configuration
+    console.print("\n[bold]Current Configuration:[/bold]")
+    console.print(f"  OPENAI_EMBEDDING_MODEL: {settings.openai_embedding_model}")
+    console.print(f"  OPENAI_CHAT_MODEL: {settings.openai_chat_model}")
+
+    # Validate configuration before proceeding
+    errors = []
+    if not settings.openai_api_key:
+        errors.append("OPENAI_API_KEY is not set in .env file")
+    if settings.openai_chat_model not in VALID_OPENAI_CHAT_MODELS:
+        errors.append(
+            f"OPENAI_CHAT_MODEL '{settings.openai_chat_model}' is not valid.\n"
+            f"    Valid models: {', '.join(VALID_OPENAI_CHAT_MODELS)}\n"
+            f"    Please update your .env file."
+        )
+    if settings.openai_embedding_model not in VALID_OPENAI_EMBEDDING_MODELS:
+        errors.append(
+            f"OPENAI_EMBEDDING_MODEL '{settings.openai_embedding_model}' is not valid.\n"
+            f"    Valid models: {', '.join(VALID_OPENAI_EMBEDDING_MODELS)}"
+        )
+
+    if errors:
+        console.print("\n[bold red]Configuration Errors:[/bold red]")
+        for error in errors:
+            console.print(f"  [red]• {error}[/red]")
+        console.print("\n[yellow]Please check your .env file and ensure it contains:[/yellow]")
+        console.print("  OPENAI_API_KEY=sk-your-key-here")
+        console.print("  OPENAI_EMBEDDING_MODEL=text-embedding-3-small")
+        console.print("  OPENAI_CHAT_MODEL=gpt-4o-mini")
+        raise typer.Exit(1)
+
+    with Progress(
+        SpinnerColumn(),
+        TextColumn("[progress.description]{task.description}"),
+        console=console,
+    ) as progress:
+        # Connect to Weaviate
+        task = progress.add_task("Connecting to Weaviate...", total=None)
+        try:
+            client = get_weaviate_client()
+            progress.update(task, description="[green]Connected to Weaviate")
+        except Exception as e:
+            console.print(f"[red]Failed to connect to Weaviate: {e}")
+            console.print("\n[yellow]Make sure Weaviate is running:")
+            console.print("  docker compose up -d")
+            raise typer.Exit(1)
+
+        try:
+            # Run ingestion
+            progress.update(task, description="Running data ingestion...")
+            pipeline = DataIngestionPipeline(client)
+            stats = pipeline.run_full_ingestion(recreate_collections=recreate)
+
+            progress.update(task, description="[green]Ingestion complete!")
+
+        finally:
+            client.close()
+
+    # Display stats
+    table = Table(title="Ingestion Statistics")
+    table.add_column("Collection", style="cyan")
+    table.add_column("Documents", style="green")
+
+    table.add_row("Vocabulary Concepts", str(stats.get("vocabulary", 0)))
+    table.add_row("ADRs", str(stats.get("adr", 0)))
+    table.add_row("Principles", str(stats.get("principle", 0)))
+    table.add_row("Policy Documents", str(stats.get("policy", 0)))
+
+    console.print(table)
+
+    if stats.get("errors"):
+        console.print("\n[yellow]Errors encountered:")
+        for error in stats["errors"]:
+            console.print(f"  - {error}")
+
+
+@app.command()
+def status():
+    """Show the status of Weaviate collections."""
+    console.print(Panel("AION-AINSTEIN System Status", style="bold blue"))
+
+    try:
+        with weaviate_client() as client:
+            manager = CollectionManager(client)
+            stats = manager.get_collection_stats()
+
+            table = Table(title="Collection Status")
+            table.add_column("Collection", style="cyan")
+            table.add_column("Exists", style="green")
+            table.add_column("Document Count", style="yellow")
+
+            for name, info in stats.items():
+                exists = "Yes" if info["exists"] else "No"
+                count = str(info["count"]) if info["exists"] else "-"
+                table.add_row(name, exists, count)
+
+            console.print(table)
+
+    except Exception as e:
+        console.print(f"[red]Failed to get status: {e}")
+        raise typer.Exit(1)
+
+
+@app.command()
+def query(
+    question: str = typer.Argument(..., help="Question to ask the system"),
+    agent: Optional[str] = typer.Option(
+        None, "--agent", "-a", help="Specific agent to use (vocabulary, architecture, policy)"
+    ),
+    all_agents: bool = typer.Option(
+        False, "--all", help="Query all agents"
+    ),
+    verbose: bool = typer.Option(
+        False, "--verbose", "-v", help="Show detailed output including sources"
+    ),
+):
+    """Query the knowledge base using the multi-agent system."""
+    console.print(Panel(f"Query: {question}", style="bold blue"))
+
+    try:
+        with weaviate_client() as client:
+            orchestrator = OrchestratorAgent(client)
+
+            with Progress(
+                SpinnerColumn(),
+                TextColumn("[progress.description]{task.description}"),
+                console=console,
+            ) as progress:
+                task = progress.add_task("Processing query...", total=None)
+
+                # Run the async query
+                agent_names = [agent] if agent else None
+                response = asyncio.run(
+                    orchestrator.query(
+                        question,
+                        use_all_agents=all_agents,
+                        agent_names=agent_names,
+                    )
+                )
+
+                progress.update(task, description="[green]Query complete!")
+
+            # Display routing decision
+            console.print(f"\n[dim]Agents used: {', '.join(response.routing_decision.get('agents', []))}[/dim]")
+            console.print(f"[dim]Routing reason: {response.routing_decision.get('reason', '')}[/dim]")
+            console.print(f"[dim]Confidence: {response.confidence:.2f}[/dim]\n")
+
+            # Display answer
+            console.print(Panel(Markdown(response.answer), title="Answer", border_style="green"))
+
+            # Display sources if verbose
+            if verbose and response.agent_responses:
+                console.print("\n[bold]Sources:[/bold]")
+                for agent_response in response.agent_responses:
+                    if agent_response.sources:
+                        console.print(f"\n[cyan]{agent_response.agent_name}:[/cyan]")
+                        for source in agent_response.sources[:5]:
+                            title = source.get("title") or source.get("label") or "Unknown"
+                            console.print(f"  - {title}")
+
+    except Exception as e:
+        console.print(f"[red]Query failed: {e}")
+        logger.exception("Query error")
+        raise typer.Exit(1)
+
+
+@app.command()
+def search(
+    query_text: str = typer.Argument(..., help="Search query"),
+    collection: str = typer.Option(
+        "all", "--collection", "-c",
+        help="Collection to search (vocabulary, adr, principle, policy, all)"
+    ),
+    limit: int = typer.Option(5, "--limit", "-n", help="Maximum results"),
+):
+    """Search the knowledge base directly."""
+    console.print(Panel(f"Search: {query_text}", style="bold blue"))
+
+    try:
+        with weaviate_client() as client:
+            orchestrator = OrchestratorAgent(client)
+
+            if collection == "all":
+                results = asyncio.run(orchestrator.search_all(query_text, limit=limit))
+            else:
+                agent_map = {
+                    "vocabulary": orchestrator.vocabulary_agent,
+                    "adr": orchestrator.architecture_agent,
+                    "principle": orchestrator.architecture_agent,  # Principles are under architecture
+                    "policy": orchestrator.policy_agent,
+                }
+                agent = agent_map.get(collection)
+                if not agent:
+                    console.print(f"[red]Unknown collection: {collection}")
+                    raise typer.Exit(1)
+
+                results = {collection: agent.hybrid_search(query_text, limit=limit)}
+
+            # Display results
+            for coll_name, coll_results in results.items():
+                if coll_results:
+                    table = Table(title=f"{coll_name.title()} Results")
+                    table.add_column("Title/Label", style="cyan", max_width=40)
+                    table.add_column("Preview", style="white", max_width=60)
+
+                    for doc in coll_results:
+                        title = doc.get("title") or doc.get("pref_label") or "Unknown"
+                        content = doc.get("content") or doc.get("definition") or doc.get("full_text") or ""
+                        preview = content[:100] + "..." if len(content) > 100 else content
+                        table.add_row(title, preview)
+
+                    console.print(table)
+                    console.print()
+
+    except Exception as e:
+        console.print(f"[red]Search failed: {e}")
+        raise typer.Exit(1)
+
+
+@app.command()
+def agents():
+    """List available agents and their capabilities."""
+    console.print(Panel("Available Agents", style="bold blue"))
+
+    try:
+        with weaviate_client() as client:
+            orchestrator = OrchestratorAgent(client)
+            agent_info = orchestrator.get_agent_info()
+
+            for info in agent_info:
+                console.print(f"\n[bold cyan]{info['name']}[/bold cyan]")
+                console.print(f"  Collection: {info['collection']}")
+                console.print(f"  Description: {info['description']}")
+
+    except Exception as e:
+        console.print(f"[red]Failed to list agents: {e}")
+        raise typer.Exit(1)
+
+
+@app.command()
+def interactive():
+    """Start an interactive query session."""
+    console.print(Panel(
+        "AION-AINSTEIN Interactive Mode\n"
+        "Type 'quit' or 'exit' to end the session.\n"
+        "Type 'help' for available commands.",
+        style="bold blue"
+    ))
+
+    try:
+        with weaviate_client() as client:
+            orchestrator = OrchestratorAgent(client)
+
+            while True:
+                try:
+                    user_input = console.input("\n[bold green]Question>[/bold green] ").strip()
+
+                    if not user_input:
+                        continue
+
+                    if user_input.lower() in ("quit", "exit", "q"):
+                        console.print("[dim]Goodbye![/dim]")
+                        break
+
+                    if user_input.lower() == "help":
+                        console.print("""
+[bold]Available commands:[/bold]
+  quit, exit, q  - Exit interactive mode
+  help           - Show this help message
+  agents         - List available agents
+  status         - Show collection status
+
+[bold]Query modifiers:[/bold]
+  @vocabulary <question>    - Query only vocabulary agent
+  @architecture <question>  - Query only architecture agent
+  @policy <question>        - Query only policy agent
+  @all <question>           - Query all agents
+                        """)
+                        continue
+
+                    if user_input.lower() == "agents":
+                        for info in orchestrator.get_agent_info():
+                            console.print(f"  [cyan]{info['name']}[/cyan]: {info['description'][:60]}...")
+                        continue
+
+                    if user_input.lower() == "status":
+                        manager = CollectionManager(client)
+                        stats = manager.get_collection_stats()
+                        for name, info in stats.items():
+                            status = f"{info['count']} docs" if info["exists"] else "not created"
+                            console.print(f"  {name}: {status}")
+                        continue
+
+                    # Parse agent directive
+                    agent_names = None
+                    use_all = False
+
+                    if user_input.startswith("@"):
+                        parts = user_input.split(" ", 1)
+                        directive = parts[0][1:].lower()
+                        user_input = parts[1] if len(parts) > 1 else ""
+
+                        if directive == "all":
+                            use_all = True
+                        elif directive in ("vocabulary", "architecture", "policy"):
+                            agent_names = [directive]
+
+                    if not user_input:
+                        console.print("[yellow]Please provide a question.[/yellow]")
+                        continue
+
+                    # Process query
+                    with console.status("Thinking...", spinner="dots"):
+                        response = asyncio.run(
+                            orchestrator.query(
+                                user_input,
+                                use_all_agents=use_all,
+                                agent_names=agent_names,
+                            )
+                        )
+
+                    # Display response
+                    console.print(f"\n[dim]Agents: {', '.join(response.routing_decision.get('agents', []))} | Confidence: {response.confidence:.2f}[/dim]")
+                    console.print(Panel(Markdown(response.answer), border_style="green"))
+
+                except KeyboardInterrupt:
+                    console.print("\n[dim]Use 'quit' to exit.[/dim]")
+                    continue
+
+    except Exception as e:
+        console.print(f"[red]Error: {e}")
+        raise typer.Exit(1)
+
+
+@app.command()
+def elysia():
+    """Start Elysia agentic RAG interactive session (decision tree-based)."""
+    console.print(Panel(
+        "AION-AINSTEIN Elysia Mode\n"
+        "Using Weaviate's Elysia decision tree framework\n"
+        "Type 'quit' or 'exit' to end the session.",
+        style="bold magenta"
+    ))
+
+    try:
+        from .elysia_agents import ElysiaRAGSystem, ELYSIA_AVAILABLE
+
+        if not ELYSIA_AVAILABLE:
+            console.print("[red]Elysia not installed. Run: pip install elysia-ai[/red]")
+            raise typer.Exit(1)
+
+        with weaviate_client() as client:
+            elysia_system = ElysiaRAGSystem(client)
+            console.print("[green]Elysia system initialized with custom tools[/green]")
+            console.print("[dim]Available tools: search_vocabulary, search_architecture_decisions,[/dim]")
+            console.print("[dim]                  search_principles, search_policies, list_all_adrs,[/dim]")
+            console.print("[dim]                  list_all_principles, get_collection_stats[/dim]\n")
+
+            while True:
+                try:
+                    user_input = console.input("\n[bold magenta]Elysia>[/bold magenta] ").strip()
+
+                    if not user_input:
+                        continue
+
+                    if user_input.lower() in ("quit", "exit", "q"):
+                        console.print("[dim]Goodbye![/dim]")
+                        break
+
+                    # Process with Elysia
+                    with console.status("Elysia thinking...", spinner="dots"):
+                        response, objects = asyncio.run(elysia_system.query(user_input))
+
+                    # Display response
+                    console.print(Panel(Markdown(response), title="Elysia Response", border_style="magenta"))
+
+                    if objects:
+                        console.print(f"[dim]Retrieved {len(objects)} objects[/dim]")
+
+                except KeyboardInterrupt:
+                    console.print("\n[dim]Use 'quit' to exit.[/dim]")
+                    continue
+
+    except ImportError as e:
+        console.print(f"[red]Elysia import error: {e}[/red]")
+        console.print("[yellow]Make sure to install: pip install elysia-ai dspy-ai[/yellow]")
+        raise typer.Exit(1)
+    except Exception as e:
+        console.print(f"[red]Error: {e}")
+        logger.exception("Elysia error")
+        raise typer.Exit(1)
+
+
+@app.command()
+def start_elysia_server():
+    """Start the full Elysia web application."""
+    console.print(Panel("Starting Elysia Web Server", style="bold magenta"))
+
+    try:
+        import subprocess
+        console.print("[dim]Running: elysia start[/dim]")
+        console.print("[yellow]Note: Configure your API keys in the Elysia settings page[/yellow]")
+        subprocess.run(["elysia", "start"], check=True)
+    except FileNotFoundError:
+        console.print("[red]Elysia CLI not found. Install with: pip install elysia-ai[/red]")
+        raise typer.Exit(1)
+    except Exception as e:
+        console.print(f"[red]Failed to start Elysia: {e}[/red]")
+        raise typer.Exit(1)
+
+
+def main():
+    """Main entry point."""
+    app()
+
+
+if __name__ == "__main__":
+    main()
