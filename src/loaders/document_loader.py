@@ -1,6 +1,7 @@
 """Document loader for DOCX and PDF files with chunking support."""
 
 import logging
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Iterator, Optional
@@ -10,6 +11,72 @@ logger = logging.getLogger(__name__)
 # Maximum characters per chunk (roughly 1500 tokens = ~6000 chars)
 MAX_CHUNK_SIZE = 6000
 CHUNK_OVERLAP = 500
+
+# Department mapping based on folder paths
+DEPARTMENT_MAPPING = {
+    "do-artifacts": "Data Office",
+    "general-artifacts": "General",
+    "security": "Security",
+    "privacy": "Privacy",
+}
+
+
+def extract_document_metadata(file_path: Path) -> dict:
+    """Extract metadata from filename and path.
+
+    Args:
+        file_path: Path to the document
+
+    Returns:
+        Dictionary with extracted metadata (department, version, date)
+    """
+    filename = file_path.name
+    path_str = str(file_path).lower()
+
+    # Determine department from path
+    department = "Unknown"
+    for path_part, dept_name in DEPARTMENT_MAPPING.items():
+        if path_part in path_str:
+            department = dept_name
+            break
+
+    # Extract version from filename (patterns like V1.0, v1.4, Version 2)
+    version = ""
+    version_patterns = [
+        r'[Vv](\d+\.?\d*)',  # V1.0, v1.4
+        r'[Vv]ersion[.\s]*(\d+\.?\d*)',  # Version 2, Version.1.0
+        r'-V(\d+\.?\d*)',  # -V1.4
+    ]
+    for pattern in version_patterns:
+        match = re.search(pattern, filename)
+        if match:
+            version = f"v{match.group(1)}"
+            break
+
+    # Extract date from filename (patterns like 210928, 2025, YYYY-MM-DD)
+    doc_date = ""
+    date_patterns = [
+        r'(\d{6})',  # 210928 -> 2021-09-28
+        r'(\d{4}-\d{2}-\d{2})',  # 2025-01-15
+        r'[-_](\d{4})[-_\s]',  # -2025- or _2025_
+    ]
+    for pattern in date_patterns:
+        match = re.search(pattern, filename)
+        if match:
+            date_str = match.group(1)
+            if len(date_str) == 6:  # YYMMDD format
+                doc_date = f"20{date_str[:2]}-{date_str[2:4]}-{date_str[4:]}"
+            elif len(date_str) == 4:  # Year only
+                doc_date = date_str
+            else:
+                doc_date = date_str
+            break
+
+    return {
+        "department": department,
+        "document_version": version,
+        "document_date": doc_date,
+    }
 
 
 @dataclass
@@ -24,6 +91,9 @@ class PolicyDocument:
     page_count: int = 0
     chunk_index: int = 0
     total_chunks: int = 1
+    department: str = "Unknown"
+    document_version: str = ""
+    document_date: str = ""
     metadata: dict = field(default_factory=dict)
 
     def to_dict(self) -> dict:
@@ -37,10 +107,12 @@ class PolicyDocument:
             "file_path": self.file_path,
             "title": title,
             "content": self.content,
-            "doc_type": self.doc_type,
             "file_type": self.file_type,
+            "department": self.department,
             "page_count": self.page_count,
-            "full_text": f"Policy: {title}\n\n{self.content}",
+            "chunk_index": self.chunk_index,
+            "total_chunks": self.total_chunks,
+            "full_text": f"Policy: {title}\nDepartment: {self.department}\n\n{self.content}",
         }
 
 
@@ -145,6 +217,9 @@ class DocumentLoader:
         try:
             doc = Document(str(file_path))
 
+            # Extract metadata from filename/path
+            metadata = extract_document_metadata(file_path)
+
             # Extract text from paragraphs
             paragraphs = []
             for para in doc.paragraphs:
@@ -176,6 +251,9 @@ class DocumentLoader:
                     file_type="docx",
                     chunk_index=i,
                     total_chunks=total_chunks,
+                    department=metadata["department"],
+                    document_version=metadata["document_version"],
+                    document_date=metadata["document_date"],
                 )
 
         except Exception as e:
@@ -214,6 +292,9 @@ class DocumentLoader:
             doc = fitz.open(str(file_path))
             pages = []
 
+            # Extract metadata from filename/path
+            metadata = extract_document_metadata(file_path)
+
             for page in doc:
                 text = page.get_text()
                 if text.strip():
@@ -236,6 +317,9 @@ class DocumentLoader:
                     page_count=page_count,
                     chunk_index=i,
                     total_chunks=total_chunks,
+                    department=metadata["department"],
+                    document_version=metadata["document_version"],
+                    document_date=metadata["document_date"],
                 )
 
         except Exception as e:
@@ -248,6 +332,9 @@ class DocumentLoader:
         try:
             reader = PdfReader(str(file_path))
             pages = []
+
+            # Extract metadata from filename/path
+            metadata = extract_document_metadata(file_path)
 
             for page in reader.pages:
                 text = page.extract_text()
@@ -271,6 +358,9 @@ class DocumentLoader:
                     page_count=page_count,
                     chunk_index=i,
                     total_chunks=total_chunks,
+                    department=metadata["department"],
+                    document_version=metadata["document_version"],
+                    document_date=metadata["document_date"],
                 )
 
         except Exception as e:

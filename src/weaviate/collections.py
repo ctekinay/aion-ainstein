@@ -19,6 +19,7 @@ class CollectionManager:
     ADR_COLLECTION = "ArchitecturalDecision"
     PRINCIPLE_COLLECTION = "Principle"
     POLICY_COLLECTION = "PolicyDocument"
+    POLICY_FILE_COLLECTION = "PolicyFile"  # Parent document metadata
 
     def __init__(self, client: WeaviateClient):
         """Initialize the collection manager.
@@ -42,6 +43,7 @@ class CollectionManager:
         self._create_vocabulary_collection()
         self._create_adr_collection()
         self._create_principle_collection()
+        self._create_policy_file_collection()  # Create parent collection first
         self._create_policy_collection()
 
         logger.info("All collections created successfully")
@@ -53,6 +55,7 @@ class CollectionManager:
             self.ADR_COLLECTION,
             self.PRINCIPLE_COLLECTION,
             self.POLICY_COLLECTION,
+            self.POLICY_FILE_COLLECTION,
         ]
 
         for collection_name in collections:
@@ -277,8 +280,83 @@ class CollectionManager:
             ],
         )
 
+    def _create_policy_file_collection(self) -> None:
+        """Create collection for policy file metadata (parent documents)."""
+        if self.client.collections.exists(self.POLICY_FILE_COLLECTION):
+            logger.info(f"Collection {self.POLICY_FILE_COLLECTION} already exists")
+            return
+
+        logger.info(f"Creating collection: {self.POLICY_FILE_COLLECTION}")
+
+        self.client.collections.create(
+            name=self.POLICY_FILE_COLLECTION,
+            description="Policy file metadata - one record per source document",
+            vectorizer_config=self._get_vectorizer_config(),
+            generative_config=self._get_generative_config(),
+            properties=[
+                Property(
+                    name="file_name",
+                    data_type=DataType.TEXT,
+                    description="Original file name",
+                    tokenization=Tokenization.FIELD,
+                ),
+                Property(
+                    name="file_path",
+                    data_type=DataType.TEXT,
+                    description="Full path to the source file",
+                    tokenization=Tokenization.FIELD,
+                ),
+                Property(
+                    name="title",
+                    data_type=DataType.TEXT,
+                    description="Document title",
+                    tokenization=Tokenization.WORD,
+                ),
+                Property(
+                    name="department",
+                    data_type=DataType.TEXT,
+                    description="Department that owns this document (e.g., Data Office, Security, General)",
+                    tokenization=Tokenization.FIELD,
+                ),
+                Property(
+                    name="file_type",
+                    data_type=DataType.TEXT,
+                    description="File type (docx/pdf)",
+                    tokenization=Tokenization.FIELD,
+                ),
+                Property(
+                    name="page_count",
+                    data_type=DataType.INT,
+                    description="Number of pages (for PDF)",
+                ),
+                Property(
+                    name="chunk_count",
+                    data_type=DataType.INT,
+                    description="Number of chunks this document was split into",
+                ),
+                Property(
+                    name="document_version",
+                    data_type=DataType.TEXT,
+                    description="Version of the document (extracted from filename or metadata)",
+                    tokenization=Tokenization.FIELD,
+                ),
+                Property(
+                    name="document_date",
+                    data_type=DataType.TEXT,
+                    description="Date of the document (extracted from filename or metadata)",
+                    tokenization=Tokenization.FIELD,
+                ),
+                Property(
+                    name="summary",
+                    data_type=DataType.TEXT,
+                    description="Brief summary of the document content",
+                    tokenization=Tokenization.WORD,
+                ),
+            ],
+        )
+
     def _create_policy_collection(self) -> None:
-        """Create collection for policy documents."""
+        """Create collection for policy document chunks."""
         if self.client.collections.exists(self.POLICY_COLLECTION):
             logger.info(f"Collection {self.POLICY_COLLECTION} already exists")
             return
@@ -287,7 +365,7 @@ class CollectionManager:
 
         self.client.collections.create(
             name=self.POLICY_COLLECTION,
-            description="Data governance policy documents",
+            description="Data governance policy document chunks",
             vectorizer_config=self._get_vectorizer_config(),
             generative_config=self._get_generative_config(),
             properties=[
@@ -306,7 +384,7 @@ class CollectionManager:
                 Property(
                     name="content",
                     data_type=DataType.TEXT,
-                    description="Full content of the document",
+                    description="Content of this chunk",
                     tokenization=Tokenization.WORD,
                 ),
                 Property(
@@ -316,9 +394,25 @@ class CollectionManager:
                     tokenization=Tokenization.FIELD,
                 ),
                 Property(
+                    name="department",
+                    data_type=DataType.TEXT,
+                    description="Department that owns this document",
+                    tokenization=Tokenization.FIELD,
+                ),
+                Property(
                     name="page_count",
                     data_type=DataType.INT,
                     description="Number of pages (for PDF)",
+                ),
+                Property(
+                    name="chunk_index",
+                    data_type=DataType.INT,
+                    description="Index of this chunk within the document",
+                ),
+                Property(
+                    name="total_chunks",
+                    data_type=DataType.INT,
+                    description="Total number of chunks in the source document",
                 ),
                 Property(
                     name="full_text",
@@ -341,6 +435,7 @@ class CollectionManager:
             self.ADR_COLLECTION,
             self.PRINCIPLE_COLLECTION,
             self.POLICY_COLLECTION,
+            self.POLICY_FILE_COLLECTION,
         ]
 
         for collection_name in collections:

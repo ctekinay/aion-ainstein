@@ -217,22 +217,32 @@ class DataIngestionPipeline:
     def _ingest_policies(self, batch_size: int) -> int:
         """Ingest policy documents (DOCX/PDF) from multiple paths.
 
+        Also creates PolicyFile records for document-level metadata.
+
         Args:
             batch_size: Number of objects per batch
 
         Returns:
-            Number of objects ingested
+            Number of chunk objects ingested
         """
+        from ..loaders.document_loader import extract_document_metadata
+
         # Load policies from both domain-specific and general policy paths
         policy_paths = [
             settings.resolve_path(settings.policy_path),
             settings.resolve_path(settings.general_policy_path),
         ]
 
-        collection = self.client.collections.get(CollectionManager.POLICY_COLLECTION)
+        chunk_collection = self.client.collections.get(CollectionManager.POLICY_COLLECTION)
+        file_collection = self.client.collections.get(CollectionManager.POLICY_FILE_COLLECTION)
 
-        count = 0
-        batch = []
+        chunk_count = 0
+        file_count = 0
+        chunk_batch = []
+        file_batch = []
+
+        # Track files we've already processed (to create one PolicyFile per source)
+        processed_files = {}
 
         for policy_path in policy_paths:
             if not policy_path.exists():
@@ -242,24 +252,64 @@ class DataIngestionPipeline:
             loader = DocumentLoader(policy_path)
 
             for doc_dict in loader.load_all():
-                batch.append(
+                file_path = doc_dict.get("file_path", "")
+
+                # Create PolicyFile record for first chunk of each file
+                if file_path and file_path not in processed_files:
+                    from pathlib import Path
+                    path_obj = Path(file_path)
+                    metadata = extract_document_metadata(path_obj)
+
+                    # Get first chunk's content for summary (truncated)
+                    content_preview = doc_dict.get("content", "")[:500]
+
+                    file_record = {
+                        "file_name": path_obj.name,
+                        "file_path": file_path,
+                        "title": doc_dict.get("title", "").split(" (Part ")[0],  # Remove chunk suffix
+                        "department": metadata["department"],
+                        "file_type": doc_dict.get("file_type", ""),
+                        "page_count": doc_dict.get("page_count", 0),
+                        "chunk_count": doc_dict.get("total_chunks", 1),
+                        "document_version": metadata["document_version"],
+                        "document_date": metadata["document_date"],
+                        "summary": content_preview,
+                    }
+
+                    file_batch.append(
+                        DataObject(
+                            properties=file_record,
+                            uuid=str(uuid4()),
+                        )
+                    )
+                    processed_files[file_path] = True
+                    file_count += 1
+
+                    if len(file_batch) >= batch_size:
+                        self._insert_batch(file_collection, file_batch, "policy_file")
+                        file_batch = []
+
+                # Add chunk to batch
+                chunk_batch.append(
                     DataObject(
                         properties=doc_dict,
                         uuid=str(uuid4()),
                     )
                 )
-                count += 1
+                chunk_count += 1
 
-                if len(batch) >= batch_size:
-                    self._insert_batch(collection, batch, "policy")
-                    batch = []
+                if len(chunk_batch) >= batch_size:
+                    self._insert_batch(chunk_collection, chunk_batch, "policy_chunk")
+                    chunk_batch = []
 
-        # Insert remaining
-        if batch:
-            self._insert_batch(collection, batch, "policy")
+        # Insert remaining batches
+        if file_batch:
+            self._insert_batch(file_collection, file_batch, "policy_file")
+        if chunk_batch:
+            self._insert_batch(chunk_collection, chunk_batch, "policy_chunk")
 
-        logger.info(f"Ingested {count} policy documents")
-        return count
+        logger.info(f"Ingested {file_count} policy files and {chunk_count} policy chunks")
+        return chunk_count
 
     def _insert_batch(self, collection, batch: list, doc_type: str) -> None:
         """Insert a batch of objects into a collection.

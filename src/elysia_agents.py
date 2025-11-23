@@ -242,6 +242,77 @@ class ElysiaRAGSystem:
                 for obj in results.objects
             ]
 
+        # List policy files tool (document-level, not chunks)
+        @tool(tree=self.tree)
+        async def list_policy_files(department: str = None) -> list[dict]:
+            """List all policy source files with their metadata.
+
+            Use this tool when the user asks:
+            - How many policy files/PDFs/documents are there?
+            - What policy documents exist?
+            - List all policies
+            - Which files are from Data Office / Security / etc?
+            - Show me policy file details
+
+            This returns actual source files (not chunks), with metadata like
+            department, version, date, and page count.
+
+            Args:
+                department: Optional filter by department (e.g., "Data Office", "General")
+
+            Returns:
+                List of policy files with metadata
+            """
+            if not self.client.collections.exists("PolicyFile"):
+                # Fallback: aggregate from PolicyDocument chunks
+                collection = self.client.collections.get("PolicyDocument")
+                results = collection.query.fetch_objects(
+                    limit=200,
+                    return_properties=["file_path", "title", "file_type", "department", "page_count", "total_chunks"],
+                )
+                # Deduplicate by file_path
+                seen = {}
+                for obj in results.objects:
+                    fp = obj.properties.get("file_path", "")
+                    if fp and fp not in seen:
+                        seen[fp] = {
+                            "file_name": fp.split("/")[-1].split("\\")[-1],
+                            "title": obj.properties.get("title", "").split(" (Part ")[0],
+                            "department": obj.properties.get("department", "Unknown"),
+                            "file_type": obj.properties.get("file_type", ""),
+                            "page_count": obj.properties.get("page_count", 0),
+                            "chunk_count": obj.properties.get("total_chunks", 1),
+                        }
+                files = list(seen.values())
+            else:
+                collection = self.client.collections.get("PolicyFile")
+                results = collection.query.fetch_objects(
+                    limit=100,
+                    return_properties=[
+                        "file_name", "title", "department", "file_type",
+                        "page_count", "chunk_count", "document_version", "document_date"
+                    ],
+                )
+                files = [
+                    {
+                        "file_name": obj.properties.get("file_name", ""),
+                        "title": obj.properties.get("title", ""),
+                        "department": obj.properties.get("department", "Unknown"),
+                        "file_type": obj.properties.get("file_type", ""),
+                        "page_count": obj.properties.get("page_count", 0),
+                        "chunk_count": obj.properties.get("chunk_count", 1),
+                        "version": obj.properties.get("document_version", ""),
+                        "date": obj.properties.get("document_date", ""),
+                    }
+                    for obj in results.objects
+                ]
+
+            # Filter by department if specified
+            if department:
+                files = [f for f in files if department.lower() in f.get("department", "").lower()]
+
+            return files
+
         # Collection statistics tool
         @tool(tree=self.tree)
         async def get_collection_stats() -> dict:
@@ -256,7 +327,7 @@ class ElysiaRAGSystem:
             Returns:
                 Dictionary with collection names and document counts
             """
-            collections = ["Vocabulary", "ArchitecturalDecision", "Principle", "PolicyDocument"]
+            collections = ["Vocabulary", "ArchitecturalDecision", "Principle", "PolicyDocument", "PolicyFile"]
             stats = {}
             for name in collections:
                 if self.client.collections.exists(name):
@@ -267,7 +338,7 @@ class ElysiaRAGSystem:
                     stats[name] = 0
             return stats
 
-        logger.info("Registered Elysia tools: vocabulary, ADR, principles, policies")
+        logger.info("Registered Elysia tools: vocabulary, ADR, principles, policies, list_policy_files")
 
     async def query(self, question: str, collection_names: Optional[list[str]] = None) -> tuple[str, list[dict]]:
         """Process a query using Elysia's decision tree.
@@ -288,6 +359,7 @@ class ElysiaRAGSystem:
             "ArchitecturalDecision",
             "Principle",
             "PolicyDocument",
+            "PolicyFile",
         ]
 
         try:
