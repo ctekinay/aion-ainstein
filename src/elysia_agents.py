@@ -281,13 +281,110 @@ class ElysiaRAGSystem:
         """
         logger.info(f"Elysia processing: {question}")
 
-        # Use Elysia's tree to process the query
-        if collection_names:
-            response, objects = self.tree(question, collection_names=collection_names)
-        else:
-            response, objects = self.tree(question)
+        # Always specify our collection names to bypass Elysia's metadata collection discovery
+        # This avoids gRPC errors from Elysia's internal collections
+        our_collections = collection_names or [
+            "Vocabulary",
+            "ArchitecturalDecision",
+            "Principle",
+            "PolicyDocument",
+        ]
+
+        try:
+            response, objects = self.tree(question, collection_names=our_collections)
+        except Exception as e:
+            # If Elysia's tree fails, fall back to direct tool execution
+            logger.warning(f"Elysia tree failed: {e}, using direct tool execution")
+            response, objects = await self._direct_query(question)
 
         return response, objects
+
+    async def _direct_query(self, question: str) -> tuple[str, list[dict]]:
+        """Direct query execution bypassing Elysia tree when it fails.
+
+        Args:
+            question: The user's question
+
+        Returns:
+            Tuple of (response text, retrieved objects)
+        """
+        from openai import OpenAI
+
+        # Determine which collections to search based on the question
+        question_lower = question.lower()
+        all_results = []
+
+        # Search relevant collections
+        if any(term in question_lower for term in ["adr", "decision", "architecture"]):
+            collection = self.client.collections.get("ArchitecturalDecision")
+            results = collection.query.hybrid(query=question, limit=5, alpha=0.6)
+            for obj in results.objects:
+                all_results.append({
+                    "type": "ADR",
+                    "title": obj.properties.get("title", ""),
+                    "content": obj.properties.get("decision", "")[:500],
+                })
+
+        if any(term in question_lower for term in ["principle", "governance", "esa"]):
+            collection = self.client.collections.get("Principle")
+            results = collection.query.hybrid(query=question, limit=5, alpha=0.6)
+            for obj in results.objects:
+                all_results.append({
+                    "type": "Principle",
+                    "title": obj.properties.get("title", ""),
+                    "content": obj.properties.get("content", "")[:500],
+                })
+
+        if any(term in question_lower for term in ["policy", "data governance", "compliance"]):
+            collection = self.client.collections.get("PolicyDocument")
+            results = collection.query.hybrid(query=question, limit=5, alpha=0.6)
+            for obj in results.objects:
+                all_results.append({
+                    "type": "Policy",
+                    "title": obj.properties.get("title", ""),
+                    "content": obj.properties.get("content", "")[:500],
+                })
+
+        if any(term in question_lower for term in ["vocab", "concept", "definition", "cim", "iec"]):
+            collection = self.client.collections.get("Vocabulary")
+            results = collection.query.hybrid(query=question, limit=5, alpha=0.6)
+            for obj in results.objects:
+                all_results.append({
+                    "type": "Vocabulary",
+                    "label": obj.properties.get("pref_label", ""),
+                    "definition": obj.properties.get("definition", ""),
+                })
+
+        # If no specific collection matched, search all
+        if not all_results:
+            for coll_name in ["ArchitecturalDecision", "Principle", "PolicyDocument"]:
+                collection = self.client.collections.get(coll_name)
+                results = collection.query.hybrid(query=question, limit=3, alpha=0.6)
+                for obj in results.objects:
+                    all_results.append({
+                        "type": coll_name,
+                        "title": obj.properties.get("title", ""),
+                        "content": obj.properties.get("content", obj.properties.get("decision", ""))[:300],
+                    })
+
+        # Generate response using OpenAI
+        openai_client = OpenAI(api_key=settings.openai_api_key)
+
+        context = "\n\n".join([
+            f"[{r.get('type', 'Document')}] {r.get('title', r.get('label', 'Untitled'))}: {r.get('content', r.get('definition', ''))}"
+            for r in all_results[:10]
+        ])
+
+        response = openai_client.chat.completions.create(
+            model=settings.openai_chat_model,
+            messages=[
+                {"role": "system", "content": "You are a helpful assistant answering questions about architecture decisions, principles, policies, and vocabulary. Base your answers on the provided context."},
+                {"role": "user", "content": f"Context:\n{context}\n\nQuestion: {question}"},
+            ],
+            max_tokens=1000,
+        )
+
+        return response.choices[0].message.content, all_results
 
     def query_sync(self, question: str) -> str:
         """Synchronous query wrapper.
