@@ -215,7 +215,7 @@ class DataIngestionPipeline:
         return count
 
     def _ingest_policies(self, batch_size: int) -> int:
-        """Ingest policy documents (DOCX/PDF).
+        """Ingest policy documents (DOCX/PDF) from multiple paths.
 
         Args:
             batch_size: Number of objects per batch
@@ -223,29 +223,36 @@ class DataIngestionPipeline:
         Returns:
             Number of objects ingested
         """
-        policy_path = settings.resolve_path(settings.policy_path)
-        if not policy_path.exists():
-            logger.warning(f"Policy path does not exist: {policy_path}")
-            return 0
+        # Load policies from both domain-specific and general policy paths
+        policy_paths = [
+            settings.resolve_path(settings.policy_path),
+            settings.resolve_path(settings.general_policy_path),
+        ]
 
-        loader = DocumentLoader(policy_path)
         collection = self.client.collections.get(CollectionManager.POLICY_COLLECTION)
 
         count = 0
         batch = []
 
-        for doc_dict in loader.load_all():
-            batch.append(
-                DataObject(
-                    properties=doc_dict,
-                    uuid=str(uuid4()),
-                )
-            )
-            count += 1
+        for policy_path in policy_paths:
+            if not policy_path.exists():
+                logger.warning(f"Policy path does not exist: {policy_path}")
+                continue
 
-            if len(batch) >= batch_size:
-                self._insert_batch(collection, batch, "policy")
-                batch = []
+            loader = DocumentLoader(policy_path)
+
+            for doc_dict in loader.load_all():
+                batch.append(
+                    DataObject(
+                        properties=doc_dict,
+                        uuid=str(uuid4()),
+                    )
+                )
+                count += 1
+
+                if len(batch) >= batch_size:
+                    self._insert_batch(collection, batch, "policy")
+                    batch = []
 
         # Insert remaining
         if batch:

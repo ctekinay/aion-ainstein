@@ -33,6 +33,7 @@ class Settings(BaseSettings):
     rdf_path: Path = Field(default=Path("./data/esa-skosmos"))
     markdown_path: Path = Field(default=Path("./data/esa-main-artifacts/doc"))
     policy_path: Path = Field(default=Path("./data/do-artifacts/policy_docs"))
+    general_policy_path: Path = Field(default=Path("./data/general-artifacts/policies"))
     principles_path: Path = Field(default=Path("./data/do-artifacts/principles"))
 
     # Logging
