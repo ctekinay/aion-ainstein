@@ -407,7 +407,57 @@ class ElysiaRAGSystem:
             logger.warning(f"Elysia tree failed: {e}, using direct tool execution")
             response, objects = await self._direct_query(question)
 
+        # Clean up response by removing Elysia's "thinking" statements
+        response = self._clean_response(response)
+
         return response, objects
+
+    def _clean_response(self, response: str) -> str:
+        """Remove Elysia's intermediate thinking statements from response.
+
+        Elysia concatenates all intermediate "I will now..." planning statements
+        with the actual answer. This filters them out for cleaner output.
+
+        Args:
+            response: Raw response from Elysia
+
+        Returns:
+            Cleaned response with only the substantive answer
+        """
+        if not response:
+            return response
+
+        # Split into sentences and filter out planning statements
+        thinking_patterns = [
+            "I will now",
+            "I'll now",
+            "Let me now",
+            "I am going to",
+            "I'm going to",
+            "Next, I will",
+            "First, I will",
+        ]
+
+        # Split by sentences (rough approximation)
+        sentences = response.replace(". ", ".|").split("|")
+
+        cleaned_sentences = []
+        for sentence in sentences:
+            sentence = sentence.strip()
+            if not sentence:
+                continue
+            # Skip sentences that are just planning/thinking
+            is_thinking = any(sentence.startswith(pattern) for pattern in thinking_patterns)
+            if not is_thinking:
+                cleaned_sentences.append(sentence)
+
+        cleaned = " ".join(cleaned_sentences)
+
+        # If we filtered everything, return original
+        if not cleaned.strip():
+            return response
+
+        return cleaned
 
     async def _direct_query(self, question: str) -> tuple[str, list[dict]]:
         """Direct query execution bypassing Elysia tree when it fails.
