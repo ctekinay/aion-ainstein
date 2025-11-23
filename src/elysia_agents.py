@@ -428,14 +428,17 @@ class ElysiaRAGSystem:
             return response
 
         # Split into sentences and filter out planning statements
-        thinking_patterns = [
-            "I will now",
-            "I'll now",
-            "Let me now",
-            "I am going to",
-            "I'm going to",
-            "Next, I will",
-            "First, I will",
+        # These patterns match the START of thinking/planning sentences
+        thinking_prefixes = [
+            "I will ",
+            "I'll ",
+            "Let me ",
+            "I am going to ",
+            "I'm going to ",
+            "Next, I ",
+            "First, I ",
+            "Now I ",
+            "Now, I ",
         ]
 
         # Split by sentences (rough approximation)
@@ -446,8 +449,8 @@ class ElysiaRAGSystem:
             sentence = sentence.strip()
             if not sentence:
                 continue
-            # Skip sentences that are just planning/thinking
-            is_thinking = any(sentence.startswith(pattern) for pattern in thinking_patterns)
+            # Skip sentences that are planning/thinking (start with thinking prefix)
+            is_thinking = any(sentence.startswith(prefix) for prefix in thinking_prefixes)
             if not is_thinking:
                 cleaned_sentences.append(sentence)
 
