@@ -62,5 +62,6 @@ Thumbs.db
 *.tmp
 *.temp
 
-# Resource files
+# Resource or info files
 resources.txt
+other/
