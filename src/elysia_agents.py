@@ -219,25 +219,33 @@ class ElysiaRAGSystem:
         # List all principles tool
         @tool(tree=self.tree)
         async def list_all_principles() -> list[dict]:
-            """List all architecture and governance principles.
+            """List all architecture and governance principles from ALL teams.
+
+            IMPORTANT: This returns principles from ALL teams (ESA, DO, etc.).
+            If the user asks for team-specific principles (e.g., "ESA principles"),
+            use the search_by_team tool instead.
 
             Use this tool when the user asks:
             - What principles exist?
             - List all principles
-            - Show me the governance principles
+            - Show me all governance principles (from all teams)
 
             Returns:
-                Complete list of all principles
+                Complete list of all principles with document IDs and owners
             """
             collection = self.client.collections.get("Principle")
             results = collection.query.fetch_objects(
                 limit=100,
-                return_properties=["title", "doc_type"],
+                return_properties=["doc_id", "doc_number", "title", "doc_type", "owner_team_abbr", "owner_display"],
             )
             return [
                 {
+                    "doc_id": obj.properties.get("doc_id", ""),
+                    "doc_number": obj.properties.get("doc_number", ""),
                     "title": obj.properties.get("title", ""),
                     "type": obj.properties.get("doc_type", ""),
+                    "owner": obj.properties.get("owner_display", ""),
+                    "team": obj.properties.get("owner_team_abbr", ""),
                 }
                 for obj in results.objects
             ]
@@ -245,24 +253,24 @@ class ElysiaRAGSystem:
         # Search documents by team/owner
         @tool(tree=self.tree)
         async def search_by_team(team_name: str, query: str = "", limit: int = 10) -> list[dict]:
-            """Search all documents owned by a specific team or workgroup.
+            """Search all documents owned by a SPECIFIC TEAM or workgroup.
 
-            Use this tool when the user asks about documents from a specific team:
-            - What documents does ESA/Energy System Architecture have?
-            - Show me Data Office documents
-            - What are the ESA principles and ADRs?
-            - Documents from System Operations team
+            **IMPORTANT: Use this tool for team-specific queries like:**
+            - "What ESA documents do we have?"
+            - "Show me ESA principles"
+            - "List Data Office principles"
+            - "What are the Energy System Architecture ADRs?"
 
             This searches across ALL collection types (ADRs, Principles, Policies)
-            filtered by the owning team.
+            but ONLY returns documents owned by the specified team.
 
             Args:
-                team_name: Team name or abbreviation (e.g., "ESA", "Energy System Architecture", "Data Office")
+                team_name: Team name or abbreviation (e.g., "ESA", "Energy System Architecture", "DO", "Data Office")
                 query: Optional search query to filter results within the team's documents
                 limit: Maximum number of results per collection
 
             Returns:
-                List of documents with their type, title, and owner info
+                List of documents with doc_id, doc_number, type, title, and owner
             """
             results = []
 
@@ -278,7 +286,7 @@ class ElysiaRAGSystem:
                 else:
                     adr_results = adr_collection.query.fetch_objects(
                         limit=limit * 2,
-                        return_properties=["title", "status", "owner_team", "owner_team_abbr", "owner_display"],
+                        return_properties=["doc_id", "doc_number", "title", "status", "owner_team", "owner_team_abbr", "owner_display"],
                     )
 
                 for obj in adr_results.objects:
@@ -286,6 +294,8 @@ class ElysiaRAGSystem:
                     owner_display = obj.properties.get("owner_display", "")
                     if team_name.lower() in owner.lower() or team_name.lower() in owner_display.lower():
                         results.append({
+                            "doc_id": obj.properties.get("doc_id", ""),
+                            "doc_number": obj.properties.get("doc_number", ""),
                             "type": "ADR",
                             "title": obj.properties.get("title", ""),
                             "status": obj.properties.get("status", ""),
@@ -306,7 +316,7 @@ class ElysiaRAGSystem:
                 else:
                     principle_results = principle_collection.query.fetch_objects(
                         limit=limit * 2,
-                        return_properties=["title", "doc_type", "owner_team", "owner_team_abbr", "owner_display"],
+                        return_properties=["doc_id", "doc_number", "title", "doc_type", "owner_team", "owner_team_abbr", "owner_display"],
                     )
 
                 for obj in principle_results.objects:
@@ -314,6 +324,8 @@ class ElysiaRAGSystem:
                     owner_display = obj.properties.get("owner_display", "")
                     if team_name.lower() in owner.lower() or team_name.lower() in owner_display.lower():
                         results.append({
+                            "doc_id": obj.properties.get("doc_id", ""),
+                            "doc_number": obj.properties.get("doc_number", ""),
                             "type": "Principle",
                             "title": obj.properties.get("title", ""),
                             "doc_type": obj.properties.get("doc_type", ""),
@@ -334,7 +346,7 @@ class ElysiaRAGSystem:
                 else:
                     policy_results = policy_collection.query.fetch_objects(
                         limit=limit * 2,
-                        return_properties=["title", "file_type", "owner_team", "owner_team_abbr", "owner_display"],
+                        return_properties=["doc_id", "doc_number", "title", "file_type", "owner_team", "owner_team_abbr", "owner_display"],
                     )
 
                 for obj in policy_results.objects:
@@ -342,6 +354,8 @@ class ElysiaRAGSystem:
                     owner_display = obj.properties.get("owner_display", "")
                     if team_name.lower() in owner.lower() or team_name.lower() in owner_display.lower():
                         results.append({
+                            "doc_id": obj.properties.get("doc_id", ""),
+                            "doc_number": obj.properties.get("doc_number", ""),
                             "type": "Policy",
                             "title": obj.properties.get("title", ""),
                             "file_type": obj.properties.get("file_type", ""),
