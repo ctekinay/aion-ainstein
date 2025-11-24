@@ -30,6 +30,10 @@ class MarkdownDocument:
     context: str = ""
     consequences: str = ""
 
+    # Document identification from centralized catalog
+    doc_id: str = ""
+    doc_number: str = ""
+
     # Ownership fields from index.md
     owner_team: str = ""
     owner_team_abbr: str = ""
@@ -49,6 +53,9 @@ class MarkdownDocument:
             "decision": self.decision,
             "context": self.context,
             "consequences": self.consequences,
+            # Document identification
+            "doc_id": self.doc_id,
+            "doc_number": self.doc_number,
             # Ownership fields
             "owner_team": self.owner_team,
             "owner_team_abbr": self.owner_team_abbr,
@@ -196,6 +203,8 @@ class MarkdownLoader:
             content=body.strip(),
             doc_type=doc_type,
             metadata=metadata,
+            doc_id=index_metadata.get("doc_id", ""),
+            doc_number=index_metadata.get("doc_number", ""),
             owner_team=index_metadata.get("owner_team", ""),
             owner_team_abbr=index_metadata.get("owner_team_abbr", ""),
             owner_department=index_metadata.get("owner_department", ""),

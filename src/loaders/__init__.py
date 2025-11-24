@@ -7,10 +7,13 @@ from .index_metadata_loader import (
     get_document_metadata,
     load_index_metadata,
     find_index_metadata,
+    get_centralized_catalog,
     IndexMetadata,
     OwnershipInfo,
     CollectionInfo,
     DocumentInfo,
+    CentralizedCatalog,
+    CatalogDocument,
 )
 
 __all__ = [
@@ -20,8 +23,11 @@ __all__ = [
     "get_document_metadata",
     "load_index_metadata",
     "find_index_metadata",
+    "get_centralized_catalog",
     "IndexMetadata",
     "OwnershipInfo",
     "CollectionInfo",
     "DocumentInfo",
+    "CentralizedCatalog",
+    "CatalogDocument",
 ]

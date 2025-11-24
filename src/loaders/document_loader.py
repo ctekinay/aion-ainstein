@@ -28,6 +28,10 @@ class PolicyDocument:
     total_chunks: int = 1
     metadata: dict = field(default_factory=dict)
 
+    # Document identification from centralized catalog
+    doc_id: str = ""
+    doc_number: str = ""
+
     # Ownership fields from index.md
     owner_team: str = ""
     owner_team_abbr: str = ""
@@ -54,6 +58,9 @@ class PolicyDocument:
             "content": self.content,
             "file_type": self.file_type,
             "page_count": self.page_count,
+            # Document identification
+            "doc_id": self.doc_id,
+            "doc_number": self.doc_number,
             # Ownership fields
             "owner_team": self.owner_team,
             "owner_team_abbr": self.owner_team_abbr,
@@ -200,6 +207,8 @@ class DocumentLoader:
                     file_type="docx",
                     chunk_index=i,
                     total_chunks=total_chunks,
+                    doc_id=index_metadata.get("doc_id", ""),
+                    doc_number=index_metadata.get("doc_number", ""),
                     owner_team=index_metadata.get("owner_team", ""),
                     owner_team_abbr=index_metadata.get("owner_team_abbr", ""),
                     owner_department=index_metadata.get("owner_department", ""),
@@ -269,6 +278,8 @@ class DocumentLoader:
                     page_count=page_count,
                     chunk_index=i,
                     total_chunks=total_chunks,
+                    doc_id=index_metadata.get("doc_id", ""),
+                    doc_number=index_metadata.get("doc_number", ""),
                     owner_team=index_metadata.get("owner_team", ""),
                     owner_team_abbr=index_metadata.get("owner_team_abbr", ""),
                     owner_department=index_metadata.get("owner_department", ""),
@@ -313,6 +324,8 @@ class DocumentLoader:
                     page_count=page_count,
                     chunk_index=i,
                     total_chunks=total_chunks,
+                    doc_id=index_metadata.get("doc_id", ""),
+                    doc_number=index_metadata.get("doc_number", ""),
                     owner_team=index_metadata.get("owner_team", ""),
                     owner_team_abbr=index_metadata.get("owner_team_abbr", ""),
                     owner_department=index_metadata.get("owner_department", ""),

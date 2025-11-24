@@ -436,11 +436,168 @@ class IndexMetadataCache:
 _metadata_cache = IndexMetadataCache()
 
 
+# ===== Centralized Catalog Support =====
+
+@dataclass
+class CatalogDocument:
+    """Document entry from centralized catalog."""
+    id: str
+    title: str
+    type: str
+    doc_number: str
+    owner_team: str
+    owner_team_abbr: str
+    owner_department: str
+    owner_organization: str
+    source_type: str
+    source_location: str
+    status: str = ""
+    tags: list[str] = field(default_factory=list)
+
+    def get_owner_display(self) -> str:
+        """Get display name for the owner."""
+        parts = []
+        if self.owner_organization:
+            parts.append(self.owner_organization)
+        if self.owner_department:
+            parts.append(self.owner_department)
+        if self.owner_team:
+            parts.append(self.owner_team)
+        return " / ".join(parts) if parts else "Unknown"
+
+    def to_flat_metadata(self) -> dict:
+        """Convert to flat metadata dictionary."""
+        return {
+            "doc_id": self.id,
+            "doc_number": self.doc_number,
+            "title": self.title,
+            "doc_type": self.type,
+            "status": self.status,
+            "owner_team": self.owner_team,
+            "owner_team_abbr": self.owner_team_abbr,
+            "owner_department": self.owner_department,
+            "owner_organization": self.owner_organization,
+            "owner_display": self.get_owner_display(),
+            "collection_name": f"{self.owner_team_abbr} {self.type.upper()}s" if self.owner_team_abbr else "",
+            "source_location": self.source_location,
+            "tags": self.tags,
+        }
+
+
+class CentralizedCatalog:
+    """Centralized document catalog loaded from data/index.md"""
+
+    def __init__(self, catalog_path: Path):
+        """Initialize catalog from file.
+
+        Args:
+            catalog_path: Path to the centralized index.md file
+        """
+        self.catalog_path = catalog_path
+        self.documents: dict[str, CatalogDocument] = {}
+        self.location_map: dict[str, CatalogDocument] = {}
+        self._load()
+
+    def _load(self):
+        """Load catalog from file."""
+        if not self.catalog_path.exists():
+            logger.warning(f"Centralized catalog not found at {self.catalog_path}")
+            return
+
+        try:
+            content = self.catalog_path.read_text(encoding="utf-8")
+
+            # Extract YAML frontmatter
+            frontmatter_match = re.match(r"^---\s*\n(.*?)\n---", content, re.DOTALL)
+            if not frontmatter_match:
+                logger.warning(f"No YAML frontmatter in centralized catalog")
+                return
+
+            yaml_content = frontmatter_match.group(1)
+            data = yaml.safe_load(yaml_content)
+
+            if not data or "documents" not in data:
+                logger.warning("No documents found in centralized catalog")
+                return
+
+            # Parse document entries
+            for doc_data in data["documents"]:
+                try:
+                    owner = doc_data.get("owner", {})
+                    source = doc_data.get("source", {})
+
+                    doc = CatalogDocument(
+                        id=doc_data.get("id", ""),
+                        title=doc_data.get("title", ""),
+                        type=doc_data.get("type", ""),
+                        doc_number=doc_data.get("doc_number", ""),
+                        owner_team=owner.get("team", ""),
+                        owner_team_abbr=owner.get("team_abbr", ""),
+                        owner_department=owner.get("department", ""),
+                        owner_organization=owner.get("organization", ""),
+                        source_type=source.get("type", ""),
+                        source_location=source.get("location", ""),
+                        status=doc_data.get("status", ""),
+                        tags=doc_data.get("tags", []),
+                    )
+
+                    self.documents[doc.id] = doc
+                    if doc.source_location:
+                        self.location_map[doc.source_location] = doc
+
+                except Exception as e:
+                    logger.error(f"Failed to parse document entry: {e}")
+                    continue
+
+            logger.info(f"Loaded {len(self.documents)} documents from centralized catalog")
+
+        except yaml.YAMLError as e:
+            logger.error(f"Failed to parse YAML in centralized catalog: {e}")
+        except Exception as e:
+            logger.error(f"Failed to load centralized catalog: {e}")
+
+    def get_by_id(self, doc_id: str) -> Optional[CatalogDocument]:
+        """Get document by ID."""
+        return self.documents.get(doc_id)
+
+    def get_by_location(self, location: str) -> Optional[CatalogDocument]:
+        """Get document by source location (file path)."""
+        return self.location_map.get(location)
+
+    def get_by_owner(self, owner_abbr: str) -> list[CatalogDocument]:
+        """Get all documents owned by a specific team."""
+        return [
+            doc for doc in self.documents.values()
+            if doc.owner_team_abbr.lower() == owner_abbr.lower()
+        ]
+
+    def get_by_type(self, doc_type: str) -> list[CatalogDocument]:
+        """Get all documents of a specific type."""
+        return [
+            doc for doc in self.documents.values()
+            if doc.type.lower() == doc_type.lower()
+        ]
+
+
+# Global centralized catalog instance
+_centralized_catalog: Optional[CentralizedCatalog] = None
+
+
+def get_centralized_catalog() -> CentralizedCatalog:
+    """Get or create the global centralized catalog instance."""
+    global _centralized_catalog
+    if _centralized_catalog is None:
+        from ..config import settings
+        catalog_path = settings.resolve_path(settings.base_path) / "data" / "index.md"
+        _centralized_catalog = CentralizedCatalog(catalog_path)
+    return _centralized_catalog
+
+
 def get_document_metadata(file_path: Path) -> dict:
     """Get metadata for a document file.
 
-    Combines ownership metadata from index.md with individual document
-    metadata if available.
+    First tries to find metadata in the centralized catalog,
+    then falls back to directory-based index.md files.
 
     Args:
         file_path: Path to the document
@@ -448,37 +605,47 @@ def get_document_metadata(file_path: Path) -> dict:
     Returns:
         Dictionary with ownership, collection, and document metadata
     """
-    index_metadata = _metadata_cache.get_metadata(file_path)
-
     # Default values
     defaults = {
         # Ownership fields
+        "doc_id": "",
+        "doc_number": "",
         "owner_team": "",
         "owner_team_abbr": "",
-        "owner_team_nl": "",
         "owner_department": "",
-        "owner_department_abbr": "",
         "owner_organization": "",
         "owner_display": "Unknown",
-        "owner_display_nl": "Onbekend",
         # Collection fields
         "collection_name": "",
-        "collection_description": "",
-        "keywords": [],
-        # Document fields
-        "doc_title": "",
-        "doc_title_nl": "",
-        "doc_description": "",
-        "doc_format": "",
-        "doc_type": "",
-        "doc_status": "",
-        "doc_version": "",
-        "doc_created_date": "",
-        "doc_modified_date": "",
-        "doc_created_by": "",
-        "doc_modified_by": "",
-        "doc_tags": [],
+        "tags": [],
     }
+
+    # Try centralized catalog first
+    try:
+        catalog = get_centralized_catalog()
+        # Convert file path to relative path from project root
+        file_path_str = str(file_path).replace("\\", "/")
+
+        # Try different path variations
+        for path_variant in [
+            file_path_str,
+            file_path_str.split("/data/")[-1] if "/data/" in file_path_str else "",
+            f"data/{file_path_str.split('/data/')[-1]}" if "/data/" in file_path_str else "",
+        ]:
+            if path_variant:
+                doc = catalog.get_by_location(path_variant)
+                if doc:
+                    result = doc.to_flat_metadata()
+                    # Fill in any missing keys with defaults
+                    for key, default_value in defaults.items():
+                        if key not in result:
+                            result[key] = default_value
+                    return result
+    except Exception as e:
+        logger.debug(f"Centralized catalog lookup failed: {e}")
+
+    # Fallback to directory-based index.md (legacy)
+    index_metadata = _metadata_cache.get_metadata(file_path)
 
     if not index_metadata:
         return defaults

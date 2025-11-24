@@ -84,6 +84,18 @@ class CollectionManager:
         """Get common ownership properties for all document collections."""
         return [
             Property(
+                name="doc_id",
+                data_type=DataType.TEXT,
+                description="Unique document identifier from centralized catalog (e.g., esa-adr-0012)",
+                tokenization=Tokenization.FIELD,
+            ),
+            Property(
+                name="doc_number",
+                data_type=DataType.TEXT,
+                description="Document number from source (e.g., 0012, 0001)",
+                tokenization=Tokenization.FIELD,
+            ),
+            Property(
                 name="owner_team",
                 data_type=DataType.TEXT,
                 description="Team/workgroup that owns this document (e.g., Energy System Architecture)",
