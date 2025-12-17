@@ -415,8 +415,8 @@ class ElysiaRAGSystem:
     def _clean_response(self, response: str) -> str:
         """Remove Elysia's intermediate thinking statements from response.
 
-        Elysia concatenates all intermediate "I will now..." planning statements
-        with the actual answer. This filters them out for cleaner output.
+        Elysia concatenates all intermediate planning statements with the actual answer.
+        This uses the LLM to intelligently extract only the substantive response.
 
         Args:
             response: Raw response from Elysia
@@ -424,38 +424,45 @@ class ElysiaRAGSystem:
         Returns:
             Cleaned response with only the substantive answer
         """
-        if not response:
+        if not response or len(response.strip()) < 20:
             return response
 
-        # Split into sentences and filter out planning statements
-        thinking_patterns = [
-            "I will",
-            "I'll",
-            "Let me",
-            "I am going to",
-            "I'm going to",
-        ]
-
-        # Split by sentences (rough approximation)
-        sentences = response.replace(". ", ".|").split("|")
-
-        cleaned_sentences = []
-        for sentence in sentences:
-            sentence = sentence.strip()
-            if not sentence:
-                continue
-            # Skip sentences that are just planning/thinking
-            is_thinking = any(sentence.startswith(pattern) for pattern in thinking_patterns)
-            if not is_thinking:
-                cleaned_sentences.append(sentence)
-
-        cleaned = " ".join(cleaned_sentences)
-
-        # If we filtered everything, return original
-        if not cleaned.strip():
+        # If response is short and doesn't look concatenated, return as-is
+        if ". " not in response or len(response.split(". ")) <= 2:
             return response
 
-        return cleaned
+        # Use OpenAI to extract the substantive answer
+        try:
+            from openai import OpenAI
+            client = OpenAI(api_key=settings.openai_api_key)
+
+            filter_response = client.chat.completions.create(
+                model="gpt-4o-mini",  # Fast, cheap model for filtering
+                messages=[
+                    {
+                        "role": "system",
+                        "content": "Extract only the substantive answer from the text, removing any planning statements like 'I will...', 'Let me...', or other meta-commentary about what the assistant is going to do. Return ONLY the actual answer to the user's question. If the text contains multiple sentences, keep only the ones that directly answer the question."
+                    },
+                    {
+                        "role": "user",
+                        "content": f"Filter this response:\n\n{response}"
+                    }
+                ],
+                temperature=0,
+                max_tokens=500,
+            )
+
+            cleaned = filter_response.choices[0].message.content.strip()
+
+            # Sanity check: if cleaned is empty or too short, return original
+            if not cleaned or len(cleaned) < 10:
+                return response
+
+            return cleaned
+
+        except Exception as e:
+            logger.warning(f"Failed to clean response with LLM: {e}, returning original")
+            return response
 
     async def _direct_query(self, question: str) -> tuple[str, list[dict]]:
         """Direct query execution bypassing Elysia tree when it fails.
