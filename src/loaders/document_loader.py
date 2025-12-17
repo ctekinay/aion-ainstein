@@ -5,6 +5,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Iterator, Optional
 
+from .index_metadata_loader import get_document_metadata
+
 logger = logging.getLogger(__name__)
 
 # Maximum characters per chunk (roughly 1500 tokens = ~6000 chars)
@@ -26,6 +28,14 @@ class PolicyDocument:
     total_chunks: int = 1
     metadata: dict = field(default_factory=dict)
 
+    # Ownership fields from index.md
+    owner_team: str = ""
+    owner_team_abbr: str = ""
+    owner_department: str = ""
+    owner_organization: str = ""
+    owner_display: str = ""
+    collection_name: str = ""
+
     def to_dict(self) -> dict:
         """Convert to dictionary for Weaviate ingestion."""
         # Add chunk info to title if multiple chunks
@@ -33,14 +43,25 @@ class PolicyDocument:
         if self.total_chunks > 1:
             title = f"{self.title} (Part {self.chunk_index + 1}/{self.total_chunks})"
 
+        full_text_parts = [f"Policy: {title}"]
+        if self.owner_display:
+            full_text_parts.append(f"Owner: {self.owner_display}")
+        full_text_parts.append(f"\n{self.content}")
+
         return {
             "file_path": self.file_path,
             "title": title,
             "content": self.content,
-            "doc_type": self.doc_type,
             "file_type": self.file_type,
             "page_count": self.page_count,
-            "full_text": f"Policy: {title}\n\n{self.content}",
+            # Ownership fields
+            "owner_team": self.owner_team,
+            "owner_team_abbr": self.owner_team_abbr,
+            "owner_department": self.owner_department,
+            "owner_organization": self.owner_organization,
+            "owner_display": self.owner_display,
+            "collection_name": self.collection_name,
+            "full_text": "\n".join(full_text_parts),
         }
 
 
@@ -145,6 +166,9 @@ class DocumentLoader:
         try:
             doc = Document(str(file_path))
 
+            # Get ownership metadata from index.md
+            index_metadata = get_document_metadata(file_path)
+
             # Extract text from paragraphs
             paragraphs = []
             for para in doc.paragraphs:
@@ -176,6 +200,12 @@ class DocumentLoader:
                     file_type="docx",
                     chunk_index=i,
                     total_chunks=total_chunks,
+                    owner_team=index_metadata.get("owner_team", ""),
+                    owner_team_abbr=index_metadata.get("owner_team_abbr", ""),
+                    owner_department=index_metadata.get("owner_department", ""),
+                    owner_organization=index_metadata.get("owner_organization", ""),
+                    owner_display=index_metadata.get("owner_display", ""),
+                    collection_name=index_metadata.get("collection_name", ""),
                 )
 
         except Exception as e:
@@ -197,13 +227,13 @@ class DocumentLoader:
         except ImportError:
             pass
 
-        # Fall back to PyPDF2
+        # Fall back to pypdf (successor to PyPDF2)
         try:
-            yield from self._load_pdf_pypdf2_chunked(file_path)
+            yield from self._load_pdf_pypdf_chunked(file_path)
         except ImportError:
             logger.error(
-                "Neither pymupdf nor PyPDF2 installed. "
-                "Run: pip install pymupdf or pip install PyPDF2"
+                "Neither pymupdf nor pypdf installed. "
+                "Run: pip install pymupdf or pip install pypdf"
             )
 
     def _load_pdf_pymupdf_chunked(self, file_path: Path) -> Iterator[PolicyDocument]:
@@ -213,6 +243,9 @@ class DocumentLoader:
         try:
             doc = fitz.open(str(file_path))
             pages = []
+
+            # Get ownership metadata from index.md
+            index_metadata = get_document_metadata(file_path)
 
             for page in doc:
                 text = page.get_text()
@@ -236,18 +269,27 @@ class DocumentLoader:
                     page_count=page_count,
                     chunk_index=i,
                     total_chunks=total_chunks,
+                    owner_team=index_metadata.get("owner_team", ""),
+                    owner_team_abbr=index_metadata.get("owner_team_abbr", ""),
+                    owner_department=index_metadata.get("owner_department", ""),
+                    owner_organization=index_metadata.get("owner_organization", ""),
+                    owner_display=index_metadata.get("owner_display", ""),
+                    collection_name=index_metadata.get("collection_name", ""),
                 )
 
         except Exception as e:
             logger.error(f"Failed to parse PDF with PyMuPDF {file_path}: {e}")
 
-    def _load_pdf_pypdf2_chunked(self, file_path: Path) -> Iterator[PolicyDocument]:
-        """Load PDF using PyPDF2 and yield chunks."""
-        from PyPDF2 import PdfReader
+    def _load_pdf_pypdf_chunked(self, file_path: Path) -> Iterator[PolicyDocument]:
+        """Load PDF using pypdf and yield chunks."""
+        from pypdf import PdfReader
 
         try:
             reader = PdfReader(str(file_path))
             pages = []
+
+            # Get ownership metadata from index.md
+            index_metadata = get_document_metadata(file_path)
 
             for page in reader.pages:
                 text = page.extract_text()
@@ -271,10 +313,16 @@ class DocumentLoader:
                     page_count=page_count,
                     chunk_index=i,
                     total_chunks=total_chunks,
+                    owner_team=index_metadata.get("owner_team", ""),
+                    owner_team_abbr=index_metadata.get("owner_team_abbr", ""),
+                    owner_department=index_metadata.get("owner_department", ""),
+                    owner_organization=index_metadata.get("owner_organization", ""),
+                    owner_display=index_metadata.get("owner_display", ""),
+                    collection_name=index_metadata.get("collection_name", ""),
                 )
 
         except Exception as e:
-            logger.error(f"Failed to parse PDF with PyPDF2 {file_path}: {e}")
+            logger.error(f"Failed to parse PDF with pypdf {file_path}: {e}")
 
     def _extract_title(self, file_path: Path, paragraphs: list[str]) -> str:
         """Extract title from filename or first paragraph.

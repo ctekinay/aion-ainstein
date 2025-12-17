@@ -242,6 +242,116 @@ class ElysiaRAGSystem:
                 for obj in results.objects
             ]
 
+        # Search documents by team/owner
+        @tool(tree=self.tree)
+        async def search_by_team(team_name: str, query: str = "", limit: int = 10) -> list[dict]:
+            """Search all documents owned by a specific team or workgroup.
+
+            Use this tool when the user asks about documents from a specific team:
+            - What documents does ESA/Energy System Architecture have?
+            - Show me Data Office documents
+            - What are the ESA principles and ADRs?
+            - Documents from System Operations team
+
+            This searches across ALL collection types (ADRs, Principles, Policies)
+            filtered by the owning team.
+
+            Args:
+                team_name: Team name or abbreviation (e.g., "ESA", "Energy System Architecture", "Data Office")
+                query: Optional search query to filter results within the team's documents
+                limit: Maximum number of results per collection
+
+            Returns:
+                List of documents with their type, title, and owner info
+            """
+            results = []
+
+            # Search ADRs
+            try:
+                adr_collection = self.client.collections.get("ArchitecturalDecision")
+                if query:
+                    adr_results = adr_collection.query.hybrid(
+                        query=f"{team_name} {query}",
+                        limit=limit,
+                        alpha=0.5,
+                    )
+                else:
+                    adr_results = adr_collection.query.fetch_objects(
+                        limit=limit * 2,
+                        return_properties=["title", "status", "owner_team", "owner_team_abbr", "owner_display"],
+                    )
+
+                for obj in adr_results.objects:
+                    owner = obj.properties.get("owner_team", "") or obj.properties.get("owner_team_abbr", "")
+                    owner_display = obj.properties.get("owner_display", "")
+                    if team_name.lower() in owner.lower() or team_name.lower() in owner_display.lower():
+                        results.append({
+                            "type": "ADR",
+                            "title": obj.properties.get("title", ""),
+                            "status": obj.properties.get("status", ""),
+                            "owner": owner_display or owner,
+                        })
+            except Exception as e:
+                logger.warning(f"Error searching ADRs by team: {e}")
+
+            # Search Principles
+            try:
+                principle_collection = self.client.collections.get("Principle")
+                if query:
+                    principle_results = principle_collection.query.hybrid(
+                        query=f"{team_name} {query}",
+                        limit=limit,
+                        alpha=0.5,
+                    )
+                else:
+                    principle_results = principle_collection.query.fetch_objects(
+                        limit=limit * 2,
+                        return_properties=["title", "doc_type", "owner_team", "owner_team_abbr", "owner_display"],
+                    )
+
+                for obj in principle_results.objects:
+                    owner = obj.properties.get("owner_team", "") or obj.properties.get("owner_team_abbr", "")
+                    owner_display = obj.properties.get("owner_display", "")
+                    if team_name.lower() in owner.lower() or team_name.lower() in owner_display.lower():
+                        results.append({
+                            "type": "Principle",
+                            "title": obj.properties.get("title", ""),
+                            "doc_type": obj.properties.get("doc_type", ""),
+                            "owner": owner_display or owner,
+                        })
+            except Exception as e:
+                logger.warning(f"Error searching Principles by team: {e}")
+
+            # Search Policies
+            try:
+                policy_collection = self.client.collections.get("PolicyDocument")
+                if query:
+                    policy_results = policy_collection.query.hybrid(
+                        query=f"{team_name} {query}",
+                        limit=limit,
+                        alpha=0.5,
+                    )
+                else:
+                    policy_results = policy_collection.query.fetch_objects(
+                        limit=limit * 2,
+                        return_properties=["title", "file_type", "owner_team", "owner_team_abbr", "owner_display"],
+                    )
+
+                for obj in policy_results.objects:
+                    owner = obj.properties.get("owner_team", "") or obj.properties.get("owner_team_abbr", "")
+                    owner_display = obj.properties.get("owner_display", "")
+                    if team_name.lower() in owner.lower() or team_name.lower() in owner_display.lower():
+                        results.append({
+                            "type": "Policy",
+                            "title": obj.properties.get("title", ""),
+                            "file_type": obj.properties.get("file_type", ""),
+                            "owner": owner_display or owner,
+                        })
+            except Exception as e:
+                logger.warning(f"Error searching Policies by team: {e}")
+
+            return results
+
         # Collection statistics tool
         @tool(tree=self.tree)
         async def get_collection_stats() -> dict:
@@ -267,7 +377,7 @@ class ElysiaRAGSystem:
                     stats[name] = 0
             return stats
 
-        logger.info("Registered Elysia tools: vocabulary, ADR, principles, policies")
+        logger.info("Registered Elysia tools: vocabulary, ADR, principles, policies, search_by_team")
 
     async def query(self, question: str, collection_names: Optional[list[str]] = None) -> tuple[str, list[dict]]:
         """Process a query using Elysia's decision tree.
@@ -297,7 +407,57 @@ class ElysiaRAGSystem:
             logger.warning(f"Elysia tree failed: {e}, using direct tool execution")
             response, objects = await self._direct_query(question)
 
+        # Clean up response by removing Elysia's "thinking" statements
+        response = self._clean_response(response)
+
         return response, objects
+
+    def _clean_response(self, response: str) -> str:
+        """Remove Elysia's intermediate thinking statements from response.
+
+        Elysia concatenates all intermediate "I will now..." planning statements
+        with the actual answer. This filters them out for cleaner output.
+
+        Args:
+            response: Raw response from Elysia
+
+        Returns:
+            Cleaned response with only the substantive answer
+        """
+        if not response:
+            return response
+
+        # Split into sentences and filter out planning statements
+        thinking_patterns = [
+            "I will now",
+            "I'll now",
+            "Let me now",
+            "I am going to",
+            "I'm going to",
+            "Next, I will",
+            "First, I will",
+        ]
+
+        # Split by sentences (rough approximation)
+        sentences = response.replace(". ", ".|").split("|")
+
+        cleaned_sentences = []
+        for sentence in sentences:
+            sentence = sentence.strip()
+            if not sentence:
+                continue
+            # Skip sentences that are just planning/thinking
+            is_thinking = any(sentence.startswith(pattern) for pattern in thinking_patterns)
+            if not is_thinking:
+                cleaned_sentences.append(sentence)
+
+        cleaned = " ".join(cleaned_sentences)
+
+        # If we filtered everything, return original
+        if not cleaned.strip():
+            return response
+
+        return cleaned
 
     async def _direct_query(self, question: str) -> tuple[str, list[dict]]:
         """Direct query execution bypassing Elysia tree when it fails.

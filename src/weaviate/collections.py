@@ -80,6 +80,47 @@ class CollectionManager:
             model=settings.openai_chat_model,
         )
 
+    def _get_ownership_properties(self) -> list[Property]:
+        """Get common ownership properties for all document collections."""
+        return [
+            Property(
+                name="owner_team",
+                data_type=DataType.TEXT,
+                description="Team/workgroup that owns this document (e.g., Energy System Architecture)",
+                tokenization=Tokenization.WORD,
+            ),
+            Property(
+                name="owner_team_abbr",
+                data_type=DataType.TEXT,
+                description="Abbreviated team name (e.g., ESA)",
+                tokenization=Tokenization.FIELD,
+            ),
+            Property(
+                name="owner_department",
+                data_type=DataType.TEXT,
+                description="Department that owns this document",
+                tokenization=Tokenization.WORD,
+            ),
+            Property(
+                name="owner_organization",
+                data_type=DataType.TEXT,
+                description="Organization (e.g., Alliander)",
+                tokenization=Tokenization.FIELD,
+            ),
+            Property(
+                name="owner_display",
+                data_type=DataType.TEXT,
+                description="Display name for ownership (Organization / Department / Team)",
+                tokenization=Tokenization.WORD,
+            ),
+            Property(
+                name="collection_name",
+                data_type=DataType.TEXT,
+                description="Name of the document collection from index.md",
+                tokenization=Tokenization.WORD,
+            ),
+        ]
+
     def _create_vocabulary_collection(self) -> None:
         """Create collection for SKOS/OWL vocabulary concepts."""
         if self.client.collections.exists(self.VOCABULARY_COLLECTION):
@@ -227,6 +268,8 @@ class CollectionManager:
                     description="Combined searchable text",
                     tokenization=Tokenization.WORD,
                 ),
+                # Ownership properties from index.md
+                *self._get_ownership_properties(),
             ],
         )
 
@@ -274,6 +317,8 @@ class CollectionManager:
                     description="Combined searchable text",
                     tokenization=Tokenization.WORD,
                 ),
+                # Ownership properties from index.md
+                *self._get_ownership_properties(),
             ],
         )
 
@@ -326,6 +371,8 @@ class CollectionManager:
                     description="Combined searchable text",
                     tokenization=Tokenization.WORD,
                 ),
+                # Ownership properties from index.md
+                *self._get_ownership_properties(),
             ],
         )
 

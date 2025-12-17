@@ -8,6 +8,8 @@ from typing import Iterator, Optional
 
 import frontmatter
 
+from .index_metadata_loader import get_document_metadata
+
 logger = logging.getLogger(__name__)
 
 
@@ -28,9 +30,17 @@ class MarkdownDocument:
     context: str = ""
     consequences: str = ""
 
+    # Ownership fields from index.md
+    owner_team: str = ""
+    owner_team_abbr: str = ""
+    owner_department: str = ""
+    owner_organization: str = ""
+    owner_display: str = ""
+    collection_name: str = ""
+
     def to_dict(self) -> dict:
         """Convert to dictionary for Weaviate ingestion."""
-        return {
+        result = {
             "file_path": self.file_path,
             "title": self.title,
             "content": self.content,
@@ -39,9 +49,17 @@ class MarkdownDocument:
             "decision": self.decision,
             "context": self.context,
             "consequences": self.consequences,
+            # Ownership fields
+            "owner_team": self.owner_team,
+            "owner_team_abbr": self.owner_team_abbr,
+            "owner_department": self.owner_department,
+            "owner_organization": self.owner_organization,
+            "owner_display": self.owner_display,
+            "collection_name": self.collection_name,
             # Combined searchable text
             "full_text": self._build_full_text(),
         }
+        return result
 
     def _build_full_text(self) -> str:
         """Build full searchable text."""
@@ -50,6 +68,8 @@ class MarkdownDocument:
             parts.append(f"Type: {self.doc_type}")
         if self.status:
             parts.append(f"Status: {self.status}")
+        if self.owner_display:
+            parts.append(f"Owner: {self.owner_display}")
         parts.append(f"\n{self.content}")
         return "\n".join(parts)
 
@@ -167,12 +187,21 @@ class MarkdownLoader:
         # Determine document type based on path
         doc_type = self._determine_doc_type(file_path)
 
+        # Get ownership metadata from index.md
+        index_metadata = get_document_metadata(file_path)
+
         return MarkdownDocument(
             file_path=str(file_path),
             title=title,
             content=body.strip(),
             doc_type=doc_type,
             metadata=metadata,
+            owner_team=index_metadata.get("owner_team", ""),
+            owner_team_abbr=index_metadata.get("owner_team_abbr", ""),
+            owner_department=index_metadata.get("owner_department", ""),
+            owner_organization=index_metadata.get("owner_organization", ""),
+            owner_display=index_metadata.get("owner_display", ""),
+            collection_name=index_metadata.get("collection_name", ""),
         )
 
     def _load_adr(self, file_path: Path) -> Optional[MarkdownDocument]:
