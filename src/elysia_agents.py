@@ -429,13 +429,11 @@ class ElysiaRAGSystem:
 
         # Split into sentences and filter out planning statements
         thinking_patterns = [
-            "I will now",
-            "I'll now",
-            "Let me now",
+            "I will",
+            "I'll",
+            "Let me",
             "I am going to",
             "I'm going to",
-            "Next, I will",
-            "First, I will",
         ]
 
         # Split by sentences (rough approximation)
