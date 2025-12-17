@@ -2,6 +2,32 @@
 
 Multi-Agent RAG (Retrieval-Augmented Generation) System for Energy System Architecture knowledge bases.
 
+## Quick Deploy
+
+Get up and running in 5 minutes:
+
+```bash
+# 1. Clone and enter the project
+git clone https://github.com/ctekinay/aion-ainstein.git
+cd aion-ainstein
+
+# 2. Start Weaviate (Docker required)
+docker compose up -d
+
+# 3. Set up Python environment (Python 3.10-3.12 required)
+python -m venv .venv
+source .venv/bin/activate  # On Windows: .\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+
+# 4. Configure your OpenAI API key
+cp .env.example .env
+# Edit .env and add your OPENAI_API_KEY
+
+# 5. Initialize and start
+python -m src.cli init
+python -m src.cli elysia  # Start the Elysia CLI interface
+```
+
 ## Overview
 
 AION-AINSTEIN is a local Weaviate-based RAG system with OpenAI embeddings that enables intelligent querying of energy sector knowledge bases including:
@@ -47,67 +73,137 @@ The system integrates with [Weaviate's Elysia](https://weaviate.io/blog/elysia-a
 
 ## Prerequisites
 
-- **Docker Desktop** (with WSL2 on Windows)
-- **Python 3.10+** (3.12 recommended)
-- **OpenAI API Key**
+- **Docker Desktop** (with WSL2 on Windows) - [Install Docker](https://docs.docker.com/desktop/)
+- **Python 3.10-3.12** (3.12 recommended) - [Download Python](https://www.python.org/downloads/)
+- **OpenAI API Key** - [Get API Key](https://platform.openai.com/api-keys)
+- **Git** - [Install Git](https://git-scm.com/downloads)
 
-## Quick Start (Windows)
+> **Note**: Python 3.13+ is not yet supported due to dependency compatibility.
 
-### 1. Start Weaviate
+## Installation
 
-```powershell
+### Linux / macOS
+
+```bash
+# Clone the repository
+git clone https://github.com/ctekinay/aion-ainstein.git
+cd aion-ainstein
+
+# Start Weaviate database
 docker compose up -d
-```
 
-### 2. Install Python Dependencies
-
-```powershell
-# Create virtual environment
-python -m venv .venv312
-
-# Activate it
-.\.venv312\Scripts\Activate.ps1
+# Create and activate virtual environment
+python3 -m venv .venv
+source .venv/bin/activate
 
 # Install dependencies
-pip install -e .
-```
+pip install -r requirements.txt
 
-### 3. Configure Environment
+# Configure environment
+cp .env.example .env
+nano .env  # Add your OPENAI_API_KEY
 
-```powershell
-# Copy example configuration
-Copy-Item .env.example .env
-
-# Edit and add your OpenAI API key
-notepad .env
-```
-
-Add your API key to `.env`:
-```
-OPENAI_API_KEY=sk-your-api-key-here
-```
-
-### 4. Initialize and Ingest Data
-
-```powershell
-# Initialize collections and ingest all data
+# Initialize the system
 python -m src.cli init
 
-# Recreate collections and re-ingest (if needed)
-python -m src.cli init --recreate
-
-# Check status
-python -m src.cli status
+# Start Elysia CLI (recommended)
+python -m src.cli elysia
 ```
 
-### 5. Query the System
+### Windows (PowerShell)
 
 ```powershell
-# Interactive mode (multi-agent)
-python -m src.cli interactive
+# Clone the repository
+git clone https://github.com/ctekinay/aion-ainstein.git
+cd aion-ainstein
 
-# Elysia mode (recommended - decision tree-based)
+# Start Weaviate database
+docker compose up -d
+
+# Create and activate virtual environment
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Configure environment
+Copy-Item .env.example .env
+notepad .env  # Add your OPENAI_API_KEY
+
+# Initialize the system
+python -m src.cli init
+
+# Start Elysia CLI (recommended)
 python -m src.cli elysia
+```
+
+## Docker Setup
+
+The system uses Docker to run a local Weaviate vector database. The `docker-compose.yml` includes:
+
+- **Weaviate 1.28.2** - Vector database with OpenAI integration
+- **Ports**: 8080 (HTTP), 50051 (gRPC)
+- **Persistent storage** via Docker volumes
+
+### Docker Commands
+
+```bash
+# Start Weaviate in background
+docker compose up -d
+
+# Check if running
+docker ps
+
+# View logs
+docker logs weaviate-aion
+
+# Stop Weaviate
+docker compose down
+
+# Reset everything (deletes all data)
+docker compose down -v
+```
+
+## Using the System
+
+### Elysia CLI Mode (Recommended)
+
+The Elysia CLI provides an intelligent, decision tree-based interface:
+
+```bash
+python -m src.cli elysia
+```
+
+This starts an interactive session where you can ask questions like:
+- "What is the CIM model?"
+- "What are the data governance principles?"
+- "Show me all architectural decisions about security"
+
+### Elysia Web UI
+
+For a full web experience with dynamic data display:
+
+```powershell
+# Windows
+.\start_elysia.ps1
+
+# Or using CLI
+python -m src.cli start-elysia-server
+```
+
+Access the UI at **http://localhost:8000**
+
+To stop:
+```powershell
+.\stop_elysia.ps1
+```
+
+### Other Query Modes
+
+```bash
+# Interactive multi-agent mode
+python -m src.cli interactive
 
 # Single query
 python -m src.cli query "What is the CIM model?"
@@ -115,8 +211,11 @@ python -m src.cli query "What is the CIM model?"
 # Query specific agent
 python -m src.cli query "What decisions have been made about security?" --agent architecture
 
-# Search directly
+# Direct search
 python -m src.cli search "data quality" --collection policy
+
+# Check system status
+python -m src.cli status
 ```
 
 ## CLI Commands
@@ -164,14 +263,7 @@ help                      Show help
 quit                      Exit
 ```
 
-### Elysia Mode (Recommended)
-
-Elysia provides a decision tree-based agentic system that dynamically selects the right tools:
-
-```powershell
-# Start Elysia interactive mode
-python -m src.cli elysia
-```
+### Elysia Tools
 
 Available tools in Elysia mode:
 - `search_vocabulary` - Search SKOS concepts and IEC standards
@@ -181,18 +273,6 @@ Available tools in Elysia mode:
 - `list_all_adrs` - List all ADRs
 - `list_all_principles` - List all principles
 - `get_collection_stats` - Get system statistics
-
-For the full Elysia web experience with dynamic data display:
-```powershell
-# Using PowerShell script
-.\start_elysia.ps1
-
-# Stop the server
-.\stop_elysia.ps1
-
-# Or using CLI
-python -m src.cli start-elysia-server
-```
 
 ## Project Structure
 
