@@ -472,8 +472,8 @@ def elysia():
                     with console.status("Elysia thinking...", spinner="dots"):
                         response, objects = asyncio.run(elysia_system.query(user_input))
 
-                    # Display response
-                    console.print(Panel(Markdown(response), title="Elysia Response", border_style="magenta"))
+                    # Note: Elysia's framework already displays the response via its "Assistant response" panels
+                    # No need to display the concatenated response again - it would be redundant
 
                     if objects:
                         console.print(f"[dim]Retrieved {len(objects)} objects[/dim]")
