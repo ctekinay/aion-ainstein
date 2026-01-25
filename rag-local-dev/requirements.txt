@@ -1,0 +1,35 @@
+# Core
+fastapi>=0.109.0
+uvicorn>=0.27.0
+pydantic>=2.5.0
+python-dotenv>=1.0.0
+pyyaml>=6.0.1
+
+# Database
+psycopg2-binary>=2.9.9
+pgvector>=0.2.4
+sqlalchemy>=2.0.25
+
+# Embedding
+openai>=1.10.0
+tiktoken>=0.5.2
+
+# Document parsing
+PyMuPDF>=1.23.0          # PDF parsing (fitz)
+pdfplumber>=0.10.0       # Table extraction from PDFs
+python-frontmatter>=1.1.0 # YAML frontmatter in markdown
+rdflib>=7.0.0            # RDF/SKOS parsing
+
+# NLP
+langdetect>=1.0.9        # Language detection for queries
+
+# Evaluation
+numpy>=1.26.0
+pandas>=2.1.0
+
+# Progress bars
+tqdm>=4.66.0
+
+# Development
+jupyter>=1.0.0
+ipykernel>=6.28.0

@@ -1,0 +1,236 @@
+# Chunking configuration
+chunking:
+  strategy: "contextual"        # Prepend document context to each chunk
+  target_chunk_tokens: 450
+  max_chunk_tokens: 512
+  min_chunk_tokens: 100
+  overlap_tokens: 50
+
+  markdown:
+    respect_headers: true
+    keep_sections_intact: true
+    max_section_tokens: 800
+    parse_frontmatter: true
+
+  pdf:
+    strategy: "page_aware"
+    extract_tables: true
+    note_figures: true
+    fallback_to_raw: true
+
+  rdf:
+    strategy: "concept_based"
+    include_relationships: true
+
+# Embedding configuration
+embedding:
+  provider: "openai"            # Options: "openai", "together", "local"
+  batch_size: 100
+  normalize: true
+
+  openai:
+    model: "text-embedding-3-small"
+    dimensions: 1536
+
+  together:                     # For future use when authorized
+    model: "intfloat/multilingual-e5-large-instruct"
+    dimensions: 1024
+
+  local:                        # For future production self-hosting
+    model: "intfloat/multilingual-e5-large"
+    dimensions: 1024
+    device: "cuda"
+
+# Search configuration
+search:
+  default_alpha: 0.7            # Weight for vector score in hybrid search
+  default_k: 10                 # Number of results to return
+  rerank_candidates: 50         # Retrieve this many, then rerank
+  min_confidence_threshold: 0.4
+
+  language_detection: true
+  search_both_languages_on_uncertain: true
+
+  # Alpha presets by query type
+  alpha_presets:
+    semantic: 0.8
+    exact_match: 0.3
+    terminology: 0.4
+    mixed: 0.6
+
+# Query preprocessing
+query:
+  expand_abbreviations: true
+  abbreviations:
+    DSO: "Distribution System Operator"
+    ADR: "Architectural Decision Record"
+    GFM: "Grid Foundation Model"
+    CIM: "Common Information Model"
+    AMI: "Advanced Metering Infrastructure"
+    ESA: "Energy System Architecture"
+    DO: "Data Office"
+    IEC: "International Electrotechnical Commission"
+    ENTSO-E: "European Network of Transmission System Operators for Electricity"
+    ACER: "Agency for the Cooperation of Energy Regulators"
+
+  # Terms that trigger semantic search (not terminology lookup)
+  semantic_trigger_terms:
+    # ArchiMate elements by layer
+    archimate_strategy:
+      - "resource"
+      - "capability"
+      - "value stream"
+      - "course of action"
+    archimate_business:
+      - "business actor"
+      - "business role"
+      - "business collaboration"
+      - "business interface"
+      - "business process"
+      - "business function"
+      - "business interaction"
+      - "business event"
+      - "business service"
+      - "business object"
+      - "contract"
+      - "representation"
+      - "product"
+    archimate_application:
+      - "application component"
+      - "application collaboration"
+      - "application interface"
+      - "application function"
+      - "application interaction"
+      - "application process"
+      - "application event"
+      - "application service"
+      - "data object"
+    archimate_technology:
+      - "node"
+      - "device"
+      - "system software"
+      - "technology collaboration"
+      - "technology interface"
+      - "path"
+      - "communication network"
+      - "technology function"
+      - "technology process"
+      - "technology interaction"
+      - "technology event"
+      - "technology service"
+      - "artifact"
+    archimate_physical:
+      - "equipment"
+      - "facility"
+      - "distribution network"
+      - "material"
+    archimate_implementation:
+      - "work package"
+      - "deliverable"
+      - "implementation event"
+      - "plateau"
+      - "gap"
+    archimate_motivation:
+      - "stakeholder"
+      - "driver"
+      - "assessment"
+      - "goal"
+      - "outcome"
+      - "principle"
+      - "requirement"
+      - "constraint"
+      - "meaning"
+      - "value"
+    archimate_relationships:
+      - "composition"
+      - "aggregation"
+      - "assignment"
+      - "realization"
+      - "serving"
+      - "access"
+      - "influence"
+      - "triggering"
+      - "flow"
+      - "specialization"
+      - "association"
+    # Energy/Grid domain terms (DSO-specific)
+    energy_grid_components:
+      - "transformer"
+      - "substation"
+      - "feeder"
+      - "busbar"
+      - "switchgear"
+      - "cable"
+      - "overhead line"
+      - "distribution line"
+      - "transmission line"
+    energy_operations:
+      - "load flow"
+      - "power flow"
+      - "fault current"
+      - "short circuit"
+      - "voltage regulation"
+      - "reactive power"
+      - "active power"
+      - "grid loss"
+      - "netverliezen"
+      - "netverlies"
+    energy_smart_grid:
+      - "smart meter"
+      - "slimme meter"
+      - "ami"
+      - "advanced metering"
+      - "demand response"
+      - "flexibility"
+      - "congestion management"
+    energy_standards:
+      - "cim"
+      - "iec 61968"
+      - "iec 61970"
+      - "iec 62325"
+    energy_dutch_terms:
+      - "aansluitpunt"
+      - "meetpunt"
+      - "allocatiepunt"
+      - "transportnet"
+      - "distributienet"
+      - "laagspanning"
+      - "middenspanning"
+      - "netbeheerder"
+
+# Agent interface settings
+agent_interface:
+  return_confidence: true
+  include_retrieval_metadata: true
+  max_context_chunks: 5
+  log_all_queries: true
+
+# Database configuration
+database:
+  host: "localhost"
+  port: 5432
+  name: "rag_dev"
+  user: "rag_user"
+  password: "${RAG_DB_PASSWORD}"  # From environment variable
+
+# Data paths configuration (relative to rag-local-dev directory)
+data_paths:
+  # ADRs and architecture principles from ESA
+  adrs: "../data/esa-main-artifacts/doc/decisions"
+  esa_principles: "../data/esa-main-artifacts/doc/principles"
+
+  # Data Office governance principles (Dutch)
+  do_principles: "../data/do-artifacts/principles"
+
+  # SKOS/RDF vocabularies (IEC standards, CIM, etc.)
+  ontology: "../data/esa-skosmos"
+
+  # Policy documents (DOCX/PDF)
+  do_policy_docs: "../data/do-artifacts/policy_docs"
+  general_policies: "../data/general-artifacts/policies"
+
+# Evaluation configuration
+evaluation:
+  test_queries_file: "src/evaluation/test_queries.yaml"
+  metrics: ["recall@5", "recall@10", "mrr"]
+  log_failures: true

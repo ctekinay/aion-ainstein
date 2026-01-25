@@ -1,0 +1,122 @@
+# Test queries for evaluation
+# Adapted for the Alliander/DSO knowledge base
+
+queries:
+  # Semantic queries - ADRs
+  - query: "What is the decision on using markdown for documentation?"
+    type: semantic
+    expected_doc_types: ["adr"]
+    notes: "Should find ADR about markdown architectural decision records"
+
+  - query: "How should we handle event-driven architecture?"
+    type: semantic
+    expected_doc_types: ["adr", "principle"]
+    notes: "Should find ADRs discussing event-driven patterns"
+
+  - query: "What standards are used for energy markets?"
+    type: semantic
+    expected_doc_types: ["adr"]
+    notes: "Should find ADRs about IEC standards for energy markets"
+
+  - query: "How is TLS used to secure communications?"
+    type: semantic
+    expected_doc_types: ["adr"]
+    notes: "Should find ADR about TLS security"
+
+  - query: "What authentication method should be used?"
+    type: semantic
+    expected_doc_types: ["adr"]
+    notes: "Should find ADR about OAuth 2.0"
+
+  # Semantic queries - Principles
+  - query: "What principles govern data consistency?"
+    type: semantic
+    expected_doc_types: ["principle"]
+    notes: "Should find principles about eventual consistency"
+
+  - query: "How should data ownership be managed?"
+    type: semantic
+    expected_doc_types: ["principle", "governance_principle"]
+    notes: "Should find principles about data ownership"
+
+  - query: "What is the approach to cost efficient data storage?"
+    type: semantic
+    expected_doc_types: ["principle"]
+    notes: "Should find principles about cost efficient tiering"
+
+  # Semantic queries - Governance Principles (Dutch)
+  - query: "Wat zijn de principes voor data als asset?"
+    type: semantic
+    expected_doc_types: ["governance_principle"]
+    notes: "Dutch query - should find governance principles about data as asset"
+
+  - query: "Hoe wordt data betrouwbaar gehouden?"
+    type: semantic
+    expected_doc_types: ["governance_principle"]
+    notes: "Dutch query - should find principle about data trustworthiness"
+
+  # Exact match queries
+  - query: "ADR-0000"
+    type: exact_match
+    notes: "Should return ADR about markdown decision records"
+
+  - query: "ADR-0027"
+    type: exact_match
+    notes: "Should return ADR about TLS"
+
+  - query: "PRINCIPLE-0010"
+    type: exact_match
+    notes: "Should return principle about eventual consistency"
+
+  # Terminology queries
+  - query: "Contingency"
+    type: terminology
+    notes: "CIM/IEC term - should find in SKOS terminology"
+
+  - query: "Energy Management System"
+    type: terminology
+    notes: "Should find EMS definition in IEC vocabulary"
+
+  - query: "netbeheerder"
+    type: terminology
+    notes: "Dutch term for DSO - should find in terminology"
+
+  # CIM/IEC standard queries (should trigger semantic search)
+  - query: "What is a ContingencyElement in CIM?"
+    type: semantic
+    notes: "Should find CIM terminology and related content"
+
+  - query: "How are power transformers modeled?"
+    type: semantic
+    notes: "Should find relevant CIM concepts"
+
+  # Energy/Grid domain queries
+  - query: "congestion management approach"
+    type: semantic
+    notes: "Smart grid term - should use semantic search"
+
+  - query: "IEC 61968 compliance"
+    type: semantic
+    notes: "Energy standard reference - should use semantic search"
+
+  # Mixed/complex queries
+  - query: "Why did we choose CIM as the domain language?"
+    type: semantic
+    expected_doc_types: ["adr"]
+    notes: "Question format - semantic search on ADRs"
+
+  - query: "What are the implications of data sovereignty principles?"
+    type: semantic
+    expected_doc_types: ["principle", "governance_principle"]
+    notes: "Cross-reference between principles"
+
+  # Policy document queries
+  - query: "What is the data governance policy?"
+    type: semantic
+    expected_doc_types: ["policy"]
+    notes: "Should find policy documents about data governance"
+
+  - query: "How are data products classified?"
+    type: semantic
+    expected_doc_types: ["policy"]
+    notes: "Should find policy about data product classification"
