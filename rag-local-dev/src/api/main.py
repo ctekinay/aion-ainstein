@@ -11,6 +11,7 @@ from fastapi import FastAPI, HTTPException, Query
 from pydantic import BaseModel, Field
 
 from ..database.connection import get_db_connection
+from ..database.operations import get_chunk_by_id, get_terminology_by_id
 from ..embedding.factory import get_embedder
 from ..search.retrieval_tool import RetrievalTool, list_available_documents, get_collection_stats
 
@@ -279,6 +280,46 @@ def get_stats():
         conn.close()
 
 
+@app.get("/chunk/{chunk_id}")
+def get_chunk(chunk_id: int):
+    """
+    Retrieve a single chunk by its ID.
+
+    Useful for inspecting specific chunks found in search results.
+    """
+    conn = get_db_connection(_config)
+
+    try:
+        chunk = get_chunk_by_id(conn, chunk_id)
+
+        if chunk is None:
+            raise HTTPException(status_code=404, detail=f"Chunk {chunk_id} not found")
+
+        return chunk
+    finally:
+        conn.close()
+
+
+@app.get("/terminology/{term_id}")
+def get_terminology(term_id: int):
+    """
+    Retrieve a single terminology concept by its ID.
+
+    Useful for inspecting specific terminology found in search results.
+    """
+    conn = get_db_connection(_config)
+
+    try:
+        term = get_terminology_by_id(conn, term_id)
+
+        if term is None:
+            raise HTTPException(status_code=404, detail=f"Terminology {term_id} not found")
+
+        return term
+    finally:
+        conn.close()
+
+
 @app.get("/health")
 def health():
     """Health check endpoint."""
@@ -295,6 +336,8 @@ def root():
             "/search": "POST - Execute hybrid search",
             "/document/{doc_id}": "GET - Retrieve document by ID",
             "/documents": "GET - List all documents",
+            "/chunk/{chunk_id}": "GET - Retrieve single chunk by ID",
+            "/terminology/{term_id}": "GET - Retrieve single terminology by ID",
             "/stats": "GET - Collection statistics",
             "/health": "GET - Health check",
         },

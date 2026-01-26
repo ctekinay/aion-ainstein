@@ -188,6 +188,122 @@ def insert_terminology_batch(conn, terms: List[TerminologyRecord]) -> List[int]:
     return ids
 
 
+def get_chunk_by_id(conn, chunk_id: int) -> Optional[dict]:
+    """
+    Retrieve a single chunk by its ID.
+
+    Returns:
+        Dict with all chunk fields, or None if not found
+    """
+    query = """
+        SELECT id, content, document_id, document_type, document_title,
+               section_header, source_file, chunk_index, total_chunks,
+               owner_team, owner_team_abbr, owner_department, owner_organization,
+               document_status, metadata, embedding_model, indexed_at
+        FROM chunks WHERE id = %s
+    """
+    with conn.cursor() as cur:
+        cur.execute(query, (chunk_id,))
+        row = cur.fetchone()
+
+    if not row:
+        return None
+
+    return {
+        "id": row[0],
+        "content": row[1],
+        "document_id": row[2],
+        "document_type": row[3],
+        "document_title": row[4],
+        "section_header": row[5],
+        "source_file": row[6],
+        "chunk_index": row[7],
+        "total_chunks": row[8],
+        "owner_team": row[9],
+        "owner_team_abbr": row[10],
+        "owner_department": row[11],
+        "owner_organization": row[12],
+        "document_status": row[13],
+        "metadata": row[14],
+        "embedding_model": row[15],
+        "indexed_at": row[16],
+    }
+
+
+def get_terminology_by_id(conn, term_id: int) -> Optional[dict]:
+    """
+    Retrieve a single terminology concept by its ID.
+
+    Returns:
+        Dict with all terminology fields, or None if not found
+    """
+    query = """
+        SELECT id, concept_uri, pref_label_en, pref_label_nl, alt_labels,
+               definition, broader_uri, narrower_uris, related_uris,
+               in_scheme, notation, vocabulary_name, indexed_at
+        FROM terminology WHERE id = %s
+    """
+    with conn.cursor() as cur:
+        cur.execute(query, (term_id,))
+        row = cur.fetchone()
+
+    if not row:
+        return None
+
+    return {
+        "id": row[0],
+        "concept_uri": row[1],
+        "pref_label_en": row[2],
+        "pref_label_nl": row[3],
+        "alt_labels": row[4],
+        "definition": row[5],
+        "broader_uri": row[6],
+        "narrower_uris": row[7],
+        "related_uris": row[8],
+        "in_scheme": row[9],
+        "notation": row[10],
+        "vocabulary_name": row[11],
+        "indexed_at": row[12],
+    }
+
+
+def get_terminology_by_uri(conn, concept_uri: str) -> Optional[dict]:
+    """
+    Retrieve a terminology concept by its URI.
+
+    Returns:
+        Dict with all terminology fields, or None if not found
+    """
+    query = """
+        SELECT id, concept_uri, pref_label_en, pref_label_nl, alt_labels,
+               definition, broader_uri, narrower_uris, related_uris,
+               in_scheme, notation, vocabulary_name, indexed_at
+        FROM terminology WHERE concept_uri = %s
+    """
+    with conn.cursor() as cur:
+        cur.execute(query, (concept_uri,))
+        row = cur.fetchone()
+
+    if not row:
+        return None
+
+    return {
+        "id": row[0],
+        "concept_uri": row[1],
+        "pref_label_en": row[2],
+        "pref_label_nl": row[3],
+        "alt_labels": row[4],
+        "definition": row[5],
+        "broader_uri": row[6],
+        "narrower_uris": row[7],
+        "related_uris": row[8],
+        "in_scheme": row[9],
+        "notation": row[10],
+        "vocabulary_name": row[11],
+        "indexed_at": row[12],
+    }
+
+
 def get_chunk_count_by_type(conn) -> dict:
     """Get chunk counts grouped by document type."""
     query = "SELECT document_type, COUNT(*) FROM chunks GROUP BY document_type"
