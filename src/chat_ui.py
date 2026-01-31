@@ -28,6 +28,7 @@ from pydantic import BaseModel
 
 from .config import settings
 from .weaviate.client import get_weaviate_client
+from .weaviate.embeddings import embed_text
 from .elysia_agents import ElysiaRAGSystem, ELYSIA_AVAILABLE
 
 logger = logging.getLogger(__name__)
@@ -720,11 +721,23 @@ async def perform_retrieval(question: str, provider: str = "ollama") -> tuple[li
     # Get collection names for this provider
     collections = COLLECTION_NAMES.get(provider, COLLECTION_NAMES["ollama"])
 
+    # For Ollama provider, compute query embedding client-side
+    # WORKAROUND for Weaviate text2vec-ollama bug (#8406)
+    query_vector = None
+    if provider == "ollama":
+        try:
+            query_vector = embed_text(question)
+        except Exception as e:
+            logger.error(f"Failed to compute query embedding: {e}")
+
     # Search relevant collections based on question keywords
+    # For Ollama provider, pass query_vector to hybrid search (workaround for text2vec-ollama bug)
     if any(term in question_lower for term in ["adr", "decision", "architecture"]):
         try:
             collection = _weaviate_client.collections.get(collections["adr"])
-            results = collection.query.hybrid(query=question, limit=5, alpha=0.6)
+            results = collection.query.hybrid(
+                query=question, vector=query_vector, limit=5, alpha=0.6
+            )
             for obj in results.objects:
                 all_results.append({
                     "type": "ADR",
@@ -737,7 +750,9 @@ async def perform_retrieval(question: str, provider: str = "ollama") -> tuple[li
     if any(term in question_lower for term in ["principle", "governance", "esa"]):
         try:
             collection = _weaviate_client.collections.get(collections["principle"])
-            results = collection.query.hybrid(query=question, limit=5, alpha=0.6)
+            results = collection.query.hybrid(
+                query=question, vector=query_vector, limit=5, alpha=0.6
+            )
             for obj in results.objects:
                 all_results.append({
                     "type": "Principle",
@@ -750,7 +765,9 @@ async def perform_retrieval(question: str, provider: str = "ollama") -> tuple[li
     if any(term in question_lower for term in ["policy", "data governance", "compliance"]):
         try:
             collection = _weaviate_client.collections.get(collections["policy"])
-            results = collection.query.hybrid(query=question, limit=5, alpha=0.6)
+            results = collection.query.hybrid(
+                query=question, vector=query_vector, limit=5, alpha=0.6
+            )
             for obj in results.objects:
                 all_results.append({
                     "type": "Policy",
@@ -763,7 +780,9 @@ async def perform_retrieval(question: str, provider: str = "ollama") -> tuple[li
     if any(term in question_lower for term in ["vocab", "concept", "definition", "cim", "iec"]):
         try:
             collection = _weaviate_client.collections.get(collections["vocabulary"])
-            results = collection.query.hybrid(query=question, limit=5, alpha=0.6)
+            results = collection.query.hybrid(
+                query=question, vector=query_vector, limit=5, alpha=0.6
+            )
             for obj in results.objects:
                 all_results.append({
                     "type": "Vocabulary",
@@ -779,7 +798,9 @@ async def perform_retrieval(question: str, provider: str = "ollama") -> tuple[li
             try:
                 coll_name = collections[coll_type]
                 collection = _weaviate_client.collections.get(coll_name)
-                results = collection.query.hybrid(query=question, limit=3, alpha=0.6)
+                results = collection.query.hybrid(
+                    query=question, vector=query_vector, limit=3, alpha=0.6
+                )
                 for obj in results.objects:
                     all_results.append({
                         "type": coll_type.upper() if coll_type == "adr" else coll_type.title(),
