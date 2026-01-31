@@ -649,20 +649,15 @@ def evaluate(
     async def run_evaluation():
         return await evaluator.run_all(categories=category_list)
 
-    with Progress(
-        SpinnerColumn(),
-        TextColumn("[progress.description]{task.description}"),
-        console=console,
-    ) as progress:
-        task = progress.add_task("Running evaluation...", total=None)
+    console.print("[dim]Running evaluation (this may take several minutes)...[/dim]")
 
-        try:
-            results = asyncio.run(run_evaluation())
-            progress.update(task, description="[green]Evaluation complete!")
-        except Exception as e:
-            progress.update(task, description=f"[red]Error: {e}")
-            logger.exception("Evaluation error")
-            raise typer.Exit(1)
+    try:
+        results = asyncio.run(run_evaluation())
+        console.print("[green]Evaluation complete![/green]")
+    except Exception as e:
+        console.print(f"[red]Error: {e}[/red]")
+        logger.exception("Evaluation error")
+        raise typer.Exit(1)
 
     # Display summary
     summary = evaluator.get_summary()

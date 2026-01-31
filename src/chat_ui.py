@@ -283,12 +283,12 @@ async def lifespan(app: FastAPI):
         logger.error(f"Failed to connect to Weaviate: {e}")
         raise
 
-    if not ELYSIA_AVAILABLE:
-        logger.error("Elysia not available")
-        raise ImportError("elysia-ai package required")
-
-    _elysia_system = ElysiaRAGSystem(_weaviate_client)
-    logger.info("AInstein initialized")
+    if ELYSIA_AVAILABLE:
+        _elysia_system = ElysiaRAGSystem(_weaviate_client)
+        logger.info("AInstein initialized with Elysia")
+    else:
+        logger.warning("Elysia not available - running in comparison-only mode")
+        _elysia_system = None
 
     yield  # App is running
 
@@ -1180,6 +1180,12 @@ async def remove_conversation(conversation_id: str):
     """Delete a conversation."""
     delete_conversation(conversation_id)
     return {"status": "deleted"}
+
+
+@app.get("/health")
+async def health():
+    """Health check endpoint for service monitoring."""
+    return {"status": "ok"}
 
 
 @app.get("/api/status")
