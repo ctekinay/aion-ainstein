@@ -392,6 +392,31 @@
             margin: 8px;
         }
 
+        .comparison-panel .truncation-warning {
+            color: #f9e2af;
+            padding: 6px 12px;
+            background: rgba(249, 226, 175, 0.1);
+            border-radius: 6px;
+            margin: 8px 8px 0 8px;
+            font-size: 11px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .truncation-warning::before {
+            content: "!";
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 16px;
+            height: 16px;
+            background: rgba(249, 226, 175, 0.3);
+            border-radius: 50%;
+            font-weight: bold;
+            font-size: 10px;
+        }
+
         .latency-badges {
             display: flex;
             gap: 8px;
@@ -1773,7 +1798,16 @@
                     // Route to correct panel based on provider
                     const responseContainer = document.getElementById(data.provider + '-response');
                     if (responseContainer) {
-                        responseContainer.innerHTML = `<div class="message-text">${escapeHtml(data.content)}</div>`;
+                        let responseHtml = `<div class="message-text">${escapeHtml(data.content)}</div>`;
+
+                        // Show truncation warning if context was truncated (SmolLM3 only)
+                        if (data.timing && data.timing.context_truncated && data.provider === 'ollama') {
+                            const origTokens = data.timing.original_tokens || 0;
+                            const usedTokens = data.timing.used_tokens || 0;
+                            responseHtml = `<div class="truncation-warning">Context truncated: ${origTokens} -> ${usedTokens} tokens</div>` + responseHtml;
+                        }
+
+                        responseContainer.innerHTML = responseHtml;
                     }
 
                     // Update timing badges if present

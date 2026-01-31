@@ -589,6 +589,179 @@ def chat(
         raise typer.Exit(1)
 
 
+@app.command()
+def evaluate(
+    categories: Optional[str] = typer.Option(
+        None, "--categories", "-c",
+        help="Comma-separated list of categories to test (vocabulary,adr,principle,cross_domain,general)"
+    ),
+    output: Optional[Path] = typer.Option(
+        None, "--output", "-o",
+        help="Output file path for detailed JSON results"
+    ),
+    base_url: str = typer.Option(
+        "http://127.0.0.1:8081", "--url", "-u",
+        help="Base URL of the chat API server"
+    ),
+):
+    """Run evaluation comparing Ollama vs OpenAI RAG performance.
+
+    IMPORTANT: The chat server must be running before running evaluation.
+    Start it with: python -m src.cli chat
+
+    Example usage:
+        python -m src.cli evaluate
+        python -m src.cli evaluate --categories vocabulary,adr
+        python -m src.cli evaluate --output results.json
+    """
+    import asyncio
+    from .evaluation import RAGEvaluator
+
+    console.print(Panel(
+        "[bold]RAG Evaluation: Ollama vs OpenAI[/bold]\n\n"
+        "Comparing retrieval quality, latency, and answer quality",
+        title="AION-AINSTEIN Evaluation",
+        style="bold blue"
+    ))
+
+    # Parse categories
+    category_list = None
+    if categories:
+        category_list = [c.strip() for c in categories.split(",")]
+        console.print(f"[dim]Filtering by categories: {category_list}[/dim]")
+
+    # Check if server is running
+    import httpx
+    try:
+        response = httpx.get(f"{base_url}/health", timeout=5.0)
+        if response.status_code != 200:
+            raise Exception("Server not healthy")
+    except Exception:
+        console.print("[red]Error: Chat server is not running![/red]")
+        console.print("[yellow]Start it with: python -m src.cli chat[/yellow]")
+        raise typer.Exit(1)
+
+    console.print(f"[green]Connected to server at {base_url}[/green]\n")
+
+    # Run evaluation
+    evaluator = RAGEvaluator(base_url=base_url)
+
+    async def run_evaluation():
+        return await evaluator.run_all(categories=category_list)
+
+    with Progress(
+        SpinnerColumn(),
+        TextColumn("[progress.description]{task.description}"),
+        console=console,
+    ) as progress:
+        task = progress.add_task("Running evaluation...", total=None)
+
+        try:
+            results = asyncio.run(run_evaluation())
+            progress.update(task, description="[green]Evaluation complete!")
+        except Exception as e:
+            progress.update(task, description=f"[red]Error: {e}")
+            logger.exception("Evaluation error")
+            raise typer.Exit(1)
+
+    # Display summary
+    summary = evaluator.get_summary()
+
+    console.print("\n[bold]Evaluation Summary[/bold]\n")
+
+    # Create comparison table
+    table = Table(title="Provider Comparison")
+    table.add_column("Metric", style="cyan")
+    table.add_column("Ollama (Local)", style="yellow")
+    table.add_column("OpenAI (Cloud)", style="green")
+
+    ollama = summary["ollama"]
+    openai = summary["openai"]
+
+    table.add_row(
+        "Total Test Cases",
+        str(ollama["total_cases"]),
+        str(openai["total_cases"])
+    )
+    table.add_row(
+        "Successful",
+        str(ollama["successful"]),
+        str(openai["successful"])
+    )
+    table.add_row(
+        "Errors",
+        str(ollama["errors"]),
+        str(openai["errors"])
+    )
+    table.add_row(
+        "Avg Term Recall",
+        f"{ollama['avg_term_recall']:.1%}",
+        f"{openai['avg_term_recall']:.1%}"
+    )
+    table.add_row(
+        "Avg Source Recall",
+        f"{ollama['avg_source_recall']:.1%}",
+        f"{openai['avg_source_recall']:.1%}"
+    )
+    table.add_row(
+        "Avg Retrieval Latency",
+        f"{ollama['avg_retrieval_latency_ms']}ms",
+        f"{openai['avg_retrieval_latency_ms']}ms"
+    )
+    table.add_row(
+        "Avg Generation Latency",
+        f"{ollama['avg_generation_latency_ms']}ms",
+        f"{openai['avg_generation_latency_ms']}ms"
+    )
+    table.add_row(
+        "Avg Total Latency",
+        f"{ollama['avg_total_latency_ms']}ms",
+        f"{openai['avg_total_latency_ms']}ms"
+    )
+
+    if ollama.get("context_truncations", 0) > 0:
+        table.add_row(
+            "Context Truncations",
+            f"[yellow]{ollama['context_truncations']}[/yellow]",
+            "N/A"
+        )
+
+    console.print(table)
+
+    # Show per-test-case results
+    console.print("\n[bold]Per-Test-Case Results[/bold]\n")
+
+    results_table = Table(title="Individual Test Cases")
+    results_table.add_column("ID", style="dim")
+    results_table.add_column("Category")
+    results_table.add_column("Ollama Term Recall", style="yellow")
+    results_table.add_column("OpenAI Term Recall", style="green")
+    results_table.add_column("Ollama Latency", style="yellow")
+    results_table.add_column("OpenAI Latency", style="green")
+
+    for result in evaluator.results:
+        ollama_recall = f"{result.ollama.term_recall:.0%}" if result.ollama and not result.ollama.error else "ERR"
+        openai_recall = f"{result.openai.term_recall:.0%}" if result.openai and not result.openai.error else "ERR"
+        ollama_latency = f"{result.ollama.total_latency_ms}ms" if result.ollama else "N/A"
+        openai_latency = f"{result.openai.total_latency_ms}ms" if result.openai else "N/A"
+
+        results_table.add_row(
+            result.test_case_id,
+            result.category,
+            ollama_recall,
+            openai_recall,
+            ollama_latency,
+            openai_latency
+        )
+
+    console.print(results_table)
+
+    # Export if requested
+    if output:
+        evaluator.export_results(output)
+        console.print(f"\n[green]Detailed results exported to: {output}[/green]")
+
+
 def main():
     """Main entry point."""
     app()

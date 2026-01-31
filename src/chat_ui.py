@@ -32,6 +32,80 @@ from .elysia_agents import ElysiaRAGSystem, ELYSIA_AVAILABLE
 
 logger = logging.getLogger(__name__)
 
+# ============== Token Counting and Context Management ==============
+
+# SmolLM3 context window is ~8K tokens. Reserve space for system prompt + response.
+SMOLLM3_MAX_CONTEXT_TOKENS = 8000
+SMOLLM3_RESERVED_TOKENS = 1500  # For system prompt (~300) + response (~1000) + buffer
+SMOLLM3_MAX_INPUT_TOKENS = SMOLLM3_MAX_CONTEXT_TOKENS - SMOLLM3_RESERVED_TOKENS  # ~6500 tokens
+
+
+def estimate_tokens(text: str) -> int:
+    """Estimate token count using character-based approximation.
+
+    Uses ~4 characters per token as a rough estimate.
+    This is conservative and works without external dependencies.
+
+    Args:
+        text: The text to estimate tokens for
+
+    Returns:
+        Estimated token count
+    """
+    if not text:
+        return 0
+    # ~4 chars per token is a reasonable approximation for English text
+    # SmolLM3 uses a similar tokenizer to LLaMA
+    return len(text) // 4
+
+
+def truncate_context(context: str, max_tokens: int = SMOLLM3_MAX_INPUT_TOKENS) -> tuple[str, bool]:
+    """Truncate context to fit within token limit.
+
+    Preserves complete documents where possible by truncating at document boundaries.
+
+    Args:
+        context: The context string to truncate
+        max_tokens: Maximum tokens allowed
+
+    Returns:
+        Tuple of (truncated_context, was_truncated)
+    """
+    current_tokens = estimate_tokens(context)
+
+    if current_tokens <= max_tokens:
+        return context, False
+
+    # Split by document boundaries (double newlines)
+    documents = context.split("\n\n")
+
+    truncated_docs = []
+    total_tokens = 0
+
+    for doc in documents:
+        doc_tokens = estimate_tokens(doc)
+        if total_tokens + doc_tokens + 2 <= max_tokens:  # +2 for newlines
+            truncated_docs.append(doc)
+            total_tokens += doc_tokens + 2
+        else:
+            # Try to fit a partial document if we have space
+            remaining_tokens = max_tokens - total_tokens - 50  # Buffer for truncation message
+            if remaining_tokens > 100:  # Only include if meaningful
+                # Truncate at word boundary
+                max_chars = remaining_tokens * 4
+                truncated_doc = doc[:max_chars].rsplit(" ", 1)[0] + "..."
+                truncated_docs.append(truncated_doc)
+            break
+
+    truncated_context = "\n\n".join(truncated_docs)
+
+    logger.warning(
+        f"Context truncated: {current_tokens} -> {estimate_tokens(truncated_context)} tokens "
+        f"({len(documents)} -> {len(truncated_docs)} documents)"
+    )
+
+    return truncated_context, True
+
 # Global state
 _weaviate_client = None
 _elysia_system = None
@@ -714,14 +788,28 @@ async def perform_retrieval(question: str, provider: str = "ollama") -> tuple[li
 
 
 async def generate_with_ollama(system_prompt: str, user_prompt: str, model: str) -> tuple[str, dict]:
-    """Generate response using Ollama API with timing.
+    """Generate response using Ollama API with timing and context truncation.
+
+    Automatically truncates context to fit within SmolLM3's ~8K token context window.
 
     Returns:
-        Tuple of (response text, timing dict)
+        Tuple of (response text, timing dict with truncation info)
     """
     import httpx
 
     start_time = time.time()
+
+    # Combine and check total prompt size
+    full_prompt = f"{system_prompt}\n\n{user_prompt}"
+    original_tokens = estimate_tokens(full_prompt)
+
+    # Truncate if needed (system prompt + user prompt combined)
+    truncated_prompt, was_truncated = truncate_context(full_prompt, SMOLLM3_MAX_INPUT_TOKENS)
+
+    if was_truncated:
+        logger.info(
+            f"SmolLM3 prompt truncated: {original_tokens} -> {estimate_tokens(truncated_prompt)} tokens"
+        )
 
     try:
         async with httpx.AsyncClient(timeout=120.0) as client:
@@ -729,7 +817,7 @@ async def generate_with_ollama(system_prompt: str, user_prompt: str, model: str)
                 f"{settings.ollama_url}/api/generate",
                 json={
                     "model": model,
-                    "prompt": f"{system_prompt}\n\n{user_prompt}",
+                    "prompt": truncated_prompt,
                     "stream": False,
                     "options": {"num_predict": 1000},
                 },
@@ -740,7 +828,14 @@ async def generate_with_ollama(system_prompt: str, user_prompt: str, model: str)
             end_time = time.time()
             latency_ms = int((end_time - start_time) * 1000)
 
-            return result.get("response", ""), {"latency_ms": latency_ms}
+            timing = {
+                "latency_ms": latency_ms,
+                "context_truncated": was_truncated,
+                "original_tokens": original_tokens,
+                "used_tokens": estimate_tokens(truncated_prompt),
+            }
+
+            return result.get("response", ""), timing
     except Exception as e:
         end_time = time.time()
         latency_ms = int((end_time - start_time) * 1000)
