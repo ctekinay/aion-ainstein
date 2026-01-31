@@ -10,10 +10,19 @@ services:
       QUERY_DEFAULTS_LIMIT: 25
       AUTHENTICATION_ANONYMOUS_ACCESS_ENABLED: 'true'
       PERSISTENCE_DATA_PATH: '/var/lib/weaviate'
-      DEFAULT_VECTORIZER_MODULE: 'text2vec-openai'
+      # Using Ollama for embeddings and generation (local LLM)
+      DEFAULT_VECTORIZER_MODULE: 'text2vec-ollama'
       ENABLE_API_BASED_MODULES: 'true'
-      ENABLE_MODULES: 'text2vec-openai,generative-openai'
+      # Enable both Ollama (local) and OpenAI (cloud) modules for comparison
+      ENABLE_MODULES: 'text2vec-ollama,generative-ollama,text2vec-openai,generative-openai'
+      # Ollama runs on host - use host.docker.internal for Windows/Mac
+      # For Linux, use the actual host IP or --add-host=host.docker.internal:host-gateway
+      OLLAMA_API_ENDPOINT: 'http://host.docker.internal:11434'
+      # OpenAI API key for text2vec-openai module (used by OpenAI collections)
+      OPENAI_APIKEY: ${OPENAI_API_KEY}
       CLUSTER_HOSTNAME: 'node1'
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     volumes:
       - weaviate_data:/var/lib/weaviate
     healthcheck:

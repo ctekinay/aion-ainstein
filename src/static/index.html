@@ -1,0 +1,2409 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AInstein - Alliander Energy System Architect Assistant</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        /* Dark theme (default) */
+        :root {
+            --primary: #2563eb;
+            --primary-dark: #1d4ed8;
+            --bg-dark: #1e1e2e;
+            --bg-sidebar: #181825;
+            --bg-chat: #1e1e2e;
+            --bg-input: #313244;
+            --bg-message-user: #2563eb;
+            --bg-message-assistant: #313244;
+            --bg-decision: #2d1f3d;
+            --bg-status: #2d2d3d;
+            --bg-assistant: rgba(16, 185, 129, 0.1);
+            --text-primary: #cdd6f4;
+            --text-secondary: #a6adc8;
+            --text-muted: #6c7086;
+            --border: #45475a;
+            --border-decision: #a855f7;
+            --border-assistant: #10b981;
+            --border-status: #f59e0b;
+            --panel-action-hover: rgba(255,255,255,0.1);
+            --sources-bg: rgba(0,0,0,0.2);
+            --panel-footer-bg: rgba(0,0,0,0.15);
+            --panel-footer-border: rgba(255,255,255,0.05);
+            --sources-header-hover: rgba(255,255,255,0.05);
+        }
+
+        /* Light theme */
+        [data-theme="light"] {
+            --primary: #2563eb;
+            --primary-dark: #1d4ed8;
+            --bg-dark: #f8fafc;
+            --bg-sidebar: #f1f5f9;
+            --bg-chat: #ffffff;
+            --bg-input: #e2e8f0;
+            --bg-message-user: #2563eb;
+            --bg-message-assistant: #e2e8f0;
+            --bg-decision: #f3e8ff;
+            --bg-status: #f1f5f9;
+            --bg-assistant: rgba(16, 185, 129, 0.1);
+            --text-primary: #1e293b;
+            --text-secondary: #475569;
+            --text-muted: #64748b;
+            --border: #cbd5e1;
+            --border-decision: #9333ea;
+            --border-assistant: #059669;
+            --border-status: #d97706;
+            --panel-action-hover: rgba(0,0,0,0.05);
+            --sources-bg: rgba(0,0,0,0.05);
+            --panel-footer-bg: rgba(0,0,0,0.05);
+            --panel-footer-border: rgba(0,0,0,0.08);
+            --sources-header-hover: rgba(0,0,0,0.05);
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: var(--bg-dark);
+            color: var(--text-primary);
+            height: 100vh;
+            display: flex;
+            overflow: hidden;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            width: 280px;
+            background: var(--bg-sidebar);
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            flex-shrink: 0;
+        }
+
+        .sidebar-header {
+            padding: 20px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .sidebar-title-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+        }
+
+        .sidebar-header h1 {
+            font-size: 18px;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .sidebar-header p {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-top: 4px;
+        }
+
+        .theme-toggle {
+            background: var(--bg-input);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            width: 36px;
+            height: 36px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+            flex-shrink: 0;
+        }
+
+        .theme-toggle:hover {
+            background: var(--primary);
+            border-color: var(--primary);
+        }
+
+        .theme-toggle:hover svg {
+            fill: white;
+        }
+
+        .theme-toggle svg {
+            width: 20px;
+            height: 20px;
+            fill: var(--text-secondary);
+            transition: fill 0.2s;
+        }
+
+        /* Test Mode toggle */
+        .test-mode-toggle {
+            background: var(--bg-input);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            width: 36px;
+            height: 36px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+            flex-shrink: 0;
+            margin-right: 8px;
+        }
+
+        .test-mode-toggle:hover {
+            background: var(--primary);
+            border-color: var(--primary);
+        }
+
+        .test-mode-toggle:hover svg {
+            fill: white;
+        }
+
+        .test-mode-toggle svg {
+            width: 18px;
+            height: 18px;
+            fill: var(--text-secondary);
+            transition: fill 0.2s;
+        }
+
+        .test-mode-toggle.active {
+            background: var(--primary);
+            border-color: var(--primary);
+        }
+
+        .test-mode-toggle.active svg {
+            fill: white;
+        }
+
+        .header-buttons {
+            display: flex;
+            gap: 8px;
+        }
+
+        /* Show sun icon in dark mode, moon icon in light mode */
+        .theme-toggle .sun-icon {
+            display: block;
+        }
+        .theme-toggle .moon-icon {
+            display: none;
+        }
+        [data-theme="light"] .theme-toggle .sun-icon {
+            display: none;
+        }
+        [data-theme="light"] .theme-toggle .moon-icon {
+            display: block;
+        }
+
+        .new-chat-btn {
+            margin: 16px;
+            padding: 12px 16px;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: background 0.2s;
+        }
+
+        .new-chat-btn:hover {
+            background: var(--primary-dark);
+        }
+
+        .conversations-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 8px;
+        }
+
+        .conversation-item {
+            padding: 12px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            margin-bottom: 4px;
+            transition: background 0.2s;
+        }
+
+        .conversation-item:hover {
+            background: var(--bg-input);
+        }
+
+        .conversation-item.active {
+            background: var(--bg-input);
+        }
+
+        .conversation-item .title {
+            font-size: 14px;
+            color: var(--text-primary);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .conversation-item .meta {
+            font-size: 11px;
+            color: var(--text-muted);
+            margin-top: 4px;
+        }
+
+        .conversation-item .delete-btn {
+            display: none;
+            float: right;
+            color: var(--text-muted);
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .conversation-item:hover .delete-btn {
+            display: inline;
+        }
+
+        .conversation-item .delete-btn:hover {
+            color: #f38ba8;
+        }
+
+        /* Main chat area */
+        .main {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-width: 0;
+        }
+
+        .chat-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 24px;
+        }
+
+        /* Test Mode: Split-screen layout */
+        .chat-container.test-mode {
+            display: flex;
+            flex-direction: column;
+            padding: 16px;
+        }
+
+        .test-mode-user-message {
+            margin-bottom: 16px;
+        }
+
+        .comparison-panels {
+            display: flex;
+            gap: 16px;
+            flex: 1;
+            min-height: 0;
+        }
+
+        .comparison-panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+            background: var(--bg-chat);
+        }
+
+        .comparison-panel-header {
+            padding: 12px 16px;
+            background: var(--bg-sidebar);
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .comparison-panel-header .provider-name {
+            font-weight: 600;
+            font-size: 14px;
+            color: var(--text-primary);
+        }
+
+        .comparison-panel-header .model-name {
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+
+        .latency-badge {
+            font-size: 11px;
+            color: var(--text-muted);
+            background: var(--bg-input);
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-family: monospace;
+        }
+
+        .latency-badge.fast {
+            color: #10b981;
+        }
+
+        .latency-badge.slow {
+            color: #f59e0b;
+        }
+
+        .comparison-panel-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px;
+        }
+
+        .comparison-panel-content .message-text {
+            font-size: 14px;
+            line-height: 1.6;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+
+        .comparison-panel.ollama {
+            border-color: #10b981;
+        }
+
+        .comparison-panel.ollama .comparison-panel-header {
+            border-bottom-color: #10b981;
+        }
+
+        .comparison-panel.openai {
+            border-color: #6366f1;
+        }
+
+        .comparison-panel.openai .comparison-panel-header {
+            border-bottom-color: #6366f1;
+        }
+
+        .comparison-panel .loading-spinner {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 40px;
+            color: var(--text-muted);
+        }
+
+        .comparison-panel .error-message {
+            color: #f38ba8;
+            padding: 16px;
+            background: rgba(243, 139, 168, 0.1);
+            border-radius: 8px;
+            margin: 8px;
+        }
+
+        .comparison-panel .truncation-warning {
+            color: #f9e2af;
+            padding: 6px 12px;
+            background: rgba(249, 226, 175, 0.1);
+            border-radius: 6px;
+            margin: 8px 8px 0 8px;
+            font-size: 11px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .truncation-warning::before {
+            content: "!";
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 16px;
+            height: 16px;
+            background: rgba(249, 226, 175, 0.3);
+            border-radius: 50%;
+            font-weight: bold;
+            font-size: 10px;
+        }
+
+        .latency-badges {
+            display: flex;
+            gap: 8px;
+        }
+
+        .comparison-panel-sources {
+            border-top: 1px solid var(--border);
+            background: var(--bg-sidebar);
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .comparison-panel-sources .sources-header {
+            padding: 10px 16px;
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .comparison-panel-sources .sources-header:hover {
+            background: var(--sources-header-hover);
+        }
+
+        .comparison-panel-sources .sources-content {
+            padding: 0 16px 12px 16px;
+        }
+
+        .comparison-panel-sources .source-item {
+            background: rgba(0,0,0,0.15);
+            padding: 8px 12px;
+            border-radius: 6px;
+            margin-bottom: 6px;
+            font-size: 12px;
+        }
+
+        .comparison-panel-sources .source-item:last-child {
+            margin-bottom: 0;
+        }
+
+        .comparison-panel-sources .source-item .preview {
+            font-size: 11px;
+            margin-top: 4px;
+            line-height: 1.3;
+        }
+
+        .shared-sources {
+            margin-top: 16px;
+            padding: 16px;
+            background: var(--bg-sidebar);
+            border-radius: 12px;
+            border: 1px solid var(--border);
+        }
+
+        .shared-sources-header {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            margin-bottom: 12px;
+        }
+
+        /* Test mode indicator in header */
+        .test-mode-indicator {
+            display: none;
+            font-size: 11px;
+            background: var(--primary);
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            margin-left: 8px;
+        }
+
+        .test-mode-active .test-mode-indicator {
+            display: inline-block;
+        }
+
+        /* Responsive: Stack panels vertically on narrow screens */
+        @media (max-width: 900px) {
+            .comparison-panels {
+                flex-direction: column;
+            }
+
+            .comparison-panel {
+                min-height: 300px;
+            }
+        }
+
+        .messages {
+            max-width: 100%;
+            margin: 0;
+            padding: 0 16px;
+        }
+
+        /* Panel styles - similar to Rich console panels */
+        .panel {
+            margin-bottom: 16px;
+            border-radius: 8px;
+            overflow: hidden;
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .panel-header {
+            padding: 8px 16px;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .panel-content {
+            padding: 16px;
+            font-size: 14px;
+            line-height: 1.6;
+            word-wrap: break-word;
+            width: 100%;
+        }
+
+        .panel-content .message-text {
+            width: 100%;
+            display: block;
+            white-space: pre-wrap;  /* Preserve intentional line breaks but wrap text */
+            word-break: break-word;
+        }
+
+        /* All panels should preserve intentional newlines while wrapping long lines */
+        .panel.assistant .panel-content .message-text,
+        .panel.user-prompt .panel-content .message-text,
+        .panel.thinking-aloud .panel-content .message-text,
+        .panel.decision .panel-content .message-text {
+            white-space: pre-wrap;  /* Preserve newlines, wrap long lines */
+        }
+
+        /* Panel footer with actions and timestamp */
+        .panel-footer {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 8px 16px;
+            background: var(--panel-footer-bg);
+            border-top: 1px solid var(--panel-footer-border);
+        }
+
+        .panel-actions {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .panel-action-btn {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            padding: 4px 8px;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 12px;
+            transition: all 0.2s;
+        }
+
+        .panel-action-btn:hover {
+            background: var(--panel-action-hover);
+            color: var(--text-primary);
+        }
+
+        .panel-action-btn.active {
+            color: var(--primary);
+        }
+
+        .panel-action-btn.thumbs-up.active {
+            color: #10b981;
+        }
+
+        .panel-action-btn.thumbs-down.active {
+            color: #ef4444;
+        }
+
+        .panel-action-btn svg {
+            width: 16px;
+            height: 16px;
+            fill: currentColor;
+        }
+
+        .panel-timestamp {
+            font-size: 11px;
+            color: var(--text-muted);
+        }
+
+        .copy-feedback {
+            font-size: 11px;
+            color: #10b981;
+            margin-left: 4px;
+        }
+
+        /* User prompt panel */
+        .panel.user-prompt {
+            border: 1px solid var(--primary);
+        }
+        .panel.user-prompt .panel-header {
+            background: var(--primary);
+            color: white;
+        }
+        .panel.user-prompt .panel-content {
+            background: rgba(37, 99, 235, 0.1);
+        }
+
+        /* Assistant response panel */
+        .panel.assistant {
+            border: 1px solid var(--border-assistant);
+        }
+        .panel.assistant .panel-header {
+            background: var(--border-assistant);
+            color: white;
+        }
+        .panel.assistant .panel-content {
+            background: rgba(16, 185, 129, 0.1);
+        }
+
+        /* Decision panel */
+        .panel.decision {
+            border: 1px solid var(--border-decision);
+        }
+        .panel.decision .panel-header {
+            background: var(--border-decision);
+            color: white;
+        }
+        .panel.decision .panel-content {
+            background: var(--bg-decision);
+            font-family: 'Monaco', 'Menlo', 'Courier New', monospace;
+            font-size: 13px;
+        }
+
+        /* Thinking aloud panel (intermediate responses - green but hideable) */
+        .panel.thinking-aloud {
+            border: 1px solid var(--border-assistant);
+            opacity: 0.85;
+        }
+        .panel.thinking-aloud .panel-header {
+            background: linear-gradient(135deg, var(--bg-assistant) 0%, rgba(16, 185, 129, 0.2) 100%);
+            color: var(--border-assistant);
+            font-style: italic;
+        }
+
+        /* Hide thinking when disabled */
+        .hide-thinking .panel.decision,
+        .hide-thinking .panel.thinking-aloud {
+            display: none;
+        }
+
+        .hide-thinking .status-indicator {
+            display: none;
+        }
+
+        /* Global loading indicator - always visible */
+        .loading-indicator {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 16px 20px;
+            background: linear-gradient(135deg, var(--bg-status) 0%, rgba(168, 85, 247, 0.15) 100%);
+            border-radius: 12px;
+            margin-bottom: 16px;
+            border-left: 4px solid var(--border-decision);
+            animation: fadeIn 0.3s ease;
+        }
+
+        .loading-indicator .loading-icon {
+            width: 32px;
+            height: 32px;
+            position: relative;
+        }
+
+        .loading-indicator .loading-icon::before,
+        .loading-indicator .loading-icon::after {
+            content: '';
+            position: absolute;
+            border-radius: 50%;
+        }
+
+        .loading-indicator .loading-icon::before {
+            width: 32px;
+            height: 32px;
+            border: 3px solid rgba(168, 85, 247, 0.2);
+            border-top-color: var(--border-decision);
+            animation: spin 1s linear infinite;
+        }
+
+        .loading-indicator .loading-icon::after {
+            width: 16px;
+            height: 16px;
+            top: 8px;
+            left: 8px;
+            background: var(--border-decision);
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+
+        .loading-indicator .loading-text {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .loading-indicator .loading-title {
+            color: var(--text-primary);
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .loading-indicator .loading-subtitle {
+            color: var(--text-muted);
+            font-size: 12px;
+        }
+
+        .loading-indicator .loading-dots {
+            display: inline-flex;
+            gap: 4px;
+            margin-left: 4px;
+        }
+
+        .loading-indicator .loading-dots span {
+            width: 4px;
+            height: 4px;
+            background: var(--border-decision);
+            border-radius: 50%;
+            animation: bounce 1.4s ease-in-out infinite;
+        }
+
+        .loading-indicator .loading-dots span:nth-child(1) { animation-delay: 0s; }
+        .loading-indicator .loading-dots span:nth-child(2) { animation-delay: 0.2s; }
+        .loading-indicator .loading-dots span:nth-child(3) { animation-delay: 0.4s; }
+
+        @keyframes bounce {
+            0%, 80%, 100% { transform: translateY(0); }
+            40% { transform: translateY(-6px); }
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Status indicator with pulsing brain icon */
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 14px 18px;
+            background: var(--bg-status);
+            border-radius: 12px;
+            margin-bottom: 16px;
+            border-left: 4px solid var(--border-status);
+            animation: fadeIn 0.3s ease;
+        }
+
+        .status-indicator .thinking-icon {
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+
+        .status-indicator .thinking-icon svg {
+            width: 24px;
+            height: 24px;
+            fill: var(--border-status);
+            stroke: var(--border-status);
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.6; transform: scale(0.9); }
+        }
+
+        .status-indicator .text {
+            color: var(--border-status);
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        /* Sources - collapsible */
+        .sources {
+            margin-top: 16px;
+            background: var(--sources-bg);
+            border-radius: 8px;
+            white-space: normal;  /* Override pre-wrap from panel-content */
+            overflow: hidden;
+        }
+
+        .sources-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 16px;
+            font-size: 12px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            cursor: pointer;
+            user-select: none;
+            transition: background 0.2s;
+        }
+
+        .sources-header:hover {
+            background: var(--sources-header-hover);
+        }
+
+        .sources-header .toggle-icon {
+            font-size: 10px;
+            transition: transform 0.2s;
+        }
+
+        .sources.collapsed .toggle-icon {
+            transform: rotate(-90deg);
+        }
+
+        .sources-content {
+            padding: 0 16px 16px 16px;
+            max-height: 500px;
+            overflow-y: auto;
+            transition: max-height 0.3s ease, padding 0.3s ease, opacity 0.2s ease;
+        }
+
+        .sources.collapsed .sources-content {
+            max-height: 0;
+            padding-top: 0;
+            padding-bottom: 0;
+            opacity: 0;
+        }
+
+        .source-item {
+            background: rgba(0,0,0,0.2);
+            padding: 10px 14px;
+            border-radius: 6px;
+            margin-bottom: 8px;
+            font-size: 13px;
+        }
+
+        .source-item:last-child {
+            margin-bottom: 0;
+        }
+
+        .source-item .type {
+            color: var(--primary);
+            font-weight: 500;
+            margin-right: 8px;
+        }
+
+        .source-item .title {
+            color: var(--text-primary);
+        }
+
+        .source-item .preview {
+            color: var(--text-muted);
+            font-size: 12px;
+            margin-top: 6px;
+            line-height: 1.4;
+        }
+
+        /* Welcome screen */
+        .welcome {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            text-align: center;
+            padding: 40px;
+        }
+
+        .welcome h2 {
+            font-size: 28px;
+            margin-bottom: 12px;
+            color: var(--text-primary);
+        }
+
+        .welcome p {
+            color: var(--text-muted);
+            max-width: 500px;
+            line-height: 1.6;
+        }
+
+        .welcome .suggestions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-top: 32px;
+            justify-content: center;
+        }
+
+        .welcome .suggestion {
+            background: var(--bg-input);
+            padding: 12px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background 0.2s;
+            font-size: 14px;
+            border: 1px solid var(--border);
+        }
+
+        .welcome .suggestion:hover {
+            background: var(--bg-message-assistant);
+            border-color: var(--primary);
+        }
+
+        /* Input area */
+        .input-area {
+            padding: 24px;
+            background: var(--bg-chat);
+            border-top: 1px solid var(--border);
+        }
+
+        .input-container {
+            max-width: 100%;
+            margin: 0;
+            display: flex;
+            gap: 12px;
+            align-items: flex-end;
+        }
+
+        .input-wrapper {
+            flex: 1;
+            position: relative;
+        }
+
+        #message-input {
+            width: 100%;
+            padding: 14px 18px;
+            background: var(--bg-input);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            color: var(--text-primary);
+            font-size: 14px;
+            resize: none;
+            min-height: 120px;
+            max-height: 300px;
+            line-height: 1.5;
+        }
+
+        #message-input:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+
+        #message-input::placeholder {
+            color: var(--text-muted);
+        }
+
+        #send-btn {
+            width: 48px;
+            height: 48px;
+            padding: 0;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 20px;
+            transition: background 0.2s, transform 0.1s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
+        #send-btn:hover:not(:disabled) {
+            background: var(--primary-dark);
+            transform: scale(1.05);
+        }
+
+        #send-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        #send-btn svg {
+            width: 22px;
+            height: 22px;
+            fill: currentColor;
+        }
+
+        /* Toggle switch */
+        .toggle-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 16px;
+            background: var(--bg-sidebar);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .toggle-label {
+            font-size: 13px;
+            color: var(--text-secondary);
+            user-select: none;
+        }
+
+        .toggle-switch {
+            position: relative;
+            width: 44px;
+            height: 24px;
+            background: var(--bg-input);
+            border-radius: 12px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .toggle-switch.active {
+            background: var(--primary);
+        }
+
+        .toggle-switch::after {
+            content: '';
+            position: absolute;
+            top: 3px;
+            left: 3px;
+            width: 18px;
+            height: 18px;
+            background: white;
+            border-radius: 50%;
+            transition: transform 0.2s;
+        }
+
+        .toggle-switch.active::after {
+            transform: translateX(20px);
+        }
+
+        .toggle-hint {
+            font-size: 11px;
+            color: var(--text-muted);
+            margin-left: auto;
+        }
+
+        /* Settings Modal */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.6);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-overlay.active {
+            display: flex;
+        }
+
+        .modal {
+            background: var(--bg-chat);
+            border-radius: 16px;
+            padding: 24px;
+            width: 90%;
+            max-width: 480px;
+            max-height: 80vh;
+            overflow-y: auto;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            border: 1px solid var(--border);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+        }
+
+        .modal-title {
+            font-size: 20px;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            font-size: 24px;
+            cursor: pointer;
+            padding: 4px;
+            line-height: 1;
+        }
+
+        .modal-close:hover {
+            color: var(--text-primary);
+        }
+
+        .settings-section {
+            margin-bottom: 24px;
+        }
+
+        .settings-label {
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--text-primary);
+            margin-bottom: 8px;
+            display: block;
+        }
+
+        .settings-sublabel {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-bottom: 12px;
+            display: block;
+        }
+
+        .settings-select {
+            width: 100%;
+            padding: 12px 16px;
+            background: var(--bg-input);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text-primary);
+            font-size: 14px;
+            cursor: pointer;
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%236c7086' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 12px center;
+        }
+
+        .settings-select:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+
+        .settings-select option {
+            background: var(--bg-input);
+            color: var(--text-primary);
+        }
+
+        .settings-info {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 16px;
+            background: var(--bg-status);
+            border-radius: 8px;
+            margin-top: 16px;
+        }
+
+        .settings-info-icon {
+            color: var(--border-status);
+            font-size: 16px;
+        }
+
+        .settings-info-text {
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+
+        .settings-btn {
+            width: 100%;
+            padding: 12px 16px;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .settings-btn:hover {
+            background: var(--primary-dark);
+        }
+
+        .settings-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .current-model-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 12px;
+            background: var(--bg-status);
+            border-radius: 20px;
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-top: 8px;
+        }
+
+        .current-model-badge .dot {
+            width: 8px;
+            height: 8px;
+            background: #10b981;
+            border-radius: 50%;
+        }
+
+        /* Settings button in sidebar */
+        .settings-btn-sidebar {
+            margin: 8px 16px;
+            padding: 12px 16px;
+            background: var(--bg-input);
+            color: var(--text-secondary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.2s;
+        }
+
+        .settings-btn-sidebar:hover {
+            background: var(--bg-message-assistant);
+            color: var(--text-primary);
+        }
+
+        .settings-btn-sidebar svg {
+            width: 18px;
+            height: 18px;
+            fill: currentColor;
+        }
+
+        /* Delete all button in sidebar */
+        .delete-all-btn {
+            margin: 8px 16px;
+            padding: 10px 16px;
+            background: transparent;
+            color: var(--text-secondary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.2s;
+        }
+
+        .delete-all-btn:hover {
+            background: rgba(239, 68, 68, 0.1);
+            border-color: #ef4444;
+            color: #ef4444;
+        }
+
+        .delete-all-btn svg {
+            width: 16px;
+            height: 16px;
+            fill: currentColor;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .sidebar {
+                display: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <aside class="sidebar">
+        <div class="sidebar-header">
+            <div class="sidebar-title-row">
+                <div>
+                    <h1>AInstein<span class="test-mode-indicator">TEST MODE</span></h1>
+                    <p>Alliander Energy System Architect Assistant</p>
+                </div>
+                <div class="header-buttons">
+                    <button class="test-mode-toggle" id="test-mode-toggle" onclick="toggleTestMode()" title="Toggle Test Mode (Compare LLMs)">
+                        <!-- Split-screen icon -->
+                        <svg viewBox="0 0 24 24"><path d="M3 5v14h18V5H3zm8 12H5V7h6v10zm8 0h-6V7h6v10z"/></svg>
+                    </button>
+                    <button class="theme-toggle" id="theme-toggle" onclick="toggleTheme()" title="Toggle light/dark mode">
+                    <svg class="sun-icon" viewBox="0 0 24 24"><path d="M12 7c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5-2.24-5-5-5zM2 13h2c.55 0 1-.45 1-1s-.45-1-1-1H2c-.55 0-1 .45-1 1s.45 1 1 1zm18 0h2c.55 0 1-.45 1-1s-.45-1-1-1h-2c-.55 0-1 .45-1 1s.45 1 1 1zM11 2v2c0 .55.45 1 1 1s1-.45 1-1V2c0-.55-.45-1-1-1s-1 .45-1 1zm0 18v2c0 .55.45 1 1 1s1-.45 1-1v-2c0-.55-.45-1-1-1s-1 .45-1 1zM5.99 4.58c-.39-.39-1.03-.39-1.41 0-.39.39-.39 1.03 0 1.41l1.06 1.06c.39.39 1.03.39 1.41 0s.39-1.03 0-1.41L5.99 4.58zm12.37 12.37c-.39-.39-1.03-.39-1.41 0-.39.39-.39 1.03 0 1.41l1.06 1.06c.39.39 1.03.39 1.41 0 .39-.39.39-1.03 0-1.41l-1.06-1.06zm1.06-10.96c.39-.39.39-1.03 0-1.41-.39-.39-1.03-.39-1.41 0l-1.06 1.06c-.39.39-.39 1.03 0 1.41s1.03.39 1.41 0l1.06-1.06zM7.05 18.36c.39-.39.39-1.03 0-1.41-.39-.39-1.03-.39-1.41 0l-1.06 1.06c-.39.39-.39 1.03 0 1.41s1.03.39 1.41 0l1.06-1.06z"/></svg>
+                    <svg class="moon-icon" viewBox="0 0 24 24"><path d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9 9-4.03 9-9c0-.46-.04-.92-.1-1.36-.98 1.37-2.58 2.26-4.4 2.26-2.98 0-5.4-2.42-5.4-5.4 0-1.81.89-3.42 2.26-4.4-.44-.06-.9-.1-1.36-.1z"/></svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+        <button class="new-chat-btn" onclick="newConversation()">+ New Chat</button>
+        <button class="settings-btn-sidebar" onclick="openSettings()">
+            <svg viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.31.06-.63.06-.94 0-.31-.02-.63-.06-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.04.31-.06.63-.06.94s.02.63.06.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>
+            Settings
+        </button>
+        <button class="delete-all-btn" onclick="deleteAllConversations()">
+            <svg viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+            Delete All
+        </button>
+        <div class="conversations-list" id="conversations-list">
+            <!-- Conversations loaded here -->
+        </div>
+    </aside>
+
+    <!-- Settings Modal -->
+    <div class="modal-overlay" id="settings-modal">
+        <div class="modal">
+            <div class="modal-header">
+                <span class="modal-title">Settings</span>
+                <button class="modal-close" onclick="closeSettings()">&times;</button>
+            </div>
+
+            <div class="settings-section">
+                <label class="settings-label">LLM Provider</label>
+                <span class="settings-sublabel">Choose between local (Ollama) or cloud (OpenAI) LLM</span>
+                <select class="settings-select" id="llm-provider" onchange="updateModelOptions()">
+                    <option value="ollama">Ollama (Local)</option>
+                    <option value="openai">OpenAI (Cloud)</option>
+                </select>
+            </div>
+
+            <div class="settings-section">
+                <label class="settings-label">Model</label>
+                <span class="settings-sublabel">Select the AI model to use for responses</span>
+                <select class="settings-select" id="llm-model">
+                    <!-- Options populated dynamically -->
+                </select>
+                <div class="current-model-badge" id="current-model-badge">
+                    <span class="dot"></span>
+                    <span id="current-model-text">Loading...</span>
+                </div>
+            </div>
+
+            <div class="settings-info">
+                <span class="settings-info-icon">&#9432;</span>
+                <span class="settings-info-text">
+                    Ollama runs locally and is free. OpenAI requires an API key configured in the server.
+                </span>
+            </div>
+
+            <button class="settings-btn" onclick="saveLLMSettings()">Save Settings</button>
+        </div>
+    </div>
+
+    <main class="main">
+        <div class="toggle-container">
+            <span class="toggle-label">Show AInstein's thoughts</span>
+            <div class="toggle-switch active" id="thinking-toggle" onclick="toggleThinking()"></div>
+            <span class="toggle-hint">Shows reasoning and decision process of AInstein</span>
+        </div>
+        <div class="chat-container" id="chat-container">
+            <div class="messages" id="messages">
+                <div class="welcome" id="welcome">
+                    <h2>AInstein</h2>
+                    <p>Ask questions about architecture decisions, principles, policies, and vocabulary from the Alliander energy system knowledge base.</p>
+                    <div class="suggestions">
+                        <div class="suggestion" onclick="askSuggestion('What ADRs exist in the system?')">List all ADRs</div>
+                        <div class="suggestion" onclick="askSuggestion('What is CIM in the energy sector?')">What is CIM?</div>
+                        <div class="suggestion" onclick="askSuggestion('What are the ESA architecture principles?')">ESA Principles</div>
+                        <div class="suggestion" onclick="askSuggestion('Show me the data governance policies')">Data Policies</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="input-area">
+            <div class="input-container">
+                <div class="input-wrapper">
+                    <textarea
+                        id="message-input"
+                        placeholder="Hi fellow architect! How can I help you?"
+                        rows="5"
+                        onkeydown="handleKeyDown(event)"
+                        oninput="autoResize(this)"
+                    ></textarea>
+                </div>
+                <button id="send-btn" onclick="sendMessage()" title="Send message">
+                    <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        let currentConversationId = null;
+        let isLoading = false;
+        let currentStatusElement = null;
+        let showThinking = true;
+
+        // LLM Settings
+        let llmSettings = {
+            provider: 'ollama',
+            model: 'alibayram/smollm3:latest'
+        };
+        let availableModels = {
+            ollama: [{ id: 'alibayram/smollm3:latest', name: 'SmolLM3 (Local, 3.1B)' }],
+            openai: [
+                { id: 'gpt-4o-mini', name: 'GPT-4o Mini (Fast)' },
+                { id: 'gpt-4o', name: 'GPT-4o (Best)' },
+                { id: 'gpt-3.5-turbo', name: 'GPT-3.5 Turbo (Fastest)' }
+            ]
+        };
+
+        // Test Mode settings
+        let testModeEnabled = false;
+        let testModeSettings = {
+            ollamaModel: 'alibayram/smollm3:latest',
+            openaiModel: 'gpt-4o-mini'
+        };
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            initTheme();
+            initTestMode();
+            loadConversations();
+            initThinkingToggle();
+            loadLLMSettings();
+        });
+
+        // Initialize theme from localStorage or system preference
+        function initTheme() {
+            const savedTheme = localStorage.getItem('theme');
+            if (savedTheme) {
+                document.documentElement.setAttribute('data-theme', savedTheme);
+            } else {
+                // Check system preference
+                const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+                document.documentElement.setAttribute('data-theme', prefersDark ? 'dark' : 'light');
+            }
+        }
+
+        // Toggle between light and dark themes
+        function toggleTheme() {
+            const currentTheme = document.documentElement.getAttribute('data-theme') || 'dark';
+            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            document.documentElement.setAttribute('data-theme', newTheme);
+            localStorage.setItem('theme', newTheme);
+        }
+
+        // Test Mode toggle
+        function toggleTestMode() {
+            testModeEnabled = !testModeEnabled;
+            localStorage.setItem('testMode', testModeEnabled);
+            updateTestModeUI();
+        }
+
+        function updateTestModeUI() {
+            const toggleBtn = document.getElementById('test-mode-toggle');
+            const body = document.body;
+
+            if (testModeEnabled) {
+                toggleBtn.classList.add('active');
+                body.classList.add('test-mode-active');
+            } else {
+                toggleBtn.classList.remove('active');
+                body.classList.remove('test-mode-active');
+            }
+        }
+
+        function initTestMode() {
+            const saved = localStorage.getItem('testMode');
+            testModeEnabled = saved === 'true';
+            updateTestModeUI();
+        }
+
+        // Initialize thinking toggle from localStorage
+        function initThinkingToggle() {
+            const saved = localStorage.getItem('showThinking');
+            showThinking = saved === null ? true : saved === 'true';
+            updateThinkingUI();
+        }
+
+        // Toggle thinking visibility
+        function toggleThinking() {
+            showThinking = !showThinking;
+            localStorage.setItem('showThinking', showThinking);
+            updateThinkingUI();
+        }
+
+        // Update UI based on thinking state
+        function updateThinkingUI() {
+            const toggle = document.getElementById('thinking-toggle');
+            const messages = document.getElementById('messages');
+
+            if (showThinking) {
+                toggle.classList.add('active');
+                messages.classList.remove('hide-thinking');
+            } else {
+                toggle.classList.remove('active');
+                messages.classList.add('hide-thinking');
+            }
+        }
+
+        // Load conversations list
+        async function loadConversations() {
+            try {
+                const response = await fetch('/api/conversations');
+                const conversations = await response.json();
+
+                const list = document.getElementById('conversations-list');
+                list.innerHTML = '';
+
+                conversations.forEach(conv => {
+                    const item = document.createElement('div');
+                    item.className = 'conversation-item' + (conv.id === currentConversationId ? ' active' : '');
+                    const timeStr = conv.updated_at ? formatRelativeTime(conv.updated_at) : '';
+                    item.innerHTML = `
+                        <button class="delete-btn" onclick="deleteConversation('${conv.id}', event)">x</button>
+                        <div class="title">${escapeHtml(conv.title)}</div>
+                        <div class="meta">${conv.message_count} messages${timeStr ? ' · ' + timeStr : ''}</div>
+                    `;
+                    item.onclick = () => loadConversation(conv.id);
+                    list.appendChild(item);
+                });
+            } catch (error) {
+                console.error('Error loading conversations:', error);
+            }
+        }
+
+        // Load a specific conversation
+        async function loadConversation(id) {
+            try {
+                const response = await fetch(`/api/conversations/${id}`);
+                const data = await response.json();
+
+                currentConversationId = id;
+
+                // Reset test mode layout when loading a regular conversation
+                const chatContainer = document.getElementById('chat-container');
+                chatContainer.classList.remove('test-mode');
+
+                const messagesContainer = document.getElementById('messages');
+                messagesContainer.innerHTML = '';
+
+                // Display stored messages as simple panels
+                data.messages.forEach(msg => {
+                    if (msg.role === 'user') {
+                        appendPanel('user-prompt', 'User', msg.content, null, msg.timestamp);
+                    } else {
+                        appendPanel('assistant', 'AInstein', msg.content, msg.sources, msg.timestamp);
+                    }
+                });
+
+                // Re-apply thinking visibility setting
+                updateThinkingUI();
+
+                loadConversations();
+                scrollToBottom();
+            } catch (error) {
+                console.error('Error loading conversation:', error);
+            }
+        }
+
+        // Start new conversation
+        function newConversation() {
+            currentConversationId = null;
+            // Reset test mode layout
+            const chatContainer = document.getElementById('chat-container');
+            chatContainer.classList.remove('test-mode');
+
+            const messagesContainer = document.getElementById('messages');
+            messagesContainer.innerHTML = `
+                <div class="welcome" id="welcome">
+                    <h2>AInstein</h2>
+                    <p>Ask questions about architecture decisions, principles, policies, and vocabulary from the Alliander energy system knowledge base.</p>
+                    <div class="suggestions">
+                        <div class="suggestion" onclick="askSuggestion('What ADRs exist in the system?')">List all ADRs</div>
+                        <div class="suggestion" onclick="askSuggestion('What is CIM in the energy sector?')">What is CIM?</div>
+                        <div class="suggestion" onclick="askSuggestion('What are the ESA architecture principles?')">ESA Principles</div>
+                        <div class="suggestion" onclick="askSuggestion('Show me the data governance policies')">Data Policies</div>
+                    </div>
+                </div>
+            `;
+            // Re-apply thinking visibility setting
+            updateThinkingUI();
+            loadConversations();
+        }
+
+        // Delete conversation
+        async function deleteConversation(id, event) {
+            event.stopPropagation();
+            if (confirm('Delete this conversation?')) {
+                try {
+                    await fetch(`/api/conversations/${id}`, { method: 'DELETE' });
+                    if (currentConversationId === id) {
+                        newConversation();
+                    }
+                    loadConversations();
+                } catch (error) {
+                    console.error('Error deleting conversation:', error);
+                }
+            }
+        }
+
+        // Delete all conversations
+        async function deleteAllConversations() {
+            if (confirm('Delete ALL conversations? This cannot be undone.')) {
+                try {
+                    await fetch('/api/conversations', { method: 'DELETE' });
+                    newConversation();
+                    loadConversations();
+                } catch (error) {
+                    console.error('Error deleting all conversations:', error);
+                }
+            }
+        }
+
+        // Send message using streaming
+        async function sendMessage() {
+            const input = document.getElementById('message-input');
+            const message = input.value.trim();
+
+            if (!message || isLoading) return;
+
+            // If test mode is enabled, use comparison mode
+            if (testModeEnabled) {
+                sendComparisonMessage(message);
+                return;
+            }
+
+            // Hide welcome screen
+            const welcome = document.getElementById('welcome');
+            if (welcome) welcome.remove();
+
+            // Reset response tracking
+            responseShown = false;
+
+            // Add user prompt panel
+            appendPanel('user-prompt', 'User', message);
+            input.value = '';
+            autoResize(input);
+
+            isLoading = true;
+            updateSendButton();
+            showLoading();
+
+            try {
+                const response = await fetch('/api/chat/stream', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        message: message,
+                        conversation_id: currentConversationId
+                    })
+                });
+
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+
+                    const chunk = decoder.decode(value);
+                    const lines = chunk.split('\n');
+
+                    for (const line of lines) {
+                        if (line.startsWith('data: ')) {
+                            try {
+                                const data = JSON.parse(line.slice(6));
+                                handleStreamEvent(data);
+                            } catch (e) {
+                                // Ignore parse errors
+                            }
+                        }
+                    }
+                }
+
+                // Refresh conversations list
+                loadConversations();
+            } catch (error) {
+                console.error('Error:', error);
+                removeStatus();
+                appendPanel('assistant', 'Error', 'Sorry, an error occurred. Please try again.');
+            } finally {
+                isLoading = false;
+                updateSendButton();
+                removeStatus();
+                removeLoading();
+            }
+
+            scrollToBottom();
+        }
+
+        // Track if we've shown a response panel
+        let responseShown = false;
+
+        // Send message in comparison mode (Test Mode)
+        async function sendComparisonMessage(message) {
+            const input = document.getElementById('message-input');
+
+            // Hide welcome screen
+            const welcome = document.getElementById('welcome');
+            if (welcome) welcome.remove();
+
+            // Clear input
+            input.value = '';
+            autoResize(input);
+
+            isLoading = true;
+            updateSendButton();
+
+            // Get the chat container and set it to test mode layout
+            const chatContainer = document.getElementById('chat-container');
+            chatContainer.classList.add('test-mode');
+
+            // Create comparison UI with provider-specific sources
+            const messagesContainer = document.getElementById('messages');
+            messagesContainer.innerHTML = `
+                <div class="test-mode-user-message">
+                    <div class="panel user-prompt">
+                        <div class="panel-header">User</div>
+                        <div class="panel-content"><span class="message-text">${escapeHtml(message)}</span></div>
+                    </div>
+                </div>
+                <div class="comparison-panels">
+                    <div class="comparison-panel ollama">
+                        <div class="comparison-panel-header">
+                            <div>
+                                <div class="provider-name">OLLAMA (Local)</div>
+                                <div class="model-name">Nomic Embeddings + ${escapeHtml(testModeSettings.ollamaModel)}</div>
+                            </div>
+                            <div class="latency-badges">
+                                <div class="latency-badge" id="ollama-retrieval" title="Retrieval time">R: --</div>
+                                <div class="latency-badge" id="ollama-latency" title="Generation time">G: --</div>
+                            </div>
+                        </div>
+                        <div class="comparison-panel-content" id="ollama-response">
+                            <div class="loading-spinner">Retrieving with Nomic embeddings...</div>
+                        </div>
+                        <div class="comparison-panel-sources" id="ollama-sources" style="display: none;">
+                            <div class="sources-header" onclick="toggleSources(this)">
+                                <span>Sources (Nomic)</span>
+                                <span class="toggle-icon">▼</span>
+                            </div>
+                            <div class="sources-content" id="ollama-sources-content"></div>
+                        </div>
+                    </div>
+                    <div class="comparison-panel openai">
+                        <div class="comparison-panel-header">
+                            <div>
+                                <div class="provider-name">OPENAI (Cloud)</div>
+                                <div class="model-name">OpenAI Embeddings + ${escapeHtml(testModeSettings.openaiModel)}</div>
+                            </div>
+                            <div class="latency-badges">
+                                <div class="latency-badge" id="openai-retrieval" title="Retrieval time">R: --</div>
+                                <div class="latency-badge" id="openai-latency" title="Generation time">G: --</div>
+                            </div>
+                        </div>
+                        <div class="comparison-panel-content" id="openai-response">
+                            <div class="loading-spinner">Retrieving with OpenAI embeddings...</div>
+                        </div>
+                        <div class="comparison-panel-sources" id="openai-sources" style="display: none;">
+                            <div class="sources-header" onclick="toggleSources(this)">
+                                <span>Sources (OpenAI)</span>
+                                <span class="toggle-icon">▼</span>
+                            </div>
+                            <div class="sources-content" id="openai-sources-content"></div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            try {
+                const response = await fetch('/api/chat/stream/compare', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        message: message,
+                        conversation_id: currentConversationId,
+                        ollama_model: testModeSettings.ollamaModel,
+                        openai_model: testModeSettings.openaiModel
+                    })
+                });
+
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+
+                    const chunk = decoder.decode(value);
+                    const lines = chunk.split('\n');
+
+                    for (const line of lines) {
+                        if (line.startsWith('data: ')) {
+                            try {
+                                const data = JSON.parse(line.slice(6));
+                                handleComparisonEvent(data);
+                            } catch (e) {
+                                // Ignore parse errors
+                            }
+                        }
+                    }
+                }
+
+                // Refresh conversations list
+                loadConversations();
+            } catch (error) {
+                console.error('Error:', error);
+                document.getElementById('ollama-response').innerHTML = `<div class="error-message">Connection error</div>`;
+                document.getElementById('openai-response').innerHTML = `<div class="error-message">Connection error</div>`;
+            } finally {
+                isLoading = false;
+                updateSendButton();
+            }
+        }
+
+        // Handle comparison streaming events
+        function handleComparisonEvent(data) {
+            console.log('Comparison Event:', data.type, data.provider, data);
+
+            switch (data.type) {
+                case 'init':
+                    currentConversationId = data.conversation_id;
+                    break;
+
+                case 'assistant':
+                    // Route to correct panel based on provider
+                    const responseContainer = document.getElementById(data.provider + '-response');
+                    if (responseContainer) {
+                        let responseHtml = `<div class="message-text">${escapeHtml(data.content)}</div>`;
+
+                        // Show truncation warning if context was truncated (SmolLM3 only)
+                        if (data.timing && data.timing.context_truncated && data.provider === 'ollama') {
+                            const origTokens = data.timing.original_tokens || 0;
+                            const usedTokens = data.timing.used_tokens || 0;
+                            responseHtml = `<div class="truncation-warning">Context truncated: ${origTokens} -> ${usedTokens} tokens</div>` + responseHtml;
+                        }
+
+                        responseContainer.innerHTML = responseHtml;
+                    }
+
+                    // Update timing badges if present
+                    if (data.timing) {
+                        // Update generation latency
+                        if (data.timing.latency_ms) {
+                            const latencyBadge = document.getElementById(data.provider + '-latency');
+                            if (latencyBadge) {
+                                const latency = data.timing.latency_ms;
+                                latencyBadge.textContent = 'G: ' + latency + 'ms';
+                                latencyBadge.classList.remove('fast', 'slow');
+                                if (latency < 2000) {
+                                    latencyBadge.classList.add('fast');
+                                } else if (latency > 5000) {
+                                    latencyBadge.classList.add('slow');
+                                }
+                            }
+                        }
+                        // Update retrieval latency
+                        if (data.timing.retrieval_ms !== undefined) {
+                            const retrievalBadge = document.getElementById(data.provider + '-retrieval');
+                            if (retrievalBadge) {
+                                const retrieval = data.timing.retrieval_ms;
+                                retrievalBadge.textContent = 'R: ' + retrieval + 'ms';
+                                retrievalBadge.classList.remove('fast', 'slow');
+                                if (retrieval < 500) {
+                                    retrievalBadge.classList.add('fast');
+                                } else if (retrieval > 2000) {
+                                    retrievalBadge.classList.add('slow');
+                                }
+                            }
+                        }
+                    }
+
+                    // Show provider-specific sources if present in the assistant event
+                    if (data.sources && data.sources.length > 0) {
+                        showProviderSources(data.provider, data.sources);
+                    }
+                    break;
+
+                case 'error':
+                    // Show error in the appropriate panel if provider is specified
+                    if (data.provider) {
+                        const responseContainer = document.getElementById(data.provider + '-response');
+                        if (responseContainer) {
+                            responseContainer.innerHTML = `<div class="error-message">${escapeHtml(data.content)}</div>`;
+                        }
+                        // Still show sources if available even on error
+                        if (data.sources && data.sources.length > 0) {
+                            showProviderSources(data.provider, data.sources);
+                        }
+                    }
+                    break;
+
+                case 'complete':
+                    // Handle provider-specific sources from complete event (fallback)
+                    if (data.ollama_sources && data.ollama_sources.length > 0) {
+                        showProviderSources('ollama', data.ollama_sources);
+                    }
+                    if (data.openai_sources && data.openai_sources.length > 0) {
+                        showProviderSources('openai', data.openai_sources);
+                    }
+                    break;
+            }
+
+            scrollToBottom();
+        }
+
+        // Show sources for a specific provider
+        function showProviderSources(provider, sources) {
+            const sourcesContainer = document.getElementById(provider + '-sources');
+            const sourcesContent = document.getElementById(provider + '-sources-content');
+            if (sourcesContainer && sourcesContent) {
+                sourcesContainer.style.display = 'block';
+                sourcesContent.innerHTML = sources.map(s => `
+                    <div class="source-item">
+                        <span class="type">${escapeHtml(s.type)}</span>
+                        <span class="title">${escapeHtml(s.title)}</span>
+                        ${s.preview ? `<div class="preview">${escapeHtml(s.preview)}</div>` : ''}
+                    </div>
+                `).join('');
+            }
+        }
+
+        // Handle streaming events
+        function handleStreamEvent(data) {
+            console.log('Event:', data.type, data);
+
+            switch (data.type) {
+                case 'init':
+                    currentConversationId = data.conversation_id;
+                    responseShown = false;
+                    break;
+
+                case 'status':
+                    showStatus(data.content);
+                    break;
+
+                case 'decision':
+                    removeStatus();
+                    // Show loading again if it was removed (for multi-step thinking)
+                    if (!document.getElementById('global-loading')) {
+                        showLoading();
+                    }
+                    appendPanel('decision', 'AInstein Reasoning', data.content);
+                    break;
+
+                case 'assistant':
+                    removeStatus();
+                    removeLoading();
+                    appendPanel('assistant', 'AInstein', data.content);
+                    responseShown = true;
+                    break;
+
+                case 'thinking_aloud':
+                    removeStatus();
+                    // Show loading again if needed (more thinking may come)
+                    if (!document.getElementById('global-loading')) {
+                        showLoading();
+                    }
+                    appendPanel('thinking-aloud', 'AInstein thinking out loud', data.content);
+                    break;
+
+                case 'user_prompt':
+                    // Already shown, skip
+                    break;
+
+                case 'complete':
+                    removeStatus();
+                    removeLoading();
+                    // If no assistant response was shown yet, show the final response
+                    if (!responseShown && data.response) {
+                        appendPanel('assistant', 'AInstein', data.response);
+                        responseShown = true;
+                    }
+                    // Add sources if present
+                    if (data.sources && data.sources.length > 0) {
+                        appendSources(data.sources);
+                    }
+                    break;
+
+                case 'error':
+                    removeStatus();
+                    appendPanel('assistant', 'Error', data.content);
+                    break;
+            }
+            scrollToBottom();
+        }
+
+        // Append a panel to messages
+        function appendPanel(type, title, content, sources = null, timestamp = null) {
+            const messagesContainer = document.getElementById('messages');
+            const messageId = 'msg-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
+            const displayTime = timestamp ? new Date(timestamp) : new Date();
+            const timeStr = formatDateTime(displayTime);
+
+            const panel = document.createElement('div');
+            panel.className = `panel ${type}`;
+            panel.dataset.messageId = messageId;
+
+            // Build panel HTML
+            let panelHTML = `
+                <div class="panel-header">${escapeHtml(title)}</div>
+                <div class="panel-content"><span class="message-text">${escapeHtml(content)}</span></div>
+            `;
+
+            // Add footer with actions for assistant panels, just timestamp for others
+            if (type === 'assistant') {
+                panelHTML += `
+                    <div class="panel-footer">
+                        <div class="panel-actions">
+                            <button class="panel-action-btn thumbs-up" onclick="rateMessage('${messageId}', 'up', this)" title="Good response">
+                                <svg viewBox="0 0 24 24"><path d="M2 20h2c.55 0 1-.45 1-1v-9c0-.55-.45-1-1-1H2v11zm19.83-7.12c.11-.25.17-.52.17-.8V11c0-1.1-.9-2-2-2h-5.5l.92-4.65c.05-.22.02-.46-.08-.66-.23-.45-.52-.86-.88-1.22L14 2 7.59 8.41C7.21 8.79 7 9.3 7 9.83v7.84C7 18.95 8.05 20 9.34 20h8.11c.7 0 1.36-.37 1.72-.97l2.66-6.15z"/></svg>
+                            </button>
+                            <button class="panel-action-btn thumbs-down" onclick="rateMessage('${messageId}', 'down', this)" title="Poor response">
+                                <svg viewBox="0 0 24 24"><path d="M22 4h-2c-.55 0-1 .45-1 1v9c0 .55.45 1 1 1h2V4zM2.17 11.12c-.11.25-.17.52-.17.8V13c0 1.1.9 2 2 2h5.5l-.92 4.65c-.05.22-.02.46.08.66.23.45.52.86.88 1.22L10 22l6.41-6.41c.38-.38.59-.89.59-1.42V6.34C17 5.05 15.95 4 14.66 4h-8.1c-.71 0-1.36.37-1.72.97l-2.67 6.15z"/></svg>
+                            </button>
+                            <button class="panel-action-btn copy-btn" onclick="copyMessage(this)" title="Copy to clipboard">
+                                <svg viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
+                                <span class="copy-text">Copy</span>
+                            </button>
+                        </div>
+                        <div class="panel-timestamp">${timeStr}</div>
+                    </div>
+                `;
+            } else {
+                panelHTML += `
+                    <div class="panel-footer">
+                        <div class="panel-actions">
+                            <button class="panel-action-btn copy-btn" onclick="copyMessage(this)" title="Copy to clipboard">
+                                <svg viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
+                                <span class="copy-text">Copy</span>
+                            </button>
+                        </div>
+                        <div class="panel-timestamp">${timeStr}</div>
+                    </div>
+                `;
+            }
+
+            panel.innerHTML = panelHTML;
+
+            if (sources && sources.length > 0) {
+                const sourcesDiv = createSourcesDiv(sources);
+                panel.querySelector('.panel-content').appendChild(sourcesDiv);
+            }
+
+            messagesContainer.appendChild(panel);
+            scrollToBottom();
+        }
+
+        // Format datetime for display
+        function formatDateTime(date) {
+            const now = new Date();
+            const isToday = date.toDateString() === now.toDateString();
+
+            const timeStr = date.toLocaleTimeString('en-US', {
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: false
+            });
+
+            if (isToday) {
+                return `Today ${timeStr}`;
+            }
+
+            const dateStr = date.toLocaleDateString('en-US', {
+                month: 'short',
+                day: 'numeric'
+            });
+            return `${dateStr} ${timeStr}`;
+        }
+
+        // Format relative time for conversation list (e.g., "2 min ago", "Yesterday")
+        function formatRelativeTime(timestamp) {
+            const date = new Date(timestamp);
+            const now = new Date();
+            const diffMs = now - date;
+            const diffMin = Math.floor(diffMs / 60000);
+            const diffHour = Math.floor(diffMs / 3600000);
+            const diffDay = Math.floor(diffMs / 86400000);
+
+            if (diffMin < 1) return 'Just now';
+            if (diffMin < 60) return `${diffMin} min ago`;
+            if (diffHour < 24) return `${diffHour}h ago`;
+            if (diffDay === 1) return 'Yesterday';
+            if (diffDay < 7) return `${diffDay} days ago`;
+
+            // For older, show date
+            return date.toLocaleDateString('en-US', {
+                month: 'short',
+                day: 'numeric'
+            });
+        }
+
+        // Rate a message (thumbs up/down)
+        function rateMessage(messageId, rating, button) {
+            const panel = button.closest('.panel');
+            const thumbsUp = panel.querySelector('.thumbs-up');
+            const thumbsDown = panel.querySelector('.thumbs-down');
+
+            // Toggle rating
+            if (button.classList.contains('active')) {
+                button.classList.remove('active');
+                console.log(`Rating removed for ${messageId}`);
+                // TODO: Send rating removal to backend
+            } else {
+                // Remove other rating
+                thumbsUp.classList.remove('active');
+                thumbsDown.classList.remove('active');
+                button.classList.add('active');
+                console.log(`Rating ${rating} for ${messageId}`);
+                // TODO: Send rating to backend
+            }
+        }
+
+        // Copy message content to clipboard
+        async function copyMessage(button) {
+            const panel = button.closest('.panel');
+            const messageText = panel.querySelector('.message-text');
+            const copyText = button.querySelector('.copy-text');
+
+            try {
+                await navigator.clipboard.writeText(messageText.textContent);
+                copyText.textContent = 'Copied!';
+                setTimeout(() => {
+                    copyText.textContent = 'Copy';
+                }, 2000);
+            } catch (err) {
+                console.error('Failed to copy:', err);
+                copyText.textContent = 'Failed';
+                setTimeout(() => {
+                    copyText.textContent = 'Copy';
+                }, 2000);
+            }
+        }
+
+        // Create collapsible sources div
+        function createSourcesDiv(sources, collapsed = true) {
+            const sourcesDiv = document.createElement('div');
+            sourcesDiv.className = 'sources' + (collapsed ? ' collapsed' : '');
+            sourcesDiv.innerHTML = `
+                <div class="sources-header" onclick="toggleSources(this)">
+                    <span>Sources (${sources.length})</span>
+                    <span class="toggle-icon">▼</span>
+                </div>
+                <div class="sources-content">
+                    ${sources.map(s => `
+                        <div class="source-item">
+                            <span class="type">${escapeHtml(s.type)}</span>
+                            <span class="title">${escapeHtml(s.title)}</span>
+                            ${s.preview ? `<div class="preview">${escapeHtml(s.preview)}</div>` : ''}
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+            return sourcesDiv;
+        }
+
+        // Toggle sources visibility
+        function toggleSources(header) {
+            const sourcesDiv = header.parentElement;
+            sourcesDiv.classList.toggle('collapsed');
+        }
+
+        // Append sources to the last assistant panel
+        function appendSources(sources) {
+            const panels = document.querySelectorAll('.panel.assistant');
+            if (panels.length === 0) return;
+
+            const lastPanel = panels[panels.length - 1];
+            const content = lastPanel.querySelector('.panel-content');
+
+            // Check if sources already exist
+            if (content.querySelector('.sources')) return;
+
+            const sourcesDiv = createSourcesDiv(sources);
+            content.appendChild(sourcesDiv);
+        }
+
+        // Show global loading indicator (always visible)
+        function showLoading() {
+            removeLoading();
+
+            const messagesContainer = document.getElementById('messages');
+            const loading = document.createElement('div');
+            loading.className = 'loading-indicator';
+            loading.id = 'global-loading';
+            loading.innerHTML = `
+                <div class="loading-icon"></div>
+                <div class="loading-text">
+                    <span class="loading-title">AInstein is thinking<span class="loading-dots"><span></span><span></span><span></span></span></span>
+                    <span class="loading-subtitle">Analyzing your question and searching knowledge base</span>
+                </div>
+            `;
+            messagesContainer.appendChild(loading);
+            scrollToBottom();
+        }
+
+        // Remove global loading indicator
+        function removeLoading() {
+            const loading = document.getElementById('global-loading');
+            if (loading) {
+                loading.remove();
+            }
+        }
+
+        // Show status indicator with pulsing icon (for detailed status)
+        function showStatus(text) {
+            // Update the loading subtitle if loading is showing
+            const loading = document.getElementById('global-loading');
+            if (loading) {
+                const subtitle = loading.querySelector('.loading-subtitle');
+                if (subtitle) {
+                    subtitle.textContent = text;
+                }
+            }
+
+            // Also show the detailed status indicator if thinking is enabled
+            removeStatus();
+
+            const messagesContainer = document.getElementById('messages');
+            const status = document.createElement('div');
+            status.className = 'status-indicator';
+            status.id = 'current-status';
+            status.innerHTML = `
+                <div class="thinking-icon">
+                    <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2"/>
+                        <circle cx="12" cy="12" r="3"/>
+                        <path d="M12 2v4M12 18v4M2 12h4M18 12h4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                    </svg>
+                </div>
+                <span class="text">${escapeHtml(text)}</span>
+            `;
+            messagesContainer.appendChild(status);
+            currentStatusElement = status;
+            scrollToBottom();
+        }
+
+        // Remove status indicator
+        function removeStatus() {
+            const status = document.getElementById('current-status');
+            if (status) {
+                status.remove();
+            }
+            currentStatusElement = null;
+        }
+
+        // Update send button state
+        function updateSendButton() {
+            const btn = document.getElementById('send-btn');
+            btn.disabled = isLoading;
+            // Icon button - no text change needed
+        }
+
+        // Ask suggestion
+        function askSuggestion(question) {
+            document.getElementById('message-input').value = question;
+            sendMessage();
+        }
+
+        // Handle key down
+        function handleKeyDown(event) {
+            if (event.key === 'Enter' && !event.shiftKey) {
+                event.preventDefault();
+                sendMessage();
+            }
+        }
+
+        // Auto resize textarea
+        function autoResize(textarea) {
+            textarea.style.height = 'auto';
+            textarea.style.height = Math.min(textarea.scrollHeight, 200) + 'px';
+        }
+
+        // Scroll to bottom
+        function scrollToBottom() {
+            const container = document.getElementById('chat-container');
+            container.scrollTop = container.scrollHeight;
+        }
+
+        // Escape HTML
+        function escapeHtml(text) {
+            if (!text) return '';
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // ============ LLM Settings Functions ============
+
+        // Load LLM settings from server
+        async function loadLLMSettings() {
+            try {
+                const response = await fetch('/api/settings/llm');
+                const data = await response.json();
+
+                // Update global state
+                llmSettings = data.current;
+                availableModels = data.available_models;
+
+                // Update UI
+                updateModelBadge();
+            } catch (error) {
+                console.error('Failed to load LLM settings:', error);
+            }
+        }
+
+        // Open settings modal
+        function openSettings() {
+            const modal = document.getElementById('settings-modal');
+            modal.classList.add('active');
+
+            // Set current values
+            document.getElementById('llm-provider').value = llmSettings.provider;
+            updateModelOptions();
+            document.getElementById('llm-model').value = llmSettings.model;
+        }
+
+        // Close settings modal
+        function closeSettings() {
+            const modal = document.getElementById('settings-modal');
+            modal.classList.remove('active');
+        }
+
+        // Close modal when clicking outside
+        document.addEventListener('click', (e) => {
+            const modal = document.getElementById('settings-modal');
+            if (e.target === modal) {
+                closeSettings();
+            }
+        });
+
+        // Update model dropdown based on selected provider
+        function updateModelOptions() {
+            const provider = document.getElementById('llm-provider').value;
+            const modelSelect = document.getElementById('llm-model');
+
+            // Clear existing options
+            modelSelect.innerHTML = '';
+
+            // Add options for selected provider
+            const models = availableModels[provider] || [];
+            models.forEach(model => {
+                const option = document.createElement('option');
+                option.value = model.id;
+                option.textContent = model.name;
+                modelSelect.appendChild(option);
+            });
+
+            // Select current model if it exists in the list
+            if (llmSettings.provider === provider) {
+                modelSelect.value = llmSettings.model;
+            }
+        }
+
+        // Update the current model badge in the modal
+        function updateModelBadge() {
+            const text = document.getElementById('current-model-text');
+            const models = availableModels[llmSettings.provider] || [];
+            const model = models.find(m => m.id === llmSettings.model);
+            text.textContent = model ? model.name : llmSettings.model;
+        }
+
+        // Save LLM settings
+        async function saveLLMSettings() {
+            const provider = document.getElementById('llm-provider').value;
+            const model = document.getElementById('llm-model').value;
+
+            try {
+                const response = await fetch('/api/settings/llm', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ provider, model })
+                });
+
+                if (response.ok) {
+                    llmSettings = { provider, model };
+                    updateModelBadge();
+                    closeSettings();
+                    console.log('LLM settings saved:', llmSettings);
+                } else {
+                    const error = await response.json();
+                    alert('Failed to save settings: ' + (error.detail || 'Unknown error'));
+                }
+            } catch (error) {
+                console.error('Failed to save LLM settings:', error);
+                alert('Failed to save settings. Please try again.');
+            }
+        }
+    </script>
+</body>
+</html>

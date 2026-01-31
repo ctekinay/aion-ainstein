@@ -22,7 +22,10 @@ class QueryIntent(str, Enum):
 
 
 class IntentClassifier:
-    """LLM-based intent classifier for query routing."""
+    """LLM-based intent classifier for query routing.
+
+    Supports both OpenAI and Ollama as LLM backends.
+    """
 
     INTENT_PROMPT = """Classify the user's query into one of these intents:
 - LIST: User wants to see all items or enumerate everything (e.g., "What ADRs exist?", "Show me all decisions", "List the principles")
@@ -36,18 +39,29 @@ Respond with only one word: LIST, SEARCH, SUMMARY, or COUNT"""
 
     def __init__(self):
         """Initialize the intent classifier."""
-        self._openai_client = None
+        self._llm_client = None
 
-    @property
-    def openai_client(self):
-        """Lazy-load OpenAI client."""
-        if self._openai_client is None:
+    def _get_llm_client(self):
+        """Get LLM client based on provider setting."""
+        if self._llm_client is not None:
+            return self._llm_client
+
+        if settings.llm_provider == "ollama":
+            try:
+                import httpx
+                self._llm_client = ("ollama", httpx.Client(timeout=30.0))
+                return self._llm_client
+            except ImportError:
+                logger.warning("httpx not available for Ollama")
+        else:
             try:
                 from openai import OpenAI
-                self._openai_client = OpenAI(api_key=settings.openai_api_key)
+                self._llm_client = ("openai", OpenAI(api_key=settings.openai_api_key))
+                return self._llm_client
             except ImportError:
                 logger.warning("OpenAI not available for intent classification")
-        return self._openai_client
+
+        return None
 
     def classify(self, query: str) -> QueryIntent:
         """Classify the intent of a query using LLM.
@@ -58,21 +72,38 @@ Respond with only one word: LIST, SEARCH, SUMMARY, or COUNT"""
         Returns:
             Classified QueryIntent
         """
-        if not self.openai_client:
-            # Fallback to default search if OpenAI not available
+        client_info = self._get_llm_client()
+        if not client_info:
             return QueryIntent.SEARCH
 
-        try:
-            response = self.openai_client.chat.completions.create(
-                model=settings.openai_chat_model,
-                messages=[
-                    {"role": "user", "content": self.INTENT_PROMPT.format(query=query)}
-                ],
-                max_tokens=10,
-                temperature=0,
-            )
+        provider, client = client_info
 
-            intent_str = response.choices[0].message.content.strip().upper()
+        try:
+            if provider == "ollama":
+                # Use Ollama API
+                response = client.post(
+                    f"{settings.ollama_url}/api/generate",
+                    json={
+                        "model": settings.ollama_model,
+                        "prompt": self.INTENT_PROMPT.format(query=query),
+                        "stream": False,
+                        "options": {"temperature": 0, "num_predict": 20},
+                    },
+                )
+                response.raise_for_status()
+                result = response.json()
+                intent_str = result.get("response", "").strip().upper()
+            else:
+                # Use OpenAI API
+                response = client.chat.completions.create(
+                    model=settings.openai_chat_model,
+                    messages=[
+                        {"role": "user", "content": self.INTENT_PROMPT.format(query=query)}
+                    ],
+                    max_tokens=10,
+                    temperature=0,
+                )
+                intent_str = response.choices[0].message.content.strip().upper()
 
             # Map response to intent
             intent_map = {
@@ -82,9 +113,15 @@ Respond with only one word: LIST, SEARCH, SUMMARY, or COUNT"""
                 "COUNT": QueryIntent.COUNT,
             }
 
-            intent = intent_map.get(intent_str, QueryIntent.SEARCH)
-            logger.info(f"Classified intent for '{query[:50]}...' as {intent.value}")
-            return intent
+            # Handle potential extra text in response
+            for key in intent_map:
+                if key in intent_str:
+                    intent = intent_map[key]
+                    logger.info(f"Classified intent for '{query[:50]}...' as {intent.value}")
+                    return intent
+
+            logger.info(f"Classified intent for '{query[:50]}...' as SEARCH (default)")
+            return QueryIntent.SEARCH
 
         except Exception as e:
             logger.warning(f"Intent classification failed: {e}, defaulting to SEARCH")

@@ -414,14 +414,14 @@ class ElysiaRAGSystem:
     async def _direct_query(self, question: str) -> tuple[str, list[dict]]:
         """Direct query execution bypassing Elysia tree when it fails.
 
+        Supports both OpenAI and Ollama as LLM backends.
+
         Args:
             question: The user's question
 
         Returns:
             Tuple of (response text, retrieved objects)
         """
-        from openai import OpenAI
-
         # Determine which collections to search based on the question
         question_lower = question.lower()
         all_results = []
@@ -479,24 +479,73 @@ class ElysiaRAGSystem:
                         "content": obj.properties.get("content", obj.properties.get("decision", ""))[:300],
                     })
 
-        # Generate response using OpenAI
-        openai_client = OpenAI(api_key=settings.openai_api_key)
-
+        # Build context from retrieved results
         context = "\n\n".join([
             f"[{r.get('type', 'Document')}] {r.get('title', r.get('label', 'Untitled'))}: {r.get('content', r.get('definition', ''))}"
             for r in all_results[:10]
         ])
 
+        system_prompt = "You are a helpful assistant answering questions about architecture decisions, principles, policies, and vocabulary. Base your answers on the provided context."
+        user_prompt = f"Context:\n{context}\n\nQuestion: {question}"
+
+        # Generate response based on LLM provider
+        if settings.llm_provider == "ollama":
+            response_text = await self._generate_with_ollama(system_prompt, user_prompt)
+        else:
+            response_text = await self._generate_with_openai(system_prompt, user_prompt)
+
+        return response_text, all_results
+
+    async def _generate_with_ollama(self, system_prompt: str, user_prompt: str) -> str:
+        """Generate response using Ollama API.
+
+        Args:
+            system_prompt: System instruction
+            user_prompt: User's message with context
+
+        Returns:
+            Generated response text
+        """
+        import httpx
+
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            response = await client.post(
+                f"{settings.ollama_url}/api/generate",
+                json={
+                    "model": settings.ollama_model,
+                    "prompt": f"{system_prompt}\n\n{user_prompt}",
+                    "stream": False,
+                    "options": {"num_predict": 1000},
+                },
+            )
+            response.raise_for_status()
+            result = response.json()
+            return result.get("response", "")
+
+    async def _generate_with_openai(self, system_prompt: str, user_prompt: str) -> str:
+        """Generate response using OpenAI API.
+
+        Args:
+            system_prompt: System instruction
+            user_prompt: User's message with context
+
+        Returns:
+            Generated response text
+        """
+        from openai import OpenAI
+
+        openai_client = OpenAI(api_key=settings.openai_api_key)
+
         response = openai_client.chat.completions.create(
             model=settings.openai_chat_model,
             messages=[
-                {"role": "system", "content": "You are a helpful assistant answering questions about architecture decisions, principles, policies, and vocabulary. Base your answers on the provided context."},
-                {"role": "user", "content": f"Context:\n{context}\n\nQuestion: {question}"},
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
             ],
             max_tokens=1000,
         )
 
-        return response.choices[0].message.content, all_results
+        return response.choices[0].message.content
 
     def query_sync(self, question: str) -> str:
         """Synchronous query wrapper.

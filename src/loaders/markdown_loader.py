@@ -1,4 +1,9 @@
-"""Markdown document loader for ADRs and principles."""
+"""Markdown document loader for ADRs and principles.
+
+Supports two modes:
+1. Legacy mode: Loads full documents without chunking (backward compatible)
+2. Chunked mode: Uses hierarchical, section-based chunking (recommended)
+"""
 
 import logging
 import re
@@ -9,6 +14,19 @@ from typing import Iterator, Optional
 import frontmatter
 
 from .index_metadata_loader import get_document_metadata
+
+# Import chunking module (optional, for enhanced chunking)
+try:
+    from ..chunking import (
+        ADRChunkingStrategy,
+        PrincipleChunkingStrategy,
+        ChunkingConfig,
+        Chunk,
+        ChunkedDocument,
+    )
+    CHUNKING_AVAILABLE = True
+except ImportError:
+    CHUNKING_AVAILABLE = False
 
 logger = logging.getLogger(__name__)
 
@@ -291,3 +309,171 @@ class MarkdownLoader:
             return "policy"
         else:
             return "document"
+
+    # ========== Chunked Loading Methods (New) ==========
+
+    def load_adrs_chunked(
+        self,
+        adr_path: Path,
+        config: Optional["ChunkingConfig"] = None,
+    ) -> Iterator["ChunkedDocument"]:
+        """Load ADRs with hierarchical section-based chunking.
+
+        This method creates multiple chunks per ADR:
+        - Section-level chunks (Context, Decision, Consequences)
+        - Granular chunks for large sections
+
+        Args:
+            adr_path: Path to ADR directory
+            config: Optional chunking configuration
+
+        Yields:
+            ChunkedDocument objects with hierarchical chunks
+        """
+        if not CHUNKING_AVAILABLE:
+            logger.warning("Chunking module not available. Use load_adrs() instead.")
+            return
+
+        strategy = ADRChunkingStrategy(config)
+        adr_files = sorted(adr_path.glob("*.md"))
+        logger.info(f"Loading {len(adr_files)} ADR files with chunking")
+
+        for adr_file in adr_files:
+            try:
+                content = adr_file.read_text(encoding="utf-8")
+
+                # Parse frontmatter
+                try:
+                    post = frontmatter.loads(content)
+                    body = post.content
+                except Exception:
+                    body = content
+
+                title = self._extract_title(body, adr_file)
+                index_metadata = get_document_metadata(adr_file)
+
+                chunked_doc = strategy.chunk_document(
+                    content=body,
+                    file_path=str(adr_file),
+                    title=title,
+                    metadata=index_metadata,
+                )
+
+                logger.debug(
+                    f"Chunked ADR '{title}' into {chunked_doc.total_chunks} chunks"
+                )
+                yield chunked_doc
+
+            except Exception as e:
+                logger.error(f"Error chunking ADR {adr_file}: {e}")
+                continue
+
+    def load_principles_chunked(
+        self,
+        principles_path: Path,
+        config: Optional["ChunkingConfig"] = None,
+    ) -> Iterator["ChunkedDocument"]:
+        """Load principles with hierarchical section-based chunking.
+
+        Args:
+            principles_path: Path to principles directory
+            config: Optional chunking configuration
+
+        Yields:
+            ChunkedDocument objects with hierarchical chunks
+        """
+        if not CHUNKING_AVAILABLE:
+            logger.warning("Chunking module not available. Use load_principles() instead.")
+            return
+
+        strategy = PrincipleChunkingStrategy(config)
+        principle_files = sorted(principles_path.glob("*.md"))
+        logger.info(f"Loading {len(principle_files)} principle files with chunking")
+
+        for principle_file in principle_files:
+            try:
+                content = principle_file.read_text(encoding="utf-8")
+
+                # Parse frontmatter
+                try:
+                    post = frontmatter.loads(content)
+                    body = post.content
+                except Exception:
+                    body = content
+
+                title = self._extract_title(body, principle_file)
+                index_metadata = get_document_metadata(principle_file)
+
+                chunked_doc = strategy.chunk_document(
+                    content=body,
+                    file_path=str(principle_file),
+                    title=title,
+                    metadata=index_metadata,
+                )
+
+                logger.debug(
+                    f"Chunked principle '{title}' into {chunked_doc.total_chunks} chunks"
+                )
+                yield chunked_doc
+
+            except Exception as e:
+                logger.error(f"Error chunking principle {principle_file}: {e}")
+                continue
+
+    def load_all_chunked(
+        self,
+        config: Optional["ChunkingConfig"] = None,
+    ) -> Iterator["ChunkedDocument"]:
+        """Load all markdown files with appropriate chunking strategy.
+
+        Automatically detects document type and applies the correct
+        chunking strategy (ADR or Principle).
+
+        Args:
+            config: Optional chunking configuration
+
+        Yields:
+            ChunkedDocument objects
+        """
+        if not CHUNKING_AVAILABLE:
+            logger.warning("Chunking module not available. Use load_all() instead.")
+            return
+
+        md_files = list(self.base_path.rglob("*.md"))
+        logger.info(f"Loading {len(md_files)} markdown files with chunking")
+
+        for md_file in md_files:
+            try:
+                doc_type = self._determine_doc_type(md_file)
+
+                if doc_type == "adr":
+                    strategy = ADRChunkingStrategy(config)
+                elif doc_type == "principle":
+                    strategy = PrincipleChunkingStrategy(config)
+                else:
+                    # Use principle strategy as default for other markdown
+                    strategy = PrincipleChunkingStrategy(config)
+
+                content = md_file.read_text(encoding="utf-8")
+
+                try:
+                    post = frontmatter.loads(content)
+                    body = post.content
+                except Exception:
+                    body = content
+
+                title = self._extract_title(body, md_file)
+                index_metadata = get_document_metadata(md_file)
+
+                chunked_doc = strategy.chunk_document(
+                    content=body,
+                    file_path=str(md_file),
+                    title=title,
+                    metadata=index_metadata,
+                )
+
+                yield chunked_doc
+
+            except Exception as e:
+                logger.error(f"Error chunking {md_file}: {e}")
+                continue
