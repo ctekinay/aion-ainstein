@@ -3,8 +3,14 @@
 import asyncio
 import logging
 import sys
+import warnings
 from pathlib import Path
 from typing import Optional
+
+# Suppress deprecation warnings from external dependencies
+warnings.filterwarnings("ignore", category=DeprecationWarning, module="spacy")
+warnings.filterwarnings("ignore", category=DeprecationWarning, module="websockets")
+warnings.filterwarnings("ignore", category=DeprecationWarning, module="uvicorn")
 
 import typer
 from rich.console import Console
@@ -95,30 +101,52 @@ def init(
     recreate: bool = typer.Option(
         False, "--recreate", "-r", help="Recreate collections if they exist"
     ),
+    include_openai: bool = typer.Option(
+        False, "--include-openai", "-o", help="Also create and populate OpenAI-embedded collections for comparison"
+    ),
+    batch_size: int = typer.Option(
+        20, "--batch-size", "-b", help="Batch size for Ollama/Nomic collections (smaller = slower but avoids timeout)"
+    ),
+    openai_batch_size: int = typer.Option(
+        100, "--openai-batch-size", help="Batch size for OpenAI collections (can be larger since API is fast)"
+    ),
 ):
     """Initialize Weaviate collections and ingest data."""
     console.print(Panel("Initializing AION-AINSTEIN RAG System", style="bold blue"))
 
     # Show current configuration
     console.print("\n[bold]Current Configuration:[/bold]")
-    console.print(f"  OPENAI_EMBEDDING_MODEL: {settings.openai_embedding_model}")
-    console.print(f"  OPENAI_CHAT_MODEL: {settings.openai_chat_model}")
+    console.print(f"  LLM_PROVIDER: {settings.llm_provider}")
+    if settings.llm_provider == "ollama":
+        console.print(f"  OLLAMA_MODEL: {settings.ollama_model}")
+        console.print(f"  OLLAMA_EMBEDDING_MODEL: {settings.ollama_embedding_model}")
+    else:
+        console.print(f"  OPENAI_CHAT_MODEL: {settings.openai_chat_model}")
+        console.print(f"  OPENAI_EMBEDDING_MODEL: {settings.openai_embedding_model}")
+    console.print(f"  Batch sizes: Ollama={batch_size}, OpenAI={openai_batch_size}")
+    if include_openai:
+        console.print(f"  [blue]Including OpenAI collections for comparison[/blue]")
 
     # Validate configuration before proceeding
     errors = []
-    if not settings.openai_api_key:
-        errors.append("OPENAI_API_KEY is not set in .env file")
-    if settings.openai_chat_model not in VALID_OPENAI_CHAT_MODELS:
-        errors.append(
-            f"OPENAI_CHAT_MODEL '{settings.openai_chat_model}' is not valid.\n"
-            f"    Valid models: {', '.join(VALID_OPENAI_CHAT_MODELS)}\n"
-            f"    Please update your .env file."
-        )
-    if settings.openai_embedding_model not in VALID_OPENAI_EMBEDDING_MODELS:
-        errors.append(
-            f"OPENAI_EMBEDDING_MODEL '{settings.openai_embedding_model}' is not valid.\n"
-            f"    Valid models: {', '.join(VALID_OPENAI_EMBEDDING_MODELS)}"
-        )
+
+    # OpenAI settings only required if provider is openai OR if --include-openai flag is used
+    needs_openai = settings.llm_provider == "openai" or include_openai
+
+    if needs_openai:
+        if not settings.openai_api_key:
+            errors.append("OPENAI_API_KEY is not set in .env file (required for OpenAI provider or --include-openai)")
+        if settings.openai_chat_model not in VALID_OPENAI_CHAT_MODELS:
+            errors.append(
+                f"OPENAI_CHAT_MODEL '{settings.openai_chat_model}' is not valid.\n"
+                f"    Valid models: {', '.join(VALID_OPENAI_CHAT_MODELS)}\n"
+                f"    Please update your .env file."
+            )
+        if settings.openai_embedding_model not in VALID_OPENAI_EMBEDDING_MODELS:
+            errors.append(
+                f"OPENAI_EMBEDDING_MODEL '{settings.openai_embedding_model}' is not valid.\n"
+                f"    Valid models: {', '.join(VALID_OPENAI_EMBEDDING_MODELS)}"
+            )
 
     if errors:
         console.print("\n[bold red]Configuration Errors:[/bold red]")
@@ -148,9 +176,17 @@ def init(
 
         try:
             # Run ingestion
-            progress.update(task, description="Running data ingestion...")
+            if include_openai:
+                progress.update(task, description="Running data ingestion (including OpenAI collections)...")
+            else:
+                progress.update(task, description="Running data ingestion...")
             pipeline = DataIngestionPipeline(client)
-            stats = pipeline.run_full_ingestion(recreate_collections=recreate)
+            stats = pipeline.run_full_ingestion(
+                recreate_collections=recreate,
+                batch_size=batch_size,
+                openai_batch_size=openai_batch_size,
+                include_openai=include_openai,
+            )
 
             progress.update(task, description="[green]Ingestion complete!")
 
@@ -160,12 +196,20 @@ def init(
     # Display stats
     table = Table(title="Ingestion Statistics")
     table.add_column("Collection", style="cyan")
-    table.add_column("Documents", style="green")
+    table.add_column("Documents (Local)", style="green")
+    if include_openai:
+        table.add_column("Documents (OpenAI)", style="blue")
 
-    table.add_row("Vocabulary Concepts", str(stats.get("vocabulary", 0)))
-    table.add_row("ADRs", str(stats.get("adr", 0)))
-    table.add_row("Principles", str(stats.get("principle", 0)))
-    table.add_row("Policy Documents", str(stats.get("policy", 0)))
+    if include_openai:
+        table.add_row("Vocabulary Concepts", str(stats.get("vocabulary", 0)), str(stats.get("vocabulary_openai", 0)))
+        table.add_row("ADRs", str(stats.get("adr", 0)), str(stats.get("adr_openai", 0)))
+        table.add_row("Principles", str(stats.get("principle", 0)), str(stats.get("principle_openai", 0)))
+        table.add_row("Policy Documents", str(stats.get("policy", 0)), str(stats.get("policy_openai", 0)))
+    else:
+        table.add_row("Vocabulary Concepts", str(stats.get("vocabulary", 0)))
+        table.add_row("ADRs", str(stats.get("adr", 0)))
+        table.add_row("Principles", str(stats.get("principle", 0)))
+        table.add_row("Policy Documents", str(stats.get("policy", 0)))
 
     console.print(table)
 
@@ -507,6 +551,41 @@ def start_elysia_server():
         raise typer.Exit(1)
     except Exception as e:
         console.print(f"[red]Failed to start Elysia: {e}[/red]")
+        raise typer.Exit(1)
+
+
+@app.command()
+def chat(
+    host: str = typer.Option("127.0.0.1", "--host", "-h", help="Host to bind to"),
+    port: int = typer.Option(8081, "--port", "-p", help="Port to bind to"),
+):
+    """Start the local chat web interface.
+
+    A clean, simple chat UI for AInstein - Energy System Architect Assistant.
+    Access at http://localhost:8081 after starting.
+    """
+    console.print(Panel(
+        "AInstein - Energy System Architect Assistant\n"
+        f"Starting web interface at http://{host}:{port}",
+        style="bold cyan"
+    ))
+
+    try:
+        import uvicorn
+        from .chat_ui import app as chat_app
+
+        console.print("[green]Starting server...[/green]")
+        console.print("[dim]Press Ctrl+C to stop[/dim]\n")
+
+        uvicorn.run(chat_app, host=host, port=port, log_level="info")
+
+    except ImportError as e:
+        console.print(f"[red]Import error: {e}[/red]")
+        console.print("[yellow]Make sure uvicorn is installed: pip install uvicorn[/yellow]")
+        raise typer.Exit(1)
+    except Exception as e:
+        console.print(f"[red]Failed to start chat server: {e}[/red]")
+        logger.exception("Chat server error")
         raise typer.Exit(1)
 
 
