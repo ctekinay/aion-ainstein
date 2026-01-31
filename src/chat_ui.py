@@ -522,6 +522,18 @@ def delete_conversation(conversation_id: str):
     conn.close()
 
 
+def delete_all_conversations():
+    """Delete all conversations and messages."""
+    conn = sqlite3.connect(_db_path)
+    cursor = conn.cursor()
+
+    cursor.execute("DELETE FROM messages")
+    cursor.execute("DELETE FROM conversations")
+
+    conn.commit()
+    conn.close()
+
+
 def run_elysia_query(question: str, result_queue: Queue, output_queue: Queue):
     """Run Elysia query in a thread, capturing console output via stdout/stderr redirect."""
     import sys
@@ -1180,6 +1192,13 @@ async def remove_conversation(conversation_id: str):
     """Delete a conversation."""
     delete_conversation(conversation_id)
     return {"status": "deleted"}
+
+
+@app.delete("/api/conversations")
+async def remove_all_conversations():
+    """Delete all conversations."""
+    delete_all_conversations()
+    return {"status": "all_deleted"}
 
 
 @app.get("/health")
