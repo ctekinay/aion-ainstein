@@ -19,10 +19,11 @@ def get_weaviate_client() -> WeaviateClient:
     Returns:
         Connected WeaviateClient instance
     """
-    # Prepare headers with OpenAI API key
+    # Prepare headers based on LLM provider
     headers = {}
-    if settings.openai_api_key:
+    if settings.llm_provider == "openai" and settings.openai_api_key:
         headers["X-OpenAI-Api-Key"] = settings.openai_api_key
+    # Ollama doesn't require API key headers - it uses the API endpoint configured in docker-compose
 
     if settings.weaviate_is_local:
         logger.info(f"Connecting to local Weaviate at {settings.weaviate_url}")
