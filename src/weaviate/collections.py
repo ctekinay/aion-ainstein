@@ -188,8 +188,8 @@ class CollectionManager:
         self.client.collections.create(
             name=self.VOCABULARY_COLLECTION,
             description="SKOS concepts and OWL classes from energy sector vocabularies",
-            vectorizer_config=self._get_vectorizer_config(),
-            generative_config=self._get_generative_config(),
+            vectorizer_config=self._get_ollama_vectorizer_config(),  # Always use Nomic for local
+            generative_config=self._get_ollama_generative_config(),  # Always use Ollama for local
             properties=[
                 Property(
                     name="uri",
@@ -273,8 +273,8 @@ class CollectionManager:
         self.client.collections.create(
             name=self.ADR_COLLECTION,
             description="Architectural Decision Records for Energy System Architecture",
-            vectorizer_config=self._get_vectorizer_config(),
-            generative_config=self._get_generative_config(),
+            vectorizer_config=self._get_ollama_vectorizer_config(),  # Always use Nomic for local
+            generative_config=self._get_ollama_generative_config(),  # Always use Ollama for local
             properties=[
                 Property(
                     name="file_path",
@@ -340,8 +340,8 @@ class CollectionManager:
         self.client.collections.create(
             name=self.PRINCIPLE_COLLECTION,
             description="Architecture and data governance principles",
-            vectorizer_config=self._get_vectorizer_config(),
-            generative_config=self._get_generative_config(),
+            vectorizer_config=self._get_ollama_vectorizer_config(),  # Always use Nomic for local
+            generative_config=self._get_ollama_generative_config(),  # Always use Ollama for local
             properties=[
                 Property(
                     name="file_path",
@@ -389,8 +389,8 @@ class CollectionManager:
         self.client.collections.create(
             name=self.POLICY_COLLECTION,
             description="Data governance policy documents",
-            vectorizer_config=self._get_vectorizer_config(),
-            generative_config=self._get_generative_config(),
+            vectorizer_config=self._get_ollama_vectorizer_config(),  # Always use Nomic for local
+            generative_config=self._get_ollama_generative_config(),  # Always use Ollama for local
             properties=[
                 Property(
                     name="file_path",
