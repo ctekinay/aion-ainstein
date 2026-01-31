@@ -96,11 +96,14 @@ class CollectionManager:
             return self._get_openai_vectorizer_config()
 
     def _get_ollama_vectorizer_config(self):
-        """Get Ollama/Nomic vectorizer configuration."""
-        return Configure.Vectorizer.text2vec_ollama(
-            api_endpoint=settings.ollama_docker_url,
-            model=settings.ollama_embedding_model,
-        )
+        """Get vectorizer config for local collections.
+
+        Due to Weaviate bug #8406, text2vec-ollama ignores apiEndpoint at query time.
+        Workaround: Use 'none' vectorizer and compute embeddings client-side.
+        """
+        # WORKAROUND: Disable server-side vectorization due to Weaviate bug
+        # Embeddings will be computed client-side via Ollama /api/embed
+        return Configure.Vectorizer.none()
 
     def _get_openai_vectorizer_config(self):
         """Get OpenAI vectorizer configuration."""
