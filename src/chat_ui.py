@@ -820,6 +820,22 @@ async def perform_retrieval(question: str, provider: str = "ollama") -> tuple[li
     return all_results, context, retrieval_time
 
 
+def strip_think_tags(text: str) -> str:
+    """Strip <think>...</think> tags from model output.
+
+    SmolLM3 and similar models use <think> tags for chain-of-thought reasoning.
+    These should not be shown to end users.
+    """
+    import re
+    # Remove <think>...</think> blocks (including multiline)
+    cleaned = re.sub(r'<think>.*?</think>', '', text, flags=re.DOTALL)
+    # Also remove any orphaned tags
+    cleaned = re.sub(r'</?think>', '', cleaned)
+    # Clean up extra whitespace
+    cleaned = re.sub(r'\n{3,}', '\n\n', cleaned)
+    return cleaned.strip()
+
+
 async def generate_with_ollama(system_prompt: str, user_prompt: str, model: str) -> tuple[str, dict]:
     """Generate response using Ollama API with timing and context truncation.
 
@@ -868,7 +884,9 @@ async def generate_with_ollama(system_prompt: str, user_prompt: str, model: str)
                 "used_tokens": estimate_tokens(truncated_prompt),
             }
 
-            return result.get("response", ""), timing
+            # Strip <think> tags from response
+            response_text = strip_think_tags(result.get("response", ""))
+            return response_text, timing
     except Exception as e:
         end_time = time.time()
         latency_ms = int((end_time - start_time) * 1000)
@@ -945,13 +963,31 @@ async def stream_comparison_response(
         yield f"data: {json.dumps({'type': 'status', 'content': f'Retrieved {len(ollama_results)} (local) + {len(openai_results)} (OpenAI) documents. Generating responses...'})}\n\n"
 
         # Build prompts with provider-specific contexts
-        system_prompt = "You are a helpful assistant answering questions about architecture decisions, principles, policies, and vocabulary. Base your answers on the provided context. Be concise but thorough."
+        # OpenAI system prompt - standard RAG instruction
+        openai_system_prompt = "You are a helpful assistant answering questions about architecture decisions, principles, policies, and vocabulary. Base your answers on the provided context. Be concise but thorough."
+
+        # SmolLM3 system prompt - much more explicit instructions
+        # Small models need very clear, direct instructions to follow RAG patterns
+        ollama_system_prompt = """You are an assistant that ONLY answers based on the provided context.
+
+IMPORTANT RULES:
+1. ONLY use information from the context below to answer
+2. If the context contains the answer, provide it directly with specific details
+3. If the context does NOT contain the answer, say "I don't have information about that in the provided context"
+4. Do NOT make up information or give general advice
+5. Be concise and cite specific items from the context"""
 
         # Create tasks for both LLMs with their respective contexts
         async def get_ollama_response():
             try:
-                user_prompt = f"Context:\n{ollama_context}\n\nQuestion: {question}"
-                response, timing = await generate_with_ollama(system_prompt, user_prompt, ollama_model)
+                # More structured prompt for SmolLM3
+                user_prompt = f"""CONTEXT (use ONLY this information to answer):
+{ollama_context}
+
+USER QUESTION: {question}
+
+Based on the context above, provide a direct answer:"""
+                response, timing = await generate_with_ollama(ollama_system_prompt, user_prompt, ollama_model)
                 timing["retrieval_ms"] = ollama_retrieval_time
                 return ("ollama", response, timing, None, ollama_results)
             except Exception as e:
@@ -960,7 +996,7 @@ async def stream_comparison_response(
         async def get_openai_response():
             try:
                 user_prompt = f"Context:\n{openai_context}\n\nQuestion: {question}"
-                response, timing = await generate_with_openai(system_prompt, user_prompt, openai_model)
+                response, timing = await generate_with_openai(openai_system_prompt, user_prompt, openai_model)
                 timing["retrieval_ms"] = openai_retrieval_time
                 return ("openai", response, timing, None, openai_results)
             except Exception as e:
