@@ -338,6 +338,12 @@ class CollectionManager:
                     description="Combined searchable text",
                     tokenization=Tokenization.WORD,
                 ),
+                Property(
+                    name="doc_type",
+                    data_type=DataType.TEXT,
+                    description="Document classification: content (actual ADR), index (list/overview), template",
+                    tokenization=Tokenization.FIELD,
+                ),
                 # Ownership properties from index.md
                 *self._get_ownership_properties(),
             ],
@@ -600,6 +606,12 @@ class CollectionManager:
                     data_type=DataType.TEXT,
                     description="Combined searchable text",
                     tokenization=Tokenization.WORD,
+                ),
+                Property(
+                    name="doc_type",
+                    data_type=DataType.TEXT,
+                    description="Document classification: content (actual ADR), index (list/overview), template",
+                    tokenization=Tokenization.FIELD,
                 ),
                 *self._get_ownership_properties(),
             ],

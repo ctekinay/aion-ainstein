@@ -222,6 +222,51 @@ class MarkdownLoader:
             collection_name=index_metadata.get("collection_name", ""),
         )
 
+    def _classify_adr_document(self, file_path: Path, title: str, content: str) -> str:
+        """Classify an ADR document as content, index, or template.
+
+        Args:
+            file_path: Path to the ADR file
+            title: Document title
+            content: Document content
+
+        Returns:
+            Classification: 'content', 'index', or 'template'
+        """
+        file_name = file_path.name.lower()
+        title_lower = title.lower()
+
+        # Index files: contain lists of documents, no actual decisions
+        index_patterns = ['index.md', 'readme.md', 'overview.md', '_index.md']
+        if file_name in index_patterns:
+            return 'index'
+
+        # Template files: contain placeholders, not actual content
+        template_indicators = [
+            '{short title',
+            '{problem statement}',
+            '{context}',
+            '{decision outcome}',
+            'template',
+            '[insert ',
+            '{insert ',
+        ]
+        if any(ind in title_lower or ind in content.lower() for ind in template_indicators):
+            return 'template'
+
+        # Index-like content: lists of other documents
+        index_content_indicators = [
+            'decision approval record list',
+            'energy system architecture - decision records',
+            'list of decisions',
+            'decision record list',
+        ]
+        if any(ind in title_lower for ind in index_content_indicators):
+            return 'index'
+
+        # Default: actual content document
+        return 'content'
+
     def _load_adr(self, file_path: Path) -> Optional[MarkdownDocument]:
         """Load an Architectural Decision Record.
 
@@ -235,7 +280,8 @@ class MarkdownLoader:
         if not doc:
             return None
 
-        doc.doc_type = "adr"
+        # Classify as content, index, or template
+        doc.doc_type = self._classify_adr_document(file_path, doc.title, doc.content)
 
         # Extract ADR-specific sections
         content = doc.content
@@ -258,6 +304,41 @@ class MarkdownLoader:
 
         return doc
 
+    def _classify_principle_document(self, file_path: Path, title: str, content: str) -> str:
+        """Classify a principle document as content, index, or template.
+
+        Args:
+            file_path: Path to the principle file
+            title: Document title
+            content: Document content
+
+        Returns:
+            Classification: 'content', 'index', or 'template'
+        """
+        file_name = file_path.name.lower()
+        title_lower = title.lower()
+
+        # Index files
+        index_patterns = ['index.md', 'readme.md', 'overview.md', '_index.md']
+        if file_name in index_patterns:
+            return 'index'
+
+        # Template files
+        template_indicators = [
+            'template',
+            '{title}',
+            '{description}',
+            '[insert ',
+            '{insert ',
+            'principle-template',
+            'principle-decision-template',
+        ]
+        if any(ind in file_name or ind in title_lower for ind in template_indicators):
+            return 'template'
+
+        # Default: actual content
+        return 'content'
+
     def _load_principle(self, file_path: Path) -> Optional[MarkdownDocument]:
         """Load a principle document.
 
@@ -269,7 +350,8 @@ class MarkdownLoader:
         """
         doc = self._load_file(file_path)
         if doc:
-            doc.doc_type = "principle"
+            # Classify as content, index, or template
+            doc.doc_type = self._classify_principle_document(file_path, doc.title, doc.content)
         return doc
 
     def _extract_title(self, content: str, file_path: Path) -> str:

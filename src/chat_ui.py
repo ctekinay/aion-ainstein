@@ -26,6 +26,8 @@ from fastapi.responses import HTMLResponse, FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
+from weaviate.classes.query import Filter
+
 from .config import settings
 from .weaviate.client import get_weaviate_client
 from .weaviate.embeddings import embed_text
@@ -705,6 +707,9 @@ COLLECTION_NAMES = {
 async def perform_retrieval(question: str, provider: str = "ollama") -> tuple[list[dict], str, int]:
     """Perform retrieval from Weaviate using provider-specific collections.
 
+    Uses Weaviate native filters to exclude index and template documents.
+    Relies on semantic search via embeddings rather than keyword-based routing.
+
     Args:
         question: The user's question
         provider: "ollama" for Nomic embeddings, "openai" for OpenAI embeddings
@@ -715,7 +720,6 @@ async def perform_retrieval(question: str, provider: str = "ollama") -> tuple[li
     global _weaviate_client
 
     retrieval_start = time.time()
-    question_lower = question.lower()
     all_results = []
 
     # Get collection names for this provider
@@ -730,131 +734,94 @@ async def perform_retrieval(question: str, provider: str = "ollama") -> tuple[li
         except Exception as e:
             logger.error(f"Failed to compute query embedding: {e}")
 
-    # Known index/template titles to skip
-    INDEX_TITLES = {
-        'Decision Approval Record List',
-        'Energy System Architecture - Decision Records',
-        'What conventions to use in writing ADRs?',
-        '{short title, representative of solved problem and found solution}'
-    }
+    # Weaviate filter to exclude index and template documents
+    # Only retrieve actual content documents
+    content_filter = Filter.by_property("doc_type").equal("content")
 
-    # Search relevant collections based on question keywords
-    # For Ollama provider, pass query_vector to hybrid search (workaround for text2vec-ollama bug)
-    if any(term in question_lower for term in ["adr", "decision", "architecture"]):
-        try:
-            collection = _weaviate_client.collections.get(collections["adr"])
+    # Search all document collections and let semantic search determine relevance
+    # This is the industry-standard RAG approach: embeddings handle routing, not keywords
 
-            # For "list all" type queries, fetch documents directly instead of semantic search
-            is_list_query = any(term in question_lower for term in ["list", "all", "count", "how many"])
+    # Search ADRs
+    try:
+        collection = _weaviate_client.collections.get(collections["adr"])
+        results = collection.query.hybrid(
+            query=question,
+            vector=query_vector,
+            limit=8,
+            alpha=0.5,  # Balance between keyword (BM25) and vector search
+            filters=content_filter,
+        )
+        for obj in results.objects:
+            content = obj.properties.get("full_text", "") or obj.properties.get("decision", "")
+            all_results.append({
+                "type": "ADR",
+                "title": obj.properties.get("title", ""),
+                "content": content[:800],
+                "doc_type": obj.properties.get("doc_type", ""),
+            })
+    except Exception as e:
+        logger.warning(f"Error searching {collections['adr']}: {e}")
 
-            if is_list_query:
-                # Fetch all ADRs and filter to real ones
-                results = collection.query.fetch_objects(limit=50)
-                for obj in results.objects:
-                    title = obj.properties.get("title", "")
-                    if title in INDEX_TITLES or title.startswith('{'):
-                        continue
-                    decision = obj.properties.get("decision", "")
-                    if not decision or len(decision) < 50:
-                        continue
-                    all_results.append({
-                        "type": "ADR",
-                        "title": title,
-                        "content": decision[:600],
-                    })
-            else:
-                # Regular semantic search
-                results = collection.query.hybrid(
-                    query=question, vector=query_vector, limit=10, alpha=0.5
-                )
-                for obj in results.objects:
-                    title = obj.properties.get("title", "")
-                    if title in INDEX_TITLES or title.startswith('{'):
-                        continue
-                    content = obj.properties.get("full_text", "") or obj.properties.get("decision", "")
-                    if len(content) < 100:
-                        continue
-                    all_results.append({
-                        "type": "ADR",
-                        "title": title,
-                        "content": content[:800],
-                    })
-        except Exception as e:
-            logger.warning(f"Error searching {collections['adr']}: {e}")
+    # Search Principles
+    try:
+        collection = _weaviate_client.collections.get(collections["principle"])
+        results = collection.query.hybrid(
+            query=question,
+            vector=query_vector,
+            limit=6,
+            alpha=0.5,
+            filters=content_filter,
+        )
+        for obj in results.objects:
+            content = obj.properties.get("full_text", "") or obj.properties.get("content", "")
+            all_results.append({
+                "type": "Principle",
+                "title": obj.properties.get("title", ""),
+                "content": content[:800],
+                "doc_type": obj.properties.get("doc_type", ""),
+            })
+    except Exception as e:
+        logger.warning(f"Error searching {collections['principle']}: {e}")
 
-    if any(term in question_lower for term in ["principle", "governance", "esa"]):
-        try:
-            collection = _weaviate_client.collections.get(collections["principle"])
-            results = collection.query.hybrid(
-                query=question, vector=query_vector, limit=8, alpha=0.5
-            )
-            for obj in results.objects:
-                content = obj.properties.get("full_text", "") or obj.properties.get("content", "")
-                if len(content) < 50:
-                    continue
-                all_results.append({
-                    "type": "Principle",
-                    "title": obj.properties.get("title", ""),
-                    "content": content[:800],
-                })
-        except Exception as e:
-            logger.warning(f"Error searching {collections['principle']}: {e}")
+    # Search Policies
+    try:
+        collection = _weaviate_client.collections.get(collections["policy"])
+        results = collection.query.hybrid(
+            query=question,
+            vector=query_vector,
+            limit=4,
+            alpha=0.5,
+        )
+        for obj in results.objects:
+            content = obj.properties.get("full_text", "") or obj.properties.get("content", "")
+            all_results.append({
+                "type": "Policy",
+                "title": obj.properties.get("title", ""),
+                "content": content[:800],
+            })
+    except Exception as e:
+        logger.warning(f"Error searching {collections['policy']}: {e}")
 
-    if any(term in question_lower for term in ["policy", "data governance", "compliance"]):
-        try:
-            collection = _weaviate_client.collections.get(collections["policy"])
-            results = collection.query.hybrid(
-                query=question, vector=query_vector, limit=8, alpha=0.5
-            )
-            for obj in results.objects:
-                content = obj.properties.get("full_text", "") or obj.properties.get("content", "")
-                if len(content) < 50:
-                    continue
-                all_results.append({
-                    "type": "Policy",
-                    "title": obj.properties.get("title", ""),
-                    "content": content[:800],
-                })
-        except Exception as e:
-            logger.warning(f"Error searching {collections['policy']}: {e}")
-
-    if any(term in question_lower for term in ["vocab", "concept", "definition", "cim", "iec"]):
-        try:
-            collection = _weaviate_client.collections.get(collections["vocabulary"])
-            results = collection.query.hybrid(
-                query=question, vector=query_vector, limit=5, alpha=0.6
-            )
-            for obj in results.objects:
-                all_results.append({
-                    "type": "Vocabulary",
-                    "label": obj.properties.get("pref_label", ""),
-                    "definition": obj.properties.get("definition", ""),
-                })
-        except Exception as e:
-            logger.warning(f"Error searching {collections['vocabulary']}: {e}")
-
-    # If no specific collection matched, search all
-    if not all_results:
-        for coll_type in ["adr", "principle", "policy"]:
-            try:
-                coll_name = collections[coll_type]
-                collection = _weaviate_client.collections.get(coll_name)
-                results = collection.query.hybrid(
-                    query=question, vector=query_vector, limit=5, alpha=0.5
-                )
-                for obj in results.objects:
-                    content = obj.properties.get("full_text", "") or obj.properties.get("content", "") or obj.properties.get("decision", "")
-                    if len(content) < 50:
-                        continue
-                    all_results.append({
-                        "type": coll_type.upper() if coll_type == "adr" else coll_type.title(),
-                        "title": obj.properties.get("title", ""),
-                        "content": content[:600],
-                    })
-            except Exception as e:
-                logger.warning(f"Error searching {coll_name}: {e}")
+    # Search Vocabulary
+    try:
+        collection = _weaviate_client.collections.get(collections["vocabulary"])
+        results = collection.query.hybrid(
+            query=question,
+            vector=query_vector,
+            limit=4,
+            alpha=0.6,  # Slightly favor vector for vocabulary concepts
+        )
+        for obj in results.objects:
+            all_results.append({
+                "type": "Vocabulary",
+                "label": obj.properties.get("pref_label", ""),
+                "definition": obj.properties.get("definition", ""),
+            })
+    except Exception as e:
+        logger.warning(f"Error searching {collections['vocabulary']}: {e}")
 
     # Build context from retrieved results
+    # Sort by relevance (order returned from Weaviate hybrid search)
     context = "\n\n".join([
         f"[{r.get('type', 'Document')}] {r.get('title', r.get('label', 'Untitled'))}: {r.get('content', r.get('definition', ''))}"
         for r in all_results[:10]
