@@ -730,20 +730,55 @@ async def perform_retrieval(question: str, provider: str = "ollama") -> tuple[li
         except Exception as e:
             logger.error(f"Failed to compute query embedding: {e}")
 
+    # Known index/template titles to skip
+    INDEX_TITLES = {
+        'Decision Approval Record List',
+        'Energy System Architecture - Decision Records',
+        'What conventions to use in writing ADRs?',
+        '{short title, representative of solved problem and found solution}'
+    }
+
     # Search relevant collections based on question keywords
     # For Ollama provider, pass query_vector to hybrid search (workaround for text2vec-ollama bug)
     if any(term in question_lower for term in ["adr", "decision", "architecture"]):
         try:
             collection = _weaviate_client.collections.get(collections["adr"])
-            results = collection.query.hybrid(
-                query=question, vector=query_vector, limit=5, alpha=0.6
-            )
-            for obj in results.objects:
-                all_results.append({
-                    "type": "ADR",
-                    "title": obj.properties.get("title", ""),
-                    "content": obj.properties.get("decision", "")[:500],
-                })
+
+            # For "list all" type queries, fetch documents directly instead of semantic search
+            is_list_query = any(term in question_lower for term in ["list", "all", "count", "how many"])
+
+            if is_list_query:
+                # Fetch all ADRs and filter to real ones
+                results = collection.query.fetch_objects(limit=50)
+                for obj in results.objects:
+                    title = obj.properties.get("title", "")
+                    if title in INDEX_TITLES or title.startswith('{'):
+                        continue
+                    decision = obj.properties.get("decision", "")
+                    if not decision or len(decision) < 50:
+                        continue
+                    all_results.append({
+                        "type": "ADR",
+                        "title": title,
+                        "content": decision[:600],
+                    })
+            else:
+                # Regular semantic search
+                results = collection.query.hybrid(
+                    query=question, vector=query_vector, limit=10, alpha=0.5
+                )
+                for obj in results.objects:
+                    title = obj.properties.get("title", "")
+                    if title in INDEX_TITLES or title.startswith('{'):
+                        continue
+                    content = obj.properties.get("full_text", "") or obj.properties.get("decision", "")
+                    if len(content) < 100:
+                        continue
+                    all_results.append({
+                        "type": "ADR",
+                        "title": title,
+                        "content": content[:800],
+                    })
         except Exception as e:
             logger.warning(f"Error searching {collections['adr']}: {e}")
 
@@ -751,13 +786,16 @@ async def perform_retrieval(question: str, provider: str = "ollama") -> tuple[li
         try:
             collection = _weaviate_client.collections.get(collections["principle"])
             results = collection.query.hybrid(
-                query=question, vector=query_vector, limit=5, alpha=0.6
+                query=question, vector=query_vector, limit=8, alpha=0.5
             )
             for obj in results.objects:
+                content = obj.properties.get("full_text", "") or obj.properties.get("content", "")
+                if len(content) < 50:
+                    continue
                 all_results.append({
                     "type": "Principle",
                     "title": obj.properties.get("title", ""),
-                    "content": obj.properties.get("content", "")[:500],
+                    "content": content[:800],
                 })
         except Exception as e:
             logger.warning(f"Error searching {collections['principle']}: {e}")
@@ -766,13 +804,16 @@ async def perform_retrieval(question: str, provider: str = "ollama") -> tuple[li
         try:
             collection = _weaviate_client.collections.get(collections["policy"])
             results = collection.query.hybrid(
-                query=question, vector=query_vector, limit=5, alpha=0.6
+                query=question, vector=query_vector, limit=8, alpha=0.5
             )
             for obj in results.objects:
+                content = obj.properties.get("full_text", "") or obj.properties.get("content", "")
+                if len(content) < 50:
+                    continue
                 all_results.append({
                     "type": "Policy",
                     "title": obj.properties.get("title", ""),
-                    "content": obj.properties.get("content", "")[:500],
+                    "content": content[:800],
                 })
         except Exception as e:
             logger.warning(f"Error searching {collections['policy']}: {e}")
@@ -799,13 +840,16 @@ async def perform_retrieval(question: str, provider: str = "ollama") -> tuple[li
                 coll_name = collections[coll_type]
                 collection = _weaviate_client.collections.get(coll_name)
                 results = collection.query.hybrid(
-                    query=question, vector=query_vector, limit=3, alpha=0.6
+                    query=question, vector=query_vector, limit=5, alpha=0.5
                 )
                 for obj in results.objects:
+                    content = obj.properties.get("full_text", "") or obj.properties.get("content", "") or obj.properties.get("decision", "")
+                    if len(content) < 50:
+                        continue
                     all_results.append({
                         "type": coll_type.upper() if coll_type == "adr" else coll_type.title(),
                         "title": obj.properties.get("title", ""),
-                        "content": obj.properties.get("content", obj.properties.get("decision", ""))[:300],
+                        "content": content[:600],
                     })
             except Exception as e:
                 logger.warning(f"Error searching {coll_name}: {e}")
