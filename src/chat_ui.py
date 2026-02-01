@@ -342,7 +342,7 @@ class ComparisonRequest(BaseModel):
     message: str
     conversation_id: Optional[str] = None
     ollama_model: str = "alibayram/smollm3:latest"
-    openai_model: str = "gpt-4o-mini"
+    openai_model: str = "gpt-5.2"
 
 
 class ChatResponse(BaseModel):
@@ -364,10 +364,10 @@ AVAILABLE_MODELS = {
         {"id": "alibayram/smollm3:latest", "name": "SmolLM3 (Local, 3.1B)"},
     ],
     "openai": [
-        {"id": "gpt-4o-mini", "name": "GPT-4o Mini (Fast)"},
-        {"id": "gpt-4o", "name": "GPT-4o (Best)"},
-        {"id": "gpt-4-turbo", "name": "GPT-4 Turbo"},
-        {"id": "gpt-3.5-turbo", "name": "GPT-3.5 Turbo (Fastest)"},
+        {"id": "gpt-5.2", "name": "GPT-5.2 (Latest)"},
+        {"id": "gpt-5.1", "name": "GPT-5.1"},
+        {"id": "gpt-4o-mini", "name": "GPT-4o Mini (Budget)"},
+        {"id": "gpt-4o", "name": "GPT-4o"},
     ],
 }
 

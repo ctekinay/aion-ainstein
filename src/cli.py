@@ -44,7 +44,8 @@ console = Console()
 # Valid OpenAI models supported by Weaviate
 VALID_OPENAI_CHAT_MODELS = [
     "gpt-3.5-turbo", "gpt-3.5-turbo-16k", "gpt-3.5-turbo-1106",
-    "gpt-4", "gpt-4-32k", "gpt-4-1106-preview", "gpt-4o", "gpt-4o-mini"
+    "gpt-4", "gpt-4-32k", "gpt-4-1106-preview", "gpt-4o", "gpt-4o-mini",
+    "gpt-5.1", "gpt-5.2", "gpt-5.2-chat-latest",
 ]
 VALID_OPENAI_EMBEDDING_MODELS = [
     "text-embedding-3-small", "text-embedding-3-large", "text-embedding-ada-002"
