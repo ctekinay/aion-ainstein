@@ -11,7 +11,7 @@ from weaviate.classes.data import DataObject
 from ..config import settings
 from ..loaders import RDFLoader, MarkdownLoader, DocumentLoader
 from .collections import CollectionManager
-from .embeddings import get_embeddings_batch_sync, build_searchable_text
+from .embeddings import embed_texts
 
 logger = logging.getLogger(__name__)
 
@@ -158,14 +158,16 @@ class DataIngestionPipeline:
             )
 
         count = 0
-        batch_local = []  # List of property dicts for local (with client-side embeddings)
-        batch_openai = []  # List of DataObjects for OpenAI (Weaviate computes embeddings)
+        batch_local = []
+        batch_openai = []
 
         for doc_dict in loader.load_all():
-            # Local batch: just property dicts (embeddings computed at insert time)
-            batch_local.append(doc_dict)
-
-            # OpenAI batch: DataObjects (Weaviate computes embeddings server-side)
+            batch_local.append(
+                DataObject(
+                    properties=doc_dict,
+                    uuid=str(uuid4()),
+                )
+            )
             if include_openai:
                 batch_openai.append(
                     DataObject(
@@ -175,19 +177,25 @@ class DataIngestionPipeline:
                 )
             count += 1
 
-            # Flush local batch with client-side embeddings (workaround for bug #8406)
+            # Flush local batch when it reaches the local batch size
+            # Use client-side embeddings for local (Ollama) collection
             if len(batch_local) >= batch_size_local:
-                self._insert_batch_with_embeddings(collection_local, batch_local, "vocabulary")
+                self._insert_batch_with_embeddings(
+                    collection_local, batch_local, "vocabulary", "content"
+                )
                 batch_local = []
 
-            # Flush OpenAI batch (Weaviate's text2vec-openai works fine)
+            # Flush OpenAI batch independently when it reaches the OpenAI batch size
+            # OpenAI collections use Weaviate's text2vec-openai module (works correctly)
             if include_openai and len(batch_openai) >= batch_size_openai:
                 self._insert_batch(collection_openai, batch_openai, "vocabulary_openai")
                 batch_openai = []
 
         # Insert remaining
         if batch_local:
-            self._insert_batch_with_embeddings(collection_local, batch_local, "vocabulary")
+            self._insert_batch_with_embeddings(
+                collection_local, batch_local, "vocabulary", "content"
+            )
         if include_openai and batch_openai:
             self._insert_batch(collection_openai, batch_openai, "vocabulary_openai")
 
@@ -224,14 +232,16 @@ class DataIngestionPipeline:
             )
 
         count = 0
-        batch_local = []  # List of property dicts for local (with client-side embeddings)
-        batch_openai = []  # List of DataObjects for OpenAI (Weaviate computes embeddings)
+        batch_local = []
+        batch_openai = []
 
         for doc_dict in loader.load_adrs(adr_path):
-            # Local batch: just property dicts (embeddings computed at insert time)
-            batch_local.append(doc_dict)
-
-            # OpenAI batch: DataObjects (Weaviate computes embeddings server-side)
+            batch_local.append(
+                DataObject(
+                    properties=doc_dict,
+                    uuid=str(uuid4()),
+                )
+            )
             if include_openai:
                 batch_openai.append(
                     DataObject(
@@ -241,19 +251,25 @@ class DataIngestionPipeline:
                 )
             count += 1
 
-            # Flush local batch with client-side embeddings (workaround for bug #8406)
+            # Flush local batch when it reaches the local batch size
+            # Use client-side embeddings for local (Ollama) collection
             if len(batch_local) >= batch_size_local:
-                self._insert_batch_with_embeddings(collection_local, batch_local, "adr")
+                self._insert_batch_with_embeddings(
+                    collection_local, batch_local, "adr", "full_text"
+                )
                 batch_local = []
 
-            # Flush OpenAI batch (Weaviate's text2vec-openai works fine)
+            # Flush OpenAI batch independently when it reaches the OpenAI batch size
+            # OpenAI collections use Weaviate's text2vec-openai module (works correctly)
             if include_openai and len(batch_openai) >= batch_size_openai:
                 self._insert_batch(collection_openai, batch_openai, "adr_openai")
                 batch_openai = []
 
         # Insert remaining
         if batch_local:
-            self._insert_batch_with_embeddings(collection_local, batch_local, "adr")
+            self._insert_batch_with_embeddings(
+                collection_local, batch_local, "adr", "full_text"
+            )
         if include_openai and batch_openai:
             self._insert_batch(collection_openai, batch_openai, "adr_openai")
 
@@ -290,8 +306,8 @@ class DataIngestionPipeline:
             )
 
         count = 0
-        batch_local = []  # List of property dicts for local (with client-side embeddings)
-        batch_openai = []  # List of DataObjects for OpenAI (Weaviate computes embeddings)
+        batch_local = []
+        batch_openai = []
 
         for principles_path in paths:
             if not principles_path.exists():
@@ -301,10 +317,12 @@ class DataIngestionPipeline:
             loader = MarkdownLoader(principles_path)
 
             for doc_dict in loader.load_principles(principles_path):
-                # Local batch: just property dicts (embeddings computed at insert time)
-                batch_local.append(doc_dict)
-
-                # OpenAI batch: DataObjects (Weaviate computes embeddings server-side)
+                batch_local.append(
+                    DataObject(
+                        properties=doc_dict,
+                        uuid=str(uuid4()),
+                    )
+                )
                 if include_openai:
                     batch_openai.append(
                         DataObject(
@@ -314,19 +332,25 @@ class DataIngestionPipeline:
                     )
                 count += 1
 
-                # Flush local batch with client-side embeddings (workaround for bug #8406)
+                # Flush local batch when it reaches the local batch size
+                # Use client-side embeddings for local (Ollama) collection
                 if len(batch_local) >= batch_size_local:
-                    self._insert_batch_with_embeddings(collection_local, batch_local, "principle")
+                    self._insert_batch_with_embeddings(
+                        collection_local, batch_local, "principle", "full_text"
+                    )
                     batch_local = []
 
-                # Flush OpenAI batch (Weaviate's text2vec-openai works fine)
+                # Flush OpenAI batch independently when it reaches the OpenAI batch size
+                # OpenAI collections use Weaviate's text2vec-openai module (works correctly)
                 if include_openai and len(batch_openai) >= batch_size_openai:
                     self._insert_batch(collection_openai, batch_openai, "principle_openai")
                     batch_openai = []
 
         # Insert remaining
         if batch_local:
-            self._insert_batch_with_embeddings(collection_local, batch_local, "principle")
+            self._insert_batch_with_embeddings(
+                collection_local, batch_local, "principle", "full_text"
+            )
         if include_openai and batch_openai:
             self._insert_batch(collection_openai, batch_openai, "principle_openai")
 
@@ -363,8 +387,8 @@ class DataIngestionPipeline:
             )
 
         count = 0
-        batch_local = []  # List of property dicts for local (with client-side embeddings)
-        batch_openai = []  # List of DataObjects for OpenAI (Weaviate computes embeddings)
+        batch_local = []
+        batch_openai = []
 
         for policy_path in policy_paths:
             if not policy_path.exists():
@@ -374,10 +398,12 @@ class DataIngestionPipeline:
             loader = DocumentLoader(policy_path)
 
             for doc_dict in loader.load_all():
-                # Local batch: just property dicts (embeddings computed at insert time)
-                batch_local.append(doc_dict)
-
-                # OpenAI batch: DataObjects (Weaviate computes embeddings server-side)
+                batch_local.append(
+                    DataObject(
+                        properties=doc_dict,
+                        uuid=str(uuid4()),
+                    )
+                )
                 if include_openai:
                     batch_openai.append(
                         DataObject(
@@ -387,19 +413,25 @@ class DataIngestionPipeline:
                     )
                 count += 1
 
-                # Flush local batch with client-side embeddings (workaround for bug #8406)
+                # Flush local batch when it reaches the local batch size
+                # Use client-side embeddings for local (Ollama) collection
                 if len(batch_local) >= batch_size_local:
-                    self._insert_batch_with_embeddings(collection_local, batch_local, "policy")
+                    self._insert_batch_with_embeddings(
+                        collection_local, batch_local, "policy", "full_text"
+                    )
                     batch_local = []
 
-                # Flush OpenAI batch (Weaviate's text2vec-openai works fine)
+                # Flush OpenAI batch independently when it reaches the OpenAI batch size
+                # OpenAI collections use Weaviate's text2vec-openai module (works correctly)
                 if include_openai and len(batch_openai) >= batch_size_openai:
                     self._insert_batch(collection_openai, batch_openai, "policy_openai")
                     batch_openai = []
 
         # Insert remaining
         if batch_local:
-            self._insert_batch_with_embeddings(collection_local, batch_local, "policy")
+            self._insert_batch_with_embeddings(
+                collection_local, batch_local, "policy", "full_text"
+            )
         if include_openai and batch_openai:
             self._insert_batch(collection_openai, batch_openai, "policy_openai")
 
@@ -426,47 +458,54 @@ class DataIngestionPipeline:
             raise
 
     def _insert_batch_with_embeddings(
-        self, collection, batch: list[dict], doc_type: str
+        self,
+        collection,
+        batch: list,
+        doc_type: str,
+        text_field: str = "content",
     ) -> None:
-        """Insert a batch with client-side computed embeddings.
+        """Insert a batch with client-side generated embeddings.
 
-        Workaround for Weaviate text2vec-ollama bug (GitHub Issue #8406).
-        Computes embeddings using Ollama directly and inserts with vectors.
+        WORKAROUND for Weaviate text2vec-ollama bug (#8406).
+        Generates embeddings using Ollama API and inserts with vectors.
 
         Args:
             collection: Weaviate collection
-            batch: List of property dicts (not DataObject)
-            doc_type: Type of documents (vocabulary, adr, principle, policy)
+            batch: List of DataObject instances
+            doc_type: Type of documents for logging
+            text_field: Property name containing text to embed
         """
-        if not batch:
-            return
-
         try:
-            # Build searchable text for each object
-            texts = [build_searchable_text(obj, doc_type) for obj in batch]
+            # Extract texts for embedding
+            texts = []
+            for obj in batch:
+                text = obj.properties.get(text_field, "")
+                if not text:
+                    # Fallback: try full_text for documents
+                    text = obj.properties.get("full_text", "")
+                texts.append(text or "")
 
-            # Compute embeddings via Ollama
-            logger.debug(f"Computing {len(texts)} embeddings for {doc_type}...")
-            embeddings = get_embeddings_batch_sync(texts)
+            # Generate embeddings
+            embeddings = embed_texts(texts)
 
-            # Create DataObjects with vectors
-            data_objects = [
-                DataObject(
-                    properties=obj,
-                    uuid=str(uuid4()),
-                    vector=embedding,
+            # Create objects with vectors
+            objects_with_vectors = []
+            for obj, vector in zip(batch, embeddings):
+                objects_with_vectors.append(
+                    DataObject(
+                        properties=obj.properties,
+                        uuid=obj.uuid,
+                        vector=vector,
+                    )
                 )
-                for obj, embedding in zip(batch, embeddings)
-            ]
 
             # Insert with vectors
-            result = collection.data.insert_many(data_objects)
+            result = collection.data.insert_many(objects_with_vectors)
             if result.has_errors:
                 for error in result.errors.values():
                     logger.error(f"Batch insert error ({doc_type}): {error}")
             else:
                 logger.debug(f"Inserted batch of {len(batch)} {doc_type} objects with embeddings")
-
         except Exception as e:
             logger.error(f"Failed to insert batch with embeddings ({doc_type}): {e}")
             raise

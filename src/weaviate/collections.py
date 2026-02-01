@@ -4,7 +4,9 @@ import logging
 from typing import Optional
 
 from weaviate import WeaviateClient
-from weaviate.classes.config import Configure, Property, DataType, Tokenization
+from weaviate.classes.config import Configure, Property, DataType, Tokenization, VectorDistances
+
+from .embeddings import EMBEDDING_DIMENSION
 
 from ..config import settings
 
@@ -96,13 +98,16 @@ class CollectionManager:
             return self._get_openai_vectorizer_config()
 
     def _get_ollama_vectorizer_config(self):
-        """Get vectorizer config for local collections.
+        """Get vectorizer configuration for Ollama collections.
 
-        Due to Weaviate bug #8406, text2vec-ollama ignores apiEndpoint at query time.
-        Workaround: Use 'none' vectorizer and compute embeddings client-side.
+        WORKAROUND for Weaviate text2vec-ollama bug (#8406):
+        The module ignores apiEndpoint and always connects to localhost:11434,
+        which fails in Docker environments.
+
+        Instead, we use Vectorizer.none() and handle embeddings client-side:
+        - During ingestion: compute embeddings via Ollama API and insert with vectors
+        - During search: compute query embedding and use near_vector search
         """
-        # WORKAROUND: Disable server-side vectorization due to Weaviate bug
-        # Embeddings will be computed client-side via Ollama /api/embed
         return Configure.Vectorizer.none()
 
     def _get_openai_vectorizer_config(self):
@@ -191,8 +196,11 @@ class CollectionManager:
         self.client.collections.create(
             name=self.VOCABULARY_COLLECTION,
             description="SKOS concepts and OWL classes from energy sector vocabularies",
-            vectorizer_config=self._get_ollama_vectorizer_config(),  # Always use Nomic for local
-            generative_config=self._get_ollama_generative_config(),  # Always use Ollama for local
+            vectorizer_config=self._get_vectorizer_config(),
+            generative_config=self._get_generative_config(),
+            vector_index_config=Configure.VectorIndex.hnsw(
+                distance_metric=VectorDistances.COSINE,
+            ),
             properties=[
                 Property(
                     name="uri",
@@ -276,8 +284,11 @@ class CollectionManager:
         self.client.collections.create(
             name=self.ADR_COLLECTION,
             description="Architectural Decision Records for Energy System Architecture",
-            vectorizer_config=self._get_ollama_vectorizer_config(),  # Always use Nomic for local
-            generative_config=self._get_ollama_generative_config(),  # Always use Ollama for local
+            vectorizer_config=self._get_vectorizer_config(),
+            generative_config=self._get_generative_config(),
+            vector_index_config=Configure.VectorIndex.hnsw(
+                distance_metric=VectorDistances.COSINE,
+            ),
             properties=[
                 Property(
                     name="file_path",
@@ -343,8 +354,11 @@ class CollectionManager:
         self.client.collections.create(
             name=self.PRINCIPLE_COLLECTION,
             description="Architecture and data governance principles",
-            vectorizer_config=self._get_ollama_vectorizer_config(),  # Always use Nomic for local
-            generative_config=self._get_ollama_generative_config(),  # Always use Ollama for local
+            vectorizer_config=self._get_vectorizer_config(),
+            generative_config=self._get_generative_config(),
+            vector_index_config=Configure.VectorIndex.hnsw(
+                distance_metric=VectorDistances.COSINE,
+            ),
             properties=[
                 Property(
                     name="file_path",
@@ -392,8 +406,11 @@ class CollectionManager:
         self.client.collections.create(
             name=self.POLICY_COLLECTION,
             description="Data governance policy documents",
-            vectorizer_config=self._get_ollama_vectorizer_config(),  # Always use Nomic for local
-            generative_config=self._get_ollama_generative_config(),  # Always use Ollama for local
+            vectorizer_config=self._get_vectorizer_config(),
+            generative_config=self._get_generative_config(),
+            vector_index_config=Configure.VectorIndex.hnsw(
+                distance_metric=VectorDistances.COSINE,
+            ),
             properties=[
                 Property(
                     name="file_path",

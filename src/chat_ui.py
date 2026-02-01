@@ -28,7 +28,7 @@ from pydantic import BaseModel
 
 from .config import settings
 from .weaviate.client import get_weaviate_client
-from .weaviate.embeddings import get_embedding_async
+from .weaviate.embeddings import embed_text
 from .elysia_agents import ElysiaRAGSystem, ELYSIA_AVAILABLE
 
 logger = logging.getLogger(__name__)
@@ -702,34 +702,8 @@ COLLECTION_NAMES = {
 }
 
 
-async def _search_collection_ollama(collection, question: str, query_vector: list[float], limit: int = 5) -> list:
-    """Search collection using near_vector for Ollama (client-side embeddings).
-
-    Workaround for Weaviate text2vec-ollama bug #8406.
-    """
-    try:
-        results = collection.query.near_vector(near_vector=query_vector, limit=limit)
-        return results.objects
-    except Exception as e:
-        logger.warning(f"near_vector search error: {e}")
-        return []
-
-
-async def _search_collection_openai(collection, question: str, limit: int = 5, alpha: float = 0.6) -> list:
-    """Search collection using hybrid search for OpenAI (Weaviate computes embeddings)."""
-    try:
-        results = collection.query.hybrid(query=question, limit=limit, alpha=alpha)
-        return results.objects
-    except Exception as e:
-        logger.warning(f"hybrid search error: {e}")
-        return []
-
-
 async def perform_retrieval(question: str, provider: str = "ollama") -> tuple[list[dict], str, int]:
     """Perform retrieval from Weaviate using provider-specific collections.
-
-    For Ollama: Uses near_vector with client-side computed embeddings (workaround for bug #8406)
-    For OpenAI: Uses hybrid search (Weaviate's text2vec-openai works correctly)
 
     Args:
         question: The user's question
@@ -747,31 +721,24 @@ async def perform_retrieval(question: str, provider: str = "ollama") -> tuple[li
     # Get collection names for this provider
     collections = COLLECTION_NAMES.get(provider, COLLECTION_NAMES["ollama"])
 
-    # For Ollama: compute query embedding once (workaround for bug #8406)
+    # For Ollama provider, compute query embedding client-side
+    # WORKAROUND for Weaviate text2vec-ollama bug (#8406)
     query_vector = None
     if provider == "ollama":
         try:
-            query_vector = await get_embedding_async(question)
-            logger.debug(f"Computed query embedding: {len(query_vector)} dimensions")
+            query_vector = embed_text(question)
         except Exception as e:
             logger.error(f"Failed to compute query embedding: {e}")
-            # Fall back to empty results if embedding fails
-            retrieval_time = int((time.time() - retrieval_start) * 1000)
-            return [], "", retrieval_time
-
-    # Helper to search a collection based on provider
-    async def search_collection(coll_name: str, limit: int = 5):
-        collection = _weaviate_client.collections.get(coll_name)
-        if provider == "ollama":
-            return await _search_collection_ollama(collection, question, query_vector, limit)
-        else:
-            return await _search_collection_openai(collection, question, limit)
 
     # Search relevant collections based on question keywords
+    # For Ollama provider, pass query_vector to hybrid search (workaround for text2vec-ollama bug)
     if any(term in question_lower for term in ["adr", "decision", "architecture"]):
         try:
-            results = await search_collection(collections["adr"])
-            for obj in results:
+            collection = _weaviate_client.collections.get(collections["adr"])
+            results = collection.query.hybrid(
+                query=question, vector=query_vector, limit=5, alpha=0.6
+            )
+            for obj in results.objects:
                 all_results.append({
                     "type": "ADR",
                     "title": obj.properties.get("title", ""),
@@ -782,8 +749,11 @@ async def perform_retrieval(question: str, provider: str = "ollama") -> tuple[li
 
     if any(term in question_lower for term in ["principle", "governance", "esa"]):
         try:
-            results = await search_collection(collections["principle"])
-            for obj in results:
+            collection = _weaviate_client.collections.get(collections["principle"])
+            results = collection.query.hybrid(
+                query=question, vector=query_vector, limit=5, alpha=0.6
+            )
+            for obj in results.objects:
                 all_results.append({
                     "type": "Principle",
                     "title": obj.properties.get("title", ""),
@@ -794,8 +764,11 @@ async def perform_retrieval(question: str, provider: str = "ollama") -> tuple[li
 
     if any(term in question_lower for term in ["policy", "data governance", "compliance"]):
         try:
-            results = await search_collection(collections["policy"])
-            for obj in results:
+            collection = _weaviate_client.collections.get(collections["policy"])
+            results = collection.query.hybrid(
+                query=question, vector=query_vector, limit=5, alpha=0.6
+            )
+            for obj in results.objects:
                 all_results.append({
                     "type": "Policy",
                     "title": obj.properties.get("title", ""),
@@ -806,8 +779,11 @@ async def perform_retrieval(question: str, provider: str = "ollama") -> tuple[li
 
     if any(term in question_lower for term in ["vocab", "concept", "definition", "cim", "iec"]):
         try:
-            results = await search_collection(collections["vocabulary"])
-            for obj in results:
+            collection = _weaviate_client.collections.get(collections["vocabulary"])
+            results = collection.query.hybrid(
+                query=question, vector=query_vector, limit=5, alpha=0.6
+            )
+            for obj in results.objects:
                 all_results.append({
                     "type": "Vocabulary",
                     "label": obj.properties.get("pref_label", ""),
@@ -820,15 +796,19 @@ async def perform_retrieval(question: str, provider: str = "ollama") -> tuple[li
     if not all_results:
         for coll_type in ["adr", "principle", "policy"]:
             try:
-                results = await search_collection(collections[coll_type], limit=3)
-                for obj in results:
+                coll_name = collections[coll_type]
+                collection = _weaviate_client.collections.get(coll_name)
+                results = collection.query.hybrid(
+                    query=question, vector=query_vector, limit=3, alpha=0.6
+                )
+                for obj in results.objects:
                     all_results.append({
                         "type": coll_type.upper() if coll_type == "adr" else coll_type.title(),
                         "title": obj.properties.get("title", ""),
                         "content": obj.properties.get("content", obj.properties.get("decision", ""))[:300],
                     })
             except Exception as e:
-                logger.warning(f"Error searching {collections[coll_type]}: {e}")
+                logger.warning(f"Error searching {coll_name}: {e}")
 
     # Build context from retrieved results
     context = "\n\n".join([
