@@ -18,6 +18,7 @@ import json
 import time
 from datetime import datetime
 from pathlib import Path
+from typing import Optional
 
 # Test questions - the recommended 25 from gold standard
 TEST_QUESTIONS = [
@@ -136,6 +137,85 @@ TEST_QUESTIONS = [
 
 # Quick test subset (10 questions)
 QUICK_TEST_IDS = ["V1", "A1", "A3", "P1", "PO1", "X1", "C1", "D1", "N1", "N3"]
+
+# Faster Ollama model alternatives when default times out
+FAST_OLLAMA_MODELS = [
+    "alibayram/smollm3:latest",  # Small, fast model
+    "llama3.2:1b",               # 1B parameter model
+    "phi3:mini",                 # Microsoft's small model
+    "gemma2:2b",                 # Google's 2B model
+]
+
+
+async def check_service_health(verbose: bool = True) -> dict:
+    """Check if required services are running and accessible.
+
+    Returns dict with service status:
+    - ollama: bool (is Ollama API reachable)
+    - ollama_models: list (available models)
+    - chat_server: bool (is chat UI server reachable)
+    - weaviate: bool (is Weaviate reachable)
+    """
+    import httpx
+
+    status = {
+        "ollama": False,
+        "ollama_models": [],
+        "chat_server": False,
+        "weaviate": False,
+        "errors": []
+    }
+
+    async with httpx.AsyncClient(timeout=5.0) as client:
+        # Check Ollama
+        try:
+            resp = await client.get("http://localhost:11434/api/tags")
+            if resp.status_code == 200:
+                status["ollama"] = True
+                models = resp.json().get("models", [])
+                status["ollama_models"] = [m["name"] for m in models]
+        except Exception as e:
+            status["errors"].append(f"Ollama: {e}")
+
+        # Check Chat Server
+        try:
+            resp = await client.get("http://localhost:8081/api/settings")
+            if resp.status_code == 200:
+                status["chat_server"] = True
+        except Exception as e:
+            status["errors"].append(f"Chat Server: {e}")
+
+        # Check Weaviate
+        try:
+            resp = await client.get("http://localhost:8080/v1/.well-known/ready")
+            if resp.status_code == 200:
+                status["weaviate"] = True
+        except Exception as e:
+            status["errors"].append(f"Weaviate: {e}")
+
+    if verbose:
+        print("\n🔍 Service Health Check:")
+        print(f"  Ollama API:    {'✅' if status['ollama'] else '❌'} {'(' + str(len(status['ollama_models'])) + ' models)' if status['ollama'] else '(not running)'}")
+        print(f"  Chat Server:   {'✅' if status['chat_server'] else '❌'} {'(http://localhost:8081)' if status['chat_server'] else '(not running)'}")
+        print(f"  Weaviate:      {'✅' if status['weaviate'] else '❌'} {'(http://localhost:8080)' if status['weaviate'] else '(not running)'}")
+
+        if status["ollama_models"]:
+            print(f"\n  Available Ollama models: {', '.join(status['ollama_models'][:5])}")
+            if len(status["ollama_models"]) > 5:
+                print(f"    ... and {len(status['ollama_models']) - 5} more")
+
+    return status
+
+
+def suggest_faster_model(current_model: str, available_models: list) -> Optional[str]:
+    """Suggest a faster model if current one times out."""
+    for fast_model in FAST_OLLAMA_MODELS:
+        # Check if model or a variant is available
+        for available in available_models:
+            if fast_model.split(":")[0] in available.lower():
+                if available != current_model:
+                    return available
+    return None
 
 
 def calculate_keyword_score(response: str, expected_keywords: list) -> float:
@@ -313,7 +393,7 @@ async def run_single_test(test: dict, provider: str, debug: bool = False) -> dic
     }
 
 
-async def run_tests(provider: str = "ollama", model: str = None, quick: bool = False, debug: bool = False) -> dict:
+async def run_tests(provider: str = "ollama", model: str = None, quick: bool = False, debug: bool = False, skip_health_check: bool = False) -> dict:
     """Run all tests and generate report."""
 
     questions = TEST_QUESTIONS
@@ -323,6 +403,44 @@ async def run_tests(provider: str = "ollama", model: str = None, quick: bool = F
     print(f"\n{'='*60}")
     print(f"RAG Quality Test - {provider.upper()} Provider")
     print(f"{'='*60}")
+
+    # Health check before running tests
+    if not skip_health_check:
+        health = await check_service_health(verbose=True)
+
+        # Critical: Chat server must be running
+        if not health["chat_server"]:
+            print("\n❌ FATAL: Chat server is not running!")
+            print("   Start it with: python -m src.chat_ui")
+            return {"error": "chat_server_not_running", "results": []}
+
+        # Critical: Weaviate must be running
+        if not health["weaviate"]:
+            print("\n❌ FATAL: Weaviate is not running!")
+            print("   Start it with: docker-compose up -d")
+            return {"error": "weaviate_not_running", "results": []}
+
+        # Warning: Ollama not running but using Ollama provider
+        if provider == "ollama" and not health["ollama"]:
+            print("\n⚠️  WARNING: Ollama is not running but provider is 'ollama'!")
+            print("   Options:")
+            print("   1. Start Ollama: ollama serve")
+            print("   2. Use OpenAI: python -m src.evaluation.test_runner --openai")
+            print()
+            user_input = input("Continue anyway? [y/N]: ").strip().lower()
+            if user_input != 'y':
+                return {"error": "ollama_not_running", "results": []}
+
+        # Check if specified model exists
+        if provider == "ollama" and model and health["ollama_models"]:
+            if model not in health["ollama_models"]:
+                print(f"\n⚠️  WARNING: Model '{model}' not found in Ollama!")
+                print(f"   Available models: {', '.join(health['ollama_models'][:5])}")
+                suggestion = suggest_faster_model(model, health["ollama_models"])
+                if suggestion:
+                    print(f"   Suggested faster model: {suggestion}")
+
+    print()
 
     # Set provider via API before running tests
     if not await set_provider(provider, model):
@@ -335,9 +453,29 @@ async def run_tests(provider: str = "ollama", model: str = None, quick: bool = F
     print()
 
     results = []
+    consecutive_timeouts = 0
+    timeout_warned = False
+
     for test in questions:
         result = await run_single_test(test, provider, debug=debug)
         results.append(result)
+
+        # Track consecutive timeouts
+        if result.get("error") and "timeout" in result["error"].lower():
+            consecutive_timeouts += 1
+            if consecutive_timeouts >= 3 and not timeout_warned:
+                timeout_warned = True
+                print("\n" + "="*60)
+                print("⚠️  MULTIPLE TIMEOUTS DETECTED!")
+                print("="*60)
+                print("The current model may be too slow. Consider:")
+                print("  1. Using a faster model: --model llama3.2:1b")
+                print("  2. Using a smaller model: --model alibayram/smollm3:latest")
+                print("  3. Switching to OpenAI: --openai")
+                print("  4. Increasing server timeout in elysia_agents.py")
+                print("="*60 + "\n")
+        else:
+            consecutive_timeouts = 0  # Reset on successful query
 
     # Calculate summary statistics
     total = len(results)
@@ -440,6 +578,10 @@ def main():
                        help="Enable debug output (show raw SSE events)")
     parser.add_argument("--no-save", action="store_true",
                        help="Don't save report to file")
+    parser.add_argument("--skip-health-check", action="store_true",
+                       help="Skip service health check before tests")
+    parser.add_argument("--check-only", action="store_true",
+                       help="Only run health check, don't run tests")
 
     args = parser.parse_args()
 
@@ -449,6 +591,12 @@ def main():
     print("\n" + "="*60)
     print("  AION-AINSTEIN RAG Quality Test Runner")
     print("="*60)
+
+    # Health check only mode
+    if args.check_only:
+        asyncio.run(check_service_health(verbose=True))
+        return
+
     print(f"\nMake sure the server is running: python -m src.chat_ui")
     print(f"Provider: {provider}")
     if args.model:
@@ -458,7 +606,13 @@ def main():
         print("Debug: ENABLED")
 
     # Run tests
-    report = asyncio.run(run_tests(provider=provider, model=args.model, quick=args.quick, debug=args.debug))
+    report = asyncio.run(run_tests(
+        provider=provider,
+        model=args.model,
+        quick=args.quick,
+        debug=args.debug,
+        skip_health_check=args.skip_health_check
+    ))
 
     # Save report
     if not args.no_save:
