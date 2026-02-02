@@ -203,55 +203,42 @@ async def query_rag(question: str, provider: str = "ollama", debug: bool = False
     start_time = time.time()
 
     try:
-        # Use streaming for SSE
         async with httpx.AsyncClient(timeout=180.0) as client:
-            async with client.stream(
-                "POST",
+            # Use the non-streaming JSON endpoint (not SSE)
+            response = await client.post(
                 "http://localhost:8081/api/chat",
                 json={"message": question},
                 headers={"Content-Type": "application/json"}
-            ) as response:
-                full_response = ""
-                raw_events = []
+            )
 
-                async for line in response.aiter_lines():
-                    if debug:
-                        raw_events.append(line)
+            latency_ms = int((time.time() - start_time) * 1000)
 
-                    if line.startswith("data: "):
-                        try:
-                            data = json.loads(line[6:])
-                            event_type = data.get("type", "")
-
-                            if event_type == "assistant":
-                                full_response = data.get("content", "")
-                            elif event_type == "complete":
-                                if not full_response:
-                                    full_response = data.get("response", "")
-                            elif event_type == "error":
-                                error_msg = data.get("content", "Unknown error")
-                                if debug:
-                                    print(f"\n    [DEBUG] Error event: {error_msg}")
-                                return {
-                                    "response": "",
-                                    "latency_ms": int((time.time() - start_time) * 1000),
-                                    "error": error_msg,
-                                    "raw_events": raw_events if debug else None
-                                }
-                        except json.JSONDecodeError:
-                            continue
-
-                latency_ms = int((time.time() - start_time) * 1000)
-
-                if debug and not full_response:
-                    print(f"\n    [DEBUG] No response extracted. Raw events: {raw_events[:5]}")
-
+            if response.status_code != 200:
+                error_msg = f"HTTP {response.status_code}: {response.text[:200]}"
+                if debug:
+                    print(f"\n    [DEBUG] Error: {error_msg}")
                 return {
-                    "response": full_response,
+                    "response": "",
                     "latency_ms": latency_ms,
-                    "error": None,
-                    "raw_events": raw_events if debug else None
+                    "error": error_msg
                 }
+
+            # Parse JSON response
+            data = response.json()
+            full_response = data.get("response", "")
+
+            if debug:
+                print(f"\n    [DEBUG] Response length: {len(full_response)}")
+                print(f"    [DEBUG] Sources: {len(data.get('sources', []))}")
+                if not full_response:
+                    print(f"    [DEBUG] Full response data: {data}")
+
+            return {
+                "response": full_response,
+                "latency_ms": latency_ms,
+                "error": None,
+                "sources": data.get("sources", [])
+            }
 
     except httpx.TimeoutException:
         return {
