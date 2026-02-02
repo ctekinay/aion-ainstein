@@ -356,7 +356,7 @@
         .comparison-panel-content .message-text {
             font-size: 14px;
             line-height: 1.6;
-            white-space: pre-wrap;
+            white-space: normal;  /* Flow text normally to use full width */
             word-break: break-word;
         }
 
@@ -548,16 +548,16 @@
         .panel-content .message-text {
             width: 100%;
             display: block;
-            white-space: pre-wrap;  /* Preserve intentional line breaks but wrap text */
+            white-space: normal;  /* Flow text normally to use full width */
             word-break: break-word;
         }
 
-        /* All panels should preserve intentional newlines while wrapping long lines */
+        /* Let text flow naturally for all panel types */
         .panel.assistant .panel-content .message-text,
         .panel.user-prompt .panel-content .message-text,
         .panel.thinking-aloud .panel-content .message-text,
         .panel.decision .panel-content .message-text {
-            white-space: pre-wrap;  /* Preserve newlines, wrap long lines */
+            white-space: normal;  /* Flow text naturally, full width */
         }
 
         /* Panel footer with actions and timestamp */
@@ -1735,7 +1735,7 @@
                 <div class="test-mode-user-message">
                     <div class="panel user-prompt">
                         <div class="panel-header">User</div>
-                        <div class="panel-content"><span class="message-text">${escapeHtml(message)}</span></div>
+                        <div class="panel-content"><span class="message-text">${formatMessageText(message)}</span></div>
                     </div>
                 </div>
                 <div class="comparison-panels">
@@ -1845,7 +1845,7 @@
                     // Route to correct panel based on provider
                     const responseContainer = document.getElementById(data.provider + '-response');
                     if (responseContainer) {
-                        let responseHtml = `<div class="message-text">${escapeHtml(data.content)}</div>`;
+                        let responseHtml = `<div class="message-text">${formatMessageText(data.content)}</div>`;
 
                         // Show truncation warning if context was truncated (SmolLM3 only)
                         if (data.timing && data.timing.context_truncated && data.provider === 'ollama') {
@@ -2018,7 +2018,7 @@
             // Build panel HTML
             let panelHTML = `
                 <div class="panel-header">${escapeHtml(title)}</div>
-                <div class="panel-content"><span class="message-text">${escapeHtml(content)}</span></div>
+                <div class="panel-content"><span class="message-text">${formatMessageText(content)}</span></div>
             `;
 
             // Add footer with actions for assistant panels, just timestamp for others
@@ -2302,6 +2302,18 @@
             const div = document.createElement('div');
             div.textContent = text;
             return div.innerHTML;
+        }
+
+        // Format text for display: escape HTML and preserve paragraphs
+        function formatMessageText(text) {
+            if (!text) return '';
+            // First escape HTML
+            let escaped = escapeHtml(text);
+            // Convert double newlines (paragraph breaks) to <br><br>
+            escaped = escaped.replace(/\n\n+/g, '<br><br>');
+            // Single newlines become spaces (handled by CSS white-space: normal)
+            escaped = escaped.replace(/\n/g, ' ');
+            return escaped;
         }
 
         // ============ LLM Settings Functions ============
