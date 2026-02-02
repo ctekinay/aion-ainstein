@@ -552,8 +552,9 @@ class ElysiaRAGSystem:
             Generated response text
         """
         import httpx
+        import re
 
-        async with httpx.AsyncClient(timeout=60.0) as client:
+        async with httpx.AsyncClient(timeout=120.0) as client:
             response = await client.post(
                 f"{settings.ollama_url}/api/generate",
                 json={
@@ -565,7 +566,14 @@ class ElysiaRAGSystem:
             )
             response.raise_for_status()
             result = response.json()
-            return result.get("response", "")
+            response_text = result.get("response", "")
+
+            # Strip <think>...</think> tags from SmolLM3 responses
+            response_text = re.sub(r'<think>.*?</think>', '', response_text, flags=re.DOTALL)
+            response_text = re.sub(r'</?think>', '', response_text)
+            response_text = re.sub(r'\n{3,}', '\n\n', response_text)
+
+            return response_text.strip()
 
     async def _generate_with_openai(self, system_prompt: str, user_prompt: str) -> str:
         """Generate response using OpenAI API.

@@ -725,6 +725,15 @@ async def perform_retrieval(question: str, provider: str = "ollama") -> tuple[li
     # Get collection names for this provider
     collections = COLLECTION_NAMES.get(provider, COLLECTION_NAMES["ollama"])
 
+    # Provider-specific retrieval limits
+    # SmolLM3 has smaller context window, so retrieve fewer documents
+    if provider == "ollama":
+        adr_limit, principle_limit, policy_limit, vocab_limit = 4, 3, 2, 2
+        content_max_chars = 400  # Shorter content for smaller context
+    else:
+        adr_limit, principle_limit, policy_limit, vocab_limit = 8, 6, 4, 4
+        content_max_chars = 800
+
     # For Ollama provider, compute query embedding client-side
     # WORKAROUND for Weaviate text2vec-ollama bug (#8406)
     query_vector = None
@@ -747,7 +756,7 @@ async def perform_retrieval(question: str, provider: str = "ollama") -> tuple[li
         results = collection.query.hybrid(
             query=question,
             vector=query_vector,
-            limit=8,
+            limit=adr_limit,
             alpha=0.5,  # Balance between keyword (BM25) and vector search
             filters=content_filter,
         )
@@ -756,7 +765,7 @@ async def perform_retrieval(question: str, provider: str = "ollama") -> tuple[li
             all_results.append({
                 "type": "ADR",
                 "title": obj.properties.get("title", ""),
-                "content": content[:800],
+                "content": content[:content_max_chars],
                 "doc_type": obj.properties.get("doc_type", ""),
             })
     except Exception as e:
@@ -768,7 +777,7 @@ async def perform_retrieval(question: str, provider: str = "ollama") -> tuple[li
         results = collection.query.hybrid(
             query=question,
             vector=query_vector,
-            limit=6,
+            limit=principle_limit,
             alpha=0.5,
             filters=content_filter,
         )
@@ -777,7 +786,7 @@ async def perform_retrieval(question: str, provider: str = "ollama") -> tuple[li
             all_results.append({
                 "type": "Principle",
                 "title": obj.properties.get("title", ""),
-                "content": content[:800],
+                "content": content[:content_max_chars],
                 "doc_type": obj.properties.get("doc_type", ""),
             })
     except Exception as e:
@@ -789,7 +798,7 @@ async def perform_retrieval(question: str, provider: str = "ollama") -> tuple[li
         results = collection.query.hybrid(
             query=question,
             vector=query_vector,
-            limit=4,
+            limit=policy_limit,
             alpha=0.5,
         )
         for obj in results.objects:
@@ -797,7 +806,7 @@ async def perform_retrieval(question: str, provider: str = "ollama") -> tuple[li
             all_results.append({
                 "type": "Policy",
                 "title": obj.properties.get("title", ""),
-                "content": content[:800],
+                "content": content[:content_max_chars],
             })
     except Exception as e:
         logger.warning(f"Error searching {collections['policy']}: {e}")
@@ -808,7 +817,7 @@ async def perform_retrieval(question: str, provider: str = "ollama") -> tuple[li
         results = collection.query.hybrid(
             query=question,
             vector=query_vector,
-            limit=4,
+            limit=vocab_limit,
             alpha=0.6,  # Slightly favor vector for vocabulary concepts
         )
         for obj in results.objects:
