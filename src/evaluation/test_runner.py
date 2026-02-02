@@ -33,14 +33,35 @@ logging.getLogger("elysia").setLevel(logging.WARNING)
 
 
 @contextmanager
-def suppress_stdout():
-    """Temporarily suppress stdout (for Elysia's verbose output)."""
+def suppress_output():
+    """Suppress stdout/stderr and Rich console output for Elysia's verbose output."""
+    import os
+
+    # Save original file descriptors
     old_stdout = sys.stdout
-    sys.stdout = io.StringIO()
+    old_stderr = sys.stderr
+    old_stdout_fd = os.dup(1)
+    old_stderr_fd = os.dup(2)
+
+    # Open devnull
+    devnull = os.open(os.devnull, os.O_WRONLY)
+
     try:
+        # Redirect at both Python and OS level
+        sys.stdout = io.StringIO()
+        sys.stderr = io.StringIO()
+        os.dup2(devnull, 1)
+        os.dup2(devnull, 2)
         yield
     finally:
+        # Restore everything
+        os.dup2(old_stdout_fd, 1)
+        os.dup2(old_stderr_fd, 2)
+        os.close(old_stdout_fd)
+        os.close(old_stderr_fd)
+        os.close(devnull)
         sys.stdout = old_stdout
+        sys.stderr = old_stderr
 
 
 # Global RAG system instance
@@ -338,7 +359,7 @@ async def query_rag(question: str, debug: bool = False, verbose: bool = False) -
         if verbose:
             response, objects = await _rag_system.query(question)
         else:
-            with suppress_stdout():
+            with suppress_output():
                 response, objects = await _rag_system.query(question)
 
         latency_ms = int((time.time() - start_time) * 1000)
