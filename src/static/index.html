@@ -1985,7 +1985,7 @@
                 case 'assistant':
                     removeStatus();
                     removeLoading();
-                    appendPanel('assistant', 'AInstein', data.content);
+                    appendPanel('assistant', 'AInstein', data.content, null, null, data.timing);
                     responseShown = true;
                     break;
 
@@ -2007,7 +2007,7 @@
                     removeLoading();
                     // If no assistant response was shown yet, show the final response
                     if (!responseShown && data.response) {
-                        appendPanel('assistant', 'AInstein', data.response);
+                        appendPanel('assistant', 'AInstein', data.response, null, null, data.timing);
                         responseShown = true;
                     }
                     // Add sources if present
@@ -2025,7 +2025,7 @@
         }
 
         // Append a panel to messages
-        function appendPanel(type, title, content, sources = null, timestamp = null) {
+        function appendPanel(type, title, content, sources = null, timestamp = null, timing = null) {
             const messagesContainer = document.getElementById('messages');
             const messageId = 'msg-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
             const displayTime = timestamp ? new Date(timestamp) : new Date();
@@ -2040,6 +2040,18 @@
                 <div class="panel-header">${escapeHtml(title)}</div>
                 <div class="panel-content"><div class="message-text">${formatMessageText(content)}</div></div>
             `;
+
+            // Build timing badges HTML for assistant panels
+            let timingHtml = '';
+            if (type === 'assistant' && timing && timing.total_ms) {
+                const totalMs = timing.total_ms;
+                const totalClass = totalMs < 5000 ? 'fast' : (totalMs > 15000 ? 'slow' : '');
+                timingHtml = `
+                    <div class="latency-badges">
+                        <div class="latency-badge ${totalClass}" title="Total response time">T: ${totalMs}ms</div>
+                    </div>
+                `;
+            }
 
             // Add footer with actions for assistant panels, just timestamp for others
             if (type === 'assistant') {
@@ -2057,6 +2069,7 @@
                                 <span class="copy-text">Copy</span>
                             </button>
                         </div>
+                        ${timingHtml}
                         <div class="panel-timestamp">${timeStr}</div>
                     </div>
                 `;

@@ -469,6 +469,10 @@ def run_elysia_query(question: str, result_queue: Queue, output_queue: Queue):
     import sys
     import asyncio
     import os
+    import time
+
+    # Track timing
+    start_time = time.time()
 
     # Redirect both stdout and stderr to capture all Rich console output
     original_stdout = sys.stdout
@@ -503,12 +507,28 @@ def run_elysia_query(question: str, result_queue: Queue, output_queue: Queue):
         stdout_capture.flush()
         stderr_capture.flush()
 
-        result_queue.put({"response": response, "objects": objects, "error": None})
+        # Calculate total time
+        total_time_ms = int((time.time() - start_time) * 1000)
+
+        result_queue.put({
+            "response": response,
+            "objects": objects,
+            "error": None,
+            "timing": {
+                "total_ms": total_time_ms,
+            }
+        })
     except Exception as e:
         stdout_capture.flush()
         stderr_capture.flush()
         logger.exception("Elysia query error")
-        result_queue.put({"response": None, "objects": None, "error": str(e)})
+        total_time_ms = int((time.time() - start_time) * 1000)
+        result_queue.put({
+            "response": None,
+            "objects": None,
+            "error": str(e),
+            "timing": {"total_ms": total_time_ms}
+        })
     finally:
         # Restore original stdout/stderr
         sys.stdout = original_stdout
@@ -600,13 +620,14 @@ async def stream_elysia_response(question: str) -> AsyncGenerator[str, None]:
                 sources.append(source)
 
             final_response = result['response'] or ""
-            logger.info(f"Query complete, response length: {len(final_response)}")
+            timing = result.get('timing', {})
+            logger.info(f"Query complete, response length: {len(final_response)}, time: {timing.get('total_ms', 0)}ms")
 
             # If no events were captured, send the response as an assistant panel
             if event_count == 0 and final_response:
-                yield f"data: {json.dumps({'type': 'assistant', 'content': final_response})}\n\n"
+                yield f"data: {json.dumps({'type': 'assistant', 'content': final_response, 'timing': timing})}\n\n"
 
-            yield f"data: {json.dumps({'type': 'complete', 'response': final_response, 'sources': sources})}\n\n"
+            yield f"data: {json.dumps({'type': 'complete', 'response': final_response, 'sources': sources, 'timing': timing})}\n\n"
     except Empty:
         logger.error("Query timed out")
         yield f"data: {json.dumps({'type': 'error', 'content': 'Query timed out'})}\n\n"
