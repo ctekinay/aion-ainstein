@@ -323,7 +323,7 @@ async def init_rag_system(provider: str = "ollama", model: str = None) -> bool:
     if provider == "ollama":
         settings.ollama_model = model
     else:
-        settings.openai_model = model
+        settings.openai_chat_model = model
 
     try:
         # Initialize Weaviate client
