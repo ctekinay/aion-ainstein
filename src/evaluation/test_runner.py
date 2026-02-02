@@ -154,6 +154,7 @@ def check_no_answer(response: str) -> bool:
         "don't have information",
         "no such",
         "doesn't exist",
+        "does not exist",
         "not found",
         "no adr",
         "cannot find",
@@ -162,6 +163,17 @@ def check_no_answer(response: str) -> bool:
         "i don't know",
         "unable to find",
         "not available",
+        "does not include",
+        "cannot provide an answer",
+        "no specific",
+        "not mentioned",
+        "no mention of",
+        "outside the scope",
+        "beyond the scope",
+        "not covered",
+        "no relevant",
+        "no data about",
+        "no record of",
     ]
     response_lower = response.lower()
     return any(phrase in response_lower for phrase in no_answer_phrases)
