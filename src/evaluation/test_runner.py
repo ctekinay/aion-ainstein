@@ -3,7 +3,8 @@
 Gold Standard RAG Test Runner
 
 Runs the recommended 25 test questions against both Ollama and OpenAI
-providers and generates a quality report.
+providers and generates a quality report. Queries the RAG system directly
+without needing the chat UI server.
 
 Usage:
     python -m src.evaluation.test_runner
@@ -15,10 +16,19 @@ Usage:
 import argparse
 import asyncio
 import json
+import logging
 import time
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
+
+# Suppress verbose logging during tests
+logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("weaviate").setLevel(logging.WARNING)
+
+# Global RAG system instance
+_rag_system = None
+_weaviate_client = None
 
 # Test questions - the recommended 25 from gold standard
 TEST_QUESTIONS = [
@@ -157,7 +167,6 @@ async def check_service_health(verbose: bool = True) -> dict:
     status = {
         "ollama": False,
         "ollama_models": [],
-        "chat_server": False,
         "weaviate": False,
         "errors": []
     }
@@ -173,14 +182,6 @@ async def check_service_health(verbose: bool = True) -> dict:
         except Exception as e:
             status["errors"].append(f"Ollama: {e}")
 
-        # Check Chat Server
-        try:
-            resp = await client.get("http://localhost:8081/api/settings")
-            if resp.status_code == 200:
-                status["chat_server"] = True
-        except Exception as e:
-            status["errors"].append(f"Chat Server: {e}")
-
         # Check Weaviate
         try:
             resp = await client.get("http://localhost:8080/v1/.well-known/ready")
@@ -192,7 +193,6 @@ async def check_service_health(verbose: bool = True) -> dict:
     if verbose:
         print("\n🔍 Service Health Check:")
         print(f"  Ollama API:    {'✅' if status['ollama'] else '❌'} {'(' + str(len(status['ollama_models'])) + ' models)' if status['ollama'] else '(not running)'}")
-        print(f"  Chat Server:   {'✅' if status['chat_server'] else '❌'} {'(http://localhost:8081)' if status['chat_server'] else '(not running)'}")
         print(f"  Weaviate:      {'✅' if status['weaviate'] else '❌'} {'(http://localhost:8080)' if status['weaviate'] else '(not running)'}")
 
         if status["ollama_models"]:
@@ -255,98 +255,124 @@ def check_no_answer(response: str) -> bool:
     return any(phrase in response_lower for phrase in no_answer_phrases)
 
 
-async def set_provider(provider: str, model: str = None) -> bool:
-    """Set the LLM provider via API before running tests."""
-    import httpx
+async def init_rag_system(provider: str = "ollama", model: str = None) -> bool:
+    """Initialize the RAG system directly (no chat server needed).
+
+    Args:
+        provider: 'ollama' or 'openai'
+        model: Specific model to use, or None for default
+
+    Returns:
+        True if initialization successful
+    """
+    global _rag_system, _weaviate_client
+
+    # Import here to avoid circular imports
+    from ..config import settings
+    from ..weaviate.client import get_weaviate_client
+    from ..elysia_agents import ElysiaRAGSystem
 
     # Default models for each provider
     default_models = {
-        "ollama": "qwen3:4b",  # Faster than smollm3
-        "openai": "gpt-4o-mini"  # Cost-effective
+        "ollama": "qwen3:4b",
+        "openai": "gpt-4o-mini"
     }
 
     model = model or default_models.get(provider, "qwen3:4b")
 
+    # Set the provider in settings
+    settings.llm_provider = provider
+    if provider == "ollama":
+        settings.ollama_model = model
+    else:
+        settings.openai_model = model
+
     try:
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            response = await client.post(
-                "http://localhost:8081/api/settings/llm",
-                json={"provider": provider, "model": model}
-            )
-            if response.status_code == 200:
-                print(f"✓ Provider set to: {provider} ({model})")
-                return True
-            else:
-                print(f"✗ Failed to set provider: {response.text}")
-                return False
+        # Initialize Weaviate client
+        if not _weaviate_client:
+            _weaviate_client = get_weaviate_client()
+
+        # Initialize RAG system
+        _rag_system = ElysiaRAGSystem(_weaviate_client)
+
+        print(f"✓ RAG system initialized: {provider} ({model})")
+        return True
+
     except Exception as e:
-        print(f"✗ Error setting provider: {e}")
+        print(f"✗ Failed to initialize RAG system: {e}")
         return False
 
 
-async def query_rag(question: str, provider: str = "ollama", debug: bool = False) -> dict:
-    """Query the RAG system and return response with timing."""
-    import httpx
+async def query_rag(question: str, debug: bool = False) -> dict:
+    """Query the RAG system directly and return response with timing."""
+    global _rag_system
+
+    if not _rag_system:
+        return {
+            "response": "",
+            "latency_ms": 0,
+            "error": "RAG system not initialized"
+        }
 
     start_time = time.time()
 
     try:
-        async with httpx.AsyncClient(timeout=330.0) as client:  # Slightly longer than server's 300s
-            # Use the non-streaming JSON endpoint (not SSE)
-            response = await client.post(
-                "http://localhost:8081/api/chat",
-                json={"message": question},
-                headers={"Content-Type": "application/json"}
-            )
+        # Query RAG system directly
+        response, objects = await _rag_system.query(question)
 
-            latency_ms = int((time.time() - start_time) * 1000)
+        latency_ms = int((time.time() - start_time) * 1000)
 
-            if response.status_code != 200:
-                error_msg = f"HTTP {response.status_code}: {response.text[:200]}"
-                if debug:
-                    print(f"\n    [DEBUG] Error: {error_msg}")
-                return {
-                    "response": "",
-                    "latency_ms": latency_ms,
-                    "error": error_msg
-                }
+        # Format sources
+        sources = []
+        flat_objects = []
+        for item in (objects or []):
+            if isinstance(item, list):
+                flat_objects.extend(item)
+            elif isinstance(item, dict):
+                flat_objects.append(item)
 
-            # Parse JSON response
-            data = response.json()
-            full_response = data.get("response", "")
-
-            if debug:
-                print(f"\n    [DEBUG] Response length: {len(full_response)}")
-                print(f"    [DEBUG] Sources: {len(data.get('sources', []))}")
-                if not full_response:
-                    print(f"    [DEBUG] Full response data: {data}")
-
-            return {
-                "response": full_response,
-                "latency_ms": latency_ms,
-                "error": None,
-                "sources": data.get("sources", [])
+        for obj in flat_objects[:5]:
+            if not isinstance(obj, dict):
+                continue
+            source = {
+                "type": obj.get("type", "Document"),
+                "title": obj.get("title") or obj.get("label") or "Untitled",
             }
+            content = obj.get("content") or obj.get("definition") or obj.get("decision") or ""
+            if content:
+                source["preview"] = content[:200] + "..." if len(content) > 200 else content
+            sources.append(source)
 
-    except httpx.TimeoutException:
+        if debug:
+            print(f"\n    [DEBUG] Response length: {len(response)}")
+            print(f"    [DEBUG] Sources: {len(sources)}")
+            if not response:
+                print(f"    [DEBUG] Raw objects: {objects}")
+
         return {
-            "response": "",
-            "latency_ms": int((time.time() - start_time) * 1000),
-            "error": "Request timed out (180s)"
+            "response": response,
+            "latency_ms": latency_ms,
+            "error": None,
+            "sources": sources
         }
+
     except Exception as e:
+        latency_ms = int((time.time() - start_time) * 1000)
+        error_msg = str(e)
+        if debug:
+            print(f"\n    [DEBUG] Error: {error_msg}")
         return {
             "response": "",
-            "latency_ms": int((time.time() - start_time) * 1000),
-            "error": str(e)
+            "latency_ms": latency_ms,
+            "error": error_msg
         }
 
 
-async def run_single_test(test: dict, provider: str, debug: bool = False) -> dict:
+async def run_single_test(test: dict, debug: bool = False) -> dict:
     """Run a single test question and evaluate the result."""
     print(f"  [{test['id']}] {test['question'][:50]}...", end=" ", flush=True)
 
-    result = await query_rag(test["question"], provider, debug=debug)
+    result = await query_rag(test["question"], debug=debug)
 
     if result["error"]:
         print(f"❌ ERROR: {result['error']}")
@@ -404,12 +430,6 @@ async def run_tests(provider: str = "ollama", model: str = None, quick: bool = F
     if not skip_health_check:
         health = await check_service_health(verbose=True)
 
-        # Critical: Chat server must be running
-        if not health["chat_server"]:
-            print("\n❌ FATAL: Chat server is not running!")
-            print("   Start it with: python -m src.chat_ui")
-            return {"error": "chat_server_not_running", "results": []}
-
         # Critical: Weaviate must be running
         if not health["weaviate"]:
             print("\n❌ FATAL: Weaviate is not running!")
@@ -438,9 +458,10 @@ async def run_tests(provider: str = "ollama", model: str = None, quick: bool = F
 
     print()
 
-    # Set provider via API before running tests
-    if not await set_provider(provider, model):
-        print("WARNING: Could not set provider. Tests may use wrong provider.")
+    # Initialize RAG system directly (no chat server needed)
+    if not await init_rag_system(provider, model):
+        print("FATAL: Could not initialize RAG system.")
+        return {"error": "rag_init_failed", "results": []}
     print()
 
     print(f"Running {len(questions)} questions...")
@@ -453,7 +474,7 @@ async def run_tests(provider: str = "ollama", model: str = None, quick: bool = F
     timeout_warned = False
 
     for test in questions:
-        result = await run_single_test(test, provider, debug=debug)
+        result = await run_single_test(test, debug=debug)
         results.append(result)
 
         # Track consecutive timeouts
@@ -571,7 +592,7 @@ def main():
     parser.add_argument("--quick", "-q", action="store_true",
                        help="Run quick test (10 questions instead of 25)")
     parser.add_argument("--debug", "-d", action="store_true",
-                       help="Enable debug output (show raw SSE events)")
+                       help="Enable debug output (show response details)")
     parser.add_argument("--no-save", action="store_true",
                        help="Don't save report to file")
     parser.add_argument("--skip-health-check", action="store_true",
@@ -593,8 +614,7 @@ def main():
         asyncio.run(check_service_health(verbose=True))
         return
 
-    print(f"\nMake sure the server is running: python -m src.chat_ui")
-    print(f"Provider: {provider}")
+    print(f"\nProvider: {provider}")
     if args.model:
         print(f"Model: {args.model}")
     print(f"Mode: {'Quick (10 questions)' if args.quick else 'Full (25 questions)'}")
@@ -610,8 +630,8 @@ def main():
         skip_health_check=args.skip_health_check
     ))
 
-    # Save report
-    if not args.no_save:
+    # Save report (skip if initialization failed)
+    if not args.no_save and "error" not in report:
         save_report(report)
 
 
