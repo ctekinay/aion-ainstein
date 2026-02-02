@@ -705,7 +705,7 @@ async def perform_retrieval(question: str, provider: str = "ollama") -> tuple[li
             query=question,
             vector=query_vector,
             limit=adr_limit,
-            alpha=0.5,  # Balance between keyword (BM25) and vector search
+            alpha=settings.alpha_default,  # Configurable in config.py
             filters=content_filter,
         )
         for obj in results.objects:
@@ -726,7 +726,7 @@ async def perform_retrieval(question: str, provider: str = "ollama") -> tuple[li
             query=question,
             vector=query_vector,
             limit=principle_limit,
-            alpha=0.5,
+            alpha=settings.alpha_default,
             filters=content_filter,
         )
         for obj in results.objects:
@@ -747,7 +747,7 @@ async def perform_retrieval(question: str, provider: str = "ollama") -> tuple[li
             query=question,
             vector=query_vector,
             limit=policy_limit,
-            alpha=0.5,
+            alpha=settings.alpha_default,
         )
         for obj in results.objects:
             content = obj.properties.get("full_text", "") or obj.properties.get("content", "")
@@ -766,7 +766,7 @@ async def perform_retrieval(question: str, provider: str = "ollama") -> tuple[li
             query=question,
             vector=query_vector,
             limit=vocab_limit,
-            alpha=0.6,  # Slightly favor vector for vocabulary concepts
+            alpha=settings.alpha_vocabulary,  # Configurable in config.py
         )
         for obj in results.objects:
             all_results.append({

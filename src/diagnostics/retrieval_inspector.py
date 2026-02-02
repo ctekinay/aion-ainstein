@@ -36,13 +36,17 @@ TEST_QUESTIONS = [
 ]
 
 
-def inspect_retrieval(question: str, collection_name: str, limit: int = 10, alpha: float = 0.5):
+def inspect_retrieval(question: str, collection_name: str, limit: int = 10, alpha: float = None):
     """
     Inspect what documents are retrieved for a given question.
 
     Returns detailed information about each retrieved document including
     BM25 and vector scores.
     """
+    # Use configured default if not specified
+    if alpha is None:
+        alpha = settings.alpha_default
+
     client = get_client()
 
     # Get embedding for the question
@@ -104,7 +108,7 @@ def inspect_retrieval(question: str, collection_name: str, limit: int = 10, alph
     }
 
 
-def inspect_all_collections(question: str, alpha: float = 0.5, limit: int = 5):
+def inspect_all_collections(question: str, alpha: float = None, limit: int = 5):
     """Inspect retrieval across all collections for a question."""
     collections = [
         "Vocabulary",
@@ -244,7 +248,7 @@ def main():
     parser = argparse.ArgumentParser(description="RAG Retrieval Inspector")
     parser.add_argument("question", nargs="?", help="Question to inspect")
     parser.add_argument("--collection", "-c", help="Specific collection to query")
-    parser.add_argument("--alpha", "-a", type=float, default=0.5, help="Hybrid search alpha (0-1)")
+    parser.add_argument("--alpha", "-a", type=float, default=None, help=f"Hybrid search alpha (0-1), default from config: {settings.alpha_default}")
     parser.add_argument("--limit", "-l", type=int, default=10, help="Number of results")
     parser.add_argument("--verbose", "-v", action="store_true", help="Show detailed output")
     parser.add_argument("--compare-alpha", action="store_true", help="Compare different alpha values")

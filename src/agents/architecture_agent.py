@@ -187,7 +187,7 @@ class ArchitectureAgent(BaseAgent):
         adr_results = self.hybrid_search(
             query=question,
             limit=limit,
-            alpha=0.6,
+            alpha=settings.alpha_vocabulary,
         )
 
         # Apply status filter if provided
@@ -245,7 +245,7 @@ class ArchitectureAgent(BaseAgent):
             results = collection.query.hybrid(
                 query=query,
                 limit=limit,
-                alpha=0.6,
+                alpha=settings.alpha_vocabulary,
             )
             return [dict(obj.properties) for obj in results.objects]
         except Exception as e:
@@ -267,7 +267,7 @@ class ArchitectureAgent(BaseAgent):
         results = self.hybrid_search(
             query=formatted,
             limit=10,
-            alpha=0.2,  # Favor keyword matching
+            alpha=settings.alpha_exact_match,  # Favor keyword matching
         )
 
         for doc in results:
@@ -307,7 +307,7 @@ class ArchitectureAgent(BaseAgent):
         results = self.hybrid_search(
             query=question,
             limit=5,
-            alpha=0.7,
+            alpha=settings.alpha_semantic,
         )
 
         summary = {

@@ -7,6 +7,7 @@ from weaviate import WeaviateClient
 
 from .base import BaseAgent, AgentResponse
 from ..weaviate.collections import CollectionManager
+from ..config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -54,7 +55,7 @@ class PolicyAgent(BaseAgent):
         policy_results = self.hybrid_search(
             query=question,
             limit=limit,
-            alpha=0.5,  # Balance semantic and keyword search
+            alpha=settings.alpha_default,  # Configurable in config.py
         )
 
         # Optionally search governance principles
@@ -107,7 +108,7 @@ class PolicyAgent(BaseAgent):
             results = collection.query.hybrid(
                 query=query,
                 limit=limit,
-                alpha=0.5,
+                alpha=settings.alpha_default,
             )
 
             # Filter to governance-related principles
@@ -158,7 +159,7 @@ class PolicyAgent(BaseAgent):
         results = self.hybrid_search(
             query=topic,
             limit=3,
-            alpha=0.4,
+            alpha=settings.alpha_default,  # Close to default
         )
 
         if results:
@@ -180,7 +181,7 @@ class PolicyAgent(BaseAgent):
         results = self.hybrid_search(
             query=enhanced_query,
             limit=10,
-            alpha=0.6,
+            alpha=settings.alpha_vocabulary,
         )
 
         return results

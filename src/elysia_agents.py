@@ -70,7 +70,7 @@ class ElysiaRAGSystem:
             results = collection.query.hybrid(
                 query=query,
                 limit=limit,
-                alpha=0.6,
+                alpha=settings.alpha_vocabulary,
             )
             return [
                 {
@@ -105,7 +105,7 @@ class ElysiaRAGSystem:
             results = collection.query.hybrid(
                 query=query,
                 limit=limit,
-                alpha=0.6,
+                alpha=settings.alpha_vocabulary,
             )
             return [
                 {
@@ -140,7 +140,7 @@ class ElysiaRAGSystem:
             results = collection.query.hybrid(
                 query=query,
                 limit=limit,
-                alpha=0.6,
+                alpha=settings.alpha_vocabulary,
             )
             return [
                 {
@@ -174,7 +174,7 @@ class ElysiaRAGSystem:
             results = collection.query.hybrid(
                 query=query,
                 limit=limit,
-                alpha=0.6,
+                alpha=settings.alpha_vocabulary,
             )
             return [
                 {
@@ -275,7 +275,7 @@ class ElysiaRAGSystem:
                     adr_results = adr_collection.query.hybrid(
                         query=f"{team_name} {query}",
                         limit=limit,
-                        alpha=0.5,
+                        alpha=settings.alpha_default,
                     )
                 else:
                     adr_results = adr_collection.query.fetch_objects(
@@ -303,7 +303,7 @@ class ElysiaRAGSystem:
                     principle_results = principle_collection.query.hybrid(
                         query=f"{team_name} {query}",
                         limit=limit,
-                        alpha=0.5,
+                        alpha=settings.alpha_default,
                     )
                 else:
                     principle_results = principle_collection.query.fetch_objects(
@@ -331,7 +331,7 @@ class ElysiaRAGSystem:
                     policy_results = policy_collection.query.hybrid(
                         query=f"{team_name} {query}",
                         limit=limit,
-                        alpha=0.5,
+                        alpha=settings.alpha_default,
                     )
                 else:
                     policy_results = policy_collection.query.fetch_objects(
@@ -451,7 +451,7 @@ class ElysiaRAGSystem:
             try:
                 collection = self.client.collections.get(f"ArchitecturalDecision{suffix}")
                 results = collection.query.hybrid(
-                    query=question, vector=query_vector, limit=5, alpha=0.6, filters=content_filter
+                    query=question, vector=query_vector, limit=5, alpha=settings.alpha_vocabulary, filters=content_filter
                 )
                 for obj in results.objects:
                     all_results.append({
@@ -466,7 +466,7 @@ class ElysiaRAGSystem:
             try:
                 collection = self.client.collections.get(f"Principle{suffix}")
                 results = collection.query.hybrid(
-                    query=question, vector=query_vector, limit=5, alpha=0.6, filters=content_filter
+                    query=question, vector=query_vector, limit=5, alpha=settings.alpha_vocabulary, filters=content_filter
                 )
                 for obj in results.objects:
                     all_results.append({
@@ -481,7 +481,7 @@ class ElysiaRAGSystem:
             try:
                 collection = self.client.collections.get(f"PolicyDocument{suffix}")
                 results = collection.query.hybrid(
-                    query=question, vector=query_vector, limit=5, alpha=0.6
+                    query=question, vector=query_vector, limit=5, alpha=settings.alpha_vocabulary
                 )
                 for obj in results.objects:
                     all_results.append({
@@ -496,7 +496,7 @@ class ElysiaRAGSystem:
             try:
                 collection = self.client.collections.get(f"Vocabulary{suffix}")
                 results = collection.query.hybrid(
-                    query=question, vector=query_vector, limit=5, alpha=0.6
+                    query=question, vector=query_vector, limit=5, alpha=settings.alpha_vocabulary
                 )
                 for obj in results.objects:
                     all_results.append({
@@ -513,7 +513,7 @@ class ElysiaRAGSystem:
                 try:
                     collection = self.client.collections.get(f"{coll_base}{suffix}")
                     results = collection.query.hybrid(
-                        query=question, vector=query_vector, limit=3, alpha=0.6
+                        query=question, vector=query_vector, limit=3, alpha=settings.alpha_vocabulary
                     )
                     for obj in results.objects:
                         all_results.append({

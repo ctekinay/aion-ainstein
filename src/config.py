@@ -63,6 +63,14 @@ class Settings(BaseSettings):
     # Logging
     log_level: str = Field(default="INFO")
 
+    # Hybrid Search Alpha Configuration
+    # Alpha controls balance between keyword (BM25) and vector search
+    # 0.0 = 100% keyword, 1.0 = 100% vector, 0.5 = balanced
+    alpha_default: float = Field(default=0.5, description="Default alpha for general queries")
+    alpha_vocabulary: float = Field(default=0.6, description="Alpha for vocabulary/concept queries (favor semantic)")
+    alpha_exact_match: float = Field(default=0.3, description="Alpha for exact term matching (favor keyword)")
+    alpha_semantic: float = Field(default=0.7, description="Alpha for semantic/conceptual queries (favor vector)")
+
     @property
     def project_root(self) -> Path:
         """Get the project root directory."""
