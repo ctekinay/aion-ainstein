@@ -177,7 +177,7 @@ async def query_rag(question: str, provider: str = "ollama") -> dict:
         async with httpx.AsyncClient(timeout=120.0) as client:
             # Use the chat endpoint
             response = await client.post(
-                "http://localhost:8000/api/chat",
+                "http://localhost:8081/api/chat",
                 json={"message": question},
                 headers={"Content-Type": "application/json"}
             )

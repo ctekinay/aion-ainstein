@@ -492,7 +492,9 @@ class ElysiaRAGSystem:
             except Exception as e:
                 logger.warning(f"Error searching PolicyDocument{suffix}: {e}")
 
-        if any(term in question_lower for term in ["vocab", "concept", "definition", "cim", "iec"]):
+        # Expanded keyword matching for vocabulary - catch "what is X" type questions
+        vocab_keywords = ["vocab", "concept", "definition", "cim", "iec", "what is", "what does", "define", "meaning", "term", "standard", "archimate"]
+        if any(term in question_lower for term in vocab_keywords):
             try:
                 collection = self.client.collections.get(f"Vocabulary{suffix}")
                 results = collection.query.hybrid(
@@ -507,20 +509,27 @@ class ElysiaRAGSystem:
             except Exception as e:
                 logger.warning(f"Error searching Vocabulary{suffix}: {e}")
 
-        # If no specific collection matched, search all
+        # If no specific collection matched, search all including Vocabulary
         if not all_results:
-            for coll_base in ["ArchitecturalDecision", "Principle", "PolicyDocument"]:
+            for coll_base in ["ArchitecturalDecision", "Principle", "PolicyDocument", "Vocabulary"]:
                 try:
                     collection = self.client.collections.get(f"{coll_base}{suffix}")
                     results = collection.query.hybrid(
                         query=question, vector=query_vector, limit=3, alpha=settings.alpha_vocabulary
                     )
                     for obj in results.objects:
-                        all_results.append({
-                            "type": coll_base,
-                            "title": obj.properties.get("title", ""),
-                            "content": obj.properties.get("content", obj.properties.get("decision", ""))[:300],
-                        })
+                        if coll_base == "Vocabulary":
+                            all_results.append({
+                                "type": "Vocabulary",
+                                "label": obj.properties.get("pref_label", ""),
+                                "definition": obj.properties.get("definition", ""),
+                            })
+                        else:
+                            all_results.append({
+                                "type": coll_base,
+                                "title": obj.properties.get("title", ""),
+                                "content": obj.properties.get("content", obj.properties.get("decision", ""))[:300],
+                            })
                 except Exception as e:
                     logger.warning(f"Error searching {coll_base}{suffix}: {e}")
 
