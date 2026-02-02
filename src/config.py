@@ -38,13 +38,6 @@ class Settings(BaseSettings):
     openai_embedding_model: str = Field(default="text-embedding-3-small")
     openai_chat_model: str = Field(default="gpt-5.2")
 
-    # Retrieval Configuration (adjustable based on context window)
-    retrieval_limit_adr: int = Field(default=8)
-    retrieval_limit_principle: int = Field(default=6)
-    retrieval_limit_policy: int = Field(default=4)
-    retrieval_limit_vocab: int = Field(default=4)
-    retrieval_content_max_chars: int = Field(default=800)
-
     @property
     def chat_model(self) -> str:
         """Get the current chat model based on provider."""

@@ -544,36 +544,86 @@ class ElysiaRAGSystem:
     async def _generate_with_ollama(self, system_prompt: str, user_prompt: str) -> str:
         """Generate response using Ollama API.
 
+        SmolLM3's native context is 8K tokens. If Ollama is configured with
+        larger context (32K, 256K), performance degrades significantly.
+
         Args:
             system_prompt: System instruction
             user_prompt: User's message with context
 
         Returns:
             Generated response text
+
+        Raises:
+            Exception: With actionable error message for timeout/context issues
         """
         import httpx
         import re
+        import time
 
-        async with httpx.AsyncClient(timeout=120.0) as client:
-            response = await client.post(
-                f"{settings.ollama_url}/api/generate",
-                json={
-                    "model": settings.ollama_model,
-                    "prompt": f"{system_prompt}\n\n{user_prompt}",
-                    "stream": False,
-                    "options": {"num_predict": 1000},
-                },
+        # SmolLM3 native context limit
+        SMOLLM3_NATIVE_CONTEXT = 8000
+
+        start_time = time.time()
+        full_prompt = f"{system_prompt}\n\n{user_prompt}"
+
+        # Estimate tokens (~4 chars per token)
+        estimated_tokens = len(full_prompt) // 4
+        context_exceeds_native = estimated_tokens > SMOLLM3_NATIVE_CONTEXT
+
+        if context_exceeds_native:
+            logger.warning(
+                f"Context ({estimated_tokens} tokens) exceeds SmolLM3's native 8K limit. "
+                f"Expect slow generation if Ollama context is set to 32K/256K."
             )
-            response.raise_for_status()
-            result = response.json()
-            response_text = result.get("response", "")
 
-            # Strip <think>...</think> tags from SmolLM3 responses
-            response_text = re.sub(r'<think>.*?</think>', '', response_text, flags=re.DOTALL)
-            response_text = re.sub(r'</?think>', '', response_text)
-            response_text = re.sub(r'\n{3,}', '\n\n', response_text)
+        try:
+            async with httpx.AsyncClient(timeout=120.0) as client:
+                response = await client.post(
+                    f"{settings.ollama_url}/api/generate",
+                    json={
+                        "model": settings.ollama_model,
+                        "prompt": full_prompt,
+                        "stream": False,
+                        "options": {"num_predict": 1000},
+                    },
+                )
+                response.raise_for_status()
+                result = response.json()
+                response_text = result.get("response", "")
 
-            return response_text.strip()
+                # Strip <think>...</think> tags from SmolLM3 responses
+                response_text = re.sub(r'<think>.*?</think>', '', response_text, flags=re.DOTALL)
+                response_text = re.sub(r'</?think>', '', response_text)
+                response_text = re.sub(r'\n{3,}', '\n\n', response_text)
+
+                return response_text.strip()
+
+        except httpx.TimeoutException:
+            latency_ms = int((time.time() - start_time) * 1000)
+            error_msg = (
+                f"Ollama generation timed out after {latency_ms}ms. "
+                f"Context: {estimated_tokens} tokens (SmolLM3 native: 8K). "
+            )
+            if context_exceeds_native:
+                error_msg += (
+                    "Context exceeds SmolLM3's 8K native limit. "
+                    "Reduce Ollama's context length setting (e.g., from 256K to 8K/16K)."
+                )
+            else:
+                error_msg += (
+                    "Try reducing Ollama's context length setting for better performance."
+                )
+            raise Exception(error_msg)
+
+        except httpx.HTTPStatusError as e:
+            latency_ms = int((time.time() - start_time) * 1000)
+            if "out of memory" in str(e).lower():
+                raise Exception(
+                    f"Ollama out of memory ({latency_ms}ms). "
+                    f"Reduce Ollama's context length setting (e.g., from 256K to 32K)."
+                )
+            raise Exception(f"Ollama HTTP error after {latency_ms}ms: {str(e)}")
 
     async def _generate_with_openai(self, system_prompt: str, user_prompt: str) -> str:
         """Generate response using OpenAI API.
