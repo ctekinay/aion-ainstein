@@ -291,6 +291,7 @@ class ConversationSummary(BaseModel):
 AVAILABLE_MODELS = {
     "ollama": [
         {"id": "alibayram/smollm3:latest", "name": "SmolLM3 (Local, 3.1B)"},
+        {"id": "qwen3:4b", "name": "Qwen3 (Local, 4B)"},
     ],
     "openai": [
         {"id": "gpt-5.2", "name": "GPT-5.2 (Latest)"},

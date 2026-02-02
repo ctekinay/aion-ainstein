@@ -1437,7 +1437,10 @@
             model: 'alibayram/smollm3:latest'
         };
         let availableModels = {
-            ollama: [{ id: 'alibayram/smollm3:latest', name: 'SmolLM3 (Local, 3.1B)' }],
+            ollama: [
+                { id: 'alibayram/smollm3:latest', name: 'SmolLM3 (Local, 3.1B)' },
+                { id: 'qwen3:4b', name: 'Qwen3 (Local, 4B)' }
+            ],
             openai: [
                 { id: 'gpt-5.2', name: 'GPT-5.2 (Latest)' },
                 { id: 'gpt-5.1', name: 'GPT-5.1' },
@@ -2009,6 +2012,26 @@
                     if (!responseShown && data.response) {
                         appendPanel('assistant', 'AInstein', data.response, null, null, data.timing);
                         responseShown = true;
+                    } else if (responseShown && data.timing && data.timing.total_ms) {
+                        // Response was already shown (via Rich parser), add timing badge to last assistant panel
+                        const panels = document.querySelectorAll('.panel.assistant');
+                        if (panels.length > 0) {
+                            const lastPanel = panels[panels.length - 1];
+                            const footer = lastPanel.querySelector('.panel-footer');
+                            if (footer && !footer.querySelector('.latency-badges')) {
+                                const totalMs = data.timing.total_ms;
+                                const totalClass = totalMs < 5000 ? 'fast' : (totalMs > 15000 ? 'slow' : '');
+                                const timingHtml = `
+                                    <div class="latency-badges">
+                                        <div class="latency-badge ${totalClass}" title="Total response time">T: ${totalMs}ms</div>
+                                    </div>
+                                `;
+                                const timestamp = footer.querySelector('.panel-timestamp');
+                                if (timestamp) {
+                                    timestamp.insertAdjacentHTML('beforebegin', timingHtml);
+                                }
+                            }
+                        }
                     }
                     // Add sources if present
                     if (data.sources && data.sources.length > 0) {
@@ -2344,17 +2367,55 @@
             // First escape HTML
             let escaped = escapeHtml(text);
 
-            // Process line by line to handle lists properly
+            // Helper to check if a line is a list item
+            const isListItem = (line) => {
+                return /^(\s*)([-*•◦▸▹●○])\s+/.test(line) || /^(\s*)(\d+)\.\s+/.test(line);
+            };
+
+            // Step 1: Unwrap paragraphs - join consecutive non-list, non-empty lines
+            // Rich wraps text at ~80 chars, we need to undo that for web display
             const lines = escaped.split('\n');
-            let result = [];
-            let inList = false;
-            let listType = null; // 'ul' or 'ol'
+            const unwrappedLines = [];
+            let currentPara = [];
 
             for (let i = 0; i < lines.length; i++) {
-                let line = lines[i];
+                const line = lines[i];
+                const trimmed = line.trim();
 
-                // Check for unordered list items (- or *)
-                const ulMatch = line.match(/^(\s*)([-*])\s+(.+)$/);
+                if (trimmed === '') {
+                    // Empty line: flush current paragraph, add blank line marker
+                    if (currentPara.length > 0) {
+                        unwrappedLines.push(currentPara.join(' '));
+                        currentPara = [];
+                    }
+                    unwrappedLines.push('');
+                } else if (isListItem(line)) {
+                    // List item: flush current paragraph, add list item as-is
+                    if (currentPara.length > 0) {
+                        unwrappedLines.push(currentPara.join(' '));
+                        currentPara = [];
+                    }
+                    unwrappedLines.push(line);
+                } else {
+                    // Regular text: accumulate into current paragraph
+                    currentPara.push(trimmed);
+                }
+            }
+            // Flush remaining paragraph
+            if (currentPara.length > 0) {
+                unwrappedLines.push(currentPara.join(' '));
+            }
+
+            // Step 2: Process unwrapped lines for list formatting
+            let result = [];
+            let inList = false;
+            let listType = null;
+
+            for (let i = 0; i < unwrappedLines.length; i++) {
+                let line = unwrappedLines[i];
+
+                // Check for unordered list items (-, *, •, ◦, ▸, ▹, ●, ○)
+                const ulMatch = line.match(/^(\s*)([-*•◦▸▹●○])\s+(.+)$/);
                 // Check for ordered list items (1. 2. etc)
                 const olMatch = line.match(/^(\s*)(\d+)\.\s+(.+)$/);
 
