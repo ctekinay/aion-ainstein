@@ -2304,15 +2304,13 @@
             return div.innerHTML;
         }
 
-        // Format text for display: escape HTML and preserve paragraphs
+        // Format text for display: escape HTML and preserve all line breaks
         function formatMessageText(text) {
             if (!text) return '';
             // First escape HTML
             let escaped = escapeHtml(text);
-            // Convert double newlines (paragraph breaks) to <br><br>
-            escaped = escaped.replace(/\n\n+/g, '<br><br>');
-            // Single newlines become spaces (handled by CSS white-space: normal)
-            escaped = escaped.replace(/\n/g, ' ');
+            // Convert all newlines to <br> tags to preserve formatting (lists, etc.)
+            escaped = escaped.replace(/\n/g, '<br>');
             return escaped;
         }
 
