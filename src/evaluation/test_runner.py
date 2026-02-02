@@ -167,6 +167,35 @@ def check_no_answer(response: str) -> bool:
     return any(phrase in response_lower for phrase in no_answer_phrases)
 
 
+async def set_provider(provider: str, model: str = None) -> bool:
+    """Set the LLM provider via API before running tests."""
+    import httpx
+
+    # Default models for each provider
+    default_models = {
+        "ollama": "qwen3:4b",  # Faster than smollm3
+        "openai": "gpt-4o-mini"  # Cost-effective
+    }
+
+    model = model or default_models.get(provider, "qwen3:4b")
+
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            response = await client.post(
+                "http://localhost:8081/api/settings/llm",
+                json={"provider": provider, "model": model}
+            )
+            if response.status_code == 200:
+                print(f"✓ Provider set to: {provider} ({model})")
+                return True
+            else:
+                print(f"✗ Failed to set provider: {response.text}")
+                return False
+    except Exception as e:
+        print(f"✗ Error setting provider: {e}")
+        return False
+
+
 async def query_rag(question: str, provider: str = "ollama", debug: bool = False) -> dict:
     """Query the RAG system and return response with timing."""
     import httpx
@@ -285,7 +314,7 @@ async def run_single_test(test: dict, provider: str, debug: bool = False) -> dic
     }
 
 
-async def run_tests(provider: str = "ollama", quick: bool = False, debug: bool = False) -> dict:
+async def run_tests(provider: str = "ollama", model: str = None, quick: bool = False, debug: bool = False) -> dict:
     """Run all tests and generate report."""
 
     questions = TEST_QUESTIONS
@@ -295,6 +324,12 @@ async def run_tests(provider: str = "ollama", quick: bool = False, debug: bool =
     print(f"\n{'='*60}")
     print(f"RAG Quality Test - {provider.upper()} Provider")
     print(f"{'='*60}")
+
+    # Set provider via API before running tests
+    if not await set_provider(provider, model):
+        print("WARNING: Could not set provider. Tests may use wrong provider.")
+    print()
+
     print(f"Running {len(questions)} questions...")
     if debug:
         print("[DEBUG MODE ENABLED]")
@@ -396,6 +431,10 @@ def main():
     parser = argparse.ArgumentParser(description="RAG Quality Test Runner")
     parser.add_argument("--provider", "-p", choices=["ollama", "openai"], default="ollama",
                        help="LLM provider to test")
+    parser.add_argument("--openai", action="store_true",
+                       help="Shortcut for --provider openai")
+    parser.add_argument("--model", "-m", type=str, default=None,
+                       help="Specific model to use (e.g., qwen3:4b, gpt-4o)")
     parser.add_argument("--quick", "-q", action="store_true",
                        help="Run quick test (10 questions instead of 25)")
     parser.add_argument("--debug", "-d", action="store_true",
@@ -405,17 +444,22 @@ def main():
 
     args = parser.parse_args()
 
+    # Handle --openai shortcut
+    provider = "openai" if args.openai else args.provider
+
     print("\n" + "="*60)
     print("  AION-AINSTEIN RAG Quality Test Runner")
     print("="*60)
     print(f"\nMake sure the server is running: python -m src.chat_ui")
-    print(f"Provider: {args.provider}")
+    print(f"Provider: {provider}")
+    if args.model:
+        print(f"Model: {args.model}")
     print(f"Mode: {'Quick (10 questions)' if args.quick else 'Full (25 questions)'}")
     if args.debug:
         print("Debug: ENABLED")
 
     # Run tests
-    report = asyncio.run(run_tests(provider=args.provider, quick=args.quick, debug=args.debug))
+    report = asyncio.run(run_tests(provider=provider, model=args.model, quick=args.quick, debug=args.debug))
 
     # Save report
     if not args.no_save:
