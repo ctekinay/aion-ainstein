@@ -167,43 +167,69 @@ def check_no_answer(response: str) -> bool:
     return any(phrase in response_lower for phrase in no_answer_phrases)
 
 
-async def query_rag(question: str, provider: str = "ollama") -> dict:
+async def query_rag(question: str, provider: str = "ollama", debug: bool = False) -> dict:
     """Query the RAG system and return response with timing."""
     import httpx
 
     start_time = time.time()
 
     try:
-        async with httpx.AsyncClient(timeout=120.0) as client:
-            # Use the chat endpoint
-            response = await client.post(
+        # Use streaming for SSE
+        async with httpx.AsyncClient(timeout=180.0) as client:
+            async with client.stream(
+                "POST",
                 "http://localhost:8081/api/chat",
                 json={"message": question},
                 headers={"Content-Type": "application/json"}
-            )
+            ) as response:
+                full_response = ""
+                raw_events = []
 
-            # Handle SSE response
-            full_response = ""
-            for line in response.text.split("\n"):
-                if line.startswith("data: "):
-                    try:
-                        data = json.loads(line[6:])
-                        if data.get("type") == "assistant":
-                            full_response = data.get("content", "")
-                        elif data.get("type") == "complete":
-                            if not full_response:
-                                full_response = data.get("response", "")
-                    except json.JSONDecodeError:
-                        continue
+                async for line in response.aiter_lines():
+                    if debug:
+                        raw_events.append(line)
 
-            latency_ms = int((time.time() - start_time) * 1000)
+                    if line.startswith("data: "):
+                        try:
+                            data = json.loads(line[6:])
+                            event_type = data.get("type", "")
 
-            return {
-                "response": full_response,
-                "latency_ms": latency_ms,
-                "error": None
-            }
+                            if event_type == "assistant":
+                                full_response = data.get("content", "")
+                            elif event_type == "complete":
+                                if not full_response:
+                                    full_response = data.get("response", "")
+                            elif event_type == "error":
+                                error_msg = data.get("content", "Unknown error")
+                                if debug:
+                                    print(f"\n    [DEBUG] Error event: {error_msg}")
+                                return {
+                                    "response": "",
+                                    "latency_ms": int((time.time() - start_time) * 1000),
+                                    "error": error_msg,
+                                    "raw_events": raw_events if debug else None
+                                }
+                        except json.JSONDecodeError:
+                            continue
 
+                latency_ms = int((time.time() - start_time) * 1000)
+
+                if debug and not full_response:
+                    print(f"\n    [DEBUG] No response extracted. Raw events: {raw_events[:5]}")
+
+                return {
+                    "response": full_response,
+                    "latency_ms": latency_ms,
+                    "error": None,
+                    "raw_events": raw_events if debug else None
+                }
+
+    except httpx.TimeoutException:
+        return {
+            "response": "",
+            "latency_ms": int((time.time() - start_time) * 1000),
+            "error": "Request timed out (180s)"
+        }
     except Exception as e:
         return {
             "response": "",
@@ -212,11 +238,11 @@ async def query_rag(question: str, provider: str = "ollama") -> dict:
         }
 
 
-async def run_single_test(test: dict, provider: str) -> dict:
+async def run_single_test(test: dict, provider: str, debug: bool = False) -> dict:
     """Run a single test question and evaluate the result."""
     print(f"  [{test['id']}] {test['question'][:50]}...", end=" ", flush=True)
 
-    result = await query_rag(test["question"], provider)
+    result = await query_rag(test["question"], provider, debug=debug)
 
     if result["error"]:
         print(f"❌ ERROR: {result['error']}")
@@ -259,7 +285,7 @@ async def run_single_test(test: dict, provider: str) -> dict:
     }
 
 
-async def run_tests(provider: str = "ollama", quick: bool = False) -> dict:
+async def run_tests(provider: str = "ollama", quick: bool = False, debug: bool = False) -> dict:
     """Run all tests and generate report."""
 
     questions = TEST_QUESTIONS
@@ -270,11 +296,13 @@ async def run_tests(provider: str = "ollama", quick: bool = False) -> dict:
     print(f"RAG Quality Test - {provider.upper()} Provider")
     print(f"{'='*60}")
     print(f"Running {len(questions)} questions...")
+    if debug:
+        print("[DEBUG MODE ENABLED]")
     print()
 
     results = []
     for test in questions:
-        result = await run_single_test(test, provider)
+        result = await run_single_test(test, provider, debug=debug)
         results.append(result)
 
     # Calculate summary statistics
@@ -370,6 +398,8 @@ def main():
                        help="LLM provider to test")
     parser.add_argument("--quick", "-q", action="store_true",
                        help="Run quick test (10 questions instead of 25)")
+    parser.add_argument("--debug", "-d", action="store_true",
+                       help="Enable debug output (show raw SSE events)")
     parser.add_argument("--no-save", action="store_true",
                        help="Don't save report to file")
 
@@ -381,9 +411,11 @@ def main():
     print(f"\nMake sure the server is running: python -m src.chat_ui")
     print(f"Provider: {args.provider}")
     print(f"Mode: {'Quick (10 questions)' if args.quick else 'Full (25 questions)'}")
+    if args.debug:
+        print("Debug: ENABLED")
 
     # Run tests
-    report = asyncio.run(run_tests(provider=args.provider, quick=args.quick))
+    report = asyncio.run(run_tests(provider=args.provider, quick=args.quick, debug=args.debug))
 
     # Save report
     if not args.no_save:
