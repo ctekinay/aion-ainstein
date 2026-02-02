@@ -15,9 +15,13 @@ Usage:
 
 import argparse
 import asyncio
+import io
 import json
 import logging
+import os
+import sys
 import time
+from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
@@ -25,6 +29,19 @@ from typing import Optional
 # Suppress verbose logging during tests
 logging.getLogger("httpx").setLevel(logging.WARNING)
 logging.getLogger("weaviate").setLevel(logging.WARNING)
+logging.getLogger("elysia").setLevel(logging.WARNING)
+
+
+@contextmanager
+def suppress_stdout():
+    """Temporarily suppress stdout (for Elysia's verbose output)."""
+    old_stdout = sys.stdout
+    sys.stdout = io.StringIO()
+    try:
+        yield
+    finally:
+        sys.stdout = old_stdout
+
 
 # Global RAG system instance
 _rag_system = None
@@ -303,7 +320,7 @@ async def init_rag_system(provider: str = "ollama", model: str = None) -> bool:
         return False
 
 
-async def query_rag(question: str, debug: bool = False) -> dict:
+async def query_rag(question: str, debug: bool = False, verbose: bool = False) -> dict:
     """Query the RAG system directly and return response with timing."""
     global _rag_system
 
@@ -317,8 +334,12 @@ async def query_rag(question: str, debug: bool = False) -> dict:
     start_time = time.time()
 
     try:
-        # Query RAG system directly
-        response, objects = await _rag_system.query(question)
+        # Query RAG system (suppress Elysia's verbose output unless --verbose)
+        if verbose:
+            response, objects = await _rag_system.query(question)
+        else:
+            with suppress_stdout():
+                response, objects = await _rag_system.query(question)
 
         latency_ms = int((time.time() - start_time) * 1000)
 
@@ -368,11 +389,11 @@ async def query_rag(question: str, debug: bool = False) -> dict:
         }
 
 
-async def run_single_test(test: dict, debug: bool = False) -> dict:
+async def run_single_test(test: dict, debug: bool = False, verbose: bool = False) -> dict:
     """Run a single test question and evaluate the result."""
     print(f"  [{test['id']}] {test['question'][:50]}...", end=" ", flush=True)
 
-    result = await query_rag(test["question"], debug=debug)
+    result = await query_rag(test["question"], debug=debug, verbose=verbose)
 
     if result["error"]:
         print(f"❌ ERROR: {result['error']}")
@@ -415,7 +436,7 @@ async def run_single_test(test: dict, debug: bool = False) -> dict:
     }
 
 
-async def run_tests(provider: str = "ollama", model: str = None, quick: bool = False, debug: bool = False, skip_health_check: bool = False) -> dict:
+async def run_tests(provider: str = "ollama", model: str = None, quick: bool = False, debug: bool = False, verbose: bool = False, skip_health_check: bool = False) -> dict:
     """Run all tests and generate report."""
 
     questions = TEST_QUESTIONS
@@ -474,7 +495,7 @@ async def run_tests(provider: str = "ollama", model: str = None, quick: bool = F
     timeout_warned = False
 
     for test in questions:
-        result = await run_single_test(test, debug=debug)
+        result = await run_single_test(test, debug=debug, verbose=verbose)
         results.append(result)
 
         # Track consecutive timeouts
@@ -593,6 +614,8 @@ def main():
                        help="Run quick test (10 questions instead of 25)")
     parser.add_argument("--debug", "-d", action="store_true",
                        help="Enable debug output (show response details)")
+    parser.add_argument("--verbose", "-v", action="store_true",
+                       help="Show Elysia's decision process (normally suppressed)")
     parser.add_argument("--no-save", action="store_true",
                        help="Don't save report to file")
     parser.add_argument("--skip-health-check", action="store_true",
@@ -627,6 +650,7 @@ def main():
         model=args.model,
         quick=args.quick,
         debug=args.debug,
+        verbose=args.verbose,
         skip_health_check=args.skip_health_check
     ))
 
