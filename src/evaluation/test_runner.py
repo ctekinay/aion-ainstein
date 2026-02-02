@@ -109,11 +109,7 @@ TEST_QUESTIONS = [
      "question": "When was the CIM standard decision (ADR-0012) accepted?",
      "expected_keywords": ["2025", "October", "date"]},
 
-    # Disambiguation (2)
-    {"id": "D1", "category": "Disambiguation", "difficulty": "Medium",
-     "question": "What is ESA?",
-     "expected_keywords": ["Energy System Architecture", "Alliander"]},
-
+    # Disambiguation (1) - D1 (ESA) removed as answer not in knowledge base
     {"id": "D2", "category": "Disambiguation", "difficulty": "Medium",
      "question": "What does CIM stand for in this context?",
      "expected_keywords": ["Common Information Model", "IEC"]},
@@ -136,7 +132,7 @@ TEST_QUESTIONS = [
 ]
 
 # Quick test subset (10 questions)
-QUICK_TEST_IDS = ["V1", "A1", "A3", "P1", "PO1", "X1", "C1", "D1", "N1", "N3"]
+QUICK_TEST_IDS = ["V1", "A1", "A3", "P1", "PO1", "X1", "C1", "D2", "N1", "N3"]
 
 # Faster Ollama model alternatives when default times out
 FAST_OLLAMA_MODELS = [
@@ -295,7 +291,7 @@ async def query_rag(question: str, provider: str = "ollama", debug: bool = False
     start_time = time.time()
 
     try:
-        async with httpx.AsyncClient(timeout=180.0) as client:
+        async with httpx.AsyncClient(timeout=330.0) as client:  # Slightly longer than server's 300s
             # Use the non-streaming JSON endpoint (not SSE)
             response = await client.post(
                 "http://localhost:8081/api/chat",

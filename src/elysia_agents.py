@@ -568,7 +568,7 @@ class ElysiaRAGSystem:
         full_prompt = f"{system_prompt}\n\n{user_prompt}"
 
         try:
-            async with httpx.AsyncClient(timeout=120.0) as client:
+            async with httpx.AsyncClient(timeout=300.0) as client:  # 5 min for slow local models
                 response = await client.post(
                     f"{settings.ollama_url}/api/generate",
                     json={
