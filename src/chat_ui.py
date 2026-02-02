@@ -35,79 +35,6 @@ from .elysia_agents import ElysiaRAGSystem, ELYSIA_AVAILABLE
 
 logger = logging.getLogger(__name__)
 
-# ============== Token Counting and Context Management ==============
-
-# SmolLM3 context window is ~8K tokens. Reserve space for system prompt + response.
-SMOLLM3_MAX_CONTEXT_TOKENS = 8000
-SMOLLM3_RESERVED_TOKENS = 1500  # For system prompt (~300) + response (~1000) + buffer
-SMOLLM3_MAX_INPUT_TOKENS = SMOLLM3_MAX_CONTEXT_TOKENS - SMOLLM3_RESERVED_TOKENS  # ~6500 tokens
-
-
-def estimate_tokens(text: str) -> int:
-    """Estimate token count using character-based approximation.
-
-    Uses ~4 characters per token as a rough estimate.
-    This is conservative and works without external dependencies.
-
-    Args:
-        text: The text to estimate tokens for
-
-    Returns:
-        Estimated token count
-    """
-    if not text:
-        return 0
-    # ~4 chars per token is a reasonable approximation for English text
-    # SmolLM3 uses a similar tokenizer to LLaMA
-    return len(text) // 4
-
-
-def truncate_context(context: str, max_tokens: int = SMOLLM3_MAX_INPUT_TOKENS) -> tuple[str, bool]:
-    """Truncate context to fit within token limit.
-
-    Preserves complete documents where possible by truncating at document boundaries.
-
-    Args:
-        context: The context string to truncate
-        max_tokens: Maximum tokens allowed
-
-    Returns:
-        Tuple of (truncated_context, was_truncated)
-    """
-    current_tokens = estimate_tokens(context)
-
-    if current_tokens <= max_tokens:
-        return context, False
-
-    # Split by document boundaries (double newlines)
-    documents = context.split("\n\n")
-
-    truncated_docs = []
-    total_tokens = 0
-
-    for doc in documents:
-        doc_tokens = estimate_tokens(doc)
-        if total_tokens + doc_tokens + 2 <= max_tokens:  # +2 for newlines
-            truncated_docs.append(doc)
-            total_tokens += doc_tokens + 2
-        else:
-            # Try to fit a partial document if we have space
-            remaining_tokens = max_tokens - total_tokens - 50  # Buffer for truncation message
-            if remaining_tokens > 100:  # Only include if meaningful
-                # Truncate at word boundary
-                max_chars = remaining_tokens * 4
-                truncated_doc = doc[:max_chars].rsplit(" ", 1)[0] + "..."
-                truncated_docs.append(truncated_doc)
-            break
-
-    truncated_context = "\n\n".join(truncated_docs)
-
-    logger.warning(
-        f"Context truncated: {current_tokens} -> {estimate_tokens(truncated_context)} tokens "
-        f"({len(documents)} -> {len(truncated_docs)} documents)"
-    )
-
-    return truncated_context, True
 
 # Global state
 _weaviate_client = None
@@ -856,33 +783,18 @@ def strip_think_tags(text: str) -> str:
 
 
 async def generate_with_ollama(system_prompt: str, user_prompt: str, model: str) -> tuple[str, dict]:
-    """Generate response using Ollama API with timing and context management.
-
-    SmolLM3's native context window is 8K tokens. If Ollama is configured with
-    a larger context (e.g., 32K, 256K), performance will degrade significantly.
+    """Generate response using Ollama API with timing.
 
     Returns:
-        Tuple of (response text, timing dict with context info)
+        Tuple of (response text, timing dict)
 
     Raises:
-        Exception: With actionable error message for timeout/context issues
+        Exception: With actionable error message for timeout/connection issues
     """
     import httpx
 
     start_time = time.time()
-
-    # Combine and check total prompt size
     full_prompt = f"{system_prompt}\n\n{user_prompt}"
-    estimated_tokens = estimate_tokens(full_prompt)
-
-    # Warn if context exceeds SmolLM3's native 8K limit
-    # Even if Ollama extends this, performance will be poor
-    context_exceeds_native = estimated_tokens > SMOLLM3_MAX_CONTEXT_TOKENS
-    if context_exceeds_native:
-        logger.warning(
-            f"Context size ({estimated_tokens} tokens) exceeds SmolLM3's native 8K limit. "
-            f"If Ollama's context length is set higher (e.g., 32K, 256K), expect slow generation."
-        )
 
     try:
         async with httpx.AsyncClient(timeout=120.0) as client:
@@ -901,17 +813,8 @@ async def generate_with_ollama(system_prompt: str, user_prompt: str, model: str)
             end_time = time.time()
             latency_ms = int((end_time - start_time) * 1000)
 
-            # Warn if generation was slow (>30s) - likely due to context settings
-            if latency_ms > 30000 and context_exceeds_native:
-                logger.warning(
-                    f"Slow Ollama generation ({latency_ms}ms) with large context ({estimated_tokens} tokens). "
-                    f"Consider reducing Ollama's context length setting."
-                )
-
             timing = {
                 "latency_ms": latency_ms,
-                "estimated_tokens": estimated_tokens,
-                "exceeds_native_context": context_exceeds_native,
             }
 
             # Strip <think> tags from response
@@ -919,39 +822,18 @@ async def generate_with_ollama(system_prompt: str, user_prompt: str, model: str)
             return response_text, timing
 
     except httpx.TimeoutException:
-        end_time = time.time()
-        latency_ms = int((end_time - start_time) * 1000)
-        error_msg = (
+        latency_ms = int((time.time() - start_time) * 1000)
+        raise Exception(
             f"Ollama generation timed out after {latency_ms}ms. "
-            f"Context size: {estimated_tokens} tokens (SmolLM3 native limit: 8K). "
+            "Check Ollama settings or try a smaller context length."
         )
-        if context_exceeds_native:
-            error_msg += (
-                "Your context exceeds SmolLM3's native 8K limit. "
-                "If Ollama's context length is set to 32K/256K, generation will be very slow. "
-                "Consider reducing Ollama's context length setting to 8K or 16K."
-            )
-        else:
-            error_msg += (
-                "This may be caused by Ollama's context length being set too high for your hardware. "
-                "Try reducing context length in Ollama settings (e.g., from 256K to 32K or 8K)."
-            )
-        raise Exception(error_msg)
 
     except httpx.HTTPStatusError as e:
-        end_time = time.time()
-        latency_ms = int((end_time - start_time) * 1000)
-        if "out of memory" in str(e).lower() or "oom" in str(e).lower():
-            raise Exception(
-                f"Ollama ran out of memory after {latency_ms}ms. "
-                f"Context size: {estimated_tokens} tokens. "
-                "Reduce Ollama's context length setting (e.g., from 256K to 32K) to use less memory."
-            )
+        latency_ms = int((time.time() - start_time) * 1000)
         raise Exception(f"Ollama HTTP error after {latency_ms}ms: {str(e)}")
 
     except Exception as e:
-        end_time = time.time()
-        latency_ms = int((end_time - start_time) * 1000)
+        latency_ms = int((time.time() - start_time) * 1000)
         raise Exception(f"Ollama error after {latency_ms}ms: {str(e)}")
 
 
