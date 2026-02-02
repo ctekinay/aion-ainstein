@@ -725,14 +725,12 @@ async def perform_retrieval(question: str, provider: str = "ollama") -> tuple[li
     # Get collection names for this provider
     collections = COLLECTION_NAMES.get(provider, COLLECTION_NAMES["ollama"])
 
-    # Provider-specific retrieval limits
-    # SmolLM3 has smaller context window, so retrieve fewer documents
-    if provider == "ollama":
-        adr_limit, principle_limit, policy_limit, vocab_limit = 4, 3, 2, 2
-        content_max_chars = 400  # Shorter content for smaller context
-    else:
-        adr_limit, principle_limit, policy_limit, vocab_limit = 8, 6, 4, 4
-        content_max_chars = 800
+    # Retrieval limits from settings (user-configurable based on their Ollama context length)
+    adr_limit = settings.retrieval_limit_adr
+    principle_limit = settings.retrieval_limit_principle
+    policy_limit = settings.retrieval_limit_policy
+    vocab_limit = settings.retrieval_limit_vocab
+    content_max_chars = settings.retrieval_content_max_chars
 
     # For Ollama provider, compute query embedding client-side
     # WORKAROUND for Weaviate text2vec-ollama bug (#8406)
