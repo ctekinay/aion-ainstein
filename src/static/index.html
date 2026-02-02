@@ -548,8 +548,28 @@
         .panel-content .message-text {
             width: 100%;
             display: block;
-            white-space: normal;  /* Flow text normally to use full width */
             word-break: break-word;
+        }
+
+        /* Formatted paragraph styling */
+        .message-text .formatted-para {
+            margin: 0 0 0.5em 0;
+            line-height: 1.6;
+        }
+
+        .message-text .formatted-para:last-child {
+            margin-bottom: 0;
+        }
+
+        /* Formatted list styling */
+        .message-text .formatted-list {
+            margin: 0.5em 0;
+            padding-left: 1.5em;
+            line-height: 1.6;
+        }
+
+        .message-text .formatted-list li {
+            margin: 0.25em 0;
         }
 
         /* Let text flow naturally for all panel types */
@@ -557,7 +577,7 @@
         .panel.user-prompt .panel-content .message-text,
         .panel.thinking-aloud .panel-content .message-text,
         .panel.decision .panel-content .message-text {
-            white-space: normal;  /* Flow text naturally, full width */
+            white-space: normal;
         }
 
         /* Panel footer with actions and timestamp */
@@ -1735,7 +1755,7 @@
                 <div class="test-mode-user-message">
                     <div class="panel user-prompt">
                         <div class="panel-header">User</div>
-                        <div class="panel-content"><span class="message-text">${formatMessageText(message)}</span></div>
+                        <div class="panel-content"><div class="message-text">${formatMessageText(message)}</div></div>
                     </div>
                 </div>
                 <div class="comparison-panels">
@@ -2018,7 +2038,7 @@
             // Build panel HTML
             let panelHTML = `
                 <div class="panel-header">${escapeHtml(title)}</div>
-                <div class="panel-content"><span class="message-text">${formatMessageText(content)}</span></div>
+                <div class="panel-content"><div class="message-text">${formatMessageText(content)}</div></div>
             `;
 
             // Add footer with actions for assistant panels, just timestamp for others
@@ -2304,14 +2324,65 @@
             return div.innerHTML;
         }
 
-        // Format text for display: escape HTML and preserve all line breaks
+        // Format text for display: escape HTML and render basic markdown
         function formatMessageText(text) {
             if (!text) return '';
+
             // First escape HTML
             let escaped = escapeHtml(text);
-            // Convert all newlines to <br> tags to preserve formatting (lists, etc.)
-            escaped = escaped.replace(/\n/g, '<br>');
-            return escaped;
+
+            // Process line by line to handle lists properly
+            const lines = escaped.split('\n');
+            let result = [];
+            let inList = false;
+            let listType = null; // 'ul' or 'ol'
+
+            for (let i = 0; i < lines.length; i++) {
+                let line = lines[i];
+
+                // Check for unordered list items (- or *)
+                const ulMatch = line.match(/^(\s*)([-*])\s+(.+)$/);
+                // Check for ordered list items (1. 2. etc)
+                const olMatch = line.match(/^(\s*)(\d+)\.\s+(.+)$/);
+
+                if (ulMatch) {
+                    if (!inList || listType !== 'ul') {
+                        if (inList) result.push(listType === 'ol' ? '</ol>' : '</ul>');
+                        result.push('<ul class="formatted-list">');
+                        inList = true;
+                        listType = 'ul';
+                    }
+                    result.push(`<li>${ulMatch[3]}</li>`);
+                } else if (olMatch) {
+                    if (!inList || listType !== 'ol') {
+                        if (inList) result.push(listType === 'ol' ? '</ol>' : '</ul>');
+                        result.push('<ol class="formatted-list">');
+                        inList = true;
+                        listType = 'ol';
+                    }
+                    result.push(`<li>${olMatch[3]}</li>`);
+                } else {
+                    // Not a list item - close any open list
+                    if (inList) {
+                        result.push(listType === 'ol' ? '</ol>' : '</ul>');
+                        inList = false;
+                        listType = null;
+                    }
+                    // Empty line becomes a paragraph break
+                    if (line.trim() === '') {
+                        result.push('<br>');
+                    } else {
+                        result.push(`<p class="formatted-para">${line}</p>`);
+                    }
+                }
+            }
+
+            // Close any remaining open list
+            if (inList) {
+                result.push(listType === 'ol' ? '</ol>' : '</ul>');
+            }
+
+            return result.join('');
         }
 
         // ============ LLM Settings Functions ============
