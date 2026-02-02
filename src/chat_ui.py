@@ -917,14 +917,20 @@ async def generate_with_openai(system_prompt: str, user_prompt: str, model: str)
     try:
         openai_client = OpenAI(api_key=settings.openai_api_key)
 
-        response = openai_client.chat.completions.create(
-            model=model,
-            messages=[
+        # GPT-5.x models use max_completion_tokens instead of max_tokens
+        completion_kwargs = {
+            "model": model,
+            "messages": [
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt},
             ],
-            max_tokens=1000,
-        )
+        }
+        if model.startswith("gpt-5"):
+            completion_kwargs["max_completion_tokens"] = 1000
+        else:
+            completion_kwargs["max_tokens"] = 1000
+
+        response = openai_client.chat.completions.create(**completion_kwargs)
 
         end_time = time.time()
         latency_ms = int((end_time - start_time) * 1000)

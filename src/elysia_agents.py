@@ -8,8 +8,10 @@ import logging
 from typing import Optional, Any
 
 from weaviate import WeaviateClient
+from weaviate.classes.query import Filter
 
 from .config import settings
+from .weaviate.embeddings import embed_text
 
 logger = logging.getLogger(__name__)
 
@@ -415,6 +417,7 @@ class ElysiaRAGSystem:
         """Direct query execution bypassing Elysia tree when it fails.
 
         Supports both OpenAI and Ollama as LLM backends.
+        Uses client-side embeddings for local collections (Ollama provider).
 
         Args:
             question: The user's question
@@ -422,62 +425,104 @@ class ElysiaRAGSystem:
         Returns:
             Tuple of (response text, retrieved objects)
         """
-        # Determine which collections to search based on the question
         question_lower = question.lower()
         all_results = []
 
+        # Determine collection suffix based on provider
+        # Local collections use client-side embeddings (Nomic via Ollama)
+        # OpenAI collections use Weaviate's text2vec-openai vectorizer
+        use_openai_collections = settings.llm_provider == "openai"
+        suffix = "_OpenAI" if use_openai_collections else ""
+
+        # For local collections, compute query embedding client-side
+        # This is a workaround for Weaviate text2vec-ollama bug (#8406)
+        query_vector = None
+        if not use_openai_collections:
+            try:
+                query_vector = embed_text(question)
+            except Exception as e:
+                logger.error(f"Failed to compute query embedding: {e}")
+
+        # Filter to exclude index/template documents
+        content_filter = Filter.by_property("doc_type").equal("content")
+
         # Search relevant collections
         if any(term in question_lower for term in ["adr", "decision", "architecture"]):
-            collection = self.client.collections.get("ArchitecturalDecision")
-            results = collection.query.hybrid(query=question, limit=5, alpha=0.6)
-            for obj in results.objects:
-                all_results.append({
-                    "type": "ADR",
-                    "title": obj.properties.get("title", ""),
-                    "content": obj.properties.get("decision", "")[:500],
-                })
+            try:
+                collection = self.client.collections.get(f"ArchitecturalDecision{suffix}")
+                results = collection.query.hybrid(
+                    query=question, vector=query_vector, limit=5, alpha=0.6, filters=content_filter
+                )
+                for obj in results.objects:
+                    all_results.append({
+                        "type": "ADR",
+                        "title": obj.properties.get("title", ""),
+                        "content": obj.properties.get("decision", "")[:500],
+                    })
+            except Exception as e:
+                logger.warning(f"Error searching ArchitecturalDecision{suffix}: {e}")
 
         if any(term in question_lower for term in ["principle", "governance", "esa"]):
-            collection = self.client.collections.get("Principle")
-            results = collection.query.hybrid(query=question, limit=5, alpha=0.6)
-            for obj in results.objects:
-                all_results.append({
-                    "type": "Principle",
-                    "title": obj.properties.get("title", ""),
-                    "content": obj.properties.get("content", "")[:500],
-                })
+            try:
+                collection = self.client.collections.get(f"Principle{suffix}")
+                results = collection.query.hybrid(
+                    query=question, vector=query_vector, limit=5, alpha=0.6, filters=content_filter
+                )
+                for obj in results.objects:
+                    all_results.append({
+                        "type": "Principle",
+                        "title": obj.properties.get("title", ""),
+                        "content": obj.properties.get("content", "")[:500],
+                    })
+            except Exception as e:
+                logger.warning(f"Error searching Principle{suffix}: {e}")
 
         if any(term in question_lower for term in ["policy", "data governance", "compliance"]):
-            collection = self.client.collections.get("PolicyDocument")
-            results = collection.query.hybrid(query=question, limit=5, alpha=0.6)
-            for obj in results.objects:
-                all_results.append({
-                    "type": "Policy",
-                    "title": obj.properties.get("title", ""),
-                    "content": obj.properties.get("content", "")[:500],
-                })
+            try:
+                collection = self.client.collections.get(f"PolicyDocument{suffix}")
+                results = collection.query.hybrid(
+                    query=question, vector=query_vector, limit=5, alpha=0.6
+                )
+                for obj in results.objects:
+                    all_results.append({
+                        "type": "Policy",
+                        "title": obj.properties.get("title", ""),
+                        "content": obj.properties.get("content", "")[:500],
+                    })
+            except Exception as e:
+                logger.warning(f"Error searching PolicyDocument{suffix}: {e}")
 
         if any(term in question_lower for term in ["vocab", "concept", "definition", "cim", "iec"]):
-            collection = self.client.collections.get("Vocabulary")
-            results = collection.query.hybrid(query=question, limit=5, alpha=0.6)
-            for obj in results.objects:
-                all_results.append({
-                    "type": "Vocabulary",
-                    "label": obj.properties.get("pref_label", ""),
-                    "definition": obj.properties.get("definition", ""),
-                })
+            try:
+                collection = self.client.collections.get(f"Vocabulary{suffix}")
+                results = collection.query.hybrid(
+                    query=question, vector=query_vector, limit=5, alpha=0.6
+                )
+                for obj in results.objects:
+                    all_results.append({
+                        "type": "Vocabulary",
+                        "label": obj.properties.get("pref_label", ""),
+                        "definition": obj.properties.get("definition", ""),
+                    })
+            except Exception as e:
+                logger.warning(f"Error searching Vocabulary{suffix}: {e}")
 
         # If no specific collection matched, search all
         if not all_results:
-            for coll_name in ["ArchitecturalDecision", "Principle", "PolicyDocument"]:
-                collection = self.client.collections.get(coll_name)
-                results = collection.query.hybrid(query=question, limit=3, alpha=0.6)
-                for obj in results.objects:
-                    all_results.append({
-                        "type": coll_name,
-                        "title": obj.properties.get("title", ""),
-                        "content": obj.properties.get("content", obj.properties.get("decision", ""))[:300],
-                    })
+            for coll_base in ["ArchitecturalDecision", "Principle", "PolicyDocument"]:
+                try:
+                    collection = self.client.collections.get(f"{coll_base}{suffix}")
+                    results = collection.query.hybrid(
+                        query=question, vector=query_vector, limit=3, alpha=0.6
+                    )
+                    for obj in results.objects:
+                        all_results.append({
+                            "type": coll_base,
+                            "title": obj.properties.get("title", ""),
+                            "content": obj.properties.get("content", obj.properties.get("decision", ""))[:300],
+                        })
+                except Exception as e:
+                    logger.warning(f"Error searching {coll_base}{suffix}: {e}")
 
         # Build context from retrieved results
         context = "\n\n".join([
@@ -536,14 +581,21 @@ class ElysiaRAGSystem:
 
         openai_client = OpenAI(api_key=settings.openai_api_key)
 
-        response = openai_client.chat.completions.create(
-            model=settings.openai_chat_model,
-            messages=[
+        # GPT-5.x models use max_completion_tokens instead of max_tokens
+        model = settings.openai_chat_model
+        completion_kwargs = {
+            "model": model,
+            "messages": [
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt},
             ],
-            max_tokens=1000,
-        )
+        }
+        if model.startswith("gpt-5"):
+            completion_kwargs["max_completion_tokens"] = 1000
+        else:
+            completion_kwargs["max_tokens"] = 1000
+
+        response = openai_client.chat.completions.create(**completion_kwargs)
 
         return response.choices[0].message.content
 
