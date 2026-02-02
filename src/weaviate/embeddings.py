@@ -11,6 +11,7 @@ Instead of relying on Weaviate's vectorizer, we:
 """
 
 import logging
+import time
 from typing import Optional
 
 import httpx
@@ -22,6 +23,10 @@ logger = logging.getLogger(__name__)
 # Ollama embedding dimensions (nomic-embed-text-v2-moe)
 EMBEDDING_DIMENSION = 768
 
+# Retry configuration
+MAX_RETRIES = 3
+RETRY_DELAY_SECONDS = 5
+
 
 class OllamaEmbeddings:
     """Client-side embedding generator using Ollama."""
@@ -30,14 +35,14 @@ class OllamaEmbeddings:
         self,
         model: Optional[str] = None,
         base_url: Optional[str] = None,
-        timeout: float = 60.0,
+        timeout: float = 300.0,  # Increased from 60s to 5 minutes for batch operations
     ):
         """Initialize the embeddings client.
 
         Args:
             model: Ollama model to use for embeddings
             base_url: Ollama API base URL (default: from settings)
-            timeout: Request timeout in seconds
+            timeout: Request timeout in seconds (default 5 minutes for batches)
         """
         self.model = model or settings.ollama_embedding_model
         self.base_url = base_url or settings.ollama_url
@@ -91,7 +96,9 @@ class OllamaEmbeddings:
             raise
 
     def embed_batch(self, texts: list[str]) -> list[list[float]]:
-        """Generate embeddings for multiple texts.
+        """Generate embeddings for multiple texts with retry logic.
+
+        Falls back to one-at-a-time processing if batch fails.
 
         Args:
             texts: List of texts to embed
@@ -102,44 +109,80 @@ class OllamaEmbeddings:
         if not texts:
             return []
 
-        try:
-            # Filter empty texts but keep track of indices
-            non_empty_indices = []
-            non_empty_texts = []
-            for i, text in enumerate(texts):
-                if text and text.strip():
-                    non_empty_indices.append(i)
-                    non_empty_texts.append(text)
+        # Filter empty texts but keep track of indices
+        non_empty_indices = []
+        non_empty_texts = []
+        for i, text in enumerate(texts):
+            if text and text.strip():
+                non_empty_indices.append(i)
+                non_empty_texts.append(text)
 
-            if not non_empty_texts:
-                return [[0.0] * EMBEDDING_DIMENSION for _ in texts]
+        if not non_empty_texts:
+            return [[0.0] * EMBEDDING_DIMENSION for _ in texts]
 
-            response = self.client.post(
-                f"{self.base_url}/api/embed",
-                json={
-                    "model": self.model,
-                    "input": non_empty_texts,
-                },
-            )
-            response.raise_for_status()
-            data = response.json()
+        # Try batch embedding with retries
+        last_error = None
+        for attempt in range(MAX_RETRIES):
+            try:
+                response = self.client.post(
+                    f"{self.base_url}/api/embed",
+                    json={
+                        "model": self.model,
+                        "input": non_empty_texts,
+                    },
+                )
+                response.raise_for_status()
+                data = response.json()
 
-            non_empty_embeddings = data.get("embeddings", [])
+                non_empty_embeddings = data.get("embeddings", [])
 
-            # Reconstruct full list with zero vectors for empty texts
-            result = [[0.0] * EMBEDDING_DIMENSION for _ in texts]
-            for i, idx in enumerate(non_empty_indices):
-                if i < len(non_empty_embeddings):
-                    result[idx] = non_empty_embeddings[i]
+                # Reconstruct full list with zero vectors for empty texts
+                result = [[0.0] * EMBEDDING_DIMENSION for _ in texts]
+                for i, idx in enumerate(non_empty_indices):
+                    if i < len(non_empty_embeddings):
+                        result[idx] = non_empty_embeddings[i]
 
-            return result
+                return result
 
-        except httpx.HTTPError as e:
-            logger.error(f"HTTP error generating batch embeddings: {e}")
-            raise
-        except Exception as e:
-            logger.error(f"Error generating batch embeddings: {e}")
-            raise
+            except (httpx.HTTPError, httpx.TimeoutException) as e:
+                last_error = e
+                if attempt < MAX_RETRIES - 1:
+                    logger.warning(
+                        f"Batch embedding attempt {attempt + 1} failed: {e}. "
+                        f"Retrying in {RETRY_DELAY_SECONDS}s..."
+                    )
+                    time.sleep(RETRY_DELAY_SECONDS)
+                continue
+            except Exception as e:
+                last_error = e
+                break
+
+        # Batch failed - fall back to one-at-a-time processing
+        logger.warning(
+            f"Batch embedding failed after {MAX_RETRIES} attempts. "
+            f"Falling back to individual processing for {len(non_empty_texts)} texts..."
+        )
+
+        result = [[0.0] * EMBEDDING_DIMENSION for _ in texts]
+        success_count = 0
+
+        for i, idx in enumerate(non_empty_indices):
+            text = non_empty_texts[i]
+            for attempt in range(MAX_RETRIES):
+                try:
+                    embedding = self.embed(text)
+                    result[idx] = embedding
+                    success_count += 1
+                    break
+                except Exception as e:
+                    if attempt < MAX_RETRIES - 1:
+                        time.sleep(RETRY_DELAY_SECONDS)
+                    else:
+                        logger.error(f"Failed to embed text {i}: {e}")
+                        # Keep zero vector for failed embeddings
+
+        logger.info(f"Individual processing complete: {success_count}/{len(non_empty_texts)} succeeded")
+        return result
 
     def close(self):
         """Close the HTTP client."""

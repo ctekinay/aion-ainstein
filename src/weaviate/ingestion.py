@@ -18,8 +18,8 @@ logger = logging.getLogger(__name__)
 # Default batch sizes per provider
 # Ollama/Nomic embeddings are local and slower - need smaller batches to avoid timeout
 # OpenAI embeddings are fast cloud API - can handle larger batches
-DEFAULT_BATCH_SIZE_OLLAMA = 20
-DEFAULT_BATCH_SIZE_OPENAI = 100
+DEFAULT_BATCH_SIZE_OLLAMA = 5  # Reduced from 20 to avoid timeouts
+DEFAULT_BATCH_SIZE_OPENAI = 50  # Reduced from 100 for more reliable ingestion
 
 
 class DataIngestionPipeline:
