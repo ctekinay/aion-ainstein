@@ -88,11 +88,22 @@ class MarkdownDocument:
     def _build_full_text(self) -> str:
         """Build full searchable text."""
         parts = []
-        # Include ADR/Principle number prominently for better retrieval
+        # Include ADR/Principle ID prominently for better retrieval
+        # Include both official format (ADR.21) and raw number for flexible querying
         if self.adr_number:
-            parts.append(f"ADR-{self.adr_number}")
+            try:
+                num = int(self.adr_number)
+                parts.append(f"ADR.{num:02d}")  # Official format: ADR.21
+            except ValueError:
+                pass
+            parts.append(f"ADR-{self.adr_number}")  # Also include raw: ADR-0021
         if self.principle_number:
-            parts.append(f"PCP-{self.principle_number}")
+            try:
+                num = int(self.principle_number)
+                parts.append(f"PCP.{num:02d}")  # Official format: PCP.21
+            except ValueError:
+                pass
+            parts.append(f"PCP-{self.principle_number}")  # Also include raw: PCP-0021
         parts.append(f"Title: {self.title}")
         if self.doc_type:
             parts.append(f"Type: {self.doc_type}")
@@ -300,6 +311,28 @@ class MarkdownLoader:
         # Also check nav_order in metadata for backup
         return ""
 
+    def _format_adr_id(self, adr_number: str) -> str:
+        """Format ADR number to official ID format (ADR.XX).
+
+        Converts 4-digit number to official format:
+        - "0000" -> "ADR.00"
+        - "0012" -> "ADR.12"
+        - "0021" -> "ADR.21"
+
+        Args:
+            adr_number: 4-digit ADR number string
+
+        Returns:
+            Formatted ID like "ADR.21"
+        """
+        if not adr_number:
+            return ""
+        try:
+            num = int(adr_number)
+            return f"ADR.{num:02d}"
+        except ValueError:
+            return f"ADR.{adr_number}"
+
     def _load_adr(self, file_path: Path) -> Optional[MarkdownDocument]:
         """Load an Architectural Decision Record.
 
@@ -317,9 +350,10 @@ class MarkdownLoader:
         adr_number = self._extract_adr_number(file_path)
         doc.adr_number = adr_number
 
-        # Prepend ADR number to title for better retrieval
+        # Prepend ADR ID to title for better retrieval (using official format ADR.XX)
         if adr_number and not doc.title.lower().startswith("adr"):
-            doc.title = f"ADR-{adr_number}: {doc.title}"
+            adr_id = self._format_adr_id(adr_number)
+            doc.title = f"{adr_id}: {doc.title}"
 
         # Classify as content, index, or template
         doc.doc_type = self._classify_adr_document(file_path, doc.title, doc.content)
@@ -399,6 +433,27 @@ class MarkdownLoader:
             return match.group(1)
         return ""
 
+    def _format_principle_id(self, principle_number: str) -> str:
+        """Format Principle number to official ID format (PCP.XX).
+
+        Converts 4-digit number to official format:
+        - "0010" -> "PCP.10"
+        - "0021" -> "PCP.21"
+
+        Args:
+            principle_number: 4-digit principle number string
+
+        Returns:
+            Formatted ID like "PCP.21"
+        """
+        if not principle_number:
+            return ""
+        try:
+            num = int(principle_number)
+            return f"PCP.{num:02d}"
+        except ValueError:
+            return f"PCP.{principle_number}"
+
     def _load_principle(self, file_path: Path) -> Optional[MarkdownDocument]:
         """Load a principle document.
 
@@ -416,9 +471,10 @@ class MarkdownLoader:
         principle_number = self._extract_principle_number(file_path)
         doc.principle_number = principle_number
 
-        # Prepend Principle number to title for better retrieval
+        # Prepend Principle ID to title for better retrieval (using official format PCP.XX)
         if principle_number and not doc.title.lower().startswith("pcp"):
-            doc.title = f"PCP-{principle_number}: {doc.title}"
+            pcp_id = self._format_principle_id(principle_number)
+            doc.title = f"{pcp_id}: {doc.title}"
 
         # Classify as content, index, or template
         doc.doc_type = self._classify_principle_document(file_path, doc.title, doc.content)
