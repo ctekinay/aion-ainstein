@@ -287,7 +287,17 @@ def detect_hallucination(response: str, sources: list, test_id: str) -> dict:
     if not response or len(response.strip()) < 10:
         return result  # Empty response can't hallucinate
 
+    # Skip hallucination detection for abstention responses
+    # These legitimately mention ADRs to say they don't exist
+    abstention_indicators = [
+        "was not found in the knowledge base",
+        "i don't have sufficient information",
+        "not found in the context",
+        "no relevant documents found",
+    ]
     response_lower = response.lower()
+    if any(indicator in response_lower for indicator in abstention_indicators):
+        return result  # Abstention responses aren't hallucinations
 
     # Build context from sources
     source_text = ""
