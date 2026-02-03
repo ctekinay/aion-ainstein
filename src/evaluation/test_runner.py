@@ -262,6 +262,72 @@ def calculate_keyword_score(response: str, expected_keywords: list) -> float:
     return found / len(expected_keywords)
 
 
+def detect_hallucination(response: str, sources: list, test_id: str) -> dict:
+    """Detect potential hallucinations in the response.
+
+    Checks if the response makes claims that aren't supported by the sources.
+
+    Args:
+        response: The LLM's response text
+        sources: List of retrieved source documents
+        test_id: Test identifier for logging
+
+    Returns:
+        Dictionary with hallucination analysis
+    """
+    import re
+
+    result = {
+        "is_hallucination": False,
+        "issues": [],
+        "adr_refs_found": [],
+        "adr_refs_unsupported": [],
+    }
+
+    if not response or len(response.strip()) < 10:
+        return result  # Empty response can't hallucinate
+
+    response_lower = response.lower()
+
+    # Build context from sources
+    source_text = ""
+    source_adrs = set()
+    for src in (sources or []):
+        if isinstance(src, dict):
+            source_text += " " + str(src.get("title", ""))
+            source_text += " " + str(src.get("preview", ""))
+            source_text += " " + str(src.get("content", ""))
+            # Extract ADR numbers from source titles
+            title = str(src.get("title", ""))
+            adr_match = re.search(r'adr[- ]?0*(\d+)', title.lower())
+            if adr_match:
+                source_adrs.add(adr_match.group(1).zfill(4))
+    source_text_lower = source_text.lower()
+
+    # Find ADR references in response
+    adr_refs = re.findall(r'adr[- ]?0*(\d+)', response_lower)
+    result["adr_refs_found"] = [f"ADR-{num.zfill(4)}" for num in adr_refs]
+
+    # Check if ADR references are supported by sources
+    for adr_num in adr_refs:
+        adr_padded = adr_num.zfill(4)
+        if adr_padded not in source_adrs:
+            # Check if ADR is mentioned in source text at all
+            if f"adr-{adr_padded}" not in source_text_lower and f"adr{adr_num}" not in source_text_lower:
+                result["adr_refs_unsupported"].append(f"ADR-{adr_padded}")
+                result["issues"].append(f"References ADR-{adr_padded} not found in retrieved context")
+
+    # Check for substantive claims when sources are empty/minimal
+    if len(source_text.strip()) < 50:
+        if len(response.strip()) > 100:
+            # Long response with no sources = likely hallucination
+            result["issues"].append("Substantive response generated with minimal/empty context")
+
+    result["is_hallucination"] = len(result["issues"]) > 0
+
+    return result
+
+
 def check_no_answer(response: str) -> bool:
     """Check if response indicates 'I don't know' or similar.
 
@@ -457,17 +523,31 @@ async def run_single_test(test: dict, debug: bool = False, verbose: bool = False
             "latency_ms": result["latency_ms"],
             "score": "error",
             "keyword_score": 0,
+            "hallucination": None,
             "error": result["error"]
         }
 
     response = result["response"]
+    sources = result.get("sources", [])
+
+    # Detect hallucination
+    hallucination = detect_hallucination(response, sources, test["id"])
 
     # Evaluate response
     if test.get("expect_no_answer"):
         # For negative tests, check if it correctly says "I don't know"
         is_correct = check_no_answer(response)
-        score = "✅" if is_correct else "❌"
-        keyword_score = 1.0 if is_correct else 0.0
+
+        # If model gave a substantive answer when it shouldn't have, flag it
+        if not is_correct and hallucination["is_hallucination"]:
+            score = "❌🔮"  # Wrong + hallucinated
+            keyword_score = 0.0
+        elif is_correct:
+            score = "✅"
+            keyword_score = 1.0
+        else:
+            score = "❌"
+            keyword_score = 0.0
     else:
         # For regular tests, check keyword coverage
         keyword_score = calculate_keyword_score(response, test["expected_keywords"])
@@ -478,7 +558,15 @@ async def run_single_test(test: dict, debug: bool = False, verbose: bool = False
         else:
             score = "❌"
 
-    print(f"{score} ({result['latency_ms']}ms, keywords: {keyword_score:.0%})")
+    # Build output indicator
+    output = f"{score} ({result['latency_ms']}ms, keywords: {keyword_score:.0%})"
+    if hallucination["is_hallucination"] and "🔮" not in score:
+        output += " ⚠️HALLUC"
+    print(output)
+
+    if debug and hallucination["issues"]:
+        for issue in hallucination["issues"]:
+            print(f"    [HALLUCINATION] {issue}")
 
     return {
         **test,
@@ -486,6 +574,8 @@ async def run_single_test(test: dict, debug: bool = False, verbose: bool = False
         "latency_ms": result["latency_ms"],
         "score": score,
         "keyword_score": keyword_score,
+        "hallucination": hallucination,
+        "sources_count": len(sources),
         "error": None
     }
 
@@ -573,8 +663,14 @@ async def run_tests(provider: str = "ollama", model: str = None, quick: bool = F
     total = len(results)
     correct = sum(1 for r in results if r["score"] == "✅")
     partial = sum(1 for r in results if r["score"] == "⚠️")
-    wrong = sum(1 for r in results if r["score"] == "❌")
+    wrong = sum(1 for r in results if r["score"] == "❌" or r["score"] == "❌🔮")
     errors = sum(1 for r in results if r["score"] == "error")
+
+    # Count hallucinations
+    hallucinations = sum(
+        1 for r in results
+        if r.get("hallucination") and r["hallucination"].get("is_hallucination")
+    )
 
     avg_latency = sum(r["latency_ms"] for r in results) / total if total > 0 else 0
     avg_keyword_score = sum(r["keyword_score"] for r in results) / total if total > 0 else 0
@@ -602,12 +698,14 @@ async def run_tests(provider: str = "ollama", model: str = None, quick: bool = F
     report = {
         "timestamp": datetime.now().isoformat(),
         "provider": provider,
+        "model": model,
         "total_questions": total,
         "summary": {
             "correct": correct,
             "partial": partial,
             "wrong": wrong,
             "errors": errors,
+            "hallucinations": hallucinations,
             "accuracy": f"{(correct / total * 100):.1f}%" if total > 0 else "0%",
             "avg_latency_ms": int(avg_latency),
             "avg_keyword_score": f"{avg_keyword_score:.1%}",
@@ -626,6 +724,8 @@ async def run_tests(provider: str = "ollama", model: str = None, quick: bool = F
     print(f"✅ Correct: {correct} ({correct/total*100:.1f}%)")
     print(f"⚠️ Partial: {partial} ({partial/total*100:.1f}%)")
     print(f"❌ Wrong: {wrong} ({wrong/total*100:.1f}%)")
+    if hallucinations > 0:
+        print(f"🔮 Hallucinations: {hallucinations} ({hallucinations/total*100:.1f}%)")
     print(f"Errors: {errors}")
     print(f"Average Latency: {avg_latency:.0f}ms")
     print(f"Average Keyword Score: {avg_keyword_score:.1%}")
