@@ -1,0 +1,268 @@
+{
+  "timestamp": "2026-02-03T12:16:56.525265",
+  "provider": "openai",
+  "model": "gpt-5-mini",
+  "total_questions": 10,
+  "summary": {
+    "correct": 7,
+    "partial": 1,
+    "wrong": 2,
+    "errors": 0,
+    "hallucinations": 1,
+    "accuracy": "70.0%",
+    "avg_latency_ms": 15634,
+    "avg_keyword_score": "75.0%"
+  },
+  "by_category": {
+    "Vocabulary": "1/1",
+    "ADR": "2/2",
+    "Principle": "0/1",
+    "Policy": "1/1",
+    "Cross-Domain": "0/1",
+    "Comparative": "0/1",
+    "Disambiguation": "1/1",
+    "Negative": "2/2"
+  },
+  "by_difficulty": {
+    "Easy": "3/4",
+    "Medium": "2/2",
+    "Hard": "0/2",
+    "Test": "2/2"
+  },
+  "results": [
+    {
+      "id": "V1",
+      "category": "Vocabulary",
+      "difficulty": "Easy",
+      "question": "What is 'Demandable Capacity' in energy systems?",
+      "expected_keywords": [
+        "difference",
+        "high",
+        "low",
+        "power",
+        "limit"
+      ],
+      "response": "\"Demandable Capacity\" (Dutch: \"Het verschil tussen de hoge en lage vermogensgrens\") is the difference between the upper (high) and lower (low) power limits of a facility or connection. \n\nIn other words:\nDemandable Capacity = High power limit \u2212 Low power limit\n\nExample: if the high limit is 100 kW and the low limit 30 kW, the demandable capacity is 70 kW.",
+      "latency_ms": 16162,
+      "score": "\u2705",
+      "keyword_score": 1.0,
+      "hallucination": {
+        "is_hallucination": false,
+        "issues": [],
+        "adr_refs_found": [],
+        "adr_refs_unsupported": []
+      },
+      "sources_count": 5,
+      "error": null
+    },
+    {
+      "id": "A1",
+      "category": "ADR",
+      "difficulty": "Easy",
+      "question": "What decision was made about the domain language standard?",
+      "expected_keywords": [
+        "CIM",
+        "IEC",
+        "61970",
+        "domain language"
+      ],
+      "response": "Decision: use CIM (IEC 61970 / 61968 / 62325) as the default domain language.\n\nSource: ADR titled \"Use CIM (IEC 61970/61968/62325) as default domain language\" \u2014 chosen option: IEC as standard domain language. (No ADR number was provided in the supplied context.)\n\nRationale (from the ADR):\n- Aligns with an international standardized metamodel (CIM) to achieve semantic interoperability.\n- Ensures compatibility with ongoing IEC working\u2011group work and emerging IEC standards.\n- Will be guided by comp",
+      "latency_ms": 24009,
+      "score": "\u2705",
+      "keyword_score": 1.0,
+      "hallucination": {
+        "is_hallucination": false,
+        "issues": [],
+        "adr_refs_found": [],
+        "adr_refs_unsupported": []
+      },
+      "sources_count": 5,
+      "error": null
+    },
+    {
+      "id": "A3",
+      "category": "ADR",
+      "difficulty": "Medium",
+      "question": "Why was CIM chosen as the default domain language?",
+      "expected_keywords": [
+        "semantic",
+        "interoperability",
+        "standard"
+      ],
+      "response": "The provided context does not include an explicit statement saying why CIM was chosen as the default domain language.\n\nBased on the CIM definition included in the context, plausible reasons are:\n- CIM is a standardized, object\u2011oriented conceptual framework that provides a shared vocabulary and schema for electrical network components and their relationships.\n- It enables consistent representation, exchange and integration of power\u2011system information across diverse applications and systems \u2014 i.e.",
+      "latency_ms": 14885,
+      "score": "\u2705",
+      "keyword_score": 1.0,
+      "hallucination": {
+        "is_hallucination": false,
+        "issues": [],
+        "adr_refs_found": [],
+        "adr_refs_unsupported": []
+      },
+      "sources_count": 5,
+      "error": null
+    },
+    {
+      "id": "P1",
+      "category": "Principle",
+      "difficulty": "Easy",
+      "question": "What does the principle 'Data is een Asset' mean?",
+      "expected_keywords": [
+        "data",
+        "asset",
+        "value",
+        "responsible"
+      ],
+      "response": "Kort gezegd betekent het principe \u201cData is een Asset\u201d dat data bij Alliander wordt gezien en behandeld als een waardevol bedrijfsmiddel \u2014 niet als bijproduct. Concrete punten uit de context:\n\n- Data cre\u00ebert bedrijfswaarde: we richten het datalandschap schaalbaar, toegankelijk en verantwoord in om betere beslissingen en innovatie mogelijk te maken.\n- Data als product: data wordt behandeld als een zelfstandig product met duidelijke eigenaarschap, standaarden en kwaliteitseisen, niet als bijproduct",
+      "latency_ms": 12869,
+      "score": "\u26a0\ufe0f",
+      "keyword_score": 0.5,
+      "hallucination": {
+        "is_hallucination": false,
+        "issues": [],
+        "adr_refs_found": [],
+        "adr_refs_unsupported": []
+      },
+      "sources_count": 5,
+      "error": null
+    },
+    {
+      "id": "PO1",
+      "category": "Policy",
+      "difficulty": "Easy",
+      "question": "What policy document covers data governance at Alliander?",
+      "expected_keywords": [
+        "Governance",
+        "Beleid",
+        "Alliander"
+      ],
+      "response": "Het document \"Alliander Data en Informatie Governance Beleid\" (Alliander Data en Informatie Governance Beleid, Part 1/8) behandelt data governance bij Alliander.  \nGerelateerde beleidsdocumenten in de context zijn o.a. het \"Alliander Tactisch Data en Informatie Classificatiebeleid\" en het \"ISMS A 050B A V1.4 2025 (Strategisch Alliander Security Beleid)\".",
+      "latency_ms": 14305,
+      "score": "\u2705",
+      "keyword_score": 1.0,
+      "hallucination": {
+        "is_hallucination": false,
+        "issues": [],
+        "adr_refs_found": [],
+        "adr_refs_unsupported": []
+      },
+      "sources_count": 5,
+      "error": null
+    },
+    {
+      "id": "X1",
+      "category": "Cross-Domain",
+      "difficulty": "Hard",
+      "question": "How do the architecture decisions support the data governance principles?",
+      "expected_keywords": [
+        "CIM",
+        "interoperability",
+        "security",
+        "TLS"
+      ],
+      "response": "",
+      "latency_ms": 17894,
+      "score": "\u274c",
+      "keyword_score": 0.0,
+      "hallucination": {
+        "is_hallucination": false,
+        "issues": [],
+        "adr_refs_found": [],
+        "adr_refs_unsupported": []
+      },
+      "sources_count": 5,
+      "error": null
+    },
+    {
+      "id": "C1",
+      "category": "Comparative",
+      "difficulty": "Hard",
+      "question": "What's the difference between TLS and OAuth 2.0 in our architecture?",
+      "expected_keywords": [
+        "transport",
+        "authentication",
+        "communication"
+      ],
+      "response": "",
+      "latency_ms": 18715,
+      "score": "\u274c",
+      "keyword_score": 0.0,
+      "hallucination": {
+        "is_hallucination": false,
+        "issues": [],
+        "adr_refs_found": [],
+        "adr_refs_unsupported": []
+      },
+      "sources_count": 5,
+      "error": null
+    },
+    {
+      "id": "D2",
+      "category": "Disambiguation",
+      "difficulty": "Medium",
+      "question": "What does CIM stand for in this context?",
+      "expected_keywords": [
+        "Common Information Model",
+        "IEC"
+      ],
+      "response": "CIM stands for Common Information Model (often called the IEC Common Information Model). It is the standardized, object\u2011oriented framework used by the electric\u2011utility industry to represent, exchange and integrate power\u2011system information.",
+      "latency_ms": 8561,
+      "score": "\u2705",
+      "keyword_score": 1.0,
+      "hallucination": {
+        "is_hallucination": false,
+        "issues": [],
+        "adr_refs_found": [],
+        "adr_refs_unsupported": []
+      },
+      "sources_count": 5,
+      "error": null
+    },
+    {
+      "id": "N1",
+      "category": "Negative",
+      "difficulty": "Test",
+      "question": "What is the architecture decision about using GraphQL?",
+      "expected_keywords": [],
+      "expect_no_answer": true,
+      "response": "",
+      "latency_ms": 23793,
+      "score": "\u2705",
+      "keyword_score": 1.0,
+      "hallucination": {
+        "is_hallucination": false,
+        "issues": [],
+        "adr_refs_found": [],
+        "adr_refs_unsupported": []
+      },
+      "sources_count": 5,
+      "error": null
+    },
+    {
+      "id": "N3",
+      "category": "Negative",
+      "difficulty": "Test",
+      "question": "What does ADR-0050 decide?",
+      "expected_keywords": [],
+      "expect_no_answer": true,
+      "response": "I don't have sufficient information to answer this question.\n\n**Reason:** ADR-0050 was not found in the knowledge base.\n\n**Suggestions:**\n- Try rephrasing your question with different terms\n- Check if the topic exists in our knowledge base\n- For terminology questions, verify the term exists in SKOSMOS\n\nIf you believe this information should be available, please contact the ESA team to have it added to the knowledge base.",
+      "latency_ms": 5153,
+      "score": "\u2705",
+      "keyword_score": 1.0,
+      "hallucination": {
+        "is_hallucination": true,
+        "issues": [
+          "References ADR-0050 not found in retrieved context"
+        ],
+        "adr_refs_found": [
+          "ADR-0050"
+        ],
+        "adr_refs_unsupported": [
+          "ADR-0050"
+        ]
+      },
+      "sources_count": 5,
+      "error": null
+    }
+  ]
+}

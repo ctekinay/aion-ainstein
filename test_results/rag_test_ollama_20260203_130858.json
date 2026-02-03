@@ -1,0 +1,280 @@
+{
+  "timestamp": "2026-02-03T13:08:58.175116",
+  "provider": "ollama",
+  "model": null,
+  "total_questions": 10,
+  "summary": {
+    "correct": 6,
+    "partial": 0,
+    "wrong": 1,
+    "errors": 3,
+    "hallucinations": 4,
+    "accuracy": "60.0%",
+    "avg_latency_ms": 205876,
+    "avg_keyword_score": "63.3%"
+  },
+  "by_category": {
+    "Vocabulary": "1/1",
+    "ADR": "1/2",
+    "Principle": "0/1",
+    "Policy": "0/1",
+    "Cross-Domain": "0/1",
+    "Comparative": "1/1",
+    "Disambiguation": "1/1",
+    "Negative": "2/2"
+  },
+  "by_difficulty": {
+    "Easy": "2/4",
+    "Medium": "1/2",
+    "Hard": "1/2",
+    "Test": "2/2"
+  },
+  "results": [
+    {
+      "id": "V1",
+      "category": "Vocabulary",
+      "difficulty": "Easy",
+      "question": "What is 'Demandable Capacity' in energy systems?",
+      "expected_keywords": [
+        "difference",
+        "high",
+        "low",
+        "power",
+        "limit"
+      ],
+      "response": "Based strictly on the provided context:  \n\n**Demandable Capacity** is defined as *het verschil tussen de hoge en lage vermogensgrens* (the difference between the high and low power limits).  \n\nIn energy systems terms, this refers to the **range of power consumption flexibility** a customer can operate within during a demand response event (e.g., an \"afroep\"). It represents the maximum allowable deviation from a baseline power level (high power limit) minus the minimum required power level (low p",
+      "latency_ms": 122859,
+      "score": "\u2705",
+      "keyword_score": 1.0,
+      "hallucination": {
+        "is_hallucination": false,
+        "issues": [],
+        "adr_refs_found": [],
+        "adr_refs_unsupported": []
+      },
+      "sources_count": 5,
+      "error": null
+    },
+    {
+      "id": "A1",
+      "category": "ADR",
+      "difficulty": "Easy",
+      "question": "What decision was made about the domain language standard?",
+      "expected_keywords": [
+        "CIM",
+        "IEC",
+        "61970",
+        "domain language"
+      ],
+      "response": "Based on the provided context, the decision made about the domain language standard is explicitly defined in **ADR-0012**:  \n\n**Alliander uses IEC 61970/61968/62325 (CIM) as the default domain language**.  \n\nThis decision was chosen because:  \n1. It aligns with internationally standardized metamodels to achieve semantic interoperability (like the CIM information model).  \n2. It ensures compatibility with ongoing IEC working groups and emerging international standards.  \n3. It complies with EU Ne",
+      "latency_ms": 173649,
+      "score": "\u2705",
+      "keyword_score": 1.0,
+      "hallucination": {
+        "is_hallucination": true,
+        "issues": [
+          "References ADR-0012 not found in retrieved context"
+        ],
+        "adr_refs_found": [
+          "ADR-0012"
+        ],
+        "adr_refs_unsupported": [
+          "ADR-0012"
+        ]
+      },
+      "sources_count": 5,
+      "error": null
+    },
+    {
+      "id": "A3",
+      "category": "ADR",
+      "difficulty": "Medium",
+      "question": "Why was CIM chosen as the default domain language?",
+      "expected_keywords": [
+        "semantic",
+        "interoperability",
+        "standard"
+      ],
+      "response": "Based strictly on the provided context, **I do not have information about why CIM was chosen as the default domain language**. \n\nThe context defines the Common Information Model (CIM) as a standardized, object-oriented framework for power system information exchange, but it **does not include**:\n- Any architectural decision records (ADRs) that specify this choice\n- Data governance policies regarding domain language selection\n- IEC/CIM standards documentation explaining the rationale for CIM bein",
+      "latency_ms": 141954,
+      "score": "\u274c",
+      "keyword_score": 0.3333333333333333,
+      "hallucination": {
+        "is_hallucination": true,
+        "issues": [
+          "References ADR-0012 not found in retrieved context"
+        ],
+        "adr_refs_found": [
+          "ADR-0012"
+        ],
+        "adr_refs_unsupported": [
+          "ADR-0012"
+        ]
+      },
+      "sources_count": 5,
+      "error": null
+    },
+    {
+      "id": "P1",
+      "category": "Principle",
+      "difficulty": "Easy",
+      "question": "What does the principle 'Data is een Asset' mean?",
+      "expected_keywords": [
+        "data",
+        "asset",
+        "value",
+        "responsible"
+      ],
+      "response": "",
+      "latency_ms": 311934,
+      "score": "error",
+      "keyword_score": 0,
+      "hallucination": null,
+      "error": "Ollama generation timed out after 300770ms."
+    },
+    {
+      "id": "PO1",
+      "category": "Policy",
+      "difficulty": "Easy",
+      "question": "What policy document covers data governance at Alliander?",
+      "expected_keywords": [
+        "Governance",
+        "Beleid",
+        "Alliander"
+      ],
+      "response": "",
+      "latency_ms": 312807,
+      "score": "error",
+      "keyword_score": 0,
+      "hallucination": null,
+      "error": "Ollama generation timed out after 300688ms."
+    },
+    {
+      "id": "X1",
+      "category": "Cross-Domain",
+      "difficulty": "Hard",
+      "question": "How do the architecture decisions support the data governance principles?",
+      "expected_keywords": [
+        "CIM",
+        "interoperability",
+        "security",
+        "TLS"
+      ],
+      "response": "",
+      "latency_ms": 310874,
+      "score": "error",
+      "keyword_score": 0,
+      "hallucination": null,
+      "error": "Ollama generation timed out after 300761ms."
+    },
+    {
+      "id": "C1",
+      "category": "Comparative",
+      "difficulty": "Hard",
+      "question": "What's the difference between TLS and OAuth 2.0 in our architecture?",
+      "expected_keywords": [
+        "transport",
+        "authentication",
+        "communication"
+      ],
+      "response": "Based strictly on Alliander's architectural decision records (ADRs) and context:\n\n### TLS (ADR-0012) vs. OAuth 2.0 (ADR-0013)\n| **Aspect**               | **TLS** (ADR-0012)                                                                 | **OAuth 2.0** (ADR-0013)                                                                 |\n|--------------------------|----------------------------------------------------------------------------------|----------------------------------------------------------",
+      "latency_ms": 297198,
+      "score": "\u2705",
+      "keyword_score": 1.0,
+      "hallucination": {
+        "is_hallucination": true,
+        "issues": [
+          "References ADR-0012 not found in retrieved context",
+          "References ADR-0013 not found in retrieved context",
+          "References ADR-0012 not found in retrieved context",
+          "References ADR-0013 not found in retrieved context",
+          "References ADR-0012 not found in retrieved context"
+        ],
+        "adr_refs_found": [
+          "ADR-0012",
+          "ADR-0013",
+          "ADR-0012",
+          "ADR-0013",
+          "ADR-0012"
+        ],
+        "adr_refs_unsupported": [
+          "ADR-0012",
+          "ADR-0013",
+          "ADR-0012",
+          "ADR-0013",
+          "ADR-0012"
+        ]
+      },
+      "sources_count": 5,
+      "error": null
+    },
+    {
+      "id": "D2",
+      "category": "Disambiguation",
+      "difficulty": "Medium",
+      "question": "What does CIM stand for in this context?",
+      "expected_keywords": [
+        "Common Information Model",
+        "IEC"
+      ],
+      "response": "In this context, **CIM** stands for **Common Information Model**.  \n\nThis is explicitly defined in the provided vocabulary section:  \n> *[Vocabulary] Common Information Model*: The Common Information Model (CIM) is a standardized, object-oriented conceptual framework...  \n\nThe context does not provide additional details about the IEC variant (e.g., \"IEC Common Information Model\") beyond its naming, but the core definition of **CIM** here is unambiguously **Common Information Model**.  \n\n*Note: N",
+      "latency_ms": 118564,
+      "score": "\u2705",
+      "keyword_score": 1.0,
+      "hallucination": {
+        "is_hallucination": false,
+        "issues": [],
+        "adr_refs_found": [],
+        "adr_refs_unsupported": []
+      },
+      "sources_count": 5,
+      "error": null
+    },
+    {
+      "id": "N1",
+      "category": "Negative",
+      "difficulty": "Test",
+      "question": "What is the architecture decision about using GraphQL?",
+      "expected_keywords": [],
+      "expect_no_answer": true,
+      "response": "I don't have information about GraphQL in the provided context. The context includes several Architecture Decision Records (ADRs) and vocabulary items related to energy system standards (e.g., IEC 62325-451, IEC 61850-90-10), domain ownership for customer services, DACI decision-making, standard prioritization, and enterprise architecture concepts\u2014but **no references to GraphQL** are present. \n\nTo clarify:  \n- All ADRs in the context focus on energy flow direction, domain ownership, decision-mak",
+      "latency_ms": 261961,
+      "score": "\u2705",
+      "keyword_score": 1.0,
+      "hallucination": {
+        "is_hallucination": false,
+        "issues": [],
+        "adr_refs_found": [],
+        "adr_refs_unsupported": []
+      },
+      "sources_count": 5,
+      "error": null
+    },
+    {
+      "id": "N3",
+      "category": "Negative",
+      "difficulty": "Test",
+      "question": "What does ADR-0050 decide?",
+      "expected_keywords": [],
+      "expect_no_answer": true,
+      "response": "I don't have sufficient information to answer this question.\n\n**Reason:** ADR-0050 was not found in the knowledge base.\n\n**Suggestions:**\n- Try rephrasing your question with different terms\n- Check if the topic exists in our knowledge base\n- For terminology questions, verify the term exists in SKOSMOS\n\nIf you believe this information should be available, please contact the ESA team to have it added to the knowledge base.",
+      "latency_ms": 6969,
+      "score": "\u2705",
+      "keyword_score": 1.0,
+      "hallucination": {
+        "is_hallucination": true,
+        "issues": [
+          "References ADR-0050 not found in retrieved context"
+        ],
+        "adr_refs_found": [
+          "ADR-0050"
+        ],
+        "adr_refs_unsupported": [
+          "ADR-0050"
+        ]
+      },
+      "sources_count": 5,
+      "error": null
+    }
+  ]
+}

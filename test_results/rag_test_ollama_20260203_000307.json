@@ -1,0 +1,190 @@
+{
+  "timestamp": "2026-02-03T00:03:07.015280",
+  "provider": "ollama",
+  "total_questions": 10,
+  "summary": {
+    "correct": 5,
+    "partial": 1,
+    "wrong": 3,
+    "errors": 1,
+    "accuracy": "50.0%",
+    "avg_latency_ms": 204379,
+    "avg_keyword_score": "55.0%"
+  },
+  "by_category": {
+    "Vocabulary": "1/1",
+    "ADR": "1/2",
+    "Principle": "1/1",
+    "Policy": "0/1",
+    "Cross-Domain": "0/1",
+    "Comparative": "1/1",
+    "Disambiguation": "0/1",
+    "Negative": "1/2"
+  },
+  "by_difficulty": {
+    "Easy": "3/4",
+    "Medium": "0/2",
+    "Hard": "1/2",
+    "Test": "1/2"
+  },
+  "results": [
+    {
+      "id": "V1",
+      "category": "Vocabulary",
+      "difficulty": "Easy",
+      "question": "What is 'Demandable Capacity' in energy systems?",
+      "expected_keywords": [
+        "difference",
+        "high",
+        "low",
+        "power",
+        "limit"
+      ],
+      "response": "Based on the provided context, **Demandable Capacity** in energy systems is defined as:  \n**The difference between the high and low power limits** (translated from Dutch: *\"Het verschil tussen de hoge en lage vermogensgrens\"*).  \n\nThis term describes the flexibility or range of capacity that can be dynamically adjusted within an energy system, specifically the gap between the maximum (high) and minimum (low) power thresholds. It is distinct from the **Demandable Capacity Limit** (the upper bound",
+      "latency_ms": 150210,
+      "score": "\u2705",
+      "keyword_score": 1.0,
+      "error": null
+    },
+    {
+      "id": "A1",
+      "category": "ADR",
+      "difficulty": "Easy",
+      "question": "What decision was made about the domain language standard?",
+      "expected_keywords": [
+        "CIM",
+        "IEC",
+        "61970",
+        "domain language"
+      ],
+      "response": "Based on the provided context, the decision made about the domain language standard was to use IEC 61970/61968/62325 as the default domain language. This is clearly stated in the ADR titled \"[ADR] Use CIM (IEC 61970/61968/62325) as default domain language\" where it specifies \"Chosen option: IEC as standard domain language (IEC 61970/61968/62325)\".\n\nThe context explains that this decision was made because:\n- It aligns with another international standardized metamodel to achieve semantic interoper",
+      "latency_ms": 149758,
+      "score": "\u2705",
+      "keyword_score": 1.0,
+      "error": null
+    },
+    {
+      "id": "A3",
+      "category": "ADR",
+      "difficulty": "Medium",
+      "question": "Why was CIM chosen as the default domain language?",
+      "expected_keywords": [
+        "semantic",
+        "interoperability",
+        "standard"
+      ],
+      "response": "",
+      "latency_ms": 184287,
+      "score": "\u274c",
+      "keyword_score": 0.0,
+      "error": null
+    },
+    {
+      "id": "P1",
+      "category": "Principle",
+      "difficulty": "Easy",
+      "question": "What does the principle 'Data is een Asset' mean?",
+      "expected_keywords": [
+        "data",
+        "asset",
+        "value",
+        "responsible"
+      ],
+      "response": "# What does the principle 'Data is een Asset' mean?\n\nBased on the provided context, the principle \"Data is een Asset\" means that data is treated as a valuable strategic resource within the organization, rather than as a byproduct of business processes. This is a mindset where data creation and management is central to business value.\n\nSpecifically, this principle means:\n\n1. **Data is recognized as a valuable resource** that contributes directly to organizational value creation, not just a side e",
+      "latency_ms": 299331,
+      "score": "\u2705",
+      "keyword_score": 1.0,
+      "error": null
+    },
+    {
+      "id": "PO1",
+      "category": "Policy",
+      "difficulty": "Easy",
+      "question": "What policy document covers data governance at Alliander?",
+      "expected_keywords": [
+        "Governance",
+        "Beleid",
+        "Alliander"
+      ],
+      "response": "",
+      "latency_ms": 306297,
+      "score": "error",
+      "keyword_score": 0,
+      "error": "Ollama generation timed out after 300816ms."
+    },
+    {
+      "id": "X1",
+      "category": "Cross-Domain",
+      "difficulty": "Hard",
+      "question": "How do the architecture decisions support the data governance principles?",
+      "expected_keywords": [
+        "CIM",
+        "interoperability",
+        "security",
+        "TLS"
+      ],
+      "response": "",
+      "latency_ms": 304290,
+      "score": "\u274c",
+      "keyword_score": 0.0,
+      "error": null
+    },
+    {
+      "id": "C1",
+      "category": "Comparative",
+      "difficulty": "Hard",
+      "question": "What's the difference between TLS and OAuth 2.0 in our architecture?",
+      "expected_keywords": [
+        "transport",
+        "authentication",
+        "communication"
+      ],
+      "response": "# Difference Between TLS and OAuth 2.0 in Our Architecture\n\nBased on the provided context, TLS and OAuth 2.0 serve fundamentally different purposes in our architecture:\n\n## TLS\n- **Purpose**: Secures data communication in transit\n- **Role**: Provides encryption and authentication for all data communications\n- **Implementation**: The context specifies using TLS (v1.3 preferred, v1.2 fallback) for \"all data communications\"\n- **Function**: Creates a secure channel between systems to protect data fr",
+      "latency_ms": 172090,
+      "score": "\u2705",
+      "keyword_score": 1.0,
+      "error": null
+    },
+    {
+      "id": "D2",
+      "category": "Disambiguation",
+      "difficulty": "Medium",
+      "question": "What does CIM stand for in this context?",
+      "expected_keywords": [
+        "Common Information Model",
+        "IEC"
+      ],
+      "response": "In this context, CIM stands for \"Common Information Model\". \n\nThe context explicitly states: \"The Common Information Model (CIM) is a standardized, object-oriented conceptual framework developed by the electric utility industry to enable consistent representation, exchange, and integration of power system information across diverse applications and systems.\"\n\nThis is clearly defined in the vocabulary section where it's presented as a standardized framework for electrical network components withi",
+      "latency_ms": 65256,
+      "score": "\u26a0\ufe0f",
+      "keyword_score": 0.5,
+      "error": null
+    },
+    {
+      "id": "N1",
+      "category": "Negative",
+      "difficulty": "Test",
+      "question": "What is the architecture decision about using GraphQL?",
+      "expected_keywords": [],
+      "expect_no_answer": true,
+      "response": "I don't see any information about GraphQL in the provided context. After carefully reviewing all the architecture decisions and vocabulary items listed in the context, there is no mention of GraphQL or any architecture decision related to it.\n\nThe context covers several important architecture decisions including:\n- Using IEC 62325-451 series for energy flow direction\n- Using Alliander-owned domains for customer-facing services\n- Adopting DACI for decision-making processes\n- Prioritizing internat",
+      "latency_ms": 150077,
+      "score": "\u2705",
+      "keyword_score": 1.0,
+      "error": null
+    },
+    {
+      "id": "N3",
+      "category": "Negative",
+      "difficulty": "Test",
+      "question": "What does ADR-0050 decide?",
+      "expected_keywords": [],
+      "expect_no_answer": true,
+      "response": "",
+      "latency_ms": 262203,
+      "score": "\u274c",
+      "keyword_score": 0.0,
+      "error": null
+    }
+  ]
+}
