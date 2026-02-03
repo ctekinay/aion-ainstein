@@ -246,7 +246,7 @@ class MarkdownLoader:
         )
 
     def _classify_adr_document(self, file_path: Path, title: str, content: str) -> str:
-        """Classify an ADR document as content, index, or template.
+        """Classify an ADR document as content, index, template, or decision_approval_record.
 
         Args:
             file_path: Path to the ADR file
@@ -254,10 +254,15 @@ class MarkdownLoader:
             content: Document content
 
         Returns:
-            Classification: 'content', 'index', or 'template'
+            Classification: 'content', 'index', 'template', or 'decision_approval_record'
         """
         file_name = file_path.name.lower()
         title_lower = title.lower()
+
+        # Decision Approval Records: NNNND-*.md files (contain governance/approval history)
+        # These track the DACI approval process, not the actual decision content
+        if re.match(r"^\d{4}d-", file_name):
+            return 'decision_approval_record'
 
         # Index files: contain lists of documents, no actual decisions
         index_patterns = ['index.md', 'readme.md', 'overview.md', '_index.md']
@@ -350,13 +355,17 @@ class MarkdownLoader:
         adr_number = self._extract_adr_number(file_path)
         doc.adr_number = adr_number
 
+        # Classify first to determine if it's a decision approval record
+        doc.doc_type = self._classify_adr_document(file_path, doc.title, doc.content)
+
         # Prepend ADR ID to title for better retrieval (using official format ADR.XX)
+        # Use different prefix for Decision Approval Records
         if adr_number and not doc.title.lower().startswith("adr"):
             adr_id = self._format_adr_id(adr_number)
-            doc.title = f"{adr_id}: {doc.title}"
-
-        # Classify as content, index, or template
-        doc.doc_type = self._classify_adr_document(file_path, doc.title, doc.content)
+            if doc.doc_type == 'decision_approval_record':
+                doc.title = f"{adr_id}D (Approval Record): {doc.title}"
+            else:
+                doc.title = f"{adr_id}: {doc.title}"
 
         # Extract ADR-specific sections
         content = doc.content
@@ -380,7 +389,7 @@ class MarkdownLoader:
         return doc
 
     def _classify_principle_document(self, file_path: Path, title: str, content: str) -> str:
-        """Classify a principle document as content, index, or template.
+        """Classify a principle document as content, index, template, or decision_approval_record.
 
         Args:
             file_path: Path to the principle file
@@ -388,10 +397,15 @@ class MarkdownLoader:
             content: Document content
 
         Returns:
-            Classification: 'content', 'index', or 'template'
+            Classification: 'content', 'index', 'template', or 'decision_approval_record'
         """
         file_name = file_path.name.lower()
         title_lower = title.lower()
+
+        # Decision Approval Records: NNNND-*.md files (contain governance/approval history)
+        # These track the DACI approval process, not the actual principle content
+        if re.match(r"^\d{4}d-", file_name):
+            return 'decision_approval_record'
 
         # Index files
         index_patterns = ['index.md', 'readme.md', 'overview.md', '_index.md']
@@ -471,13 +485,17 @@ class MarkdownLoader:
         principle_number = self._extract_principle_number(file_path)
         doc.principle_number = principle_number
 
+        # Classify first to determine if it's a decision approval record
+        doc.doc_type = self._classify_principle_document(file_path, doc.title, doc.content)
+
         # Prepend Principle ID to title for better retrieval (using official format PCP.XX)
+        # Use different prefix for Decision Approval Records
         if principle_number and not doc.title.lower().startswith("pcp"):
             pcp_id = self._format_principle_id(principle_number)
-            doc.title = f"{pcp_id}: {doc.title}"
-
-        # Classify as content, index, or template
-        doc.doc_type = self._classify_principle_document(file_path, doc.title, doc.content)
+            if doc.doc_type == 'decision_approval_record':
+                doc.title = f"{pcp_id}D (Approval Record): {doc.title}"
+            else:
+                doc.title = f"{pcp_id}: {doc.title}"
 
         return doc
 
