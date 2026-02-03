@@ -265,29 +265,54 @@ def calculate_keyword_score(response: str, expected_keywords: list) -> float:
 def check_no_answer(response: str) -> bool:
     """Check if response indicates 'I don't know' or similar."""
     no_answer_phrases = [
-        "don't have information",
+        # Direct negations
+        "there is no",
+        "there are no",
+        "there isn't",
+        "there aren't",
         "no such",
-        "doesn't exist",
-        "does not exist",
-        "not found",
         "no adr",
-        "cannot find",
-        "not in the",
-        "no information",
-        "i don't know",
-        "unable to find",
-        "not available",
-        "does not include",
-        "cannot provide an answer",
         "no specific",
-        "not mentioned",
-        "no mention of",
-        "outside the scope",
-        "beyond the scope",
-        "not covered",
         "no relevant",
+        "no information",
+        "no mention of",
         "no data about",
         "no record of",
+        # Doesn't/does not patterns
+        "doesn't exist",
+        "does not exist",
+        "doesn't appear",
+        "does not appear",
+        "doesn't include",
+        "does not include",
+        "doesn't contain",
+        "does not contain",
+        # Not patterns
+        "not found",
+        "not in the",
+        "not available",
+        "not mentioned",
+        "not covered",
+        "not recorded",
+        # Cannot/unable patterns
+        "cannot find",
+        "cannot provide",
+        "unable to find",
+        "unable to locate",
+        # Don't have/know patterns
+        "don't have information",
+        "don't have any information",
+        "i don't know",
+        "i don't have",
+        # Scope patterns
+        "outside the scope",
+        "beyond the scope",
+        "not within the",
+        # Context patterns
+        "based on the provided context",
+        "in the provided context",
+        "context does not",
+        "context doesn't",
     ]
     response_lower = response.lower()
     return any(phrase in response_lower for phrase in no_answer_phrases)
