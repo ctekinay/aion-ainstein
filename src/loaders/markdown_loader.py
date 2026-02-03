@@ -49,6 +49,9 @@ class MarkdownDocument:
     consequences: str = ""
     adr_number: str = ""  # Extracted from filename (e.g., "0012")
 
+    # Principle-specific fields
+    principle_number: str = ""  # Extracted from filename (e.g., "0010")
+
     # Ownership fields from index.md
     owner_team: str = ""
     owner_team_abbr: str = ""
@@ -69,6 +72,7 @@ class MarkdownDocument:
             "context": self.context,
             "consequences": self.consequences,
             "adr_number": self.adr_number,
+            "principle_number": self.principle_number,
             # Ownership fields
             "owner_team": self.owner_team,
             "owner_team_abbr": self.owner_team_abbr,
@@ -84,9 +88,11 @@ class MarkdownDocument:
     def _build_full_text(self) -> str:
         """Build full searchable text."""
         parts = []
-        # Include ADR number prominently for better retrieval
+        # Include ADR/Principle number prominently for better retrieval
         if self.adr_number:
             parts.append(f"ADR-{self.adr_number}")
+        if self.principle_number:
+            parts.append(f"PCP-{self.principle_number}")
         parts.append(f"Title: {self.title}")
         if self.doc_type:
             parts.append(f"Type: {self.doc_type}")
@@ -374,6 +380,25 @@ class MarkdownLoader:
         # Default: actual content
         return 'content'
 
+    # Regex pattern for extracting Principle number from filename
+    PRINCIPLE_NUMBER_PATTERN = re.compile(r"^(\d{4})D?-")
+
+    def _extract_principle_number(self, file_path: Path) -> str:
+        """Extract Principle number from filename.
+
+        Handles both Principle files (0010-name.md) and Decision Record files (0010D-name.md).
+
+        Args:
+            file_path: Path to the principle file
+
+        Returns:
+            Principle number as string (e.g., "0010") or empty string if not found
+        """
+        match = self.PRINCIPLE_NUMBER_PATTERN.match(file_path.name)
+        if match:
+            return match.group(1)
+        return ""
+
     def _load_principle(self, file_path: Path) -> Optional[MarkdownDocument]:
         """Load a principle document.
 
@@ -384,9 +409,20 @@ class MarkdownLoader:
             Parsed MarkdownDocument
         """
         doc = self._load_file(file_path)
-        if doc:
-            # Classify as content, index, or template
-            doc.doc_type = self._classify_principle_document(file_path, doc.title, doc.content)
+        if not doc:
+            return None
+
+        # Extract Principle number from filename
+        principle_number = self._extract_principle_number(file_path)
+        doc.principle_number = principle_number
+
+        # Prepend Principle number to title for better retrieval
+        if principle_number and not doc.title.lower().startswith("pcp"):
+            doc.title = f"PCP-{principle_number}: {doc.title}"
+
+        # Classify as content, index, or template
+        doc.doc_type = self._classify_principle_document(file_path, doc.title, doc.content)
+
         return doc
 
     def _extract_title(self, content: str, file_path: Path) -> str:

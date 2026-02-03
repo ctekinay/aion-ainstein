@@ -385,6 +385,12 @@ class CollectionManager:
                     tokenization=Tokenization.WORD,
                 ),
                 Property(
+                    name="principle_number",
+                    data_type=DataType.TEXT,
+                    description="Principle number extracted from filename (e.g., '0010')",
+                    tokenization=Tokenization.FIELD,
+                ),
+                Property(
                     name="content",
                     data_type=DataType.TEXT,
                     description="Full content of the principle",
@@ -654,6 +660,12 @@ class CollectionManager:
                     data_type=DataType.TEXT,
                     description="Title of the principle",
                     tokenization=Tokenization.WORD,
+                ),
+                Property(
+                    name="principle_number",
+                    data_type=DataType.TEXT,
+                    description="Principle number extracted from filename (e.g., '0010')",
+                    tokenization=Tokenization.FIELD,
                 ),
                 Property(
                     name="content",
