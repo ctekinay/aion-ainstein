@@ -263,7 +263,15 @@ def calculate_keyword_score(response: str, expected_keywords: list) -> float:
 
 
 def check_no_answer(response: str) -> bool:
-    """Check if response indicates 'I don't know' or similar."""
+    """Check if response indicates 'I don't know' or similar.
+
+    Also returns True for empty/near-empty responses, as refusing to answer
+    is a valid way to handle questions about non-existent information.
+    """
+    # Empty or very short responses count as "no answer"
+    if not response or len(response.strip()) < 10:
+        return True
+
     no_answer_phrases = [
         # Direct negations
         "there is no",
