@@ -7,10 +7,93 @@ and agentic query processing.
 import logging
 from typing import Optional, Any
 
+import re
 from weaviate import WeaviateClient
-from weaviate.classes.query import Filter
+from weaviate.classes.query import Filter, MetadataQuery
 
 from .config import settings
+
+# Abstention thresholds
+DISTANCE_THRESHOLD = 0.5  # Max distance for relevance (lower = more similar)
+MIN_QUERY_COVERAGE = 0.2  # Min fraction of query terms found in results
+
+
+def should_abstain(query: str, results: list) -> tuple[bool, str]:
+    """Determine if the system should abstain from answering.
+
+    Checks retrieval quality signals to prevent hallucination when
+    no relevant documents are found.
+
+    Args:
+        query: The user's question
+        results: List of retrieved documents with distance/score metadata
+
+    Returns:
+        Tuple of (should_abstain: bool, reason: str)
+    """
+    # No results at all
+    if not results:
+        return True, "No relevant documents found in the knowledge base."
+
+    # Check if any result has acceptable distance
+    distances = [r.get("distance") for r in results if r.get("distance") is not None]
+    if distances:
+        min_distance = min(distances)
+        if min_distance > DISTANCE_THRESHOLD:
+            return True, f"No sufficiently relevant documents found (best match distance: {min_distance:.2f})."
+
+    # Check for specific ADR queries - must find the exact ADR
+    adr_match = re.search(r'adr[- ]?0*(\d+)', query.lower())
+    if adr_match:
+        adr_num = adr_match.group(1).zfill(4)
+        adr_found = any(
+            f"adr-{adr_num}" in str(r.get("title", "")).lower() or
+            f"adr-{adr_num}" in str(r.get("content", "")).lower()
+            for r in results
+        )
+        if not adr_found:
+            return True, f"ADR-{adr_num} was not found in the knowledge base."
+
+    # Check query term coverage in results
+    # Extract meaningful terms (skip common words)
+    stop_words = {"what", "is", "the", "a", "an", "of", "in", "to", "for", "and", "or", "how", "does", "do", "about", "our"}
+    query_terms = [t for t in query.lower().split() if t not in stop_words and len(t) > 2]
+
+    if query_terms:
+        results_text = " ".join(
+            str(r.get("title", "")) + " " + str(r.get("content", "")) + " " +
+            str(r.get("label", "")) + " " + str(r.get("definition", ""))
+            for r in results
+        ).lower()
+
+        terms_found = sum(1 for t in query_terms if t in results_text)
+        coverage = terms_found / len(query_terms) if query_terms else 0
+
+        if coverage < MIN_QUERY_COVERAGE:
+            return True, f"Query terms not well covered by retrieved documents (coverage: {coverage:.0%})."
+
+    return False, "OK"
+
+
+def get_abstention_response(reason: str) -> str:
+    """Generate a helpful abstention response.
+
+    Args:
+        reason: The reason for abstaining
+
+    Returns:
+        User-friendly abstention message
+    """
+    return f"""I don't have sufficient information to answer this question.
+
+**Reason:** {reason}
+
+**Suggestions:**
+- Try rephrasing your question with different terms
+- Check if the topic exists in our knowledge base
+- For terminology questions, verify the term exists in SKOSMOS
+
+If you believe this information should be available, please contact the ESA team to have it added to the knowledge base."""
 from .weaviate.embeddings import embed_text
 
 logger = logging.getLogger(__name__)
@@ -418,6 +501,7 @@ class ElysiaRAGSystem:
 
         Supports both OpenAI and Ollama as LLM backends.
         Uses client-side embeddings for local collections (Ollama provider).
+        Implements confidence-based abstention to prevent hallucination.
 
         Args:
             question: The user's question
@@ -446,18 +530,24 @@ class ElysiaRAGSystem:
         # Filter to exclude index/template documents
         content_filter = Filter.by_property("doc_type").equal("content")
 
+        # Request metadata for abstention decisions
+        metadata_request = MetadataQuery(score=True, distance=True)
+
         # Search relevant collections
         if any(term in question_lower for term in ["adr", "decision", "architecture"]):
             try:
                 collection = self.client.collections.get(f"ArchitecturalDecision{suffix}")
                 results = collection.query.hybrid(
-                    query=question, vector=query_vector, limit=5, alpha=settings.alpha_vocabulary, filters=content_filter
+                    query=question, vector=query_vector, limit=5, alpha=settings.alpha_vocabulary,
+                    filters=content_filter, return_metadata=metadata_request
                 )
                 for obj in results.objects:
                     all_results.append({
                         "type": "ADR",
                         "title": obj.properties.get("title", ""),
                         "content": obj.properties.get("decision", "")[:500],
+                        "distance": obj.metadata.distance,
+                        "score": obj.metadata.score,
                     })
             except Exception as e:
                 logger.warning(f"Error searching ArchitecturalDecision{suffix}: {e}")
@@ -466,13 +556,16 @@ class ElysiaRAGSystem:
             try:
                 collection = self.client.collections.get(f"Principle{suffix}")
                 results = collection.query.hybrid(
-                    query=question, vector=query_vector, limit=5, alpha=settings.alpha_vocabulary, filters=content_filter
+                    query=question, vector=query_vector, limit=5, alpha=settings.alpha_vocabulary,
+                    filters=content_filter, return_metadata=metadata_request
                 )
                 for obj in results.objects:
                     all_results.append({
                         "type": "Principle",
                         "title": obj.properties.get("title", ""),
                         "content": obj.properties.get("content", "")[:500],
+                        "distance": obj.metadata.distance,
+                        "score": obj.metadata.score,
                     })
             except Exception as e:
                 logger.warning(f"Error searching Principle{suffix}: {e}")
@@ -481,13 +574,16 @@ class ElysiaRAGSystem:
             try:
                 collection = self.client.collections.get(f"PolicyDocument{suffix}")
                 results = collection.query.hybrid(
-                    query=question, vector=query_vector, limit=5, alpha=settings.alpha_vocabulary
+                    query=question, vector=query_vector, limit=5, alpha=settings.alpha_vocabulary,
+                    return_metadata=metadata_request
                 )
                 for obj in results.objects:
                     all_results.append({
                         "type": "Policy",
                         "title": obj.properties.get("title", ""),
                         "content": obj.properties.get("content", "")[:500],
+                        "distance": obj.metadata.distance,
+                        "score": obj.metadata.score,
                     })
             except Exception as e:
                 logger.warning(f"Error searching PolicyDocument{suffix}: {e}")
@@ -498,13 +594,16 @@ class ElysiaRAGSystem:
             try:
                 collection = self.client.collections.get(f"Vocabulary{suffix}")
                 results = collection.query.hybrid(
-                    query=question, vector=query_vector, limit=5, alpha=settings.alpha_vocabulary
+                    query=question, vector=query_vector, limit=5, alpha=settings.alpha_vocabulary,
+                    return_metadata=metadata_request
                 )
                 for obj in results.objects:
                     all_results.append({
                         "type": "Vocabulary",
                         "label": obj.properties.get("pref_label", ""),
                         "definition": obj.properties.get("definition", ""),
+                        "distance": obj.metadata.distance,
+                        "score": obj.metadata.score,
                     })
             except Exception as e:
                 logger.warning(f"Error searching Vocabulary{suffix}: {e}")
@@ -515,7 +614,8 @@ class ElysiaRAGSystem:
                 try:
                     collection = self.client.collections.get(f"{coll_base}{suffix}")
                     results = collection.query.hybrid(
-                        query=question, vector=query_vector, limit=3, alpha=settings.alpha_vocabulary
+                        query=question, vector=query_vector, limit=3, alpha=settings.alpha_vocabulary,
+                        return_metadata=metadata_request
                     )
                     for obj in results.objects:
                         if coll_base == "Vocabulary":
@@ -523,15 +623,25 @@ class ElysiaRAGSystem:
                                 "type": "Vocabulary",
                                 "label": obj.properties.get("pref_label", ""),
                                 "definition": obj.properties.get("definition", ""),
+                                "distance": obj.metadata.distance,
+                                "score": obj.metadata.score,
                             })
                         else:
                             all_results.append({
                                 "type": coll_base,
                                 "title": obj.properties.get("title", ""),
                                 "content": obj.properties.get("content", obj.properties.get("decision", ""))[:300],
+                                "distance": obj.metadata.distance,
+                                "score": obj.metadata.score,
                             })
                 except Exception as e:
                     logger.warning(f"Error searching {coll_base}{suffix}: {e}")
+
+        # Check if we should abstain from answering
+        abstain, reason = should_abstain(question, all_results)
+        if abstain:
+            logger.info(f"Abstaining from query: {reason}")
+            return get_abstention_response(reason), all_results
 
         # Build context from retrieved results
         context = "\n\n".join([
