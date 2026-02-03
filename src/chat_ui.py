@@ -564,6 +564,7 @@ async def stream_elysia_response(question: str) -> AsyncGenerator[str, None]:
 
     event_count = 0
     last_status_time = asyncio.get_event_loop().time()
+    start_time = asyncio.get_event_loop().time()
 
     # Stream output events with keepalive
     while thread.is_alive():
@@ -576,10 +577,12 @@ async def stream_elysia_response(question: str) -> AsyncGenerator[str, None]:
             yield f"data: {json.dumps(event)}\n\n"
             last_status_time = asyncio.get_event_loop().time()
         except Empty:
-            # Send keepalive comment every 2 seconds
+            # Send keepalive status event every 3 seconds to show system is still working
             now = asyncio.get_event_loop().time()
-            if now - last_status_time > 2:
-                yield f": keepalive\n\n"
+            if now - last_status_time > 3:
+                elapsed_sec = int(now - start_time)
+                # Send actual status event so frontend can update UI
+                yield f"data: {json.dumps({'type': 'heartbeat', 'elapsed_sec': elapsed_sec})}\n\n"
                 last_status_time = now
             await asyncio.sleep(0.05)
             continue

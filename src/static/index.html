@@ -775,6 +775,11 @@
         .loading-indicator .loading-subtitle {
             color: var(--text-muted);
             font-size: 12px;
+            transition: color 0.3s ease;
+        }
+
+        .loading-indicator .loading-subtitle.heartbeat-pulse {
+            color: var(--primary);
         }
 
         .loading-indicator .loading-dots {
@@ -1990,6 +1995,11 @@
                     showStatus(data.content);
                     break;
 
+                case 'heartbeat':
+                    // System is still processing - update elapsed time indicator
+                    updateHeartbeat(data.elapsed_sec);
+                    break;
+
                 case 'decision':
                     removeStatus();
                     // Show loading again if it was removed (for multi-step thinking)
@@ -2287,6 +2297,29 @@
             const loading = document.getElementById('global-loading');
             if (loading) {
                 loading.remove();
+            }
+        }
+
+        // Update heartbeat - show elapsed time to indicate system is still working
+        function updateHeartbeat(elapsedSec) {
+            // Ensure loading indicator is visible
+            if (!document.getElementById('global-loading')) {
+                showLoading();
+            }
+
+            const loading = document.getElementById('global-loading');
+            if (loading) {
+                const subtitle = loading.querySelector('.loading-subtitle');
+                if (subtitle) {
+                    // Format elapsed time nicely
+                    const mins = Math.floor(elapsedSec / 60);
+                    const secs = elapsedSec % 60;
+                    const timeStr = mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
+                    subtitle.textContent = `Still processing... (${timeStr} elapsed)`;
+                    subtitle.classList.add('heartbeat-pulse');
+                    // Remove pulse class after animation
+                    setTimeout(() => subtitle.classList.remove('heartbeat-pulse'), 500);
+                }
             }
         }
 
