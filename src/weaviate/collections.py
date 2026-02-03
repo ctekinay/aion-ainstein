@@ -303,6 +303,12 @@ class CollectionManager:
                     tokenization=Tokenization.WORD,
                 ),
                 Property(
+                    name="adr_number",
+                    data_type=DataType.TEXT,
+                    description="ADR number extracted from filename (e.g., '0012')",
+                    tokenization=Tokenization.FIELD,
+                ),
+                Property(
                     name="status",
                     data_type=DataType.TEXT,
                     description="Status of the decision (proposed, accepted, deprecated, superseded)",
@@ -570,6 +576,12 @@ class CollectionManager:
                     data_type=DataType.TEXT,
                     description="Title of the ADR",
                     tokenization=Tokenization.WORD,
+                ),
+                Property(
+                    name="adr_number",
+                    data_type=DataType.TEXT,
+                    description="ADR number extracted from filename (e.g., '0012')",
+                    tokenization=Tokenization.FIELD,
                 ),
                 Property(
                     name="status",

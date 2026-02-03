@@ -47,6 +47,7 @@ class MarkdownDocument:
     decision: str = ""
     context: str = ""
     consequences: str = ""
+    adr_number: str = ""  # Extracted from filename (e.g., "0012")
 
     # Ownership fields from index.md
     owner_team: str = ""
@@ -67,6 +68,7 @@ class MarkdownDocument:
             "decision": self.decision,
             "context": self.context,
             "consequences": self.consequences,
+            "adr_number": self.adr_number,
             # Ownership fields
             "owner_team": self.owner_team,
             "owner_team_abbr": self.owner_team_abbr,
@@ -81,7 +83,11 @@ class MarkdownDocument:
 
     def _build_full_text(self) -> str:
         """Build full searchable text."""
-        parts = [f"Title: {self.title}"]
+        parts = []
+        # Include ADR number prominently for better retrieval
+        if self.adr_number:
+            parts.append(f"ADR-{self.adr_number}")
+        parts.append(f"Title: {self.title}")
         if self.doc_type:
             parts.append(f"Type: {self.doc_type}")
         if self.status:
@@ -267,6 +273,27 @@ class MarkdownLoader:
         # Default: actual content document
         return 'content'
 
+    # Regex pattern for extracting ADR number from filename
+    ADR_NUMBER_PATTERN = re.compile(r"^(\d{4})D?-")
+
+    def _extract_adr_number(self, file_path: Path) -> str:
+        """Extract ADR number from filename.
+
+        Handles both ADR files (0012-name.md) and Decision Record files (0012D-name.md).
+
+        Args:
+            file_path: Path to the ADR file
+
+        Returns:
+            ADR number as string (e.g., "0012") or empty string if not found
+        """
+        match = self.ADR_NUMBER_PATTERN.match(file_path.name)
+        if match:
+            return match.group(1)
+
+        # Also check nav_order in metadata for backup
+        return ""
+
     def _load_adr(self, file_path: Path) -> Optional[MarkdownDocument]:
         """Load an Architectural Decision Record.
 
@@ -279,6 +306,14 @@ class MarkdownLoader:
         doc = self._load_file(file_path)
         if not doc:
             return None
+
+        # Extract ADR number from filename
+        adr_number = self._extract_adr_number(file_path)
+        doc.adr_number = adr_number
+
+        # Prepend ADR number to title for better retrieval
+        if adr_number and not doc.title.lower().startswith("adr"):
+            doc.title = f"ADR-{adr_number}: {doc.title}"
 
         # Classify as content, index, or template
         doc.doc_type = self._classify_adr_document(file_path, doc.title, doc.content)
