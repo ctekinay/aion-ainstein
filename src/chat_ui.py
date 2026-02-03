@@ -328,25 +328,33 @@ def init_db():
             content TEXT,
             sources TEXT,
             timestamp TEXT,
+            timing TEXT,
             FOREIGN KEY (conversation_id) REFERENCES conversations(id)
         )
     """)
+
+    # Migration: Add timing column if it doesn't exist (for existing databases)
+    try:
+        cursor.execute("ALTER TABLE messages ADD COLUMN timing TEXT")
+    except sqlite3.OperationalError:
+        pass  # Column already exists
 
     conn.commit()
     conn.close()
 
 
-def save_message(conversation_id: str, role: str, content: str, sources: list[dict] = None):
+def save_message(conversation_id: str, role: str, content: str, sources: list[dict] = None, timing: dict = None):
     """Save a message to the database."""
     conn = sqlite3.connect(_db_path)
     cursor = conn.cursor()
 
     timestamp = datetime.now().isoformat()
     sources_json = json.dumps(sources) if sources else None
+    timing_json = json.dumps(timing) if timing else None
 
     cursor.execute(
-        "INSERT INTO messages (conversation_id, role, content, sources, timestamp) VALUES (?, ?, ?, ?, ?)",
-        (conversation_id, role, content, sources_json, timestamp)
+        "INSERT INTO messages (conversation_id, role, content, sources, timestamp, timing) VALUES (?, ?, ?, ?, ?, ?)",
+        (conversation_id, role, content, sources_json, timestamp, timing_json)
     )
 
     # Update conversation timestamp
@@ -383,7 +391,7 @@ def get_conversation_messages(conversation_id: str) -> list[dict]:
     cursor = conn.cursor()
 
     cursor.execute(
-        "SELECT role, content, sources, timestamp FROM messages WHERE conversation_id = ? ORDER BY timestamp",
+        "SELECT role, content, sources, timestamp, timing FROM messages WHERE conversation_id = ? ORDER BY timestamp",
         (conversation_id,)
     )
 
@@ -394,6 +402,7 @@ def get_conversation_messages(conversation_id: str) -> list[dict]:
             "content": row[1],
             "sources": json.loads(row[2]) if row[2] else None,
             "timestamp": row[3],
+            "timing": json.loads(row[4]) if row[4] else None,
         })
 
     conn.close()
@@ -1055,6 +1064,7 @@ async def chat_stream(request: ChatRequest):
 
         final_response = None
         final_sources = []
+        final_timing = None
 
         async for event in stream_elysia_response(request.message):
             yield event
@@ -1065,12 +1075,13 @@ async def chat_stream(request: ChatRequest):
                 if data.get("type") == "complete":
                     final_response = data.get("response")
                     final_sources = data.get("sources", [])
+                    final_timing = data.get("timing")
             except:
                 pass
 
-        # Save assistant response
+        # Save assistant response with timing
         if final_response:
-            save_message(conversation_id, "assistant", final_response, final_sources)
+            save_message(conversation_id, "assistant", final_response, final_sources, final_timing)
 
     return StreamingResponse(
         event_generator(),

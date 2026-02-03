@@ -530,11 +530,25 @@
         }
 
         .panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
             padding: 8px 16px;
             font-size: 12px;
             font-weight: 600;
             text-transform: uppercase;
             letter-spacing: 0.5px;
+        }
+
+        .panel-header .header-title {
+            flex: 1;
+        }
+
+        .panel-header .latency-badges {
+            display: flex;
+            gap: 8px;
+            text-transform: none;
+            letter-spacing: normal;
         }
 
         .panel-content {
@@ -1580,12 +1594,12 @@
                 const messagesContainer = document.getElementById('messages');
                 messagesContainer.innerHTML = '';
 
-                // Display stored messages as simple panels
+                // Display stored messages as simple panels (with timing persisted)
                 data.messages.forEach(msg => {
                     if (msg.role === 'user') {
                         appendPanel('user-prompt', 'User', msg.content, null, msg.timestamp);
                     } else {
-                        appendPanel('assistant', 'AInstein', msg.content, msg.sources, msg.timestamp);
+                        appendPanel('assistant', 'AInstein', msg.content, msg.sources, msg.timestamp, msg.timing);
                     }
                 });
 
@@ -2013,12 +2027,12 @@
                         appendPanel('assistant', 'AInstein', data.response, null, null, data.timing);
                         responseShown = true;
                     } else if (responseShown && data.timing && data.timing.total_ms) {
-                        // Response was already shown (via Rich parser), add timing badge to last assistant panel
+                        // Response was already shown (via Rich parser), add timing badge to last assistant panel header (top right)
                         const panels = document.querySelectorAll('.panel.assistant');
                         if (panels.length > 0) {
                             const lastPanel = panels[panels.length - 1];
-                            const footer = lastPanel.querySelector('.panel-footer');
-                            if (footer && !footer.querySelector('.latency-badges')) {
+                            const header = lastPanel.querySelector('.panel-header');
+                            if (header && !header.querySelector('.latency-badges')) {
                                 const totalMs = data.timing.total_ms;
                                 const totalClass = totalMs < 5000 ? 'fast' : (totalMs > 15000 ? 'slow' : '');
                                 const timingHtml = `
@@ -2026,10 +2040,7 @@
                                         <div class="latency-badge ${totalClass}" title="Total response time">T: ${totalMs}ms</div>
                                     </div>
                                 `;
-                                const timestamp = footer.querySelector('.panel-timestamp');
-                                if (timestamp) {
-                                    timestamp.insertAdjacentHTML('beforebegin', timingHtml);
-                                }
+                                header.insertAdjacentHTML('beforeend', timingHtml);
                             }
                         }
                     }
@@ -2058,13 +2069,7 @@
             panel.className = `panel ${type}`;
             panel.dataset.messageId = messageId;
 
-            // Build panel HTML
-            let panelHTML = `
-                <div class="panel-header">${escapeHtml(title)}</div>
-                <div class="panel-content"><div class="message-text">${formatMessageText(content)}</div></div>
-            `;
-
-            // Build timing badges HTML for assistant panels
+            // Build timing badges HTML for assistant panels (shown in header, top right)
             let timingHtml = '';
             if (type === 'assistant' && timing && timing.total_ms) {
                 const totalMs = timing.total_ms;
@@ -2075,6 +2080,15 @@
                     </div>
                 `;
             }
+
+            // Build panel HTML with timing in header (top right like TEST MODE)
+            let panelHTML = `
+                <div class="panel-header">
+                    <span class="header-title">${escapeHtml(title)}</span>
+                    ${timingHtml}
+                </div>
+                <div class="panel-content"><div class="message-text">${formatMessageText(content)}</div></div>
+            `;
 
             // Add footer with actions for assistant panels, just timestamp for others
             if (type === 'assistant') {
@@ -2092,7 +2106,6 @@
                                 <span class="copy-text">Copy</span>
                             </button>
                         </div>
-                        ${timingHtml}
                         <div class="panel-timestamp">${timeStr}</div>
                     </div>
                 `;
@@ -2428,9 +2441,11 @@
                     }
                     result.push(`<li>${ulMatch[3]}</li>`);
                 } else if (olMatch) {
+                    const itemNum = parseInt(olMatch[2], 10);
                     if (!inList || listType !== 'ol') {
                         if (inList) result.push(listType === 'ol' ? '</ol>' : '</ul>');
-                        result.push('<ol class="formatted-list">');
+                        // Use start attribute to preserve numbering when list is broken
+                        result.push(`<ol class="formatted-list" start="${itemNum}">`);
                         inList = true;
                         listType = 'ol';
                     }
