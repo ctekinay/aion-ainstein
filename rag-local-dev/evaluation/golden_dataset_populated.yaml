@@ -1,0 +1,885 @@
+metadata:
+  annotator: human
+  created_date: '2025-01-27'
+  last_updated: '2026-01-26'
+  total_queries: 50
+  version: '1.1'
+queries:
+- category: adr_semantic
+  difficulty: easy
+  expected_query_type: semantic
+  id: adr-001
+  language: en
+  query: What is our decision on using CIM as domain language?
+  relevant_chunks:
+  - chunk_ids:
+    - 34
+    document_id: ADR-0012
+    rationale: Contains the actual decision on using CIM/IEC standards
+    relevance: 3
+    section: Decision Outcome
+  - chunk_ids:
+    - 31
+    document_id: ADR-0012
+    rationale: Provides background for the decision
+    relevance: 2
+    section: Context and Problem Statement
+- category: adr_semantic
+  difficulty: easy
+  expected_query_type: semantic
+  id: adr-002
+  language: en
+  query: How do we secure data communication?
+  relevant_chunks:
+  - chunk_ids:
+    - 90
+    - 91
+    - 92
+    - 93
+    - 94
+    - 95
+    - 96
+    - 97
+    - 98
+    - 99
+    - 100
+    document_id: ADR-0027
+    rationale: ADR about using TLS for secure data communication
+    relevance: 3
+- category: adr_semantic
+  difficulty: easy
+  expected_query_type: semantic
+  id: adr-003
+  language: en
+  query: What authentication method do we use?
+  relevant_chunks:
+  - chunk_ids:
+    - 116
+    - 109
+    - 110
+    - 111
+    - 112
+    - 113
+    - 114
+    - 115
+    - 117
+    - 118
+    - 119
+    - 120
+    document_id: ADR-0029
+    rationale: ADR about using OAuth 2.0 for authentication
+    relevance: 3
+- category: adr_semantic
+  difficulty: medium
+  expected_query_type: semantic
+  id: adr-004
+  language: en
+  query: How do we handle message idempotency?
+  relevant_chunks:
+  - chunk_ids:
+    - 80
+    - 81
+    - 82
+    - 83
+    - 84
+    - 85
+    - 86
+    - 87
+    - 88
+    - 89
+    document_id: ADR-0026
+    rationale: ADR about ensuring idempotent exchange of messages
+    relevance: 3
+- category: adr_semantic
+  difficulty: medium
+  expected_query_type: semantic
+  id: adr-005
+  language: en
+  query: What standards do we use for demand response interfaces?
+  relevant_chunks:
+  - chunk_ids:
+    - 73
+    - 74
+    - 75
+    - 76
+    - 77
+    - 78
+    - 79
+    document_id: ADR-0025
+    rationale: ADR about unifying demand response interfaces via open standards
+    relevance: 3
+  - chunk_ids:
+    - 36
+    - 37
+    - 38
+    - 39
+    - 40
+    - 41
+    document_id: ADR-0020
+    rationale: Related ADR about verifying demand response products
+    relevance: 2
+- category: adr_semantic
+  difficulty: medium
+  expected_query_type: semantic
+  id: adr-006
+  language: en
+  query: How is priority-based scheduling implemented?
+  relevant_chunks:
+  - chunk_ids:
+    - 48
+    - 49
+    - 50
+    - 51
+    - 52
+    - 53
+    - 54
+    document_id: ADR-0022
+    rationale: ADR about using priority-based scheduling
+    relevance: 3
+- category: adr_exact
+  difficulty: easy
+  expected_alpha: 0.3
+  expected_query_type: exact_match
+  id: adr-exact-001
+  language: en
+  query: ADR-0012
+  relevant_chunks:
+  - chunk_ids:
+    - 30
+    - 31
+    - 32
+    - 33
+    - 34
+    - 35
+    document_id: ADR-0012
+    rationale: Exact document match
+    relevance: 3
+    section: '*'
+- category: adr_exact
+  difficulty: easy
+  expected_query_type: exact_match
+  id: adr-exact-002
+  language: en
+  query: ADR-0027
+  relevant_chunks:
+  - chunk_ids:
+    - 90
+    - 91
+    - 92
+    - 93
+    - 94
+    - 95
+    - 96
+    - 97
+    - 98
+    - 99
+    - 100
+    document_id: ADR-0027
+    rationale: Exact document match - TLS security
+    relevance: 3
+    section: '*'
+- category: adr_exact
+  difficulty: easy
+  expected_query_type: exact_match
+  id: adr-exact-003
+  language: en
+  query: ADR-0029
+  relevant_chunks:
+  - chunk_ids:
+    - 116
+    - 109
+    - 110
+    - 111
+    - 112
+    - 113
+    - 114
+    - 115
+    - 117
+    - 118
+    - 119
+    - 120
+    document_id: ADR-0029
+    rationale: Exact document match - OAuth 2.0
+    relevance: 3
+    section: '*'
+- category: principle_semantic
+  difficulty: easy
+  expected_query_type: semantic
+  id: prin-001
+  language: en
+  query: What principles guide data ownership?
+  relevant_chunks:
+  - chunk_ids:
+    - 163
+    - 164
+    - 165
+    - 166
+    - 167
+    - 168
+    document_id: PRINCIPLE-0017
+    rationale: Principle about business specifications driven data ownership
+    relevance: 3
+- category: principle_semantic
+  difficulty: easy
+  expected_query_type: semantic
+  id: prin-002
+  language: en
+  query: How do we handle eventual consistency?
+  relevant_chunks:
+  - chunk_ids:
+    - 127
+    - 121
+    - 122
+    - 123
+    - 124
+    - 125
+    - 126
+    document_id: PRINCIPLE-0010
+    rationale: Principle about eventual consistency by design
+    relevance: 3
+- category: principle_semantic
+  difficulty: medium
+  expected_query_type: semantic
+  id: prin-003
+  language: en
+  query: What is the need-to-know principle for data design?
+  relevant_chunks:
+  - chunk_ids:
+    - 128
+    - 129
+    - 130
+    - 131
+    - 132
+    - 133
+    - 134
+    document_id: PRINCIPLE-0011
+    rationale: Principle about data design need-to-know
+    relevance: 3
+- category: principle_semantic
+  difficulty: medium
+  expected_query_type: semantic
+  id: prin-004
+  language: en
+  query: How should we handle uncertain data?
+  relevant_chunks:
+  - chunk_ids:
+    - 157
+    - 158
+    - 159
+    - 160
+    - 161
+    - 162
+    document_id: PRINCIPLE-0016
+    rationale: Principle about making uncertain explicit
+    relevance: 3
+- category: principle_semantic
+  difficulty: medium
+  expected_query_type: semantic
+  id: prin-005
+  language: en
+  query: What is the principle for preserving decision context?
+  relevant_chunks:
+  - chunk_ids:
+    - 145
+    - 146
+    - 147
+    - 148
+    - 149
+    - 150
+    document_id: PRINCIPLE-0014
+    rationale: Principle about decision context preservation
+    relevance: 3
+- category: principle_semantic
+  difficulty: medium
+  expected_query_type: semantic
+  id: prin-006
+  language: en
+  query: How do we handle derived data reproduction?
+  relevant_chunks:
+  - chunk_ids:
+    - 151
+    - 152
+    - 153
+    - 154
+    - 155
+    - 156
+    document_id: PRINCIPLE-0015
+    rationale: Principle about derived data reproduction
+    relevance: 3
+- category: principle_exact
+  difficulty: easy
+  expected_query_type: exact_match
+  id: prin-exact-001
+  language: en
+  query: PRINCIPLE-0017
+  relevant_chunks:
+  - chunk_ids:
+    - 163
+    - 164
+    - 165
+    - 166
+    - 167
+    - 168
+    document_id: PRINCIPLE-0017
+    relevance: 3
+    section: '*'
+- category: principle_exact
+  difficulty: easy
+  expected_query_type: exact_match
+  id: prin-exact-002
+  language: en
+  query: PRINCIPLE-0010
+  relevant_chunks:
+  - chunk_ids:
+    - 127
+    - 121
+    - 122
+    - 123
+    - 124
+    - 125
+    - 126
+    document_id: PRINCIPLE-0010
+    relevance: 3
+    section: '*'
+- category: governance_dutch
+  difficulty: easy
+  expected_query_type: semantic
+  id: gov-001
+  language: nl
+  query: Data is een asset
+  relevant_chunks:
+  - chunk_ids:
+    - 179
+    - 180
+    - 181
+    - 182
+    - 183
+    - 184
+    - 185
+    document_id: GOV-PRINCIPLE-0001
+    rationale: Governance principle about data as an asset
+    relevance: 3
+- category: governance_dutch
+  difficulty: medium
+  expected_query_type: semantic
+  id: gov-002
+  language: nl
+  query: Is data beschikbaar en toegankelijk?
+  relevant_chunks:
+  - chunk_ids:
+    - 186
+    - 187
+    - 188
+    document_id: GOV-PRINCIPLE-0002
+    rationale: Data availability principle
+    relevance: 3
+  - chunk_ids:
+    - 198
+    - 199
+    - 200
+    document_id: GOV-PRINCIPLE-0006
+    rationale: Data accessibility principle
+    relevance: 2
+- category: governance_dutch
+  difficulty: medium
+  expected_query_type: semantic
+  id: gov-003
+  language: nl
+  query: Hoe zorgen we dat data begrijpelijk is?
+  relevant_chunks:
+  - chunk_ids:
+    - 189
+    - 190
+    - 191
+    document_id: GOV-PRINCIPLE-0003
+    rationale: Data understandability principle
+    relevance: 3
+- category: governance_dutch
+  difficulty: medium
+  expected_query_type: semantic
+  id: gov-004
+  language: nl
+  query: Wat maakt data betrouwbaar?
+  relevant_chunks:
+  - chunk_ids:
+    - 192
+    - 193
+    - 194
+    document_id: GOV-PRINCIPLE-0004
+    rationale: Data trustworthiness principle
+    relevance: 3
+- category: governance_dutch
+  difficulty: easy
+  expected_query_type: semantic
+  id: gov-005
+  language: nl
+  query: Herbruikbaarheid van data
+  relevant_chunks:
+  - chunk_ids:
+    - 195
+    - 196
+    - 197
+    document_id: GOV-PRINCIPLE-0005
+    rationale: Data reusability principle
+    relevance: 3
+- category: terminology_abbreviation
+  difficulty: easy
+  expected_query_type: terminology
+  id: term-001
+  language: en
+  notes: Tests abbreviation in terminology lookup
+  query: RAG
+  relevant_terms:
+  - pref_label_en: Retrieval-Augmented Generation (RAG)
+    relevance: 3
+    term_ids:
+    - 13
+- category: terminology_abbreviation
+  difficulty: easy
+  expected_query_type: terminology
+  id: term-002
+  language: en
+  query: LLM
+  relevant_terms:
+  - pref_label_en: Large Language Model (LLM)
+    relevance: 3
+    term_ids:
+    - 18
+- category: terminology_english
+  difficulty: medium
+  expected_query_type: terminology
+  id: term-003
+  language: en
+  query: Distribution System Operator
+  relevant_terms:
+  - pref_label_en: System Operator
+    relevance: 2
+    term_ids:
+    - 59
+    - 129
+    - 160
+    - 259
+    - 448
+    - 510
+    - 571
+    - 693
+    - 1362
+    - 2223
+- category: terminology_english
+  difficulty: easy
+  expected_query_type: terminology
+  id: term-004
+  language: en
+  query: Metering Point
+  relevant_terms:
+  - pref_label_en: Metering Point
+    relevance: 3
+    term_ids:
+    - 41
+    - 47
+    - 65
+- category: terminology_english
+  difficulty: easy
+  expected_query_type: terminology
+  id: term-005
+  language: en
+  query: Grid Operator
+  relevant_terms:
+  - pref_label_en: Grid Operator
+    relevance: 3
+    term_ids:
+    - 54
+    - 107
+    - 186
+- category: terminology_dutch
+  difficulty: medium
+  expected_query_type: terminology
+  id: term-006
+  language: nl
+  query: netbeheerder
+  relevant_terms:
+  - pref_label_nl: Opname door netbeheerder
+    relevance: 2
+    term_ids:
+    - 107
+- category: energy_standards
+  difficulty: medium
+  expected_query_type: semantic
+  id: energy-001
+  language: en
+  query: IEC 61968 CIM standard
+  relevant_chunks:
+  - chunk_ids:
+    - 30
+    - 31
+    - 32
+    - 33
+    - 34
+    - 35
+    document_id: ADR-0012
+    rationale: ADR about using CIM/IEC standards
+    relevance: 3
+- category: energy_semantic
+  difficulty: medium
+  expected_query_type: semantic
+  id: energy-002
+  language: en
+  query: semantic interoperability in energy systems
+  relevant_chunks:
+  - chunk_ids:
+    - 30
+    - 31
+    - 32
+    - 33
+    - 34
+    - 35
+    document_id: ADR-0012
+    rationale: Discusses semantic interoperability
+    relevance: 3
+- category: energy_semantic
+  difficulty: medium
+  expected_query_type: semantic
+  id: energy-003
+  language: en
+  query: demand response flexibility services
+  relevant_chunks:
+  - chunk_ids:
+    - 73
+    - 74
+    - 75
+    - 76
+    - 77
+    - 78
+    - 79
+    document_id: ADR-0025
+    relevance: 3
+  - chunk_ids:
+    - 36
+    - 37
+    - 38
+    - 39
+    - 40
+    - 41
+    document_id: ADR-0020
+    relevance: 2
+  - chunk_ids:
+    - 55
+    - 56
+    - 57
+    - 58
+    - 59
+    - 60
+    - 61
+    document_id: ADR-0023
+    relevance: 2
+- category: cross_document
+  difficulty: hard
+  expected_query_type: semantic
+  id: cross-001
+  language: en
+  notes: Requires finding connections across document types
+  query: How does data ownership relate to data availability principles?
+  relevant_chunks:
+  - chunk_ids:
+    - 163
+    - 164
+    - 165
+    - 166
+    - 167
+    - 168
+    document_id: PRINCIPLE-0017
+    relevance: 3
+  - chunk_ids:
+    - 186
+    - 187
+    - 188
+    document_id: GOV-PRINCIPLE-0002
+    relevance: 2
+- category: cross_document
+  difficulty: medium
+  expected_query_type: semantic
+  id: cross-002
+  language: en
+  query: What ADRs relate to security and authentication?
+  relevant_chunks:
+  - chunk_ids:
+    - 90
+    - 91
+    - 92
+    - 93
+    - 94
+    - 95
+    - 96
+    - 97
+    - 98
+    - 99
+    - 100
+    document_id: ADR-0027
+    relevance: 3
+  - chunk_ids:
+    - 116
+    - 109
+    - 110
+    - 111
+    - 112
+    - 113
+    - 114
+    - 115
+    - 117
+    - 118
+    - 119
+    - 120
+    document_id: ADR-0029
+    relevance: 3
+- category: cross_document
+  difficulty: hard
+  expected_query_type: semantic
+  id: cross-003
+  language: en
+  query: Which principles support data governance?
+  relevant_chunks:
+  - chunk_ids:
+    - 179
+    - 180
+    - 181
+    - 182
+    - 183
+    - 184
+    - 185
+    document_id: GOV-PRINCIPLE-0001
+    relevance: 3
+  - chunk_ids:
+    - 163
+    - 164
+    - 165
+    - 166
+    - 167
+    - 168
+    document_id: PRINCIPLE-0017
+    relevance: 2
+- category: negative
+  difficulty: easy
+  expected_behavior: no_good_results should be true
+  expected_query_type: semantic
+  id: neg-001
+  language: en
+  notes: Tests system behavior when no relevant content exists
+  query: quantum computing integration
+  relevant_chunks: []
+- category: negative_gibberish
+  difficulty: easy
+  expected_behavior: Graceful handling of nonsense input
+  expected_query_type: mixed
+  id: neg-002
+  language: en
+  query: asdfghjkl
+  relevant_chunks: []
+- category: edge_short
+  difficulty: easy
+  expected_behavior: Should not crash, may suggest refinement
+  expected_query_type: mixed
+  id: edge-001
+  language: en
+  query: What
+- category: edge_long
+  difficulty: hard
+  expected_query_type: semantic
+  id: edge-002
+  language: en
+  notes: Very long query - tests handling of complex queries
+  query: Tell me everything about all the architectural decisions we have made regarding
+    data management, integration patterns, API design, security, authentication, authorization,
+    and infrastructure as it relates to the energy grid and demand response
+  relevant_chunks:
+  - chunk_ids:
+    - 30
+    - 31
+    - 32
+    - 33
+    - 34
+    - 35
+    document_id: ADR-0012
+    relevance: 2
+  - chunk_ids:
+    - 90
+    - 91
+    - 92
+    - 93
+    - 94
+    - 95
+    - 96
+    - 97
+    - 98
+    - 99
+    - 100
+    document_id: ADR-0027
+    relevance: 2
+  - chunk_ids:
+    - 116
+    - 109
+    - 110
+    - 111
+    - 112
+    - 113
+    - 114
+    - 115
+    - 117
+    - 118
+    - 119
+    - 120
+    document_id: ADR-0029
+    relevance: 2
+  - chunk_ids:
+    - 73
+    - 74
+    - 75
+    - 76
+    - 77
+    - 78
+    - 79
+    document_id: ADR-0025
+    relevance: 2
+- category: bilingual_dutch
+  difficulty: medium
+  expected_query_type: semantic
+  id: lang-001
+  language: nl
+  notes: Dutch query should find English ADR content about CIM
+  query: Wat is het besluit over CIM standaard?
+  relevant_chunks:
+  - chunk_ids:
+    - 30
+    - 31
+    - 32
+    - 33
+    - 34
+    - 35
+    document_id: ADR-0012
+    relevance: 3
+- category: bilingual_dutch
+  difficulty: medium
+  expected_query_type: semantic
+  id: lang-002
+  language: nl
+  notes: Dutch query about data ownership
+  query: Hoe werkt data eigenaarschap?
+  relevant_chunks:
+  - chunk_ids:
+    - 163
+    - 164
+    - 165
+    - 166
+    - 167
+    - 168
+    document_id: PRINCIPLE-0017
+    relevance: 3
+- category: bilingual_dutch
+  difficulty: medium
+  expected_query_type: semantic
+  id: lang-003
+  language: nl
+  notes: Mixed Dutch/English technical terms
+  query: architectuurprincipes voor data sovereignty
+  relevant_chunks:
+  - chunk_ids:
+    - 163
+    - 164
+    - 165
+    - 166
+    - 167
+    - 168
+    document_id: PRINCIPLE-0017
+    relevance: 2
+  - chunk_ids:
+    - 128
+    - 129
+    - 130
+    - 131
+    - 132
+    - 133
+    - 134
+    document_id: PRINCIPLE-0011
+    relevance: 2
+- category: bilingual_dutch
+  difficulty: medium
+  expected_query_type: semantic
+  id: lang-004
+  language: nl
+  notes: Dutch query about TLS/security
+  query: beveiliging van data communicatie
+  relevant_chunks:
+  - chunk_ids:
+    - 90
+    - 91
+    - 92
+    - 93
+    - 94
+    - 95
+    - 96
+    - 97
+    - 98
+    - 99
+    - 100
+    document_id: ADR-0027
+    relevance: 3
+- category: process
+  difficulty: easy
+  expected_query_type: semantic
+  id: process-001
+  language: en
+  query: How do we write ADRs?
+  relevant_chunks:
+  - chunk_ids:
+    - 1
+    - 2
+    - 3
+    - 4
+    document_id: ADR-0000
+    rationale: ADR about using markdown ADRs
+    relevance: 3
+  - chunk_ids:
+    - 5
+    - 6
+    - 7
+    - 8
+    - 9
+    - 10
+    - 11
+    document_id: ADR-0001
+    rationale: Conventions in writing
+    relevance: 2
+- category: process
+  difficulty: easy
+  expected_query_type: semantic
+  id: process-002
+  language: en
+  query: What is DACI decision making?
+  relevant_chunks:
+  - chunk_ids:
+    - 12
+    - 13
+    - 14
+    - 15
+    - 16
+    - 17
+    - 18
+    - 19
+    - 20
+    document_id: ADR-0002
+    rationale: ADR about using DACI for decision making
+    relevance: 3
+- category: process
+  difficulty: medium
+  expected_query_type: semantic
+  id: process-003
+  language: en
+  query: How do we prioritize standards?
+  relevant_chunks:
+  - chunk_ids:
+    - 21
+    - 22
+    - 23
+    - 24
+    document_id: ADR-0010
+    rationale: ADR about prioritizing origins of standardizations
+    relevance: 3
