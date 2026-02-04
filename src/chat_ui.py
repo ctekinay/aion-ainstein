@@ -1353,6 +1353,13 @@ class TestQueryRequest(BaseModel):
     query: str
 
 
+class SkillContentUpdate(BaseModel):
+    """Request model for updating SKILL.md content."""
+    content: Optional[str] = None  # Raw content (if provided, metadata/body ignored)
+    metadata: Optional[dict] = None  # YAML frontmatter
+    body: Optional[str] = None  # Markdown body
+
+
 @app.get("/api/skills")
 async def api_list_skills():
     """List all registered skills."""
@@ -1454,6 +1461,63 @@ async def api_reload_skills():
         return skills_api.reload_skills()
     except Exception as e:
         logger.error(f"Error reloading skills: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# Phase 3: SKILL.md Content Management Endpoints
+
+
+@app.get("/api/skills/{skill_name}/content")
+async def api_get_skill_content(skill_name: str):
+    """Get the SKILL.md content for a skill."""
+    try:
+        return skills_api.get_skill_content(skill_name)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        logger.error(f"Error getting skill content: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.put("/api/skills/{skill_name}/content")
+async def api_update_skill_content(skill_name: str, update: SkillContentUpdate):
+    """Update the SKILL.md content for a skill."""
+    try:
+        return skills_api.update_skill_content(
+            skill_name,
+            content=update.content,
+            metadata=update.metadata,
+            body=update.body,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Error updating skill content: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/skills/{skill_name}/content/validate")
+async def api_validate_skill_content(skill_name: str, request: Request):
+    """Validate SKILL.md content without saving."""
+    try:
+        body = await request.json()
+        content = body.get("content", "")
+        is_valid, errors = skills_api.validate_skill_content(content)
+        return {"valid": is_valid, "errors": errors}
+    except Exception as e:
+        logger.error(f"Error validating skill content: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/skills/{skill_name}/content/restore")
+async def api_restore_skill_content(skill_name: str):
+    """Restore SKILL.md from the most recent backup."""
+    try:
+        return skills_api.restore_skill_content(skill_name)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        logger.error(f"Error restoring skill content: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
