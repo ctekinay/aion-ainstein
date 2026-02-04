@@ -32,6 +32,10 @@ from .config import settings
 from .weaviate.client import get_weaviate_client
 from .weaviate.embeddings import embed_text
 from .elysia_agents import ElysiaRAGSystem, ELYSIA_AVAILABLE
+from .skills import SkillRegistry
+
+# Initialize skill registry for prompt injection
+_skill_registry = SkillRegistry()
 
 logger = logging.getLogger(__name__)
 
@@ -686,12 +690,12 @@ async def perform_retrieval(question: str, provider: str = "ollama") -> tuple[li
     # Get collection names for this provider
     collections = COLLECTION_NAMES.get(provider, COLLECTION_NAMES["ollama"])
 
-    # Retrieval limits - standard RAG configuration
-    # These are application-level limits for how many documents to retrieve
-    adr_limit = 8
-    principle_limit = 6
-    policy_limit = 4
-    vocab_limit = 4
+    # Retrieval limits - loaded from skill configuration
+    retrieval_limits = _skill_registry.loader.get_retrieval_limits("rag-quality-assurance")
+    adr_limit = retrieval_limits.get("adr", 8)
+    principle_limit = retrieval_limits.get("principle", 6)
+    policy_limit = retrieval_limits.get("policy", 4)
+    vocab_limit = retrieval_limits.get("vocabulary", 4)
     content_max_chars = 800
 
     # For Ollama provider, compute query embedding client-side
@@ -947,8 +951,11 @@ async def stream_comparison_response(
         yield f"data: {json.dumps({'type': 'status', 'content': f'Retrieved {len(ollama_results)} (local) + {len(openai_results)} (OpenAI) documents. Generating responses...'})}\n\n"
 
         # Build prompts with provider-specific contexts
+        # Get skill content for prompt injection
+        skill_content = _skill_registry.get_all_skill_content(question)
+
         # OpenAI system prompt - standard RAG instruction
-        openai_system_prompt = "You are a helpful assistant answering questions about architecture decisions, principles, policies, and vocabulary. Base your answers on the provided context. Be concise but thorough."
+        openai_system_prompt = "You are a helpful assistant answering questions about architecture decisions, principles, policies, and vocabulary. Base your answers on the provided context. Be concise but thorough. When referencing ADRs, use the format ADR.XX (e.g., ADR.21). When referencing Principles, use the format PCP.XX (e.g., PCP.10)."
 
         # SmolLM3 system prompt - much more explicit instructions
         # Small models need very clear, direct instructions to follow RAG patterns
@@ -959,7 +966,14 @@ IMPORTANT RULES:
 2. If the context contains the answer, provide it directly with specific details
 3. If the context does NOT contain the answer, say "I don't have information about that in the provided context"
 4. Do NOT make up information or give general advice
-5. Be concise and cite specific items from the context"""
+5. Be concise and cite specific items from the context
+6. When referencing ADRs, use the format ADR.XX (e.g., ADR.21)
+7. When referencing Principles, use the format PCP.XX (e.g., PCP.10)"""
+
+        # Inject skill rules if available
+        if skill_content:
+            openai_system_prompt = f"{openai_system_prompt}\n\n{skill_content}"
+            ollama_system_prompt = f"{ollama_system_prompt}\n\n{skill_content}"
 
         # Create tasks for both LLMs with their respective contexts
         async def get_ollama_response():

@@ -12,17 +12,34 @@ from weaviate import WeaviateClient
 from weaviate.classes.query import Filter, MetadataQuery
 
 from .config import settings
+from .skills import SkillRegistry
 
-# Abstention thresholds
-DISTANCE_THRESHOLD = 0.5  # Max distance for relevance (lower = more similar)
-MIN_QUERY_COVERAGE = 0.2  # Min fraction of query terms found in results
+# Initialize skill registry
+_skill_registry = SkillRegistry()
+
+# Default abstention thresholds (overridden by skills if available)
+_DEFAULT_DISTANCE_THRESHOLD = 0.5
+_DEFAULT_MIN_QUERY_COVERAGE = 0.2
+
+
+def _get_abstention_thresholds() -> tuple[float, float]:
+    """Get abstention thresholds from skill configuration.
+
+    Returns:
+        Tuple of (distance_threshold, min_query_coverage)
+    """
+    try:
+        return _skill_registry.loader.get_abstention_thresholds("rag-quality-assurance")
+    except Exception:
+        return _DEFAULT_DISTANCE_THRESHOLD, _DEFAULT_MIN_QUERY_COVERAGE
 
 
 def should_abstain(query: str, results: list) -> tuple[bool, str]:
     """Determine if the system should abstain from answering.
 
     Checks retrieval quality signals to prevent hallucination when
-    no relevant documents are found.
+    no relevant documents are found. Thresholds are loaded from
+    skill configuration.
 
     Args:
         query: The user's question
@@ -31,6 +48,9 @@ def should_abstain(query: str, results: list) -> tuple[bool, str]:
     Returns:
         Tuple of (should_abstain: bool, reason: str)
     """
+    # Load thresholds from skill configuration
+    distance_threshold, min_query_coverage = _get_abstention_thresholds()
+
     # No results at all
     if not results:
         return True, "No relevant documents found in the knowledge base."
@@ -39,7 +59,7 @@ def should_abstain(query: str, results: list) -> tuple[bool, str]:
     distances = [r.get("distance") for r in results if r.get("distance") is not None]
     if distances:
         min_distance = min(distances)
-        if min_distance > DISTANCE_THRESHOLD:
+        if min_distance > distance_threshold:
             return True, f"No sufficiently relevant documents found (best match distance: {min_distance:.2f})."
 
     # Check for specific ADR queries - must find the exact ADR
@@ -69,7 +89,7 @@ def should_abstain(query: str, results: list) -> tuple[bool, str]:
         terms_found = sum(1 for t in query_terms if t in results_text)
         coverage = terms_found / len(query_terms) if query_terms else 0
 
-        if coverage < MIN_QUERY_COVERAGE:
+        if coverage < min_query_coverage:
             return True, f"Query terms not well covered by retrieved documents (coverage: {coverage:.0%})."
 
     return False, "OK"
@@ -649,6 +669,9 @@ class ElysiaRAGSystem:
             for r in all_results[:10]
         ])
 
+        # Get skill content for prompt injection
+        skill_content = _skill_registry.get_all_skill_content(question)
+
         system_prompt = """You are AInstein, the Energy System Architecture AI Assistant at Alliander.
 
 Your role is to help architects, engineers, and stakeholders navigate Alliander's energy system architecture knowledge base, including:
@@ -661,8 +684,13 @@ Guidelines:
 - Base your answers strictly on the provided context
 - If the information is not in the context, clearly state that you don't have that information
 - Be concise but thorough
-- When referencing ADRs, include the ADR number (e.g., ADR-0012)
+- When referencing ADRs, use the format ADR.XX (e.g., ADR.21)
+- When referencing Principles, use the format PCP.XX (e.g., PCP.10)
 - For technical terms, provide clear explanations"""
+
+        # Inject skill rules if available
+        if skill_content:
+            system_prompt = f"{system_prompt}\n\n{skill_content}"
         user_prompt = f"Context:\n{context}\n\nQuestion: {question}"
 
         # Generate response based on LLM provider

@@ -1,0 +1,32 @@
+# RAG Quality Assurance Thresholds
+# These values control when the system abstains from answering
+# Edit these to tune the quality vs. coverage tradeoff
+
+# Abstention Thresholds
+abstention:
+  # Maximum distance for relevance (lower = more similar, 0 = exact match)
+  # If the best document's distance exceeds this, abstain
+  distance_threshold: 0.5
+
+  # Minimum fraction of query terms that must appear in results
+  # If coverage is below this, abstain
+  min_query_coverage: 0.2
+
+# Retrieval Limits
+# Maximum number of documents to retrieve per collection
+retrieval_limits:
+  adr: 8
+  principle: 6
+  policy: 4
+  vocabulary: 4
+
+# Confidence Scoring
+confidence:
+  # Minimum confidence score to include a source in response
+  min_source_confidence: 0.3
+
+  # Weight for distance in confidence calculation (0-1)
+  distance_weight: 0.6
+
+  # Weight for keyword match in confidence calculation (0-1)
+  keyword_weight: 0.4
