@@ -1365,6 +1365,22 @@ class SkillToggleRequest(BaseModel):
     enabled: bool
 
 
+class SkillCreateRequest(BaseModel):
+    """Request model for creating a new skill."""
+    name: str
+    description: str
+    auto_activate: bool = False
+    triggers: Optional[list[str]] = None
+    body: Optional[str] = None
+    copy_thresholds_from: Optional[str] = None
+    thresholds: Optional[dict] = None
+
+
+class SkillNameValidation(BaseModel):
+    """Request model for validating a skill name."""
+    name: str
+
+
 @app.get("/api/skills/defaults")
 async def api_get_defaults():
     """Get default configuration values for skills.
@@ -1551,6 +1567,62 @@ async def api_restore_skill_content(skill_name: str):
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
         logger.error(f"Error restoring skill content: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# Phase 5: Skill Creation Wizard Endpoints
+
+
+@app.post("/api/skills")
+async def api_create_skill(request: SkillCreateRequest):
+    """Create a new skill with all required files."""
+    try:
+        return skills_api.create_skill(
+            name=request.name,
+            description=request.description,
+            auto_activate=request.auto_activate,
+            triggers=request.triggers,
+            body=request.body,
+            copy_thresholds_from=request.copy_thresholds_from,
+            thresholds=request.thresholds,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Error creating skill: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.delete("/api/skills/{skill_name}")
+async def api_delete_skill(skill_name: str):
+    """Delete a skill and all its files."""
+    try:
+        return skills_api.delete_skill(skill_name)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Error deleting skill {skill_name}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/skills/templates")
+async def api_list_skill_templates():
+    """List available skills that can be used as templates."""
+    try:
+        return {"templates": skills_api.list_skill_templates()}
+    except Exception as e:
+        logger.error(f"Error listing skill templates: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/skills/validate-name")
+async def api_validate_skill_name(request: SkillNameValidation):
+    """Validate a skill name before creation."""
+    try:
+        is_valid, errors = skills_api.validate_skill_name(request.name)
+        return {"valid": is_valid, "errors": errors}
+    except Exception as e:
+        logger.error(f"Error validating skill name: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
