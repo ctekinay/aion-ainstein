@@ -562,14 +562,18 @@ for skill in skills:
 
 ### Planned Features
 
+> **Architecture Decision**: Skills UI will extend the existing FastAPI server (`chat_ui.py`)
+> with new `/api/skills/*` endpoints. The UI will be HTML/JS pages calling these endpoints.
+> See [SKILLS_UI_TODO.md](./SKILLS_UI_TODO.md) for full implementation plan.
+
 1. **Skills Management UI** (MVP)
    - View all registered skills
-   - Edit thresholds via web interface
+   - Edit thresholds via web interface (sliders + input fields)
    - Enable/disable skills with toggle
    - **Testing panel** - preview skill behavior before applying
    - Config backup before writes
 
-2. **REST API for Skills**
+2. **REST API for Skills** (integrated into `chat_ui.py`)
    - `GET /api/skills` - List all skills
    - `GET /api/skills/{name}` - Get skill details
    - `PUT /api/skills/{name}/thresholds` - Update thresholds
@@ -630,7 +634,7 @@ The Skills Framework provides a **no-code way** to customize AInstein's behavior
 
 ---
 
-*Document Version: 1.2*
+*Document Version: 1.3*
 *Last Updated: February 2026*
 *Applies to: AInstein Skills Framework v1.0*
 
@@ -640,6 +644,7 @@ The Skills Framework provides a **no-code way** to customize AInstein's behavior
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 1.3 | Feb 2026 | Architecture decision: Skills UI will extend FastAPI (not Streamlit) |
 | 1.2 | Feb 2026 | Added Progressive Loading roadmap, updated UI MVP with testing panel |
 | 1.1 | Feb 2026 | Added Identity Configuration, Tool Return Fields, fixed Integration Points table |
 | 1.0 | Feb 2026 | Initial release |

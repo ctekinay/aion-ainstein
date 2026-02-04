@@ -10,6 +10,11 @@ This document tracks all planned work for the Skills Management UI. The goal is 
 
 **Current State:** No UI exists. Users must edit files directly.
 
+**Architecture Decision:** Extend existing FastAPI server (Option A)
+- `chat_ui.py` already uses FastAPI - add `/api/skills/*` endpoints there
+- Single deployment, consistent architecture
+- Skills UI will be HTML/JS pages calling the new API endpoints
+
 ---
 
 ## Phase 1: MVP (Priority: HIGH)
@@ -18,15 +23,16 @@ This document tracks all planned work for the Skills Management UI. The goal is 
 
 ### 1.1 Skills Dashboard
 
-- [ ] Add "Skills" tab to main navigation
+- [ ] Add "Skills" tab/link to main navigation in HTML
 - [ ] Create skills list component showing all registered skills
 - [ ] Display skill status (active/disabled) with visual indicator
 - [ ] Show skill metadata (name, description, auto-activate, triggers)
-- [ ] Implement Streamlit `st.expander()` for each skill card
+- [ ] Implement collapsible cards for each skill (HTML/CSS accordion)
 
 **Files to create/modify:**
-- `src/ui/skills_dashboard.py` (new)
-- `src/chat_ui.py` (add navigation)
+- `src/chat_ui.py` (add API endpoints + route)
+- `static/skills.html` (new - Skills admin page)
+- `static/skills.js` (new - JavaScript for API calls)
 
 ### 1.2 Quick Settings Sliders
 
@@ -45,10 +51,12 @@ This document tracks all planned work for the Skills Management UI. The goal is 
 - [ ] Apply Changes button
 - [ ] Reset to Defaults button
 
-**Streamlit widgets:**
-```python
-st.slider("Abstention Strictness", 0.3, 0.7, 0.5, 0.05)
-st.slider("Query Coverage Required", 0.1, 0.5, 0.2, 0.05)
+**HTML implementation:**
+```html
+<input type="range" id="distance-threshold" min="0.3" max="0.7" step="0.05" value="0.5">
+<input type="range" id="query-coverage" min="0.1" max="0.5" step="0.05" value="0.2">
+<button onclick="applyChanges()">Apply Changes</button>
+<button onclick="resetDefaults()">Reset to Defaults</button>
 ```
 
 ### 1.3 Testing Panel (CRITICAL)
@@ -110,7 +118,7 @@ def backup_config(skill_name: str) -> str:
 
 ### 2.1 Configuration Modal
 
-- [ ] Modal/dialog using `st.dialog()` (Streamlit 1.30+)
+- [ ] Modal/dialog using HTML/CSS (Bootstrap or vanilla)
 - [ ] Tabs for different config sections:
   - Abstention Thresholds
   - Retrieval Limits
@@ -332,17 +340,19 @@ def validate_config(config: dict) -> tuple[bool, list[str]]:
 | `/api/skills/{name}` | DELETE | Delete skill | 5 |
 | `/api/skills/reload` | POST | Hot reload all | 6 |
 
-### Implementation Options
+### Implementation Decision
 
-**Option A: Pure Streamlit (Recommended for MVP)**
-- No separate API server
-- Direct Python function calls
-- Simpler architecture
+**✅ Option A: Extend FastAPI (SELECTED)**
+- Add `/api/skills/*` endpoints to existing `chat_ui.py`
+- Single server, consistent architecture, simpler deployment
+- Skills UI will be HTML/JS page calling new endpoints
+- API can also be used by CLI tools and scripts
 
-**Option B: FastAPI Backend**
-- Separate API server
-- Better for multi-client scenarios
+**❌ Option B: Separate Streamlit (NOT SELECTED)**
+- Would require running two servers (FastAPI + Streamlit)
+- Streamlit is faster for prototyping sliders/forms
 - More complex deployment
+- Could be reconsidered if UI iteration speed becomes critical
 
 ---
 
@@ -350,37 +360,40 @@ def validate_config(config: dict) -> tuple[bool, list[str]]:
 
 ```
 src/
-├── ui/
-│   ├── __init__.py
-│   ├── skills_dashboard.py      # Phase 1
-│   ├── skills_config_modal.py   # Phase 2
-│   ├── skills_editor.py         # Phase 3
-│   ├── skills_testing.py        # Phase 4
-│   └── skills_wizard.py         # Phase 5
-├── api/
-│   ├── __init__.py
-│   └── skills_api.py            # All phases
-└── skills/
-    ├── __init__.py              # Existing
-    ├── loader.py                # Existing (modify for Phase 7)
-    ├── registry.py              # Existing (modify for Phase 7)
-    └── progressive.py           # Phase 7 (new)
+├── chat_ui.py                   # Existing - add /api/skills/* endpoints here
+├── skills/
+│   ├── __init__.py              # Existing
+│   ├── loader.py                # Existing (modify for Phase 7)
+│   ├── registry.py              # Existing (modify for Phase 7)
+│   ├── api.py                   # NEW: Skills API logic (called by chat_ui.py)
+│   └── progressive.py           # Phase 7 (new)
+static/
+├── index.html                   # Existing chat UI
+├── skills.html                  # NEW: Skills admin page (Phase 1)
+├── skills.js                    # NEW: JavaScript for skills UI (Phase 1)
+├── skills-editor.html           # NEW: SKILL.md editor (Phase 3)
+└── css/
+    └── skills.css               # NEW: Styles for skills pages
 ```
 
 ---
 
 ## Dependencies
 
-### Required
+### Required (Already Installed)
 
-- `streamlit >= 1.30.0` (for `st.dialog()`)
-- `pyyaml` (already installed)
-- `shutil` (stdlib)
+- `fastapi` - Already used in chat_ui.py
+- `pyyaml` - Already installed
+- `shutil` - stdlib
+
+### Frontend (No Install Needed)
+
+- Vanilla JavaScript or lightweight library (Alpine.js, htmx)
+- CSS framework optional (Bootstrap, Tailwind via CDN)
 
 ### Optional
 
 - `watchdog` - for file watching (Phase 6)
-- `fastapi` - if using separate API (Option B)
 
 ---
 
@@ -429,3 +442,4 @@ src/
 ---
 
 *Last Updated: February 2026*
+*Architecture Decision: FastAPI (extend chat_ui.py) - Feb 2026*

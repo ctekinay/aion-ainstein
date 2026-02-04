@@ -1,85 +1,43 @@
-# RAG Quality Assurance Thresholds
-# These values control when the system abstains from answering
-# Edit these to tune the quality vs. coverage tradeoff
-
-# Abstention Thresholds
 abstention:
-  # Maximum distance for relevance (lower = more similar, 0 = exact match)
-  # If the best document's distance exceeds this, abstain
-  distance_threshold: 0.5
-
-  # Minimum fraction of query terms that must appear in results
-  # If coverage is below this, abstain
+  distance_threshold: 0.4
   min_query_coverage: 0.2
-
-  # -------------------------------------------------------------------------
-  # List Query Detection
-  # -------------------------------------------------------------------------
-  # Queries asking to enumerate/list items (e.g., "What ADRs exist?") should
-  # skip the coverage check because query terms like "exist" won't appear
-  # in document content. These patterns detect such queries.
-
-  # Single words that indicate a listing query (matched against query words)
   list_indicators:
-    - list
-    - show
-    - all
-    - exist
-    - exists
-    - available
-    - have
-    - many
-    - which
-    - enumerate
-
-  # Regex patterns for more complex list query detection
-  # Use \\s for whitespace in YAML strings
+  - list
+  - show
+  - all
+  - exist
+  - exists
+  - available
+  - have
+  - many
+  - which
+  - enumerate
   list_patterns:
-    - "what\\s+\\w+s\\s+(are|exist|do we have)"   # "What ADRs are there"
-    - "(list|show|give)\\s+(me\\s+)?(all|the)"    # "List all ADRs"
-    - "how many\\s+\\w+"                           # "How many ADRs"
-    - "which\\s+\\w+s?\\s+(are|exist|do)"         # "Which ADRs exist"
-
-  # Additional stop words to exclude from query term extraction
-  # (beyond the basic ones like "what", "is", "the", etc.)
+  - what\s+\w+s\s+(are|exist|do we have)
+  - (list|show|give)\s+(me\s+)?(all|the)
+  - how many\s+\w+
+  - which\s+\w+s?\s+(are|exist|do)
   additional_stop_words:
-    - are
-    - there
-    - exist
-    - exists
-    - list
-    - show
-    - all
-    - me
-    - give
-
-# Retrieval Limits
-# Maximum number of documents to retrieve per collection
+  - are
+  - there
+  - exist
+  - exists
+  - list
+  - show
+  - all
+  - me
+  - give
 retrieval_limits:
   adr: 8
   principle: 6
   policy: 4
   vocabulary: 4
-
-# Content Truncation
-# Maximum characters of content to include per document
 truncation:
-  # For chat_ui.py comparison mode
   content_max_chars: 800
-  # For elysia_agents.py context building
   elysia_content_chars: 500
-  # For summaries and consequences sections
   elysia_summary_chars: 300
-  # Maximum results to include in LLM context
   max_context_results: 10
-
-# Confidence Scoring
 confidence:
-  # Minimum confidence score to include a source in response
   min_source_confidence: 0.3
-
-  # Weight for distance in confidence calculation (0-1)
   distance_weight: 0.6
-
-  # Weight for keyword match in confidence calculation (0-1)
   keyword_weight: 0.4
