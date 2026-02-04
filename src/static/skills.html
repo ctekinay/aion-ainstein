@@ -1,0 +1,729 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AInstein - Skills Management</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary: #2563eb;
+            --primary-dark: #1d4ed8;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --bg-dark: #1e1e2e;
+            --bg-card: #313244;
+            --bg-input: #45475a;
+            --text-primary: #cdd6f4;
+            --text-secondary: #a6adc8;
+            --text-muted: #6c7086;
+            --border: #45475a;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg-dark);
+            color: var(--text-primary);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        /* Header */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .header h1 {
+            font-size: 24px;
+            font-weight: 600;
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn {
+            padding: 8px 16px;
+            border-radius: 6px;
+            border: none;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: var(--primary-dark);
+        }
+
+        .btn-secondary {
+            background: var(--bg-input);
+            color: var(--text-primary);
+        }
+
+        .btn-secondary:hover {
+            background: var(--border);
+        }
+
+        .btn-danger {
+            background: var(--danger);
+            color: white;
+        }
+
+        .btn-success {
+            background: var(--success);
+            color: white;
+        }
+
+        /* Navigation */
+        .nav-link {
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-size: 14px;
+        }
+
+        .nav-link:hover {
+            color: var(--text-primary);
+        }
+
+        /* Grid Layout */
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        @media (max-width: 900px) {
+            .grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Cards */
+        .card {
+            background: var(--bg-card);
+            border-radius: 12px;
+            padding: 20px;
+            border: 1px solid var(--border);
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .card-title {
+            font-size: 16px;
+            font-weight: 600;
+        }
+
+        /* Skills List */
+        .skill-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px;
+            background: var(--bg-dark);
+            border-radius: 8px;
+            margin-bottom: 10px;
+        }
+
+        .skill-info {
+            flex: 1;
+        }
+
+        .skill-name {
+            font-weight: 600;
+            margin-bottom: 4px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .skill-description {
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+
+        .skill-meta {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-top: 6px;
+        }
+
+        .badge {
+            font-size: 11px;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-weight: 500;
+        }
+
+        .badge-active {
+            background: rgba(16, 185, 129, 0.2);
+            color: var(--success);
+        }
+
+        .badge-default {
+            background: rgba(37, 99, 235, 0.2);
+            color: var(--primary);
+        }
+
+        /* Sliders */
+        .slider-group {
+            margin-bottom: 25px;
+        }
+
+        .slider-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+        }
+
+        .slider-label {
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .slider-value {
+            font-size: 14px;
+            color: var(--primary);
+            font-weight: 600;
+        }
+
+        .slider {
+            width: 100%;
+            height: 6px;
+            border-radius: 3px;
+            background: var(--bg-input);
+            outline: none;
+            -webkit-appearance: none;
+        }
+
+        .slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: var(--primary);
+            cursor: pointer;
+        }
+
+        .slider::-moz-range-thumb {
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: var(--primary);
+            cursor: pointer;
+            border: none;
+        }
+
+        .slider-labels {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 6px;
+            font-size: 11px;
+            color: var(--text-muted);
+        }
+
+        .slider-help {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-top: 6px;
+        }
+
+        /* Testing Panel */
+        .test-input-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .test-input {
+            flex: 1;
+            padding: 10px 14px;
+            border-radius: 6px;
+            border: 1px solid var(--border);
+            background: var(--bg-input);
+            color: var(--text-primary);
+            font-size: 14px;
+        }
+
+        .test-input:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+
+        .test-results {
+            background: var(--bg-dark);
+            border-radius: 8px;
+            padding: 15px;
+            font-size: 13px;
+            min-height: 150px;
+        }
+
+        .test-result-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+
+        .test-icon {
+            font-size: 16px;
+        }
+
+        .test-icon.pass { color: var(--success); }
+        .test-icon.warn { color: var(--warning); }
+        .test-icon.info { color: var(--primary); }
+
+        /* Status Messages */
+        .status-bar {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            padding: 12px 20px;
+            border-radius: 8px;
+            font-size: 14px;
+            display: none;
+            z-index: 1000;
+        }
+
+        .status-bar.success {
+            background: var(--success);
+            color: white;
+        }
+
+        .status-bar.error {
+            background: var(--danger);
+            color: white;
+        }
+
+        .status-bar.show {
+            display: block;
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Loading */
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: var(--text-muted);
+        }
+
+        /* Buttons row */
+        .button-row {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        /* Full width card */
+        .card-full {
+            grid-column: 1 / -1;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <div>
+                <h1>Skills Management</h1>
+                <a href="/" class="nav-link">← Back to Chat</a>
+            </div>
+            <div class="header-actions">
+                <button class="btn btn-secondary" onclick="reloadSkills()">Reload Skills</button>
+            </div>
+        </header>
+
+        <div class="grid">
+            <!-- Skills List -->
+            <div class="card">
+                <div class="card-header">
+                    <span class="card-title">Registered Skills</span>
+                </div>
+                <div id="skills-list">
+                    <div class="loading">Loading skills...</div>
+                </div>
+            </div>
+
+            <!-- Quick Settings -->
+            <div class="card">
+                <div class="card-header">
+                    <span class="card-title">Quick Settings</span>
+                    <span id="settings-skill-name" class="badge badge-default"></span>
+                </div>
+
+                <div class="slider-group">
+                    <div class="slider-header">
+                        <span class="slider-label">Abstention Strictness</span>
+                        <span class="slider-value" id="distance-value">0.5</span>
+                    </div>
+                    <input type="range" class="slider" id="distance-slider"
+                           min="0.3" max="0.7" step="0.05" value="0.5"
+                           onchange="updateSliderValue('distance')">
+                    <div class="slider-labels">
+                        <span>Strict (0.3)</span>
+                        <span>Lenient (0.7)</span>
+                    </div>
+                    <div class="slider-help">Lower = pickier, abstains more often</div>
+                </div>
+
+                <div class="slider-group">
+                    <div class="slider-header">
+                        <span class="slider-label">Query Coverage Required</span>
+                        <span class="slider-value" id="coverage-value">0.2</span>
+                    </div>
+                    <input type="range" class="slider" id="coverage-slider"
+                           min="0.1" max="0.5" step="0.05" value="0.2"
+                           onchange="updateSliderValue('coverage')">
+                    <div class="slider-labels">
+                        <span>Low (0.1)</span>
+                        <span>High (0.5)</span>
+                    </div>
+                    <div class="slider-help">Higher = requires more query terms to match</div>
+                </div>
+
+                <div class="button-row">
+                    <button class="btn btn-primary" onclick="applySettings()">Apply Changes</button>
+                    <button class="btn btn-secondary" onclick="resetSettings()">Reset</button>
+                    <button class="btn btn-secondary" onclick="restoreBackup()">Restore Backup</button>
+                </div>
+            </div>
+
+            <!-- Testing Panel -->
+            <div class="card card-full">
+                <div class="card-header">
+                    <span class="card-title">Test Query Behavior</span>
+                </div>
+                <div class="test-input-group">
+                    <input type="text" class="test-input" id="test-query"
+                           placeholder="Enter a test query (e.g., 'What ADRs exist?' or 'Tell me about ADR-0021')">
+                    <button class="btn btn-primary" onclick="runTest()">Run Test</button>
+                </div>
+                <div class="test-results" id="test-results">
+                    <p style="color: var(--text-muted);">Enter a query above and click "Run Test" to see how it would be processed.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Status Bar -->
+    <div class="status-bar" id="status-bar"></div>
+
+    <script>
+        // State
+        let currentSkill = 'rag-quality-assurance';
+        let originalThresholds = null;
+
+        // API Functions
+        async function fetchSkills() {
+            try {
+                const response = await fetch('/api/skills');
+                const data = await response.json();
+                renderSkillsList(data.skills);
+
+                // Load thresholds for default skill
+                if (data.skills.length > 0) {
+                    const defaultSkill = data.skills.find(s => s.is_default) || data.skills[0];
+                    currentSkill = defaultSkill.name;
+                    await loadThresholds(currentSkill);
+                }
+            } catch (error) {
+                showStatus('Error loading skills: ' + error.message, 'error');
+            }
+        }
+
+        async function loadThresholds(skillName) {
+            try {
+                const response = await fetch(`/api/skills/${skillName}/thresholds`);
+                const data = await response.json();
+
+                originalThresholds = JSON.parse(JSON.stringify(data.thresholds));
+
+                const abstention = data.thresholds.abstention || {};
+                document.getElementById('distance-slider').value = abstention.distance_threshold || 0.5;
+                document.getElementById('coverage-slider').value = abstention.min_query_coverage || 0.2;
+
+                updateSliderValue('distance');
+                updateSliderValue('coverage');
+
+                document.getElementById('settings-skill-name').textContent = skillName;
+            } catch (error) {
+                showStatus('Error loading thresholds: ' + error.message, 'error');
+            }
+        }
+
+        async function applySettings() {
+            if (!originalThresholds) {
+                showStatus('No thresholds loaded', 'error');
+                return;
+            }
+
+            const distance = parseFloat(document.getElementById('distance-slider').value);
+            const coverage = parseFloat(document.getElementById('coverage-slider').value);
+
+            // Create updated thresholds
+            const thresholds = JSON.parse(JSON.stringify(originalThresholds));
+            thresholds.abstention = thresholds.abstention || {};
+            thresholds.abstention.distance_threshold = distance;
+            thresholds.abstention.min_query_coverage = coverage;
+
+            try {
+                const response = await fetch(`/api/skills/${currentSkill}/thresholds`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ thresholds })
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.detail || 'Failed to save');
+                }
+
+                const data = await response.json();
+                originalThresholds = data.thresholds;
+                showStatus('Settings saved! Backup created.', 'success');
+            } catch (error) {
+                showStatus('Error saving settings: ' + error.message, 'error');
+            }
+        }
+
+        async function resetSettings() {
+            if (originalThresholds) {
+                const abstention = originalThresholds.abstention || {};
+                document.getElementById('distance-slider').value = abstention.distance_threshold || 0.5;
+                document.getElementById('coverage-slider').value = abstention.min_query_coverage || 0.2;
+                updateSliderValue('distance');
+                updateSliderValue('coverage');
+                showStatus('Reset to last saved values', 'success');
+            }
+        }
+
+        async function restoreBackup() {
+            if (!confirm('Restore from backup? This will overwrite current settings.')) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/skills/${currentSkill}/restore`, {
+                    method: 'POST'
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.detail || 'No backup found');
+                }
+
+                const data = await response.json();
+                originalThresholds = data.thresholds;
+
+                const abstention = data.thresholds.abstention || {};
+                document.getElementById('distance-slider').value = abstention.distance_threshold || 0.5;
+                document.getElementById('coverage-slider').value = abstention.min_query_coverage || 0.2;
+                updateSliderValue('distance');
+                updateSliderValue('coverage');
+
+                showStatus('Restored from backup!', 'success');
+            } catch (error) {
+                showStatus('Error restoring backup: ' + error.message, 'error');
+            }
+        }
+
+        async function reloadSkills() {
+            try {
+                const response = await fetch('/api/skills/reload', { method: 'POST' });
+                const data = await response.json();
+                showStatus(`Skills reloaded! (${data.skill_count} skills)`, 'success');
+                fetchSkills();
+            } catch (error) {
+                showStatus('Error reloading skills: ' + error.message, 'error');
+            }
+        }
+
+        async function runTest() {
+            const query = document.getElementById('test-query').value.trim();
+            if (!query) {
+                showStatus('Please enter a test query', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/skills/${currentSkill}/test`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ query })
+                });
+
+                const data = await response.json();
+                renderTestResults(data);
+            } catch (error) {
+                showStatus('Error testing query: ' + error.message, 'error');
+            }
+        }
+
+        // Render Functions
+        function renderSkillsList(skills) {
+            const container = document.getElementById('skills-list');
+
+            if (skills.length === 0) {
+                container.innerHTML = '<p class="loading">No skills registered</p>';
+                return;
+            }
+
+            container.innerHTML = skills.map(skill => `
+                <div class="skill-item">
+                    <div class="skill-info">
+                        <div class="skill-name">
+                            ${skill.name}
+                            ${skill.enabled ? '<span class="badge badge-active">ACTIVE</span>' : ''}
+                            ${skill.is_default ? '<span class="badge badge-default">DEFAULT</span>' : ''}
+                        </div>
+                        <div class="skill-description">${skill.description || 'No description'}</div>
+                        <div class="skill-meta">
+                            Auto-activate: ${skill.auto_activate ? 'Yes' : 'No'} |
+                            Distance: ${skill.distance_threshold} |
+                            Coverage: ${skill.min_query_coverage}
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function renderTestResults(data) {
+            const container = document.getElementById('test-results');
+            const analysis = data.analysis;
+            const behavior = data.behavior;
+            const config = data.config;
+
+            let html = '<div style="margin-bottom: 12px; font-weight: 600;">Query: "' + escapeHtml(data.query) + '"</div>';
+
+            // Analysis results
+            html += '<div class="test-result-item">';
+            if (analysis.is_list_query) {
+                html += '<span class="test-icon pass">&#10003;</span>';
+                html += '<span>List query detected';
+                if (analysis.matched_indicator) {
+                    html += ` (matched: "${analysis.matched_indicator}")`;
+                } else if (analysis.matched_pattern) {
+                    html += ' (matched pattern)';
+                }
+                html += '</span>';
+            } else {
+                html += '<span class="test-icon info">&#8226;</span>';
+                html += '<span>Not a list query</span>';
+            }
+            html += '</div>';
+
+            if (analysis.specific_doc_query) {
+                html += '<div class="test-result-item">';
+                html += '<span class="test-icon warn">!</span>';
+                html += `<span>Specific document query: ${analysis.specific_doc_query}</span>`;
+                html += '</div>';
+            }
+
+            html += '<div class="test-result-item">';
+            html += '<span class="test-icon info">&#8226;</span>';
+            html += `<span>Query terms extracted: ${analysis.query_term_count} (${analysis.query_terms.join(', ') || 'none'})</span>`;
+            html += '</div>';
+
+            // Behavior
+            html += '<div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid var(--border);">';
+            html += '<div style="font-weight: 600; margin-bottom: 8px;">Expected Behavior:</div>';
+
+            if (behavior.skip_coverage_check) {
+                html += '<div class="test-result-item">';
+                html += '<span class="test-icon pass">&#10003;</span>';
+                html += '<span>Will skip coverage check (list query)</span>';
+                html += '</div>';
+            }
+
+            if (behavior.requires_exact_match) {
+                html += '<div class="test-result-item">';
+                html += '<span class="test-icon warn">!</span>';
+                html += '<span>Will require exact document match</span>';
+                html += '</div>';
+            }
+
+            html += '<div class="test-result-item">';
+            html += '<span class="test-icon info">&#9432;</span>';
+            html += `<span>${behavior.note}</span>`;
+            html += '</div>';
+
+            // Config used
+            html += '<div style="margin-top: 15px; font-size: 12px; color: var(--text-muted);">';
+            html += `Config: distance_threshold=${config.distance_threshold}, min_query_coverage=${config.min_query_coverage}`;
+            html += '</div>';
+
+            html += '</div>';
+
+            container.innerHTML = html;
+        }
+
+        // Utility Functions
+        function updateSliderValue(type) {
+            if (type === 'distance') {
+                const value = document.getElementById('distance-slider').value;
+                document.getElementById('distance-value').textContent = value;
+            } else {
+                const value = document.getElementById('coverage-slider').value;
+                document.getElementById('coverage-value').textContent = value;
+            }
+        }
+
+        function showStatus(message, type) {
+            const bar = document.getElementById('status-bar');
+            bar.textContent = message;
+            bar.className = 'status-bar ' + type + ' show';
+
+            setTimeout(() => {
+                bar.classList.remove('show');
+            }, 3000);
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', fetchSkills);
+
+        // Allow Enter key to run test
+        document.getElementById('test-query').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                runTest();
+            }
+        });
+    </script>
+</body>
+</html>

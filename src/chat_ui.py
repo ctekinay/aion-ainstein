@@ -1337,6 +1337,125 @@ async def add_ollama_model(model_id: str):
     return {"status": "added", "model": new_model}
 
 
+# =============================================================================
+# Skills Management API
+# =============================================================================
+
+from .skills import api as skills_api
+
+
+class ThresholdsUpdate(BaseModel):
+    """Request model for updating skill thresholds."""
+    thresholds: dict
+
+
+class TestQueryRequest(BaseModel):
+    """Request model for testing a query against skill config."""
+    query: str
+
+
+@app.get("/api/skills")
+async def api_list_skills():
+    """List all registered skills."""
+    try:
+        return {"skills": skills_api.list_skills()}
+    except Exception as e:
+        logger.error(f"Error listing skills: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/skills/{skill_name}")
+async def api_get_skill(skill_name: str):
+    """Get detailed information about a specific skill."""
+    try:
+        return skills_api.get_skill(skill_name)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        logger.error(f"Error getting skill {skill_name}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/skills/{skill_name}/thresholds")
+async def api_get_thresholds(skill_name: str):
+    """Get thresholds for a specific skill."""
+    try:
+        return {"thresholds": skills_api.get_thresholds(skill_name)}
+    except Exception as e:
+        logger.error(f"Error getting thresholds for {skill_name}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.put("/api/skills/{skill_name}/thresholds")
+async def api_update_thresholds(skill_name: str, update: ThresholdsUpdate):
+    """Update thresholds for a skill."""
+    try:
+        result = skills_api.update_thresholds(skill_name, update.thresholds)
+        return result
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Error updating thresholds for {skill_name}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/skills/{skill_name}/test")
+async def api_test_query(skill_name: str, request: TestQueryRequest):
+    """Test how a query would behave with the skill's config."""
+    try:
+        return skills_api.test_query(skill_name, request.query)
+    except Exception as e:
+        logger.error(f"Error testing query for {skill_name}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/skills/{skill_name}/backup")
+async def api_backup_config(skill_name: str):
+    """Create a backup of the skill's configuration."""
+    try:
+        backup_path = skills_api.backup_config(skill_name)
+        return {"success": True, "backup_path": backup_path}
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        logger.error(f"Error backing up {skill_name}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/skills/{skill_name}/restore")
+async def api_restore_config(skill_name: str):
+    """Restore a skill's configuration from the most recent backup."""
+    try:
+        thresholds = skills_api.restore_config(skill_name)
+        return {"success": True, "thresholds": thresholds}
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        logger.error(f"Error restoring {skill_name}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/skills/reload")
+async def api_reload_skills():
+    """Reload all skills from disk."""
+    try:
+        return skills_api.reload_skills()
+    except Exception as e:
+        logger.error(f"Error reloading skills: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/skills", response_class=HTMLResponse)
+async def skills_page():
+    """Serve the Skills Management UI page."""
+    static_dir = Path(__file__).parent / "static"
+    skills_path = static_dir / "skills.html"
+    if skills_path.exists():
+        return HTMLResponse(skills_path.read_text())
+    else:
+        return HTMLResponse("<h1>Skills UI</h1><p>skills.html not found.</p>")
+
+
 # Mount static files
 static_dir = Path(__file__).parent / "static"
 if static_dir.exists():
