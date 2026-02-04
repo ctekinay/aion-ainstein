@@ -8,7 +8,7 @@ This document tracks all planned work for the Skills Management UI. The goal is 
 - Non-technical users: Quick sliders + testing panel
 - Technical users: Full configuration + rule editor
 
-**Current State:** Phase 1 (MVP) and Phase 2 (Full Configuration) completed.
+**Current State:** Phase 1 (MVP), Phase 2 (Full Configuration), and Phase 3 (Rule Editor) completed.
 
 **Architecture Decision:** Extend existing FastAPI server (Option A)
 - `chat_ui.py` already uses FastAPI - add `/api/skills/*` endpoints there
@@ -167,36 +167,41 @@ POST /api/skills/{name}/validate
 
 ---
 
-## Phase 3: Rule Editor
+## Phase 3: Rule Editor - COMPLETED
 
 **Goal:** Edit SKILL.md content via web interface
 
 ### 3.1 Markdown Editor
 
-- [ ] Full-height text area for SKILL.md content
-- [ ] Syntax highlighting (if possible with Streamlit)
-- [ ] Line numbers
-- [ ] Preserve YAML frontmatter
+- [x] Full-height text area for SKILL.md content
+- [ ] Syntax highlighting (deferred - not critical for MVP)
+- [ ] Line numbers (deferred - not critical for MVP)
+- [x] Preserve YAML frontmatter
 
 ### 3.2 Preview Panel
 
-- [ ] Side-by-side preview of rendered markdown
-- [ ] Live update as user types
-- [ ] Toggle between edit/preview modes
+- [x] Side-by-side preview of rendered markdown
+- [x] Live update as user types
+- [x] Toggle between edit/preview modes (Split/Edit/Preview)
 
 ### 3.3 Metadata Editor
 
-- [ ] Edit skill name
-- [ ] Edit skill description
-- [ ] Edit triggers list
-- [ ] Toggle auto_activate
+- [x] Edit skill name
+- [x] Edit skill description
+- [x] Edit triggers list
+- [x] Toggle auto_activate
 
 ### 3.4 Save & Validate
 
-- [ ] Validate YAML frontmatter syntax
-- [ ] Validate markdown structure
-- [ ] Backup before save
-- [ ] Success/error feedback
+- [x] Validate YAML frontmatter syntax
+- [x] Validate markdown structure
+- [x] Backup before save
+- [x] Success/error feedback
+
+**Files created/modified:**
+- `src/skills/api.py` (added content management functions)
+- `src/chat_ui.py` (added content API endpoints)
+- `src/static/skills.html` (added Rule Editor modal)
 
 ---
 

@@ -462,3 +462,322 @@ def reload_skills() -> dict[str, Any]:
         "message": "Skills reloaded successfully",
         "skill_count": len(_registry.list_skills()),
     }
+
+
+# ============================================================================
+# Phase 3: SKILL.md Content Management
+# ============================================================================
+
+
+def get_skill_content(skill_name: str) -> dict[str, Any]:
+    """Get the SKILL.md content for a skill.
+
+    Returns both the raw content and parsed metadata from YAML frontmatter.
+
+    Args:
+        skill_name: Name of the skill
+
+    Returns:
+        Dictionary with raw content and parsed metadata
+
+    Raises:
+        ValueError: If skill not found
+    """
+    skills_dir = Path(__file__).parent.parent.parent / "skills"
+    skill_path = skills_dir / skill_name / "SKILL.md"
+
+    if not skill_path.exists():
+        raise ValueError(f"SKILL.md not found for skill: {skill_name}")
+
+    with open(skill_path, encoding="utf-8") as f:
+        raw_content = f.read()
+
+    # Parse YAML frontmatter and markdown body
+    metadata, body = _parse_skill_content(raw_content)
+
+    return {
+        "skill_name": skill_name,
+        "raw_content": raw_content,
+        "metadata": metadata,
+        "body": body,
+        "path": str(skill_path),
+    }
+
+
+def update_skill_content(
+    skill_name: str,
+    content: str | None = None,
+    metadata: dict[str, Any] | None = None,
+    body: str | None = None,
+) -> dict[str, Any]:
+    """Update the SKILL.md content for a skill.
+
+    Can update with raw content OR with separate metadata + body.
+    Creates a backup before writing.
+
+    Args:
+        skill_name: Name of the skill
+        content: Raw content to write (if provided, metadata/body ignored)
+        metadata: YAML frontmatter metadata (used with body)
+        body: Markdown body (used with metadata)
+
+    Returns:
+        Updated content info
+
+    Raises:
+        ValueError: If validation fails or skill not found
+    """
+    skills_dir = Path(__file__).parent.parent.parent / "skills"
+    skill_path = skills_dir / skill_name / "SKILL.md"
+
+    if not skill_path.exists():
+        raise ValueError(f"SKILL.md not found for skill: {skill_name}")
+
+    # Determine final content
+    if content is not None:
+        final_content = content
+    elif metadata is not None and body is not None:
+        final_content = _build_skill_content(metadata, body)
+    else:
+        raise ValueError("Must provide either 'content' or both 'metadata' and 'body'")
+
+    # Validate content
+    is_valid, errors = validate_skill_content(final_content)
+    if not is_valid:
+        raise ValueError(f"Invalid SKILL.md content: {'; '.join(errors)}")
+
+    # Create backup
+    backup_path = backup_skill_content(skill_name)
+
+    # Write new content
+    with open(skill_path, "w", encoding="utf-8") as f:
+        f.write(final_content)
+
+    # Clear cache so changes take effect
+    _loader.clear_cache()
+
+    # Parse the new content to return
+    new_metadata, new_body = _parse_skill_content(final_content)
+
+    return {
+        "success": True,
+        "backup_path": backup_path,
+        "skill_name": skill_name,
+        "metadata": new_metadata,
+        "body": new_body,
+    }
+
+
+def validate_skill_content(content: str) -> tuple[bool, list[str]]:
+    """Validate SKILL.md content.
+
+    Checks:
+    - Valid YAML frontmatter syntax
+    - Required frontmatter fields present
+    - Markdown body not empty
+
+    Args:
+        content: Raw SKILL.md content
+
+    Returns:
+        Tuple of (is_valid, list of error messages)
+    """
+    errors = []
+
+    # Check for frontmatter
+    if not content.startswith("---"):
+        errors.append("Missing YAML frontmatter (must start with ---)")
+        return (False, errors)
+
+    # Find the end of frontmatter
+    second_delimiter = content.find("---", 3)
+    if second_delimiter == -1:
+        errors.append("Invalid frontmatter: missing closing ---")
+        return (False, errors)
+
+    # Extract and parse frontmatter
+    frontmatter_text = content[3:second_delimiter].strip()
+    try:
+        metadata = yaml.safe_load(frontmatter_text)
+        if metadata is None:
+            metadata = {}
+    except yaml.YAMLError as e:
+        errors.append(f"Invalid YAML in frontmatter: {e}")
+        return (False, errors)
+
+    # Check required fields
+    if not isinstance(metadata, dict):
+        errors.append("Frontmatter must be a YAML dictionary")
+        return (False, errors)
+
+    required_fields = ["name", "description"]
+    for field in required_fields:
+        if field not in metadata:
+            errors.append(f"Missing required frontmatter field: {field}")
+
+    # Validate field types
+    if "name" in metadata and not isinstance(metadata["name"], str):
+        errors.append("'name' must be a string")
+
+    if "description" in metadata and not isinstance(metadata["description"], str):
+        errors.append("'description' must be a string")
+
+    if "auto_activate" in metadata and not isinstance(metadata["auto_activate"], bool):
+        errors.append("'auto_activate' must be a boolean")
+
+    if "triggers" in metadata:
+        if not isinstance(metadata["triggers"], list):
+            errors.append("'triggers' must be a list")
+        elif not all(isinstance(t, str) for t in metadata["triggers"]):
+            errors.append("'triggers' must contain only strings")
+
+    # Check body is not empty
+    body = content[second_delimiter + 3:].strip()
+    if not body:
+        errors.append("Markdown body cannot be empty")
+
+    return (len(errors) == 0, errors)
+
+
+def backup_skill_content(skill_name: str) -> str:
+    """Create a backup of the skill's SKILL.md file.
+
+    Args:
+        skill_name: Name of the skill
+
+    Returns:
+        Path to the backup file
+    """
+    skills_dir = Path(__file__).parent.parent.parent / "skills"
+    skill_path = skills_dir / skill_name / "SKILL.md"
+
+    if not skill_path.exists():
+        raise ValueError(f"SKILL.md not found for skill: {skill_name}")
+
+    # Create backup with timestamp
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    backup_path = skill_path.with_suffix(f".md.bak.{timestamp}")
+
+    # Also maintain a simple .bak for easy restore
+    simple_backup = skill_path.with_suffix(".md.bak")
+
+    shutil.copy(skill_path, backup_path)
+    shutil.copy(skill_path, simple_backup)
+
+    # Clean up old timestamped backups
+    _cleanup_skill_backups(skill_path.parent, MAX_TIMESTAMPED_BACKUPS)
+
+    return str(simple_backup)
+
+
+def restore_skill_content(skill_name: str) -> dict[str, Any]:
+    """Restore SKILL.md from the most recent backup.
+
+    Args:
+        skill_name: Name of the skill
+
+    Returns:
+        Restored content info
+
+    Raises:
+        ValueError: If no backup exists
+    """
+    skills_dir = Path(__file__).parent.parent.parent / "skills"
+    skill_path = skills_dir / skill_name / "SKILL.md"
+    backup_path = skill_path.with_suffix(".md.bak")
+
+    if not backup_path.exists():
+        raise ValueError(f"No SKILL.md backup found for skill: {skill_name}")
+
+    # Restore from backup
+    shutil.copy(backup_path, skill_path)
+
+    # Clear cache
+    _loader.clear_cache()
+
+    # Return restored content
+    with open(skill_path, encoding="utf-8") as f:
+        content = f.read()
+
+    metadata, body = _parse_skill_content(content)
+
+    return {
+        "success": True,
+        "skill_name": skill_name,
+        "metadata": metadata,
+        "body": body,
+    }
+
+
+def _parse_skill_content(content: str) -> tuple[dict[str, Any], str]:
+    """Parse SKILL.md into metadata and body.
+
+    Args:
+        content: Raw SKILL.md content
+
+    Returns:
+        Tuple of (metadata dict, body string)
+    """
+    metadata = {}
+    body = content
+
+    if content.startswith("---"):
+        second_delimiter = content.find("---", 3)
+        if second_delimiter != -1:
+            frontmatter_text = content[3:second_delimiter].strip()
+            try:
+                metadata = yaml.safe_load(frontmatter_text) or {}
+            except yaml.YAMLError:
+                pass
+            body = content[second_delimiter + 3:].strip()
+
+    return (metadata, body)
+
+
+def _build_skill_content(metadata: dict[str, Any], body: str) -> str:
+    """Build SKILL.md content from metadata and body.
+
+    Args:
+        metadata: YAML frontmatter dictionary
+        body: Markdown body
+
+    Returns:
+        Combined SKILL.md content
+    """
+    # Use block style for cleaner YAML output
+    frontmatter = yaml.dump(
+        metadata,
+        default_flow_style=False,
+        sort_keys=False,
+        allow_unicode=True,
+    ).strip()
+
+    return f"---\n{frontmatter}\n---\n\n{body}"
+
+
+def _cleanup_skill_backups(directory: Path, keep_count: int) -> None:
+    """Remove old SKILL.md backup files, keeping only the most recent ones.
+
+    Args:
+        directory: Directory containing backup files
+        keep_count: Number of backups to keep
+    """
+    backup_pattern = "SKILL.md.bak.*"
+    backups = []
+
+    for backup_file in directory.glob(backup_pattern):
+        # Skip the simple .bak file
+        if backup_file.suffix == ".bak":
+            continue
+        backups.append(backup_file)
+
+    # Sort by modification time (newest first)
+    backups.sort(key=lambda p: p.stat().st_mtime, reverse=True)
+
+    # Remove old backups beyond keep_count
+    for old_backup in backups[keep_count:]:
+        try:
+            old_backup.unlink()
+        except OSError:
+            pass
+
