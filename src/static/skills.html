@@ -1977,6 +1977,11 @@
         }
 
         async function validateRules() {
+            if (!editorSkillName) {
+                showStatus('No skill selected', 'error');
+                return false;
+            }
+
             const btn = document.getElementById('btn-editor-validate');
             btn.classList.add('loading');
 
@@ -2133,8 +2138,22 @@
             }
         }
 
-        // Live preview update on input
-        document.getElementById('editor-body').addEventListener('input', updatePreview);
+        // Debounce utility for performance
+        function debounce(func, wait) {
+            let timeout;
+            return function executedFunction(...args) {
+                const later = () => {
+                    clearTimeout(timeout);
+                    func(...args);
+                };
+                clearTimeout(timeout);
+                timeout = setTimeout(later, wait);
+            };
+        }
+
+        // Live preview update on input (debounced for performance)
+        const debouncedPreview = debounce(updatePreview, 150);
+        document.getElementById('editor-body').addEventListener('input', debouncedPreview);
 
         // Close rule editor when clicking overlay background
         document.getElementById('rule-editor-modal').addEventListener('click', function(e) {
