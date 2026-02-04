@@ -40,6 +40,16 @@ DEFAULT_MAX_CONTEXT_RESULTS = 10
 # Backup management
 MAX_TIMESTAMPED_BACKUPS = 5  # Keep this many timestamped backups per skill
 
+# List query detection defaults
+DEFAULT_LIST_INDICATORS = [
+    "list", "show", "all", "exist", "exists",
+    "available", "have", "many", "which", "enumerate"
+]
+DEFAULT_ADDITIONAL_STOP_WORDS = [
+    "are", "there", "exist", "exists", "list",
+    "show", "all", "me", "give"
+]
+
 # Skills directory path (used throughout)
 SKILLS_DIR = Path(__file__).parent.parent.parent / "skills"
 
@@ -61,6 +71,8 @@ def get_defaults() -> dict[str, Any]:
         "abstention": {
             "distance_threshold": DEFAULT_DISTANCE_THRESHOLD,
             "min_query_coverage": DEFAULT_MIN_QUERY_COVERAGE,
+            "list_indicators": DEFAULT_LIST_INDICATORS,
+            "additional_stop_words": DEFAULT_ADDITIONAL_STOP_WORDS,
         },
         "retrieval_limits": {
             "adr": DEFAULT_LIMIT_ADR,
@@ -188,8 +200,7 @@ def update_thresholds(skill_name: str, thresholds: dict[str, Any]) -> dict[str, 
         raise ValueError(f"Invalid thresholds: {', '.join(errors)}")
 
     # Get path to thresholds file
-    skills_dir = SKILLS_DIR
-    thresholds_path = skills_dir / skill_name / "references" / "thresholds.yaml"
+    thresholds_path = SKILLS_DIR / skill_name / "references" / "thresholds.yaml"
 
     if not thresholds_path.exists():
         raise ValueError(f"Thresholds file not found: {thresholds_path}")
@@ -303,8 +314,7 @@ def backup_config(skill_name: str) -> str:
     Returns:
         Path to the backup file
     """
-    skills_dir = SKILLS_DIR
-    thresholds_path = skills_dir / skill_name / "references" / "thresholds.yaml"
+    thresholds_path = SKILLS_DIR / skill_name / "references" / "thresholds.yaml"
 
     if not thresholds_path.exists():
         raise ValueError(f"Thresholds file not found: {thresholds_path}")
@@ -366,8 +376,7 @@ def restore_config(skill_name: str) -> dict[str, Any]:
     Raises:
         ValueError: If no backup exists
     """
-    skills_dir = SKILLS_DIR
-    thresholds_path = skills_dir / skill_name / "references" / "thresholds.yaml"
+    thresholds_path = SKILLS_DIR / skill_name / "references" / "thresholds.yaml"
     backup_path = thresholds_path.with_suffix(".yaml.bak")
 
     if not backup_path.exists():
@@ -517,8 +526,7 @@ def get_skill_content(skill_name: str) -> dict[str, Any]:
     Raises:
         ValueError: If skill not found
     """
-    skills_dir = SKILLS_DIR
-    skill_path = skills_dir / skill_name / "SKILL.md"
+    skill_path = SKILLS_DIR / skill_name / "SKILL.md"
 
     if not skill_path.exists():
         raise ValueError(f"SKILL.md not found for skill: {skill_name}")
@@ -561,8 +569,7 @@ def update_skill_content(
     Raises:
         ValueError: If validation fails or skill not found
     """
-    skills_dir = SKILLS_DIR
-    skill_path = skills_dir / skill_name / "SKILL.md"
+    skill_path = SKILLS_DIR / skill_name / "SKILL.md"
 
     if not skill_path.exists():
         raise ValueError(f"SKILL.md not found for skill: {skill_name}")
@@ -682,8 +689,7 @@ def backup_skill_content(skill_name: str) -> str:
     Returns:
         Path to the backup file
     """
-    skills_dir = SKILLS_DIR
-    skill_path = skills_dir / skill_name / "SKILL.md"
+    skill_path = SKILLS_DIR / skill_name / "SKILL.md"
 
     if not skill_path.exists():
         raise ValueError(f"SKILL.md not found for skill: {skill_name}")
@@ -716,8 +722,7 @@ def restore_skill_content(skill_name: str) -> dict[str, Any]:
     Raises:
         ValueError: If no backup exists
     """
-    skills_dir = SKILLS_DIR
-    skill_path = skills_dir / skill_name / "SKILL.md"
+    skill_path = SKILLS_DIR / skill_name / "SKILL.md"
     backup_path = skill_path.with_suffix(".md.bak")
 
     if not backup_path.exists():

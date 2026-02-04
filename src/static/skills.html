@@ -1211,24 +1211,52 @@
 
     <script>
         // Default values - centralized for consistency
-        const DEFAULTS = {
-            // Abstention thresholds
+        // Fallback defaults (used if API fails)
+        const FALLBACK_DEFAULTS = {
             distance_threshold: 0.5,
             min_query_coverage: 0.2,
-            // Retrieval limits
             limit_adr: 8,
             limit_principle: 6,
             limit_policy: 4,
             limit_vocabulary: 4,
-            // Truncation limits
             content_max_chars: 800,
             elysia_content_chars: 500,
             elysia_summary_chars: 300,
             max_context_results: 10,
-            // List query detection
             list_indicators: ['list', 'show', 'all', 'exist', 'exists', 'available', 'have', 'many', 'which', 'enumerate'],
             additional_stop_words: ['are', 'there', 'exist', 'exists', 'list', 'show', 'all', 'me', 'give']
         };
+
+        // DEFAULTS loaded from API (flattened for frontend use)
+        let DEFAULTS = { ...FALLBACK_DEFAULTS };
+
+        // Load defaults from API
+        async function loadDefaults() {
+            try {
+                const response = await fetch('/api/skills/defaults');
+                if (!response.ok) throw new Error('Failed to load defaults');
+                const data = await response.json();
+
+                // Flatten the nested API response to match frontend key names
+                DEFAULTS = {
+                    distance_threshold: data.abstention?.distance_threshold ?? FALLBACK_DEFAULTS.distance_threshold,
+                    min_query_coverage: data.abstention?.min_query_coverage ?? FALLBACK_DEFAULTS.min_query_coverage,
+                    limit_adr: data.retrieval_limits?.adr ?? FALLBACK_DEFAULTS.limit_adr,
+                    limit_principle: data.retrieval_limits?.principle ?? FALLBACK_DEFAULTS.limit_principle,
+                    limit_policy: data.retrieval_limits?.policy ?? FALLBACK_DEFAULTS.limit_policy,
+                    limit_vocabulary: data.retrieval_limits?.vocabulary ?? FALLBACK_DEFAULTS.limit_vocabulary,
+                    content_max_chars: data.truncation?.content_max_chars ?? FALLBACK_DEFAULTS.content_max_chars,
+                    elysia_content_chars: data.truncation?.elysia_content_chars ?? FALLBACK_DEFAULTS.elysia_content_chars,
+                    elysia_summary_chars: data.truncation?.elysia_summary_chars ?? FALLBACK_DEFAULTS.elysia_summary_chars,
+                    max_context_results: data.truncation?.max_context_results ?? FALLBACK_DEFAULTS.max_context_results,
+                    list_indicators: data.abstention?.list_indicators ?? FALLBACK_DEFAULTS.list_indicators,
+                    additional_stop_words: data.abstention?.additional_stop_words ?? FALLBACK_DEFAULTS.additional_stop_words
+                };
+            } catch (error) {
+                console.warn('Failed to load defaults from API, using fallbacks:', error);
+                DEFAULTS = { ...FALLBACK_DEFAULTS };
+            }
+        }
 
         // UI timing constants (milliseconds)
         const STATUS_DISPLAY_MS = 3000;
@@ -1241,6 +1269,9 @@
         // API Functions
         async function fetchSkills() {
             try {
+                // Load defaults from API first
+                await loadDefaults();
+
                 const response = await fetch('/api/skills');
                 const data = await response.json();
                 renderSkillsList(data.skills);
