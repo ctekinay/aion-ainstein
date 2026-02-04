@@ -8,42 +8,44 @@ This document tracks all planned work for the Skills Management UI. The goal is 
 - Non-technical users: Quick sliders + testing panel
 - Technical users: Full configuration + rule editor
 
-**Current State:** No UI exists. Users must edit files directly.
+**Current State:** Phase 1 (MVP) and Phase 2 (Full Configuration) completed.
 
 ---
 
-## Phase 1: MVP (Priority: HIGH)
+## Phase 1: MVP (Priority: HIGH) - COMPLETED
 
 **Goal:** Safe configuration for non-technical users
 
 ### 1.1 Skills Dashboard
 
-- [ ] Add "Skills" tab to main navigation
-- [ ] Create skills list component showing all registered skills
-- [ ] Display skill status (active/disabled) with visual indicator
-- [ ] Show skill metadata (name, description, auto-activate, triggers)
-- [ ] Implement Streamlit `st.expander()` for each skill card
+- [x] Add "Skills" button to main navigation sidebar
+- [x] Create skills list component showing all registered skills
+- [x] Display skill status (active/disabled) with visual indicator
+- [x] Show skill metadata (name, description, auto-activate, triggers)
+- [x] Implement expandable skill cards
 
-**Files to create/modify:**
-- `src/ui/skills_dashboard.py` (new)
-- `src/chat_ui.py` (add navigation)
+**Files created/modified:**
+- `src/skills/api.py` (new - API logic)
+- `src/static/skills.html` (new - UI page)
+- `src/chat_ui.py` (API endpoints + navigation)
+- `src/static/index.html` (Skills button)
 
 ### 1.2 Quick Settings Sliders
 
-- [ ] Abstention Strictness slider
+- [x] Abstention Strictness slider
   - Maps to: `abstention.distance_threshold`
   - Range: 0.3 (strict) to 0.7 (lenient)
   - Default: 0.5
   - Labels: "Strict" | "Medium" | "Lenient"
 
-- [ ] Query Coverage slider
+- [x] Query Coverage slider
   - Maps to: `abstention.min_query_coverage`
   - Range: 0.1 (low) to 0.5 (high)
   - Default: 0.2
   - Labels: "Low" | "Medium" | "High"
 
-- [ ] Apply Changes button
-- [ ] Reset to Defaults button
+- [x] Apply Changes button
+- [x] Reset to Defaults button
 
 **Streamlit widgets:**
 ```python
@@ -53,16 +55,15 @@ st.slider("Query Coverage Required", 0.1, 0.5, 0.2, 0.05)
 
 ### 1.3 Testing Panel (CRITICAL)
 
-- [ ] Test query input field
-- [ ] "Run Test" button
-- [ ] Results display showing:
-  - [ ] Would abstain: Yes/No
-  - [ ] Reason (if abstaining)
-  - [ ] Best distance score
-  - [ ] Query coverage percentage
-  - [ ] Is list query detected: Yes/No
-  - [ ] Matched indicator (if list query)
-- [ ] Visual pass/fail indicators
+- [x] Test query input field
+- [x] "Run Test" button
+- [x] Results display showing:
+  - [x] Is list query detected: Yes/No
+  - [x] Matched indicator (if list query)
+  - [x] Specific document query detection
+  - [x] Query terms extracted
+  - [x] Expected behavior note
+- [x] Visual pass/fail indicators
 
 **API function needed:**
 ```python
@@ -80,10 +81,10 @@ def test_skill_config(query: str, config: dict) -> dict:
 
 ### 1.4 Config Backup
 
-- [ ] Implement backup before any write operation
-- [ ] Store backup as `thresholds.yaml.bak`
-- [ ] Add "Restore Last Config" button
-- [ ] Show timestamp of last backup
+- [x] Implement backup before any write operation
+- [x] Store backup as `thresholds.yaml.bak`
+- [x] Add "Restore Backup" button
+- [x] Timestamped backups stored
 
 **Implementation:**
 ```python
@@ -104,14 +105,14 @@ def backup_config(skill_name: str) -> str:
 
 ---
 
-## Phase 2: Full Configuration Modal
+## Phase 2: Full Configuration Modal - COMPLETED
 
 **Goal:** Fine-tune all parameters via UI
 
 ### 2.1 Configuration Modal
 
-- [ ] Modal/dialog using `st.dialog()` (Streamlit 1.30+)
-- [ ] Tabs for different config sections:
+- [x] Modal dialog with overlay (vanilla JS/HTML)
+- [x] Tabs for different config sections:
   - Abstention Thresholds
   - Retrieval Limits
   - Truncation Limits
@@ -119,48 +120,42 @@ def backup_config(skill_name: str) -> str:
 
 ### 2.2 Abstention Thresholds Section
 
-- [ ] `distance_threshold` number input (0.0-1.0)
-- [ ] `min_query_coverage` number input (0.0-1.0)
-- [ ] Help text explaining each field
-- [ ] Validation: values must be in valid range
+- [x] `distance_threshold` number input (0.0-1.0)
+- [x] `min_query_coverage` number input (0.0-1.0)
+- [x] Help text explaining each field
+- [x] Validation: values must be in valid range
 
 ### 2.3 Retrieval Limits Section
 
-- [ ] ADRs limit input (1-20)
-- [ ] Principles limit input (1-20)
-- [ ] Policies limit input (1-20)
-- [ ] Vocabulary limit input (1-20)
+- [x] ADRs limit input (1-50)
+- [x] Principles limit input (1-50)
+- [x] Policies limit input (1-50)
+- [x] Vocabulary limit input (1-50)
 
 ### 2.4 Truncation Limits Section
 
-- [ ] `content_max_chars` input (100-2000)
-- [ ] `elysia_content_chars` input (100-1000)
-- [ ] `elysia_summary_chars` input (100-500)
-- [ ] `max_context_results` input (1-50)
+- [x] `content_max_chars` input
+- [x] `elysia_content_chars` input
+- [x] `elysia_summary_chars` input
+- [x] `max_context_results` input
 
 ### 2.5 List Query Detection Section
 
-- [ ] `list_indicators` - editable list of words
-- [ ] `list_patterns` - editable list of regex patterns
-- [ ] `additional_stop_words` - editable list
-- [ ] Add/remove buttons for list items
-- [ ] Regex pattern validation
+- [x] `list_indicators` - editable list of words
+- [x] `list_patterns` - editable list of regex patterns
+- [x] `additional_stop_words` - editable list
+- [x] Add/remove buttons for list items
+- [x] Regex pattern validation
 
 ### 2.6 Validation
 
-- [ ] Implement config validation before save
-- [ ] Show validation errors inline
-- [ ] Prevent save if validation fails
+- [x] Implement config validation before save
+- [x] Show validation errors inline
+- [x] Prevent save if validation fails
 
-**API function needed:**
-```python
-def validate_config(config: dict) -> tuple[bool, list[str]]:
-    """Validate config structure and values."""
-    errors = []
-    if config.get("abstention", {}).get("distance_threshold", 0) > 1.0:
-        errors.append("distance_threshold must be <= 1.0")
-    # ... more validations
-    return (len(errors) == 0, errors)
+**API endpoint added:**
+```
+POST /api/skills/{name}/validate
 ```
 
 ---

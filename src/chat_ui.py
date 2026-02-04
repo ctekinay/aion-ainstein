@@ -1434,6 +1434,19 @@ async def api_restore_config(skill_name: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.post("/api/skills/{skill_name}/validate")
+async def api_validate_thresholds(skill_name: str, request: Request):
+    """Validate thresholds configuration without saving."""
+    try:
+        body = await request.json()
+        thresholds = body.get("thresholds", {})
+        is_valid, errors = skills_api.validate_thresholds(thresholds)
+        return {"valid": is_valid, "errors": errors}
+    except Exception as e:
+        logger.error(f"Error validating {skill_name}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.post("/api/skills/reload")
 async def api_reload_skills():
     """Reload all skills from disk."""
