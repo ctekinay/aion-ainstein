@@ -17,6 +17,30 @@ from .loader import SkillLoader
 from .registry import SkillRegistry
 
 
+# ============================================================================
+# Default values - centralized for consistency with UI
+# ============================================================================
+
+# Abstention thresholds
+DEFAULT_DISTANCE_THRESHOLD = 0.5
+DEFAULT_MIN_QUERY_COVERAGE = 0.2
+
+# Retrieval limits
+DEFAULT_LIMIT_ADR = 8
+DEFAULT_LIMIT_PRINCIPLE = 6
+DEFAULT_LIMIT_POLICY = 4
+DEFAULT_LIMIT_VOCABULARY = 4
+
+# Truncation limits
+DEFAULT_CONTENT_MAX_CHARS = 800
+DEFAULT_ELYSIA_CONTENT_CHARS = 500
+DEFAULT_ELYSIA_SUMMARY_CHARS = 300
+DEFAULT_MAX_CONTEXT_RESULTS = 10
+
+# Backup management
+MAX_TIMESTAMPED_BACKUPS = 5  # Keep this many timestamped backups per skill
+
+
 # Module-level instances (reused across requests)
 _loader = SkillLoader()
 _registry = SkillRegistry()
@@ -43,11 +67,11 @@ def list_skills() -> list[dict[str, Any]]:
         try:
             thresholds = _loader.get_thresholds(entry.name)
             abstention = thresholds.get("abstention", {})
-            skill_info["distance_threshold"] = abstention.get("distance_threshold", 0.5)
-            skill_info["min_query_coverage"] = abstention.get("min_query_coverage", 0.2)
+            skill_info["distance_threshold"] = abstention.get("distance_threshold", DEFAULT_DISTANCE_THRESHOLD)
+            skill_info["min_query_coverage"] = abstention.get("min_query_coverage", DEFAULT_MIN_QUERY_COVERAGE)
         except Exception:
-            skill_info["distance_threshold"] = 0.5
-            skill_info["min_query_coverage"] = 0.2
+            skill_info["distance_threshold"] = DEFAULT_DISTANCE_THRESHOLD
+            skill_info["min_query_coverage"] = DEFAULT_MIN_QUERY_COVERAGE
 
         skills.append(skill_info)
 
@@ -236,6 +260,9 @@ def validate_thresholds(thresholds: dict[str, Any]) -> tuple[bool, list[str]]:
 def backup_config(skill_name: str) -> str:
     """Create a backup of the skill's thresholds.yaml.
 
+    Creates a timestamped backup and maintains a simple .bak file for easy restore.
+    Cleans up old timestamped backups, keeping only the most recent ones.
+
     Args:
         skill_name: Name of the skill
 
@@ -258,7 +285,39 @@ def backup_config(skill_name: str) -> str:
     shutil.copy(thresholds_path, backup_path)
     shutil.copy(thresholds_path, simple_backup)
 
+    # Clean up old timestamped backups (keep last N)
+    _cleanup_old_backups(thresholds_path.parent, MAX_TIMESTAMPED_BACKUPS)
+
     return str(simple_backup)
+
+
+def _cleanup_old_backups(directory: Path, keep_count: int) -> None:
+    """Remove old timestamped backup files, keeping only the most recent ones.
+
+    Args:
+        directory: Directory containing backup files
+        keep_count: Number of backups to keep
+    """
+    # Find all timestamped backups (pattern: thresholds.yaml.bak.YYYYMMDD_HHMMSS)
+    backup_pattern = "thresholds.yaml.bak.*"
+    backups = []
+
+    for backup_file in directory.glob(backup_pattern):
+        # Skip the simple .bak file
+        if backup_file.suffix == ".bak":
+            continue
+        backups.append(backup_file)
+
+    # Sort by modification time (newest first)
+    backups.sort(key=lambda p: p.stat().st_mtime, reverse=True)
+
+    # Remove old backups beyond keep_count
+    for old_backup in backups[keep_count:]:
+        try:
+            old_backup.unlink()
+        except OSError:
+            # Ignore errors when deleting old backups
+            pass
 
 
 def restore_config(skill_name: str) -> dict[str, Any]:
@@ -309,8 +368,8 @@ def test_query(skill_name: str, query: str) -> dict[str, Any]:
     thresholds = _loader.get_thresholds(skill_name)
     abstention = thresholds.get("abstention", {})
 
-    distance_threshold = abstention.get("distance_threshold", 0.5)
-    min_query_coverage = abstention.get("min_query_coverage", 0.2)
+    distance_threshold = abstention.get("distance_threshold", DEFAULT_DISTANCE_THRESHOLD)
+    min_query_coverage = abstention.get("min_query_coverage", DEFAULT_MIN_QUERY_COVERAGE)
 
     # Load list query detection config
     list_config = _loader.get_list_query_config(skill_name)

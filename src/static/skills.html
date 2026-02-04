@@ -923,9 +923,33 @@
     </div>
 
     <script>
-        // State
-        let currentSkill = 'rag-quality-assurance';
+        // Default values - centralized for consistency
+        const DEFAULTS = {
+            // Abstention thresholds
+            distance_threshold: 0.5,
+            min_query_coverage: 0.2,
+            // Retrieval limits
+            limit_adr: 8,
+            limit_principle: 6,
+            limit_policy: 4,
+            limit_vocabulary: 4,
+            // Truncation limits
+            content_max_chars: 800,
+            elysia_content_chars: 500,
+            elysia_summary_chars: 300,
+            max_context_results: 10,
+            // List query detection
+            list_indicators: ['list', 'show', 'all', 'exist', 'exists', 'available', 'have', 'many', 'which', 'enumerate'],
+            additional_stop_words: ['are', 'there', 'exist', 'exists', 'list', 'show', 'all', 'me', 'give']
+        };
+
+        // UI timing constants (milliseconds)
+        const STATUS_DISPLAY_MS = 3000;
+
+        // State - currentSkill starts as null until loaded from API
+        let currentSkill = null;
         let originalThresholds = null;
+        let skillsLoaded = false;
 
         // API Functions
         async function fetchSkills() {
@@ -934,11 +958,16 @@
                 const data = await response.json();
                 renderSkillsList(data.skills);
 
-                // Load thresholds for default skill
+                // Load thresholds for default skill (first from API, not hardcoded)
                 if (data.skills.length > 0) {
                     const defaultSkill = data.skills.find(s => s.is_default) || data.skills[0];
                     currentSkill = defaultSkill.name;
                     await loadThresholds(currentSkill);
+                    skillsLoaded = true;
+                } else {
+                    // No skills available - show message
+                    document.getElementById('settings-skill-name').textContent = 'No skills available';
+                    showStatus('No skills registered in the system', 'error');
                 }
             } catch (error) {
                 showStatus('Error loading skills: ' + error.message, 'error');
@@ -953,8 +982,8 @@
                 originalThresholds = JSON.parse(JSON.stringify(data.thresholds));
 
                 const abstention = data.thresholds.abstention || {};
-                document.getElementById('distance-slider').value = abstention.distance_threshold || 0.5;
-                document.getElementById('coverage-slider').value = abstention.min_query_coverage || 0.2;
+                document.getElementById('distance-slider').value = abstention.distance_threshold || DEFAULTS.distance_threshold;
+                document.getElementById('coverage-slider').value = abstention.min_query_coverage || DEFAULTS.min_query_coverage;
 
                 updateSliderValue('distance');
                 updateSliderValue('coverage');
@@ -966,8 +995,8 @@
         }
 
         async function applySettings() {
-            if (!originalThresholds) {
-                showStatus('No thresholds loaded', 'error');
+            if (!currentSkill || !originalThresholds) {
+                showStatus('Please wait for skills to load', 'error');
                 return;
             }
 
@@ -1001,17 +1030,23 @@
         }
 
         async function resetSettings() {
-            if (originalThresholds) {
-                const abstention = originalThresholds.abstention || {};
-                document.getElementById('distance-slider').value = abstention.distance_threshold || 0.5;
-                document.getElementById('coverage-slider').value = abstention.min_query_coverage || 0.2;
-                updateSliderValue('distance');
-                updateSliderValue('coverage');
-                showStatus('Reset to last saved values', 'success');
+            if (!currentSkill || !originalThresholds) {
+                showStatus('Please wait for skills to load', 'error');
+                return;
             }
+            const abstention = originalThresholds.abstention || {};
+            document.getElementById('distance-slider').value = abstention.distance_threshold || DEFAULTS.distance_threshold;
+            document.getElementById('coverage-slider').value = abstention.min_query_coverage || DEFAULTS.min_query_coverage;
+            updateSliderValue('distance');
+            updateSliderValue('coverage');
+            showStatus('Reset to last saved values', 'success');
         }
 
         async function restoreBackup() {
+            if (!currentSkill) {
+                showStatus('Please wait for skills to load', 'error');
+                return;
+            }
             if (!confirm('Restore from backup? This will overwrite current settings.')) {
                 return;
             }
@@ -1030,8 +1065,8 @@
                 originalThresholds = data.thresholds;
 
                 const abstention = data.thresholds.abstention || {};
-                document.getElementById('distance-slider').value = abstention.distance_threshold || 0.5;
-                document.getElementById('coverage-slider').value = abstention.min_query_coverage || 0.2;
+                document.getElementById('distance-slider').value = abstention.distance_threshold || DEFAULTS.distance_threshold;
+                document.getElementById('coverage-slider').value = abstention.min_query_coverage || DEFAULTS.min_query_coverage;
                 updateSliderValue('distance');
                 updateSliderValue('coverage');
 
@@ -1053,6 +1088,10 @@
         }
 
         async function runTest() {
+            if (!currentSkill) {
+                showStatus('Please wait for skills to load', 'error');
+                return;
+            }
             const query = document.getElementById('test-query').value.trim();
             if (!query) {
                 showStatus('Please enter a test query', 'error');
@@ -1189,7 +1228,7 @@
 
             setTimeout(() => {
                 bar.classList.remove('show');
-            }, 3000);
+            }, STATUS_DISPLAY_MS);
         }
 
         function escapeHtml(text) {
@@ -1206,8 +1245,8 @@
 
         // Modal Functions
         function openConfigModal() {
-            if (!originalThresholds) {
-                showStatus('Please wait for thresholds to load', 'error');
+            if (!currentSkill || !originalThresholds) {
+                showStatus('Please wait for skills to load', 'error');
                 return;
             }
 
@@ -1254,27 +1293,27 @@
         function populateModalFields(thresholds) {
             // Abstention
             const abstention = thresholds.abstention || {};
-            document.getElementById('cfg-distance-threshold').value = abstention.distance_threshold || 0.5;
-            document.getElementById('cfg-min-coverage').value = abstention.min_query_coverage || 0.2;
+            document.getElementById('cfg-distance-threshold').value = abstention.distance_threshold || DEFAULTS.distance_threshold;
+            document.getElementById('cfg-min-coverage').value = abstention.min_query_coverage || DEFAULTS.min_query_coverage;
 
             // Retrieval limits
             const limits = thresholds.retrieval_limits || {};
-            document.getElementById('cfg-limit-adr').value = limits.adr || 8;
-            document.getElementById('cfg-limit-principle').value = limits.principle || 6;
-            document.getElementById('cfg-limit-policy').value = limits.policy || 4;
-            document.getElementById('cfg-limit-vocabulary').value = limits.vocabulary || 4;
+            document.getElementById('cfg-limit-adr').value = limits.adr || DEFAULTS.limit_adr;
+            document.getElementById('cfg-limit-principle').value = limits.principle || DEFAULTS.limit_principle;
+            document.getElementById('cfg-limit-policy').value = limits.policy || DEFAULTS.limit_policy;
+            document.getElementById('cfg-limit-vocabulary').value = limits.vocabulary || DEFAULTS.limit_vocabulary;
 
             // Truncation
             const truncation = thresholds.truncation || {};
-            document.getElementById('cfg-content-max-chars').value = truncation.content_max_chars || 800;
-            document.getElementById('cfg-elysia-content-chars').value = truncation.elysia_content_chars || 500;
-            document.getElementById('cfg-elysia-summary-chars').value = truncation.elysia_summary_chars || 300;
-            document.getElementById('cfg-max-context-results').value = truncation.max_context_results || 10;
+            document.getElementById('cfg-content-max-chars').value = truncation.content_max_chars || DEFAULTS.content_max_chars;
+            document.getElementById('cfg-elysia-content-chars').value = truncation.elysia_content_chars || DEFAULTS.elysia_content_chars;
+            document.getElementById('cfg-elysia-summary-chars').value = truncation.elysia_summary_chars || DEFAULTS.elysia_summary_chars;
+            document.getElementById('cfg-max-context-results').value = truncation.max_context_results || DEFAULTS.max_context_results;
 
             // List query detection (stored under abstention in YAML)
-            listIndicators = [...(abstention.list_indicators || ['list', 'show', 'all', 'exist', 'exists', 'available', 'have', 'many', 'which', 'enumerate'])];
+            listIndicators = [...(abstention.list_indicators || DEFAULTS.list_indicators)];
             listPatterns = [...(abstention.list_patterns || [])];
-            listStopwords = [...(abstention.additional_stop_words || ['are', 'there', 'exist', 'exists', 'list', 'show', 'all', 'me', 'give'])];
+            listStopwords = [...(abstention.additional_stop_words || DEFAULTS.additional_stop_words)];
 
             renderListItems('indicators');
             renderListItems('patterns');
@@ -1284,24 +1323,24 @@
         function getModalThresholds() {
             return {
                 abstention: {
-                    distance_threshold: parseFloat(document.getElementById('cfg-distance-threshold').value) || 0.5,
-                    min_query_coverage: parseFloat(document.getElementById('cfg-min-coverage').value) || 0.2,
+                    distance_threshold: parseFloat(document.getElementById('cfg-distance-threshold').value) || DEFAULTS.distance_threshold,
+                    min_query_coverage: parseFloat(document.getElementById('cfg-min-coverage').value) || DEFAULTS.min_query_coverage,
                     // List query detection is stored under abstention
                     list_indicators: listIndicators,
                     list_patterns: listPatterns,
                     additional_stop_words: listStopwords
                 },
                 retrieval_limits: {
-                    adr: parseInt(document.getElementById('cfg-limit-adr').value) || 8,
-                    principle: parseInt(document.getElementById('cfg-limit-principle').value) || 6,
-                    policy: parseInt(document.getElementById('cfg-limit-policy').value) || 4,
-                    vocabulary: parseInt(document.getElementById('cfg-limit-vocabulary').value) || 4
+                    adr: parseInt(document.getElementById('cfg-limit-adr').value) || DEFAULTS.limit_adr,
+                    principle: parseInt(document.getElementById('cfg-limit-principle').value) || DEFAULTS.limit_principle,
+                    policy: parseInt(document.getElementById('cfg-limit-policy').value) || DEFAULTS.limit_policy,
+                    vocabulary: parseInt(document.getElementById('cfg-limit-vocabulary').value) || DEFAULTS.limit_vocabulary
                 },
                 truncation: {
-                    content_max_chars: parseInt(document.getElementById('cfg-content-max-chars').value) || 800,
-                    elysia_content_chars: parseInt(document.getElementById('cfg-elysia-content-chars').value) || 500,
-                    elysia_summary_chars: parseInt(document.getElementById('cfg-elysia-summary-chars').value) || 300,
-                    max_context_results: parseInt(document.getElementById('cfg-max-context-results').value) || 10
+                    content_max_chars: parseInt(document.getElementById('cfg-content-max-chars').value) || DEFAULTS.content_max_chars,
+                    elysia_content_chars: parseInt(document.getElementById('cfg-elysia-content-chars').value) || DEFAULTS.elysia_content_chars,
+                    elysia_summary_chars: parseInt(document.getElementById('cfg-elysia-summary-chars').value) || DEFAULTS.elysia_summary_chars,
+                    max_context_results: parseInt(document.getElementById('cfg-max-context-results').value) || DEFAULTS.max_context_results
                 }
             };
         }
@@ -1374,8 +1413,8 @@
 
                 // Update the quick settings sliders
                 const abstention = data.thresholds.abstention || {};
-                document.getElementById('distance-slider').value = abstention.distance_threshold || 0.5;
-                document.getElementById('coverage-slider').value = abstention.min_query_coverage || 0.2;
+                document.getElementById('distance-slider').value = abstention.distance_threshold || DEFAULTS.distance_threshold;
+                document.getElementById('coverage-slider').value = abstention.min_query_coverage || DEFAULTS.min_query_coverage;
                 updateSliderValue('distance');
                 updateSliderValue('coverage');
 
