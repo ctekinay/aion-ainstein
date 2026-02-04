@@ -260,6 +260,40 @@ class SkillLoader:
             "elysia_summary_chars": 300,
         })
 
+    def get_list_query_config(self, skill_name: str) -> dict[str, Any]:
+        """Get list query detection configuration for a skill.
+
+        Used by abstention logic to detect queries asking for enumeration
+        (e.g., "What ADRs exist?") which should skip coverage checks.
+
+        Args:
+            skill_name: Name of the skill
+
+        Returns:
+            Dictionary with:
+                - list_indicators: List of words indicating list queries
+                - list_patterns: List of regex patterns for list queries
+                - additional_stop_words: Extra stop words for query parsing
+        """
+        thresholds = self.get_thresholds(skill_name)
+        abstention = thresholds.get("abstention", {})
+
+        return {
+            "list_indicators": abstention.get("list_indicators", [
+                "list", "show", "all", "exist", "exists",
+                "available", "have", "many", "which", "enumerate"
+            ]),
+            "list_patterns": abstention.get("list_patterns", [
+                r"what\s+\w+s\s+(are|exist|do we have)",
+                r"(list|show|give)\s+(me\s+)?(all|the)",
+                r"how many\s+\w+",
+                r"which\s+\w+s?\s+(are|exist|do)",
+            ]),
+            "additional_stop_words": abstention.get("additional_stop_words", [
+                "are", "there", "exist", "exists", "list", "show", "all", "me", "give"
+            ]),
+        }
+
     def clear_cache(self):
         """Clear the skill cache."""
         self._cache.clear()

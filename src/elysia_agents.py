@@ -34,6 +34,27 @@ def _get_abstention_thresholds() -> tuple[float, float]:
         return _DEFAULT_DISTANCE_THRESHOLD, _DEFAULT_MIN_QUERY_COVERAGE
 
 
+def _get_list_query_config() -> dict:
+    """Get list query detection config from skill configuration.
+
+    Returns:
+        Dictionary with list_indicators, list_patterns, additional_stop_words
+    """
+    try:
+        return _skill_registry.loader.get_list_query_config(DEFAULT_SKILL)
+    except Exception:
+        return {
+            "list_indicators": ["list", "show", "all", "exist", "exists", "available", "have", "many", "which", "enumerate"],
+            "list_patterns": [
+                r"what\s+\w+s\s+(are|exist|do we have)",
+                r"(list|show|give)\s+(me\s+)?(all|the)",
+                r"how many\s+\w+",
+                r"which\s+\w+s?\s+(are|exist|do)",
+            ],
+            "additional_stop_words": ["are", "there", "exist", "exists", "list", "show", "all", "me", "give"],
+        }
+
+
 def should_abstain(query: str, results: list) -> tuple[bool, str]:
     """Determine if the system should abstain from answering.
 
@@ -74,10 +95,34 @@ def should_abstain(query: str, results: list) -> tuple[bool, str]:
         if not adr_found:
             return True, f"ADR-{adr_num} was not found in the knowledge base."
 
+    # Load list query detection config from skill
+    list_config = _get_list_query_config()
+    list_indicators = set(list_config.get("list_indicators", []))
+    list_patterns = list_config.get("list_patterns", [])
+    additional_stop_words = set(list_config.get("additional_stop_words", []))
+
+    # Detect LIST-type queries (asking for enumeration/listing)
+    # These queries ask "what exists" rather than asking about specific content
+    query_lower = query.lower()
+    query_words = set(query_lower.split())
+    is_list_query = bool(query_words & list_indicators)
+
+    # Also detect patterns like "What ADRs..." or "What principles..."
+    if not is_list_query:
+        is_list_query = any(re.search(p, query_lower) for p in list_patterns)
+
+    # For LIST queries with good distance scores, skip coverage check
+    # The query terms won't appear in documents (e.g., "exist" won't be in ADR titles)
+    if is_list_query and distances and min(distances) <= distance_threshold:
+        return False, "OK"
+
     # Check query term coverage in results
-    # Extract meaningful terms (skip common words)
-    stop_words = {"what", "is", "the", "a", "an", "of", "in", "to", "for", "and", "or", "how", "does", "do", "about", "our"}
-    query_terms = [t for t in query.lower().split() if t not in stop_words and len(t) > 2]
+    # Extract meaningful terms (skip common words, clean punctuation)
+    base_stop_words = {"what", "is", "the", "a", "an", "of", "in", "to", "for", "and", "or", "how", "does", "do", "about", "our"}
+    stop_words = base_stop_words | additional_stop_words
+    # Clean punctuation from terms
+    query_terms = [re.sub(r'[^\w]', '', t) for t in query_lower.split()]
+    query_terms = [t for t in query_terms if t not in stop_words and len(t) > 2]
 
     if query_terms:
         results_text = " ".join(
