@@ -8,7 +8,7 @@ Get up and running in 5 minutes:
 
 ```bash
 # 1. Clone and enter the project
-git clone https://github.com/ctekinay/aion-ainstein.git
+git clone <YOUR_COMPANY_REPO_URL>
 cd aion-ainstein
 
 # 2. Start Weaviate (Docker required)
@@ -86,7 +86,7 @@ The system integrates with [Weaviate's Elysia](https://weaviate.io/blog/elysia-a
 
 ```bash
 # Clone the repository
-git clone https://github.com/ctekinay/aion-ainstein.git
+git clone <YOUR_COMPANY_REPO_URL>
 cd aion-ainstein
 
 # Start Weaviate database
@@ -114,7 +114,7 @@ python -m src.cli elysia
 
 ```powershell
 # Clone the repository
-git clone https://github.com/ctekinay/aion-ainstein.git
+git clone <YOUR_COMPANY_REPO_URL>
 cd aion-ainstein
 
 # Start Weaviate database

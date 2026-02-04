@@ -32,14 +32,6 @@ owl:Class
   skos:inScheme     :Ontology ;
   skos:topConceptOf :Ontology .
 
-#:
-#  a                 skos:Concept ;
-#  skos:prefLabel    ""@en ;
-#  skos:definition   ""@en ;
-#  owl:versionInfo   "1" ;
-#  skos:topConceptOf :Ontology ;
-#  skos:inScheme     :Ontology .
-
 :IntraDayMarkets
   a                 skos:Concept ;
   skos:prefLabel    "Intra-Day Markets"@en ;
@@ -137,3 +129,28 @@ owl:Class
   skos:inScheme     :Ontology ;
   skos:prefLabel    "Market Evaluation Point"@en ;
   skos:topConceptOf :Ontology .
+
+:EnergyProfile
+  a                 skos:Concept ;
+  skos:prefLabel    "EnergyProfile"@en ;
+  skos:definition   "Specifies the start time, stop time, level for an EnergyTransaction."@en ;
+  dct:identifier    "urn:uuid:3bee7daf-28c4-4c84-ac97-d4c923ed3bee" ;
+  owl:versionInfo   "1" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:EnergyTransaction
+  a                 skos:Concept ;
+  skos:prefLabel    "EnergyTransaction"@en ;
+  skos:definition   "Specifies the schedule for energy transfers between interchange areas that are necessary to satisfy the associated interchange transaction"@en ;
+  owl:versionInfo   "1" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+#:
+#  a                 skos:Concept ;
+#  skos:prefLabel    ""@en ;
+#  skos:definition   ""@en ;
+#  owl:versionInfo   "1" ;
+#  skos:topConceptOf :Ontology ;
+#  skos:inScheme     :Ontology .

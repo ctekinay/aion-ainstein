@@ -1,7 +1,7 @@
 """Configuration management for the AION-AINSTEIN RAG system."""
 
 from pathlib import Path
-from typing import Optional
+from typing import Literal, Optional
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -23,10 +23,34 @@ class Settings(BaseSettings):
     wcd_url: Optional[str] = Field(default=None)
     wcd_api_key: Optional[str] = Field(default=None)
 
-    # OpenAI Configuration
+    # LLM Provider Configuration
+    llm_provider: Literal["openai", "ollama"] = Field(default="ollama")
+
+    # Ollama Configuration (default provider)
+    ollama_url: str = Field(default="http://localhost:11434")
+    # URL for Weaviate (Docker) to reach Ollama on host machine
+    ollama_docker_url: str = Field(default="http://host.docker.internal:11434")
+    ollama_model: str = Field(default="alibayram/smollm3:latest")
+    ollama_embedding_model: str = Field(default="nomic-embed-text-v2-moe")
+
+    # OpenAI Configuration (fallback/alternative)
     openai_api_key: Optional[str] = Field(default=None)
     openai_embedding_model: str = Field(default="text-embedding-3-small")
-    openai_chat_model: str = Field(default="gpt-4o-mini")
+    openai_chat_model: str = Field(default="gpt-5.2")
+
+    @property
+    def chat_model(self) -> str:
+        """Get the current chat model based on provider."""
+        if self.llm_provider == "ollama":
+            return self.ollama_model
+        return self.openai_chat_model
+
+    @property
+    def embedding_model(self) -> str:
+        """Get the current embedding model based on provider."""
+        if self.llm_provider == "ollama":
+            return self.ollama_embedding_model
+        return self.openai_embedding_model
 
     # Data Paths
     data_path: Path = Field(default=Path("./data"))
@@ -38,6 +62,14 @@ class Settings(BaseSettings):
 
     # Logging
     log_level: str = Field(default="INFO")
+
+    # Hybrid Search Alpha Configuration
+    # Alpha controls balance between keyword (BM25) and vector search
+    # 0.0 = 100% keyword, 1.0 = 100% vector, 0.5 = balanced
+    alpha_default: float = Field(default=0.5, description="Default alpha for general queries")
+    alpha_vocabulary: float = Field(default=0.6, description="Alpha for vocabulary/concept queries (favor semantic)")
+    alpha_exact_match: float = Field(default=0.3, description="Alpha for exact term matching (favor keyword)")
+    alpha_semantic: float = Field(default=0.7, description="Alpha for semantic/conceptual queries (favor vector)")
 
     @property
     def project_root(self) -> Path:

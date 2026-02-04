@@ -84,9 +84,9 @@ mdrtype:ONTOLOGY
 
 
 # Skosmos vocabularies categories
-:cat_legal
+:cat_architecture
   a                 skos:Concept ;
-  skos:prefLabel    "Legal & Regulation"@en, "Wettelijk & Regulering"@nl ;
+  skos:prefLabel    "Architecture"@en, "Architectuur"@nl ;
   skos:topConceptOf :categories ;
   skos:inScheme     :categories .
 
@@ -96,15 +96,15 @@ mdrtype:ONTOLOGY
   skos:topConceptOf :categories ;
   skos:inScheme     :categories .
 
-:cat_iec
+:cat_legal
   a                 skos:Concept ;
-  skos:prefLabel    "International Electrotechnical Commission"@en, "International Electrotechnical Commission"@nl ;
+  skos:prefLabel    "Legal & Regulation"@en, "Wettelijk & Regulering"@nl ;
   skos:topConceptOf :categories ;
   skos:inScheme     :categories .
 
-:cat_architecture
+:cat_iec
   a                 skos:Concept ;
-  skos:prefLabel    "Architecture"@en, "Architectuur"@nl ;
+  skos:prefLabel    "International Electrotechnical Commission"@en, "International Electrotechnical Commission"@nl ;
   skos:topConceptOf :categories ;
   skos:inScheme     :categories .
 

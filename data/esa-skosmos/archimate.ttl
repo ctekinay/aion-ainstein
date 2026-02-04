@@ -1,0 +1,332 @@
+@prefix :     <http://www.opengroup.org/archimate/3.2/> .
+@prefix skos: <http://www.w3.org/2004/02/skos/core#> .
+@prefix dc:   <http://purl.org/dc/elements/1.1/> .
+@prefix dct:  <http://purl.org/dc/terms/> .
+@prefix dcat: <http://www.w3.org/ns/dcat#> .
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
+@prefix owl:  <http://www.w3.org/2002/07/owl#> .
+@prefix foaf: <http://xmlns.com/foaf/0.1/> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+
+# Concept Scheme declaration
+:ArchiMate3_2_Scheme
+  a                owl:Ontology, skos:ConceptScheme ;
+  skos:prefLabel   "ArchiMate 3.2 Concept Scheme"@en ;
+  dct:description  "The ArchiMate® Specification, a standard of The Open Group, is an open and independent modeling language for Enterprise Architecture that is supported by different tool vendors and consulting firms. The ArchiMate Specification provides instruments to enable Enterprise Architects to describe, analyze, and visualize the relationships among business domains in an unambiguous way."@en ;
+  dct:publisher    "OpenGroup"@en ;
+  dct:rightsHolder "OpenGroup"@en ;
+  dct:created      "2026-01-01"^^xsd:date ;
+  owl:versionIRI   <http://www.opengroup.org/archimate/3.2/> ;
+  foaf:homepage    "https://www.opengroup.org/archimate-forum/archimate-overview" ;
+  dcat:theme       "vocabulary"@en .
+
+# Motivation Elements
+:Stakeholder
+  a              skos:Concept ;
+  skos:inScheme  :ArchiMate3_2_Scheme ;
+  skos:prefLabel "Stakeholder"@en ;
+  skos:definition
+                 "A stakeholder is the role of an individual, team, or organization (or classes thereof) that represents their interests in the outcome of the architecture. In its own words, ArchiMate seems to be defining a relationship between the Actor (individual, team, organisation) and the item they are interested in." .
+
+:Driver
+  a               skos:Concept ;
+  skos:inScheme   :ArchiMate3_2_Scheme ;
+  skos:prefLabel  "Driver"@en ;
+  skos:definition "An external or internal condition motivating architecture goals." .
+
+# ... continue for Assessment, Goal, Outcome, Requirement, Constraint, Principle, Value, Meaning
+:Assessment
+  a               skos:Concept ;
+  skos:inScheme   :ArchiMate3_2_Scheme ;
+  skos:prefLabel  "Assessment"@en ;
+  skos:definition "Result of analysis of state with respect to a driver." .
+
+:Goal
+  a               skos:Concept ;
+  skos:inScheme   :ArchiMate3_2_Scheme ;
+  skos:prefLabel  "Goal"@en ;
+  skos:definition "High-level statement of intent or desired end state." .
+
+:Outcome
+  a               skos:Concept ;
+  skos:inScheme   :ArchiMate3_2_Scheme ;
+  skos:prefLabel  "Outcome"@en ;
+  skos:definition "An end result, effect or consequence of a certain state." .
+
+:Requirement
+  a               skos:Concept ;
+  skos:inScheme   :ArchiMate3_2_Scheme ;
+  skos:prefLabel  "Requirement"@en ;
+  skos:definition "Statement of need defining a property that applies to a system." .
+
+:Constraint
+  a               skos:Concept ;
+  skos:inScheme   :ArchiMate3_2_Scheme ;
+  skos:prefLabel  "Constraint"@en ;
+  skos:definition "Limitation on aspects of architecture or its realization." .
+
+:Principle
+  a               skos:Concept ;
+  skos:inScheme   :ArchiMate3_2_Scheme ;
+  skos:prefLabel  "Principle"@en ;
+  skos:definition "Statement of intent defining a general property applicable in context." .
+
+:Value
+  a               skos:Concept ;
+  skos:inScheme   :ArchiMate3_2_Scheme ;
+  skos:prefLabel  "Value"@en ;
+  skos:definition "Relative worth, utility, or importance of a concept." .
+
+:Meaning
+  a               skos:Concept ;
+  skos:inScheme   :ArchiMate3_2_Scheme ;
+  skos:prefLabel  "Meaning"@en ;
+  skos:definition "Knowledge or interpretation given to a concept in context." .
+
+# Strategy Layer
+:Resource
+  a               skos:Concept ;
+  skos:inScheme   :ArchiMate3_2_Scheme ;
+  skos:prefLabel  "Resource"@en ;
+  skos:definition "Asset owned or controlled by an organization." .
+
+:Capability
+  a               skos:Concept ;
+  skos:inScheme   :ArchiMate3_2_Scheme ;
+  skos:prefLabel  "Capability"@en ;
+  skos:definition "Ability an active structure element possesses." .
+
+:ValueStrearchi
+  a               skos:Concept ;
+  skos:inScheme   :ArchiMate3_2_Scheme ;
+  skos:prefLabel  "Value Stream"@en ;
+  skos:definition "Sequence of activities creating value for a stakeholder." .
+
+:CourseOfAction
+  a               skos:Concept ;
+  skos:inScheme   :ArchiMate3_2_Scheme ;
+  skos:prefLabel  "Course of Action"@en ;
+  skos:definition "Plan or approach adopted by organization." .
+
+# Business Layer (Active Structure, Behavior, Passive Structure)
+:BusinessActor
+  a               skos:Concept ;
+  skos:inScheme   :ArchiMate3_2_Scheme ;
+  skos:prefLabel  "Business Actor"@en ;
+  skos:definition "Organizational entity performing business behavior." .
+
+# continue for BusinessRole, BusinessCollaboration, BusinessInterface, BusinessProcess, BusinessFunction, BusinessInteraction, BusinessService, BusinessEvent, BusinessObject, Product, Contract, Representation
+:BusinessRole
+  a               skos:Concept ;
+  skos:inScheme   :ArchiMate3_2_Scheme ;
+  skos:prefLabel  "Business Role"@en ;
+  skos:definition "Responsibility for performing specific behavior." .
+
+:BusinessCollaboration
+  a               skos:Concept ;
+  skos:inScheme   :ArchiMate3_2_Scheme ;
+  skos:prefLabel  "Business Collaboration"@en ;
+  skos:definition "Aggregation of two or more business internal active structures." .
+
+:BusinessInterface
+  a               skos:Concept ;
+  skos:inScheme   :ArchiMate3_2_Scheme ;
+  skos:prefLabel  "Business Interface"@en ;
+  skos:definition "Point of access where business services are provided to environment." .
+
+:BusinessProcess
+  a               skos:Concept ;
+  skos:inScheme   :ArchiMate3_2_Scheme ;
+  skos:prefLabel  "Business Process"@en ;
+  skos:definition "Sequence of business behaviors achieving a result." .
+
+:BusinessFunction
+  a               skos:Concept ;
+  skos:inScheme   :ArchiMate3_2_Scheme ;
+  skos:prefLabel  "Business Function"@en ;
+  skos:definition "Behavior based on criteria like skills or resources performed as a whole." .
+
+:BusinessInteraction
+  a               skos:Concept ;
+  skos:inScheme   :ArchiMate3_2_Scheme ;
+  skos:prefLabel  "Business Interaction"@en ;
+  skos:definition "Collective behavior performed by two or more internal active structures." .
+
+:BusinessService
+  a               skos:Concept ;
+  skos:inScheme   :ArchiMate3_2_Scheme ;
+  skos:prefLabel  "Business Service"@en ;
+  skos:definition "Externally visible unit of business behavior." .
+
+:BusinessEvent
+  a               skos:Concept ;
+  skos:inScheme   :ArchiMate3_2_Scheme ;
+  skos:prefLabel  "Business Event"@en ;
+  skos:definition "State change within business." .
+
+:BusinessObject
+  a               skos:Concept ;
+  skos:inScheme   :ArchiMate3_2_Scheme ;
+  skos:prefLabel  "Business Object"@en ;
+  skos:definition "Passive data used or produced by business processes." .
+
+:Product
+  a               skos:Concept ;
+  skos:inScheme   :ArchiMate3_2_Scheme ;
+  skos:prefLabel  "Product"@en ;
+  skos:definition "Coherent collection of services offered as a whole." .
+
+:Contract
+  a               skos:Concept ;
+  skos:inScheme   :ArchiMate3_2_Scheme ;
+  skos:prefLabel  "Contract"@en ;
+  skos:definition "Specification of rights and obligations." .
+
+:Representation
+  a               skos:Concept ;
+  skos:inScheme   :ArchiMate3_2_Scheme ;
+  skos:prefLabel  "Representation"@en ;
+  skos:definition "Perceived form of information or structure." .
+
+# Application Layer
+:ApplicationComponent
+  a               skos:Concept ;
+  skos:inScheme   :ArchiMate3_2_Scheme ;
+  skos:prefLabel  "Application Component"@en ;
+  skos:definition "Modular unit of application behavior." .
+
+:ApplicationCollaboration
+  a               skos:Concept ;
+  skos:inScheme   :ArchiMate3_2_Scheme ;
+  skos:prefLabel  "Application Collaboration"@en ;
+  skos:definition "Aggregation of two or more application internal active structures." .
+
+:ApplicationInterface
+  a               skos:Concept ;
+  skos:inScheme   :ArchiMate3_2_Scheme ;
+  skos:prefLabel  "Application Interface"@en ;
+  skos:definition "Point of access to application services provided." .
+
+:ApplicationService
+  a               skos:Concept ;
+  skos:inScheme   :ArchiMate3_2_Scheme ;
+  skos:prefLabel  "Application Service"@en ;
+  skos:definition "Externally visible unit of application behavior." .
+
+:ApplicationFunction
+  a               skos:Concept ;
+  skos:inScheme   :ArchiMate3_2_Scheme ;
+  skos:prefLabel  "Application Function"@en ;
+  skos:definition "Behavior performed by an application component." .
+
+:ApplicationInteraction
+  a               skos:Concept ;
+  skos:inScheme   :ArchiMate3_2_Scheme ;
+  skos:prefLabel  "Application Interaction"@en ;
+  skos:definition " Collective behavior by two or more application components." .
+
+:DataObject
+  a               skos:Concept ;
+  skos:inScheme   :ArchiMate3_2_Scheme ;
+  skos:prefLabel  "Data Object"@en ;
+  skos:definition "Passive data held by an application component." .
+
+# Technology Layer
+:Node
+  a               skos:Concept ;
+  skos:inScheme   :ArchiMate3_2_Scheme ;
+  skos:prefLabel  "Node"@en ;
+  skos:definition "Computational resource or physical device." .
+
+:TechnologyCollaboration
+  a               skos:Concept ;
+  skos:inScheme   :ArchiMate3_2_Scheme ;
+  skos:prefLabel  "Technology Collaboration"@en ;
+  skos:definition "Aggregation of two or more technology nodes." .
+
+:TechnologyInterface
+  a               skos:Concept ;
+  skos:inScheme   :ArchiMate3_2_Scheme ;
+  skos:prefLabel  "Technology Interface"@en ;
+  skos:definition "Point of access where technology services are provided." .
+
+:TechnologyService
+  a               skos:Concept ;
+  skos:inScheme   :ArchiMate3_2_Scheme ;
+  skos:prefLabel  "Technology Service"@en ;
+  skos:definition "Externally visible unit of technology behavior." .
+
+:TechnologyFunction
+  a               skos:Concept ;
+  skos:inScheme   :ArchiMate3_2_Scheme ;
+  skos:prefLabel  "Technology Function"@en ;
+  skos:definition "Behavior performed by a technology element." .
+
+:TechnologyInteraction
+  a               skos:Concept ;
+  skos:inScheme   :ArchiMate3_2_Scheme ;
+  skos:prefLabel  "Technology Interaction"@en ;
+  skos:definition "Collective behavior by multiple technology elements." .
+
+:Artifact
+  a               skos:Concept ;
+  skos:inScheme   :ArchiMate3_2_Scheme ;
+  skos:prefLabel  "Artifact"@en ;
+  skos:definition "Piece of data used or produced by technology." .
+
+# Physical Layer
+:Equipment
+  a               skos:Concept ;
+  skos:inScheme   :ArchiMate3_2_Scheme ;
+  skos:prefLabel  "Equipment"@en ;
+  skos:definition "Physical computing equipment." .
+
+:Facility
+  a               skos:Concept ;
+  skos:inScheme   :ArchiMate3_2_Scheme ;
+  skos:prefLabel  "Facility"@en ;
+  skos:definition "Physical facility used by technology elements." .
+
+:Material
+  a               skos:Concept ;
+  skos:inScheme   :ArchiMate3_2_Scheme ;
+  skos:prefLabel  "Material"@en ;
+  skos:definition "Physical substance used or consumed." .
+
+# Implementation & Migration Layer
+:WorkPackage
+  a               skos:Concept ;
+  skos:inScheme   :ArchiMate3_2_Scheme ;
+  skos:prefLabel  "Work Package"@en ;
+  skos:definition "Aggregated unit of work." .
+
+:Deliverable
+  a               skos:Concept ;
+  skos:inScheme   :ArchiMate3_2_Scheme ;
+  skos:prefLabel  "Deliverable"@en ;
+  skos:definition "Tangible or intangible output to be delivered." .
+
+:Plateau
+  a               skos:Concept ;
+  skos:inScheme   :ArchiMate3_2_Scheme ;
+  skos:prefLabel  "Plateau"@en ;
+  skos:definition "Relatively stable state of architecture." .
+
+:Gap
+  a               skos:Concept ;
+  skos:inScheme   :ArchiMate3_2_Scheme ;
+  skos:prefLabel  "Gap"@en ;
+  skos:definition "Absence of capability between two plateaus." .
+
+# Composite Elements
+:Grouping
+  a               skos:Concept ;
+  skos:inScheme   :ArchiMate3_2_Scheme ;
+  skos:prefLabel  "Grouping"@en ;
+  skos:definition "Logical grouping of elements." .
+
+:Location
+  a               skos:Concept ;
+  skos:inScheme   :ArchiMate3_2_Scheme ;
+  skos:prefLabel  "Location"@en ;
+  skos:definition "Conceptual or physical place." .

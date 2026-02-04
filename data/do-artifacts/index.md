@@ -23,11 +23,10 @@ collection:
     en: Data Office Artifacts
     nl: Data Office Artefacten
   description:
-    en: Data governance policies, principles, and guidelines from the Alliander Data Office covering data quality, classification, and management.
-    nl: Data governance beleid, principes en richtlijnen van het Alliander Data Office voor datakwaliteit, classificatie en beheer.
+    en: Data governance policies and guidelines from the Alliander Data Office covering data quality, classification, and management.
+    nl: Data governance beleid en richtlijnen van het Alliander Data Office voor datakwaliteit, classificatie en beheer.
   doc_types:
     - policy
-    - principle
     - capability
   keywords:
     en: [data governance, data quality, data classification, data management, policies, DMBOK]
@@ -44,7 +43,6 @@ This directory contains data governance artifacts from the Alliander Data Office
 ## Contents
 
 - **policy_docs/**: Data governance policies and classification guidelines
-- **principles/**: Data governance principles
 
 ## About the Data Office
 

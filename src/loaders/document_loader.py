@@ -1,4 +1,9 @@
-"""Document loader for DOCX and PDF files with chunking support."""
+"""Document loader for DOCX and PDF files with chunking support.
+
+Supports two modes:
+1. Legacy mode: Simple character-based chunking (backward compatible)
+2. Chunked mode: Uses hierarchical, structure-aware chunking (recommended)
+"""
 
 import logging
 from dataclasses import dataclass, field
@@ -6,6 +11,18 @@ from pathlib import Path
 from typing import Iterator, Optional
 
 from .index_metadata_loader import get_document_metadata
+
+# Import chunking module (optional, for enhanced chunking)
+try:
+    from ..chunking import (
+        PolicyChunkingStrategy,
+        ChunkingConfig,
+        Chunk,
+        ChunkedDocument,
+    )
+    CHUNKING_AVAILABLE = True
+except ImportError:
+    CHUNKING_AVAILABLE = False
 
 logger = logging.getLogger(__name__)
 
@@ -341,3 +358,166 @@ class DocumentLoader:
 
         # Fall back to filename
         return file_path.stem.replace("-", " ").replace("_", " ").title()
+
+    # ========== Chunked Loading Methods (New) ==========
+
+    def load_all_chunked(
+        self,
+        config: Optional["ChunkingConfig"] = None,
+    ) -> Iterator["ChunkedDocument"]:
+        """Load all documents with hierarchical, structure-aware chunking.
+
+        This method creates multiple chunks per document:
+        - Section-level chunks (detected from headers)
+        - Granular semantic chunks for large sections
+
+        Args:
+            config: Optional chunking configuration
+
+        Yields:
+            ChunkedDocument objects with hierarchical chunks
+        """
+        if not CHUNKING_AVAILABLE:
+            logger.warning("Chunking module not available. Use load_all() instead.")
+            return
+
+        strategy = PolicyChunkingStrategy(config)
+
+        docx_files = list(self.documents_path.glob("*.docx"))
+        pdf_files = list(self.documents_path.glob("*.pdf"))
+
+        logger.info(
+            f"Loading {len(docx_files)} DOCX and {len(pdf_files)} PDF files with chunking"
+        )
+
+        for docx_file in docx_files:
+            try:
+                content, title = self._extract_docx_content(docx_file)
+                if content:
+                    index_metadata = get_document_metadata(docx_file)
+                    chunked_doc = strategy.chunk_document(
+                        content=content,
+                        file_path=str(docx_file),
+                        title=title,
+                        metadata=index_metadata,
+                    )
+                    logger.debug(
+                        f"Chunked DOCX '{title}' into {chunked_doc.total_chunks} chunks"
+                    )
+                    yield chunked_doc
+            except Exception as e:
+                logger.error(f"Error chunking DOCX {docx_file}: {e}")
+                continue
+
+        for pdf_file in pdf_files:
+            try:
+                content, title = self._extract_pdf_content(pdf_file)
+                if content:
+                    index_metadata = get_document_metadata(pdf_file)
+                    chunked_doc = strategy.chunk_document(
+                        content=content,
+                        file_path=str(pdf_file),
+                        title=title,
+                        metadata=index_metadata,
+                    )
+                    logger.debug(
+                        f"Chunked PDF '{title}' into {chunked_doc.total_chunks} chunks"
+                    )
+                    yield chunked_doc
+            except Exception as e:
+                logger.error(f"Error chunking PDF {pdf_file}: {e}")
+                continue
+
+    def _extract_docx_content(self, file_path: Path) -> tuple[str, str]:
+        """Extract content and title from a DOCX file.
+
+        Args:
+            file_path: Path to the DOCX file
+
+        Returns:
+            Tuple of (content, title)
+        """
+        try:
+            from docx import Document
+        except ImportError:
+            logger.error("python-docx not installed. Run: pip install python-docx")
+            return "", ""
+
+        try:
+            doc = Document(str(file_path))
+
+            paragraphs = []
+            for para in doc.paragraphs:
+                text = para.text.strip()
+                if text:
+                    paragraphs.append(text)
+
+            for table in doc.tables:
+                for row in table.rows:
+                    row_text = " | ".join(
+                        cell.text.strip() for cell in row.cells if cell.text.strip()
+                    )
+                    if row_text:
+                        paragraphs.append(row_text)
+
+            content = "\n\n".join(paragraphs)
+            title = self._extract_title(file_path, paragraphs)
+
+            return content, title
+
+        except Exception as e:
+            logger.error(f"Failed to extract DOCX content {file_path}: {e}")
+            return "", ""
+
+    def _extract_pdf_content(self, file_path: Path) -> tuple[str, str]:
+        """Extract content and title from a PDF file.
+
+        Args:
+            file_path: Path to the PDF file
+
+        Returns:
+            Tuple of (content, title)
+        """
+        # Try PyMuPDF first
+        try:
+            import fitz
+
+            doc = fitz.open(str(file_path))
+            pages = []
+
+            for page in doc:
+                text = page.get_text()
+                if text.strip():
+                    pages.append(text.strip())
+
+            content = "\n\n".join(pages)
+            title = self._extract_title(file_path, pages)
+            return content, title
+
+        except ImportError:
+            pass
+        except Exception as e:
+            logger.error(f"PyMuPDF failed for {file_path}: {e}")
+
+        # Fall back to pypdf
+        try:
+            from pypdf import PdfReader
+
+            reader = PdfReader(str(file_path))
+            pages = []
+
+            for page in reader.pages:
+                text = page.extract_text()
+                if text and text.strip():
+                    pages.append(text.strip())
+
+            content = "\n\n".join(pages)
+            title = self._extract_title(file_path, pages)
+            return content, title
+
+        except ImportError:
+            logger.error("Neither pymupdf nor pypdf installed.")
+            return "", ""
+        except Exception as e:
+            logger.error(f"pypdf failed for {file_path}: {e}")
+            return "", ""

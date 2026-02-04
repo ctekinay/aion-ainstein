@@ -1,4 +1,9 @@
-"""Markdown document loader for ADRs and principles."""
+"""Markdown document loader for ADRs and principles.
+
+Supports two modes:
+1. Legacy mode: Loads full documents without chunking (backward compatible)
+2. Chunked mode: Uses hierarchical, section-based chunking (recommended)
+"""
 
 import logging
 import re
@@ -9,6 +14,19 @@ from typing import Iterator, Optional
 import frontmatter
 
 from .index_metadata_loader import get_document_metadata
+
+# Import chunking module (optional, for enhanced chunking)
+try:
+    from ..chunking import (
+        ADRChunkingStrategy,
+        PrincipleChunkingStrategy,
+        ChunkingConfig,
+        Chunk,
+        ChunkedDocument,
+    )
+    CHUNKING_AVAILABLE = True
+except ImportError:
+    CHUNKING_AVAILABLE = False
 
 logger = logging.getLogger(__name__)
 
@@ -29,6 +47,10 @@ class MarkdownDocument:
     decision: str = ""
     context: str = ""
     consequences: str = ""
+    adr_number: str = ""  # Extracted from filename (e.g., "0012")
+
+    # Principle-specific fields
+    principle_number: str = ""  # Extracted from filename (e.g., "0010")
 
     # Ownership fields from index.md
     owner_team: str = ""
@@ -49,6 +71,8 @@ class MarkdownDocument:
             "decision": self.decision,
             "context": self.context,
             "consequences": self.consequences,
+            "adr_number": self.adr_number,
+            "principle_number": self.principle_number,
             # Ownership fields
             "owner_team": self.owner_team,
             "owner_team_abbr": self.owner_team_abbr,
@@ -63,7 +87,24 @@ class MarkdownDocument:
 
     def _build_full_text(self) -> str:
         """Build full searchable text."""
-        parts = [f"Title: {self.title}"]
+        parts = []
+        # Include ADR/Principle ID prominently for better retrieval
+        # Include both official format (ADR.21) and raw number for flexible querying
+        if self.adr_number:
+            try:
+                num = int(self.adr_number)
+                parts.append(f"ADR.{num:02d}")  # Official format: ADR.21
+            except ValueError:
+                pass
+            parts.append(f"ADR-{self.adr_number}")  # Also include raw: ADR-0021
+        if self.principle_number:
+            try:
+                num = int(self.principle_number)
+                parts.append(f"PCP.{num:02d}")  # Official format: PCP.21
+            except ValueError:
+                pass
+            parts.append(f"PCP-{self.principle_number}")  # Also include raw: PCP-0021
+        parts.append(f"Title: {self.title}")
         if self.doc_type:
             parts.append(f"Type: {self.doc_type}")
         if self.status:
@@ -204,6 +245,99 @@ class MarkdownLoader:
             collection_name=index_metadata.get("collection_name", ""),
         )
 
+    def _classify_adr_document(self, file_path: Path, title: str, content: str) -> str:
+        """Classify an ADR document as content, index, template, or decision_approval_record.
+
+        Args:
+            file_path: Path to the ADR file
+            title: Document title
+            content: Document content
+
+        Returns:
+            Classification: 'content', 'index', 'template', or 'decision_approval_record'
+        """
+        file_name = file_path.name.lower()
+        title_lower = title.lower()
+
+        # Decision Approval Records: NNNND-*.md files (contain governance/approval history)
+        # These track the DACI approval process, not the actual decision content
+        if re.match(r"^\d{4}d-", file_name):
+            return 'decision_approval_record'
+
+        # Index files: contain lists of documents, no actual decisions
+        index_patterns = ['index.md', 'readme.md', 'overview.md', '_index.md']
+        if file_name in index_patterns:
+            return 'index'
+
+        # Template files: contain placeholders, not actual content
+        template_indicators = [
+            '{short title',
+            '{problem statement}',
+            '{context}',
+            '{decision outcome}',
+            'template',
+            '[insert ',
+            '{insert ',
+        ]
+        if any(ind in title_lower or ind in content.lower() for ind in template_indicators):
+            return 'template'
+
+        # Index-like content: lists of other documents
+        index_content_indicators = [
+            'decision approval record list',
+            'energy system architecture - decision records',
+            'list of decisions',
+            'decision record list',
+        ]
+        if any(ind in title_lower for ind in index_content_indicators):
+            return 'index'
+
+        # Default: actual content document
+        return 'content'
+
+    # Regex pattern for extracting ADR number from filename
+    ADR_NUMBER_PATTERN = re.compile(r"^(\d{4})D?-")
+
+    def _extract_adr_number(self, file_path: Path) -> str:
+        """Extract ADR number from filename.
+
+        Handles both ADR files (0012-name.md) and Decision Record files (0012D-name.md).
+
+        Args:
+            file_path: Path to the ADR file
+
+        Returns:
+            ADR number as string (e.g., "0012") or empty string if not found
+        """
+        match = self.ADR_NUMBER_PATTERN.match(file_path.name)
+        if match:
+            return match.group(1)
+
+        # Also check nav_order in metadata for backup
+        return ""
+
+    def _format_adr_id(self, adr_number: str) -> str:
+        """Format ADR number to official ID format (ADR.XX).
+
+        Converts 4-digit number to official format:
+        - "0000" -> "ADR.00"
+        - "0012" -> "ADR.12"
+        - "0021" -> "ADR.21"
+
+        Args:
+            adr_number: 4-digit ADR number string
+
+        Returns:
+            Formatted ID like "ADR.21"
+        """
+        if not adr_number:
+            return ""
+        try:
+            num = int(adr_number)
+            return f"ADR.{num:02d}"
+        except ValueError:
+            return f"ADR.{adr_number}"
+
     def _load_adr(self, file_path: Path) -> Optional[MarkdownDocument]:
         """Load an Architectural Decision Record.
 
@@ -217,7 +351,21 @@ class MarkdownLoader:
         if not doc:
             return None
 
-        doc.doc_type = "adr"
+        # Extract ADR number from filename
+        adr_number = self._extract_adr_number(file_path)
+        doc.adr_number = adr_number
+
+        # Classify first to determine if it's a decision approval record
+        doc.doc_type = self._classify_adr_document(file_path, doc.title, doc.content)
+
+        # Prepend ADR ID to title for better retrieval (using official format ADR.XX)
+        # Use different prefix for Decision Approval Records
+        if adr_number and not doc.title.lower().startswith("adr"):
+            adr_id = self._format_adr_id(adr_number)
+            if doc.doc_type == 'decision_approval_record':
+                doc.title = f"{adr_id}D (Approval Record): {doc.title}"
+            else:
+                doc.title = f"{adr_id}: {doc.title}"
 
         # Extract ADR-specific sections
         content = doc.content
@@ -240,6 +388,86 @@ class MarkdownLoader:
 
         return doc
 
+    def _classify_principle_document(self, file_path: Path, title: str, content: str) -> str:
+        """Classify a principle document as content, index, template, or decision_approval_record.
+
+        Args:
+            file_path: Path to the principle file
+            title: Document title
+            content: Document content
+
+        Returns:
+            Classification: 'content', 'index', 'template', or 'decision_approval_record'
+        """
+        file_name = file_path.name.lower()
+        title_lower = title.lower()
+
+        # Decision Approval Records: NNNND-*.md files (contain governance/approval history)
+        # These track the DACI approval process, not the actual principle content
+        if re.match(r"^\d{4}d-", file_name):
+            return 'decision_approval_record'
+
+        # Index files
+        index_patterns = ['index.md', 'readme.md', 'overview.md', '_index.md']
+        if file_name in index_patterns:
+            return 'index'
+
+        # Template files
+        template_indicators = [
+            'template',
+            '{title}',
+            '{description}',
+            '[insert ',
+            '{insert ',
+            'principle-template',
+            'principle-decision-template',
+        ]
+        if any(ind in file_name or ind in title_lower for ind in template_indicators):
+            return 'template'
+
+        # Default: actual content
+        return 'content'
+
+    # Regex pattern for extracting Principle number from filename
+    PRINCIPLE_NUMBER_PATTERN = re.compile(r"^(\d{4})D?-")
+
+    def _extract_principle_number(self, file_path: Path) -> str:
+        """Extract Principle number from filename.
+
+        Handles both Principle files (0010-name.md) and Decision Record files (0010D-name.md).
+
+        Args:
+            file_path: Path to the principle file
+
+        Returns:
+            Principle number as string (e.g., "0010") or empty string if not found
+        """
+        match = self.PRINCIPLE_NUMBER_PATTERN.match(file_path.name)
+        if match:
+            return match.group(1)
+        return ""
+
+    def _format_principle_id(self, principle_number: str) -> str:
+        """Format Principle number to official ID format (PCP.XX).
+
+        Converts 4-digit number to official format:
+        - "0010" -> "PCP.10"
+        - "0021" -> "PCP.21"
+
+        Args:
+            principle_number: 4-digit principle number string
+
+        Returns:
+            Formatted ID like "PCP.21"
+        """
+        if not principle_number:
+            return ""
+        try:
+            num = int(principle_number)
+            return f"PCP.{num:02d}"
+        except ValueError:
+            return f"PCP.{principle_number}"
+
     def _load_principle(self, file_path: Path) -> Optional[MarkdownDocument]:
         """Load a principle document.
 
@@ -250,8 +478,25 @@ class MarkdownLoader:
             Parsed MarkdownDocument
         """
         doc = self._load_file(file_path)
-        if doc:
-            doc.doc_type = "principle"
+        if not doc:
+            return None
+
+        # Extract Principle number from filename
+        principle_number = self._extract_principle_number(file_path)
+        doc.principle_number = principle_number
+
+        # Classify first to determine if it's a decision approval record
+        doc.doc_type = self._classify_principle_document(file_path, doc.title, doc.content)
+
+        # Prepend Principle ID to title for better retrieval (using official format PCP.XX)
+        # Use different prefix for Decision Approval Records
+        if principle_number and not doc.title.lower().startswith("pcp"):
+            pcp_id = self._format_principle_id(principle_number)
+            if doc.doc_type == 'decision_approval_record':
+                doc.title = f"{pcp_id}D (Approval Record): {doc.title}"
+            else:
+                doc.title = f"{pcp_id}: {doc.title}"
+
         return doc
 
     def _extract_title(self, content: str, file_path: Path) -> str:
@@ -291,3 +536,171 @@ class MarkdownLoader:
             return "policy"
         else:
             return "document"
+
+    # ========== Chunked Loading Methods (New) ==========
+
+    def load_adrs_chunked(
+        self,
+        adr_path: Path,
+        config: Optional["ChunkingConfig"] = None,
+    ) -> Iterator["ChunkedDocument"]:
+        """Load ADRs with hierarchical section-based chunking.
+
+        This method creates multiple chunks per ADR:
+        - Section-level chunks (Context, Decision, Consequences)
+        - Granular chunks for large sections
+
+        Args:
+            adr_path: Path to ADR directory
+            config: Optional chunking configuration
+
+        Yields:
+            ChunkedDocument objects with hierarchical chunks
+        """
+        if not CHUNKING_AVAILABLE:
+            logger.warning("Chunking module not available. Use load_adrs() instead.")
+            return
+
+        strategy = ADRChunkingStrategy(config)
+        adr_files = sorted(adr_path.glob("*.md"))
+        logger.info(f"Loading {len(adr_files)} ADR files with chunking")
+
+        for adr_file in adr_files:
+            try:
+                content = adr_file.read_text(encoding="utf-8")
+
+                # Parse frontmatter
+                try:
+                    post = frontmatter.loads(content)
+                    body = post.content
+                except Exception:
+                    body = content
+
+                title = self._extract_title(body, adr_file)
+                index_metadata = get_document_metadata(adr_file)
+
+                chunked_doc = strategy.chunk_document(
+                    content=body,
+                    file_path=str(adr_file),
+                    title=title,
+                    metadata=index_metadata,
+                )
+
+                logger.debug(
+                    f"Chunked ADR '{title}' into {chunked_doc.total_chunks} chunks"
+                )
+                yield chunked_doc
+
+            except Exception as e:
+                logger.error(f"Error chunking ADR {adr_file}: {e}")
+                continue
+
+    def load_principles_chunked(
+        self,
+        principles_path: Path,
+        config: Optional["ChunkingConfig"] = None,
+    ) -> Iterator["ChunkedDocument"]:
+        """Load principles with hierarchical section-based chunking.
+
+        Args:
+            principles_path: Path to principles directory
+            config: Optional chunking configuration
+
+        Yields:
+            ChunkedDocument objects with hierarchical chunks
+        """
+        if not CHUNKING_AVAILABLE:
+            logger.warning("Chunking module not available. Use load_principles() instead.")
+            return
+
+        strategy = PrincipleChunkingStrategy(config)
+        principle_files = sorted(principles_path.glob("*.md"))
+        logger.info(f"Loading {len(principle_files)} principle files with chunking")
+
+        for principle_file in principle_files:
+            try:
+                content = principle_file.read_text(encoding="utf-8")
+
+                # Parse frontmatter
+                try:
+                    post = frontmatter.loads(content)
+                    body = post.content
+                except Exception:
+                    body = content
+
+                title = self._extract_title(body, principle_file)
+                index_metadata = get_document_metadata(principle_file)
+
+                chunked_doc = strategy.chunk_document(
+                    content=body,
+                    file_path=str(principle_file),
+                    title=title,
+                    metadata=index_metadata,
+                )
+
+                logger.debug(
+                    f"Chunked principle '{title}' into {chunked_doc.total_chunks} chunks"
+                )
+                yield chunked_doc
+
+            except Exception as e:
+                logger.error(f"Error chunking principle {principle_file}: {e}")
+                continue
+
+    def load_all_chunked(
+        self,
+        config: Optional["ChunkingConfig"] = None,
+    ) -> Iterator["ChunkedDocument"]:
+        """Load all markdown files with appropriate chunking strategy.
+
+        Automatically detects document type and applies the correct
+        chunking strategy (ADR or Principle).
+
+        Args:
+            config: Optional chunking configuration
+
+        Yields:
+            ChunkedDocument objects
+        """
+        if not CHUNKING_AVAILABLE:
+            logger.warning("Chunking module not available. Use load_all() instead.")
+            return
+
+        md_files = list(self.base_path.rglob("*.md"))
+        logger.info(f"Loading {len(md_files)} markdown files with chunking")
+
+        for md_file in md_files:
+            try:
+                doc_type = self._determine_doc_type(md_file)
+
+                if doc_type == "adr":
+                    strategy = ADRChunkingStrategy(config)
+                elif doc_type == "principle":
+                    strategy = PrincipleChunkingStrategy(config)
+                else:
+                    # Use principle strategy as default for other markdown
+                    strategy = PrincipleChunkingStrategy(config)
+
+                content = md_file.read_text(encoding="utf-8")
+
+                try:
+                    post = frontmatter.loads(content)
+                    body = post.content
+                except Exception:
+                    body = content
+
+                title = self._extract_title(body, md_file)
+                index_metadata = get_document_metadata(md_file)
+
+                chunked_doc = strategy.chunk_document(
+                    content=body,
+                    file_path=str(md_file),
+                    title=title,
+                    metadata=index_metadata,
+                )
+
+                yield chunked_doc
+
+            except Exception as e:
+                logger.error(f"Error chunking {md_file}: {e}")
+                continue

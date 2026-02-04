@@ -2,7 +2,7 @@
 weaviate-client>=4.18.0
 
 # Elysia agentic RAG framework (keep versions as required by Elysia)
-elysia-ai>=0.1.0
+elysia-ai>=0.2.8
 dspy-ai>=2.4.0
 
 # RDF/SKOS parsing
@@ -31,6 +31,10 @@ rich>=13.7.0,<=14.0.0  # Constrained by elysia-ai dependency
 python-dotenv>=1.2.0
 pydantic>=2.12.0
 pydantic-settings>=2.12.0
+
+# Web UI
+fastapi>=0.115.0
+uvicorn>=0.34.0
 
 # Development (requires Python >=3.10)
 pytest>=9.0.0

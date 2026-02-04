@@ -7,9 +7,94 @@ and agentic query processing.
 import logging
 from typing import Optional, Any
 
+import re
 from weaviate import WeaviateClient
+from weaviate.classes.query import Filter, MetadataQuery
 
 from .config import settings
+
+# Abstention thresholds
+DISTANCE_THRESHOLD = 0.5  # Max distance for relevance (lower = more similar)
+MIN_QUERY_COVERAGE = 0.2  # Min fraction of query terms found in results
+
+
+def should_abstain(query: str, results: list) -> tuple[bool, str]:
+    """Determine if the system should abstain from answering.
+
+    Checks retrieval quality signals to prevent hallucination when
+    no relevant documents are found.
+
+    Args:
+        query: The user's question
+        results: List of retrieved documents with distance/score metadata
+
+    Returns:
+        Tuple of (should_abstain: bool, reason: str)
+    """
+    # No results at all
+    if not results:
+        return True, "No relevant documents found in the knowledge base."
+
+    # Check if any result has acceptable distance
+    distances = [r.get("distance") for r in results if r.get("distance") is not None]
+    if distances:
+        min_distance = min(distances)
+        if min_distance > DISTANCE_THRESHOLD:
+            return True, f"No sufficiently relevant documents found (best match distance: {min_distance:.2f})."
+
+    # Check for specific ADR queries - must find the exact ADR
+    adr_match = re.search(r'adr[- ]?0*(\d+)', query.lower())
+    if adr_match:
+        adr_num = adr_match.group(1).zfill(4)
+        adr_found = any(
+            f"adr-{adr_num}" in str(r.get("title", "")).lower() or
+            f"adr-{adr_num}" in str(r.get("content", "")).lower()
+            for r in results
+        )
+        if not adr_found:
+            return True, f"ADR-{adr_num} was not found in the knowledge base."
+
+    # Check query term coverage in results
+    # Extract meaningful terms (skip common words)
+    stop_words = {"what", "is", "the", "a", "an", "of", "in", "to", "for", "and", "or", "how", "does", "do", "about", "our"}
+    query_terms = [t for t in query.lower().split() if t not in stop_words and len(t) > 2]
+
+    if query_terms:
+        results_text = " ".join(
+            str(r.get("title", "")) + " " + str(r.get("content", "")) + " " +
+            str(r.get("label", "")) + " " + str(r.get("definition", ""))
+            for r in results
+        ).lower()
+
+        terms_found = sum(1 for t in query_terms if t in results_text)
+        coverage = terms_found / len(query_terms) if query_terms else 0
+
+        if coverage < MIN_QUERY_COVERAGE:
+            return True, f"Query terms not well covered by retrieved documents (coverage: {coverage:.0%})."
+
+    return False, "OK"
+
+
+def get_abstention_response(reason: str) -> str:
+    """Generate a helpful abstention response.
+
+    Args:
+        reason: The reason for abstaining
+
+    Returns:
+        User-friendly abstention message
+    """
+    return f"""I don't have sufficient information to answer this question.
+
+**Reason:** {reason}
+
+**Suggestions:**
+- Try rephrasing your question with different terms
+- Check if the topic exists in our knowledge base
+- For terminology questions, verify the term exists in SKOSMOS
+
+If you believe this information should be available, please contact the ESA team to have it added to the knowledge base."""
+from .weaviate.embeddings import embed_text
 
 logger = logging.getLogger(__name__)
 
@@ -68,7 +153,7 @@ class ElysiaRAGSystem:
             results = collection.query.hybrid(
                 query=query,
                 limit=limit,
-                alpha=0.6,
+                alpha=settings.alpha_vocabulary,
             )
             return [
                 {
@@ -103,7 +188,7 @@ class ElysiaRAGSystem:
             results = collection.query.hybrid(
                 query=query,
                 limit=limit,
-                alpha=0.6,
+                alpha=settings.alpha_vocabulary,
             )
             return [
                 {
@@ -138,7 +223,7 @@ class ElysiaRAGSystem:
             results = collection.query.hybrid(
                 query=query,
                 limit=limit,
-                alpha=0.6,
+                alpha=settings.alpha_vocabulary,
             )
             return [
                 {
@@ -172,7 +257,7 @@ class ElysiaRAGSystem:
             results = collection.query.hybrid(
                 query=query,
                 limit=limit,
-                alpha=0.6,
+                alpha=settings.alpha_vocabulary,
             )
             return [
                 {
@@ -273,7 +358,7 @@ class ElysiaRAGSystem:
                     adr_results = adr_collection.query.hybrid(
                         query=f"{team_name} {query}",
                         limit=limit,
-                        alpha=0.5,
+                        alpha=settings.alpha_default,
                     )
                 else:
                     adr_results = adr_collection.query.fetch_objects(
@@ -301,7 +386,7 @@ class ElysiaRAGSystem:
                     principle_results = principle_collection.query.hybrid(
                         query=f"{team_name} {query}",
                         limit=limit,
-                        alpha=0.5,
+                        alpha=settings.alpha_default,
                     )
                 else:
                     principle_results = principle_collection.query.fetch_objects(
@@ -329,7 +414,7 @@ class ElysiaRAGSystem:
                     policy_results = policy_collection.query.hybrid(
                         query=f"{team_name} {query}",
                         limit=limit,
-                        alpha=0.5,
+                        alpha=settings.alpha_default,
                     )
                 else:
                     policy_results = policy_collection.query.fetch_objects(
@@ -414,89 +499,258 @@ class ElysiaRAGSystem:
     async def _direct_query(self, question: str) -> tuple[str, list[dict]]:
         """Direct query execution bypassing Elysia tree when it fails.
 
+        Supports both OpenAI and Ollama as LLM backends.
+        Uses client-side embeddings for local collections (Ollama provider).
+        Implements confidence-based abstention to prevent hallucination.
+
         Args:
             question: The user's question
 
         Returns:
             Tuple of (response text, retrieved objects)
         """
-        from openai import OpenAI
-
-        # Determine which collections to search based on the question
         question_lower = question.lower()
         all_results = []
 
+        # Determine collection suffix based on provider
+        # Local collections use client-side embeddings (Nomic via Ollama)
+        # OpenAI collections use Weaviate's text2vec-openai vectorizer
+        use_openai_collections = settings.llm_provider == "openai"
+        suffix = "_OpenAI" if use_openai_collections else ""
+
+        # For local collections, compute query embedding client-side
+        # This is a workaround for Weaviate text2vec-ollama bug (#8406)
+        query_vector = None
+        if not use_openai_collections:
+            try:
+                query_vector = embed_text(question)
+            except Exception as e:
+                logger.error(f"Failed to compute query embedding: {e}")
+
+        # Filter to exclude index/template documents
+        content_filter = Filter.by_property("doc_type").equal("content")
+
+        # Request metadata for abstention decisions
+        metadata_request = MetadataQuery(score=True, distance=True)
+
         # Search relevant collections
         if any(term in question_lower for term in ["adr", "decision", "architecture"]):
-            collection = self.client.collections.get("ArchitecturalDecision")
-            results = collection.query.hybrid(query=question, limit=5, alpha=0.6)
-            for obj in results.objects:
-                all_results.append({
-                    "type": "ADR",
-                    "title": obj.properties.get("title", ""),
-                    "content": obj.properties.get("decision", "")[:500],
-                })
-
-        if any(term in question_lower for term in ["principle", "governance", "esa"]):
-            collection = self.client.collections.get("Principle")
-            results = collection.query.hybrid(query=question, limit=5, alpha=0.6)
-            for obj in results.objects:
-                all_results.append({
-                    "type": "Principle",
-                    "title": obj.properties.get("title", ""),
-                    "content": obj.properties.get("content", "")[:500],
-                })
-
-        if any(term in question_lower for term in ["policy", "data governance", "compliance"]):
-            collection = self.client.collections.get("PolicyDocument")
-            results = collection.query.hybrid(query=question, limit=5, alpha=0.6)
-            for obj in results.objects:
-                all_results.append({
-                    "type": "Policy",
-                    "title": obj.properties.get("title", ""),
-                    "content": obj.properties.get("content", "")[:500],
-                })
-
-        if any(term in question_lower for term in ["vocab", "concept", "definition", "cim", "iec"]):
-            collection = self.client.collections.get("Vocabulary")
-            results = collection.query.hybrid(query=question, limit=5, alpha=0.6)
-            for obj in results.objects:
-                all_results.append({
-                    "type": "Vocabulary",
-                    "label": obj.properties.get("pref_label", ""),
-                    "definition": obj.properties.get("definition", ""),
-                })
-
-        # If no specific collection matched, search all
-        if not all_results:
-            for coll_name in ["ArchitecturalDecision", "Principle", "PolicyDocument"]:
-                collection = self.client.collections.get(coll_name)
-                results = collection.query.hybrid(query=question, limit=3, alpha=0.6)
+            try:
+                collection = self.client.collections.get(f"ArchitecturalDecision{suffix}")
+                results = collection.query.hybrid(
+                    query=question, vector=query_vector, limit=5, alpha=settings.alpha_vocabulary,
+                    filters=content_filter, return_metadata=metadata_request
+                )
                 for obj in results.objects:
                     all_results.append({
-                        "type": coll_name,
+                        "type": "ADR",
                         "title": obj.properties.get("title", ""),
-                        "content": obj.properties.get("content", obj.properties.get("decision", ""))[:300],
+                        "content": obj.properties.get("decision", "")[:500],
+                        "distance": obj.metadata.distance,
+                        "score": obj.metadata.score,
                     })
+            except Exception as e:
+                logger.warning(f"Error searching ArchitecturalDecision{suffix}: {e}")
 
-        # Generate response using OpenAI
-        openai_client = OpenAI(api_key=settings.openai_api_key)
+        if any(term in question_lower for term in ["principle", "governance", "esa"]):
+            try:
+                collection = self.client.collections.get(f"Principle{suffix}")
+                results = collection.query.hybrid(
+                    query=question, vector=query_vector, limit=5, alpha=settings.alpha_vocabulary,
+                    filters=content_filter, return_metadata=metadata_request
+                )
+                for obj in results.objects:
+                    all_results.append({
+                        "type": "Principle",
+                        "title": obj.properties.get("title", ""),
+                        "content": obj.properties.get("content", "")[:500],
+                        "distance": obj.metadata.distance,
+                        "score": obj.metadata.score,
+                    })
+            except Exception as e:
+                logger.warning(f"Error searching Principle{suffix}: {e}")
 
+        if any(term in question_lower for term in ["policy", "data governance", "compliance"]):
+            try:
+                collection = self.client.collections.get(f"PolicyDocument{suffix}")
+                results = collection.query.hybrid(
+                    query=question, vector=query_vector, limit=5, alpha=settings.alpha_vocabulary,
+                    return_metadata=metadata_request
+                )
+                for obj in results.objects:
+                    all_results.append({
+                        "type": "Policy",
+                        "title": obj.properties.get("title", ""),
+                        "content": obj.properties.get("content", "")[:500],
+                        "distance": obj.metadata.distance,
+                        "score": obj.metadata.score,
+                    })
+            except Exception as e:
+                logger.warning(f"Error searching PolicyDocument{suffix}: {e}")
+
+        # Expanded keyword matching for vocabulary - catch "what is X" type questions
+        vocab_keywords = ["vocab", "concept", "definition", "cim", "iec", "what is", "what does", "define", "meaning", "term", "standard", "archimate"]
+        if any(term in question_lower for term in vocab_keywords):
+            try:
+                collection = self.client.collections.get(f"Vocabulary{suffix}")
+                results = collection.query.hybrid(
+                    query=question, vector=query_vector, limit=5, alpha=settings.alpha_vocabulary,
+                    return_metadata=metadata_request
+                )
+                for obj in results.objects:
+                    all_results.append({
+                        "type": "Vocabulary",
+                        "label": obj.properties.get("pref_label", ""),
+                        "definition": obj.properties.get("definition", ""),
+                        "distance": obj.metadata.distance,
+                        "score": obj.metadata.score,
+                    })
+            except Exception as e:
+                logger.warning(f"Error searching Vocabulary{suffix}: {e}")
+
+        # If no specific collection matched, search all including Vocabulary
+        if not all_results:
+            for coll_base in ["ArchitecturalDecision", "Principle", "PolicyDocument", "Vocabulary"]:
+                try:
+                    collection = self.client.collections.get(f"{coll_base}{suffix}")
+                    results = collection.query.hybrid(
+                        query=question, vector=query_vector, limit=3, alpha=settings.alpha_vocabulary,
+                        return_metadata=metadata_request
+                    )
+                    for obj in results.objects:
+                        if coll_base == "Vocabulary":
+                            all_results.append({
+                                "type": "Vocabulary",
+                                "label": obj.properties.get("pref_label", ""),
+                                "definition": obj.properties.get("definition", ""),
+                                "distance": obj.metadata.distance,
+                                "score": obj.metadata.score,
+                            })
+                        else:
+                            all_results.append({
+                                "type": coll_base,
+                                "title": obj.properties.get("title", ""),
+                                "content": obj.properties.get("content", obj.properties.get("decision", ""))[:300],
+                                "distance": obj.metadata.distance,
+                                "score": obj.metadata.score,
+                            })
+                except Exception as e:
+                    logger.warning(f"Error searching {coll_base}{suffix}: {e}")
+
+        # Check if we should abstain from answering
+        abstain, reason = should_abstain(question, all_results)
+        if abstain:
+            logger.info(f"Abstaining from query: {reason}")
+            return get_abstention_response(reason), all_results
+
+        # Build context from retrieved results
         context = "\n\n".join([
             f"[{r.get('type', 'Document')}] {r.get('title', r.get('label', 'Untitled'))}: {r.get('content', r.get('definition', ''))}"
             for r in all_results[:10]
         ])
 
-        response = openai_client.chat.completions.create(
-            model=settings.openai_chat_model,
-            messages=[
-                {"role": "system", "content": "You are a helpful assistant answering questions about architecture decisions, principles, policies, and vocabulary. Base your answers on the provided context."},
-                {"role": "user", "content": f"Context:\n{context}\n\nQuestion: {question}"},
-            ],
-            max_tokens=1000,
-        )
+        system_prompt = """You are AInstein, the Energy System Architecture AI Assistant at Alliander.
 
-        return response.choices[0].message.content, all_results
+Your role is to help architects, engineers, and stakeholders navigate Alliander's energy system architecture knowledge base, including:
+- Architectural Decision Records (ADRs)
+- Data governance principles and policies
+- IEC/CIM vocabulary and standards
+- Energy domain concepts and terminology
+
+Guidelines:
+- Base your answers strictly on the provided context
+- If the information is not in the context, clearly state that you don't have that information
+- Be concise but thorough
+- When referencing ADRs, include the ADR number (e.g., ADR-0012)
+- For technical terms, provide clear explanations"""
+        user_prompt = f"Context:\n{context}\n\nQuestion: {question}"
+
+        # Generate response based on LLM provider
+        if settings.llm_provider == "ollama":
+            response_text = await self._generate_with_ollama(system_prompt, user_prompt)
+        else:
+            response_text = await self._generate_with_openai(system_prompt, user_prompt)
+
+        return response_text, all_results
+
+    async def _generate_with_ollama(self, system_prompt: str, user_prompt: str) -> str:
+        """Generate response using Ollama API.
+
+        Args:
+            system_prompt: System instruction
+            user_prompt: User's message with context
+
+        Returns:
+            Generated response text
+        """
+        import httpx
+        import re
+        import time
+
+        start_time = time.time()
+        full_prompt = f"{system_prompt}\n\n{user_prompt}"
+
+        try:
+            async with httpx.AsyncClient(timeout=300.0) as client:  # 5 min for slow local models
+                response = await client.post(
+                    f"{settings.ollama_url}/api/generate",
+                    json={
+                        "model": settings.ollama_model,
+                        "prompt": full_prompt,
+                        "stream": False,
+                        "options": {"num_predict": 1000},
+                    },
+                )
+                response.raise_for_status()
+                result = response.json()
+                response_text = result.get("response", "")
+
+                # Strip <think>...</think> tags from responses
+                response_text = re.sub(r'<think>.*?</think>', '', response_text, flags=re.DOTALL)
+                response_text = re.sub(r'</?think>', '', response_text)
+                response_text = re.sub(r'\n{3,}', '\n\n', response_text)
+
+                return response_text.strip()
+
+        except httpx.TimeoutException:
+            latency_ms = int((time.time() - start_time) * 1000)
+            raise Exception(f"Ollama generation timed out after {latency_ms}ms.")
+
+        except httpx.HTTPStatusError as e:
+            latency_ms = int((time.time() - start_time) * 1000)
+            raise Exception(f"Ollama HTTP error after {latency_ms}ms: {str(e)}")
+
+    async def _generate_with_openai(self, system_prompt: str, user_prompt: str) -> str:
+        """Generate response using OpenAI API.
+
+        Args:
+            system_prompt: System instruction
+            user_prompt: User's message with context
+
+        Returns:
+            Generated response text
+        """
+        from openai import OpenAI
+
+        openai_client = OpenAI(api_key=settings.openai_api_key)
+
+        # GPT-5.x models use max_completion_tokens instead of max_tokens
+        model = settings.openai_chat_model
+        completion_kwargs = {
+            "model": model,
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ],
+        }
+        if model.startswith("gpt-5"):
+            completion_kwargs["max_completion_tokens"] = 1000
+        else:
+            completion_kwargs["max_tokens"] = 1000
+
+        response = openai_client.chat.completions.create(**completion_kwargs)
+
+        return response.choices[0].message.content
 
     def query_sync(self, question: str) -> str:
         """Synchronous query wrapper.

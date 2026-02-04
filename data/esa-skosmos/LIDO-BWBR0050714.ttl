@@ -1,0 +1,1126 @@
+@prefix :     <http://linkeddata.overheid.nl/terms/BWBR0050714/> .
+@prefix dct:  <http://purl.org/dc/terms/> .
+@prefix rdf:  <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix dcat: <http://www.w3.org/ns/dcat#> .
+@prefix owl:  <http://www.w3.org/2002/07/owl#> .
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
+@prefix skos: <http://www.w3.org/2004/02/skos/core#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix dc:   <http://purl.org/dc/elements/1.1/> .
+@prefix foaf: <http://xmlns.com/foaf/0.1/> .
+
+:Ontology
+  a                owl:Ontology, skos:ConceptScheme ;
+  dc:title         "Dutch Energy Regulation (BWBR0050714)"@en, "Nederlandse Energie Netcode (BWBR0050714)"@nl ;
+  dc:description   "Terminology that the Dutch government uses in its netcode publications."@en,
+                   "Begrippen die de Nederlands Overheid in zijn publicaties van de energiewet hanteert."@nl ;
+  dct:publisher    "Autoriteit Consument en Markt"@nl ;
+  dct:rightsHolder "Nederlandse Staat"@nl ;
+  dct:language     "nl-NL" ;
+  dct:created      "2025-11-21"^^xsd:date ;
+#  dct:modified     "2025-05-08"^^xsd:date ;
+  dcat:keyword     "BWBR0050714" ;
+  owl:versionIRI   <https://wetten.overheid.nl/BWBR0050714/2025-07-01/0> ;
+  dcat:theme       "begrippenlijst"@nl ;
+  dct:source       <https://linkeddata.overheid.nl/front/portal/linktool-bwb-verfijnen?id=http%3A%2F%2Flinkeddata.overheid.nl%2Fterms%2Fbwb%2Fid%2FBWBR0037940%2F13500154%2F2025-05-08%2F2025-05-08&callback=&dates=&fields=> ;
+  foaf:homepage    <http://wetten.overheid.nl/jci1.3:c:BWBR0050714> .
+
+# Definition and abbreviations
+
+### skos:Concepts
+:Systemen
+  a              skos:Collection ;
+  skos:prefLabel "Systemen"@nl ;
+  skos:member    :106, :29, :62, :45, :73 .
+
+:Beheerders
+  a              skos:Collection ;
+  skos:prefLabel "Beheerders"@nl ;
+  skos:member    :99, :107, :30, :59, :46, :72 .
+
+:Overeenkomsten
+  a              skos:Collection ;
+  skos:prefLabel "Overeenkomsten"@nl ;
+  skos:member    :3, :70, :114, :6, :103 .
+
+:Energiebronnen
+  a              skos:Collection ;
+  skos:prefLabel "Energiebronnen"@nl ;
+  skos:member    :52, :17, :48, :127 .
+
+### skos:Concepts
+:1
+  a                 skos:Concept ;
+  skos:prefLabel    "Aangeslotene"@nl ;
+  skos:definition   "Ieder die van een systeembeheerder de beschikking heeft gekregen over een aansluiting"@nl ;
+  dct:identifier    "urn:uuid:5154eaba-5111-474a-b9c0-3af23e3ed651" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:2
+  a                 skos:Concept ;
+  skos:prefLabel    "Aansluiting"@nl ;
+  skos:definition   "Deel van een transmissie- of distributiesysteem dat bestaat uit een of meer leidingen en daarmee verbonden hulpmiddelen, tussen een transmissie- of distributiesysteem en een onroerende zaak als bedoeld in artikel 16, onderdelen a tot en met e, van de Wet waardering onroerende zaken"@nl ;
+  dct:identifier    "urn:uuid:b700ff5d-e22e-433a-afad-085570f1e8ee" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:3
+  a                 skos:Concept ;
+  skos:prefLabel    "Aansluitovereenkomst"@nl ;
+  skos:definition   "Overeenkomst op basis van een aanbod als bedoeld in de artikelen 3.41, eerste lid, 3.86, eerste lid, of 3.105, tweede lid, onderdeel a"@nl ;
+  dct:identifier    "urn:uuid:3aa65400-4de6-4947-9858-c4b34fe524e0" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:4
+  a                 skos:Concept ;
+  skos:prefLabel    "Acer"@nl ;
+  skos:definition   "Agentschap als bedoeld in artikel 1 van verordening 2019/942"@nl ;
+  dct:identifier    "urn:uuid:544d8ec1-f4b7-47c1-8ab8-7ded4917fd75" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:5
+  a                 skos:Concept ;
+  skos:prefLabel    "Actieve afnemer"@nl ;
+  skos:definition   "Een eindafnemer, of een groep gezamenlijk optredende eindafnemers, die binnen een eigen of gezamenlijke installatie zelfopgewekte of gedeelde elektriciteit verbruikt of opslaat, die zelfopgewekte elektriciteit verkoopt of deelt, die gedeelde elektriciteit verbruikt of opslaat, of die gebruik maakt van flexibiliteits- of energie-efficientiediensten, mits die activiteiten niet zijn belangrijkste commerciele activiteit vormen"@nl ;
+  dct:identifier    "urn:uuid:7ebbf6d0-0656-4702-9cda-cc55cca2c457" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:6
+  a                 skos:Concept ;
+  skos:prefLabel    "Aggregatieovereenkomst"@nl ;
+  skos:definition   "Terugleveringsovereenkomst, terugleveringsovereenkomst inzake peer-to-peer-handel, vraagresponsovereenkomst, of andere overeenkomst inzake aggregeren"@nl ;
+  dct:identifier    "urn:uuid:765b1283-16ce-477c-b7ea-4f79e35e5b82" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:7
+  a                 skos:Concept ;
+  skos:prefLabel    "Aggregeren"@nl ;
+  skos:definition   "Combineren van vraagrespons of ingevoede elektriciteit van verschillende actieve afnemers met het oog op wederverkoop"@nl ;
+  dct:identifier    "urn:uuid:ea45c146-195e-4640-8960-81e99e678dea" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:8
+  a                 skos:Concept ;
+  skos:prefLabel    "Allocatiepunt"@nl ;
+  skos:definition   "Administratief punt waar invoeding, onttrekking of verbruik van elektriciteit of gas wordt toegerekend aan een marktdeelnemer"@nl ;
+  dct:identifier    "urn:uuid:d0102b6f-da1f-4502-bf38-21b48457b252" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:9
+  a                 skos:Concept ;
+  skos:prefLabel    "Autoriteit Consument en Markt"@nl ;
+  skos:definition   "Autoriteit Consument en Markt, bedoeld in artikel 2, eerste lid, van de Instellingswet Autoriteit Consument en Markt"@nl ;
+  dct:identifier    "urn:uuid:49be0d60-6a74-4c12-a825-b65a4215e24b" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:10
+  a                 skos:Concept ;
+  skos:prefLabel    "Balanceringsportfolio"@nl ;
+  skos:definition   "Groepering van de invoedingen en onttrekkingen en handelsberichten voor verkoop en inkoop, van een balanceringsverantwoordelijke voor gas"@nl ;
+  dct:identifier    "urn:uuid:27d66649-3b5f-4565-8a6c-0cbb889f44d6" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:11
+  a                 skos:Concept ;
+  skos:prefLabel    "Balanceringsverantwoordelijke"@nl ;
+  skos:definition   "Balanceringsverantwoordelijke voor elektriciteit of gas"@nl ;
+  dct:identifier    "urn:uuid:44b7803c-4f8e-47e6-8fc5-c24670ceb702" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:12
+  a                 skos:Concept ;
+  skos:prefLabel    "Balanceringsverantwoordelijke voor elektriciteit"@nl ;
+  skos:definition   "Natuurlijk persoon of rechtspersoon die verantwoordelijk is voor de onbalans die hij, of degene die hij vertegenwoordigt, veroorzaakt in het transmissie- of distributiesysteem voor elektriciteit en die overeenkomstig de methoden of voorwaarden voor elektriciteit, bedoeld in artikel 3.119, door de transmissiesysteembeheerder voor elektriciteit als balanceringsverantwoordelijke is toegelaten"@nl ;
+  dct:identifier    "urn:uuid:a99e7061-506c-4188-b6c9-d727cce138f9" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:13
+  a                 skos:Concept ;
+  skos:prefLabel    "Balanceringsverantwoordelijke voor gas"@nl ;
+  skos:definition   "Natuurlijk persoon of rechtspersoon die verantwoordelijk is voor de onbalans die hij, of degene die hij vertegenwoordigt, veroorzaakt in het transmissie- of distributiesysteem voor gas en die overeenkomstig de methoden of voorwaarden voor gas, bedoeld in artikel 3.119, door de transmissiesysteembeheerder voor gas als balanceringsverantwoordelijke is toegelaten"@nl ;
+  dct:identifier    "urn:uuid:c9c97c1e-8fb9-4775-8b55-aa952ce7b9c9" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:14
+  a                 skos:Concept ;
+  skos:prefLabel    "Beheerder van een gesloten systeem"@nl ;
+  skos:definition   "Rechtspersoon die op grond van artikel 3.6 is aangewezen"@nl ;
+  dct:identifier    "urn:uuid:32d89614-dfaf-4c93-8ffc-7409bf451767" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:15
+  a                 skos:Concept ;
+  skos:prefLabel    "Bindende EU-rechtshandelingen"@nl ;
+  skos:definition   "Door de instellingen van de Europese Unie vastgestelde richtlijnen, verordeningen, besluiten zonder vermelding van adressaten en besluiten met vermelding van adressaten, voor zover mede tot Nederland gericht"@nl ;
+  dct:identifier    "urn:uuid:a8519287-b20f-4db2-84d5-905084656fe1" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:16
+  a                 skos:Concept ;
+  skos:prefLabel    "Bindende gedragslijn"@nl ;
+  skos:definition   "Enkele last tot het verrichten van bepaalde handelingen als bedoeld in artikel 5:2, tweede lid, van de Algemene wet bestuursrecht ter bevordering van de naleving van wettelijke voorschriften en die niet wegens een overtreding wordt opgelegd"@nl ;
+  dct:identifier    "urn:uuid:7d00061a-df8e-4b87-ac8b-d338c3ab821b" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:17
+  a                 skos:Concept ;
+  skos:prefLabel    "Biomassa"@nl ;
+  skos:definition   "Biologisch afbreekbare fractie van producten, afvalstoffen en residuen van biologische oorsprong uit de landbouw, met inbegrip van plantaardige en dierlijke stoffen, de bosbouw en aanverwante bedrijfstakken, met inbegrip van de visserij en de aquacultuur, alsmede de biologisch afbreekbare fractie van afval, met inbegrip van industrieel en huishoudelijk afval van biologische oorsprong"@nl ;
+  dct:identifier    "urn:uuid:6eed39aa-0e4f-4f78-ab6a-6884235f07f7" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:18
+  a                 skos:Concept ;
+  skos:prefLabel    "Buitenlandse transmissiesysteembeheerder"@nl ;
+  skos:definition   "Entiteit in een andere lidstaat die op grond van nationale wettelijke regels is belast met het beheer van een transmissiesysteem als bedoeld in artikel 2, onderdeel 35, van richtlijn 2019/944 of artikel 2, onderdeel 4, van richtlijn 2009/73"@nl ;
+  dct:identifier    "urn:uuid:d8b22a59-dfd5-47e3-bdb7-d73cc4b428fd" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:19
+  a                 skos:Concept ;
+  skos:prefLabel    "CO2-terminal"@nl ;
+  skos:definition   "Faciliteit voor de ontvangst en overslag van koolstofdioxide, met inbegrip van de invoeding van koolstofdioxide in of het onttrekken van koolstofdioxide aan de infrastructuur voor het transport van koolstofdioxide, hervergassing van vloeibare koolstofdioxide of het vloeibaar maken van gasvormig koolstofdioxide, ondersteunende diensten en tijdelijke opslag die nodig zijn voor het proces van ontvangst en overslag of de toegang tot of de goede werking van de CO2-terminal of de infrastructuur voor het transport van koolstofdioxide"@nl ;
+  dct:identifier    "urn:uuid:94351316-95fb-4b95-89b5-851dd4f29156" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:20
+  a                 skos:Concept ;
+  skos:prefLabel    "Communicatiefunctionaliteit"@nl ;
+  skos:definition   "Functionaliteit voor het verzenden en ontvangen van gegevens voor informatie-, monitoring- en controledoeleinden door middel van een vorm van elektronische communicatie"@nl ;
+  dct:identifier    "urn:uuid:7e4faa86-e5e2-42e2-a02c-5f7163aeebe6" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:21
+  a                 skos:Concept ;
+  skos:prefLabel    "Congestie"@nl ;
+  skos:definition   "Congestie voor elektriciteit of voor gas"@nl ;
+  dct:identifier    "urn:uuid:f3b2ad2e-d6ab-423c-8caa-958006801087" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:22
+  a                 skos:Concept ;
+  skos:prefLabel    "Congestie voor elektriciteit"@nl ;
+  skos:definition   "Congestie als bedoeld in artikel 2, onderdeel 4, van verordening 2019/943"@nl ;
+  dct:identifier    "urn:uuid:aaa5b5e2-3f22-47b1-90a2-3f18efd10da5" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:23
+  a                 skos:Concept ;
+  skos:prefLabel    "Congestie voor gas"@nl ;
+  skos:definition   "Situatie waarin de maximale transportcapaciteit van een deel van een transmissie- of distributiesysteem voor gas niet voldoende is om te voorzien in de behoefte aan transport"@nl ;
+  dct:identifier    "urn:uuid:b02619d7-2aa1-44db-bc50-25d8e4dfbb61" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:24
+  a                 skos:Concept ;
+  skos:prefLabel    "Congestiebeheer"@nl ;
+  skos:definition   "Stelsel van procedures dat voorkomt dat zich congestie voordoet en de maatregelen die bewerkstelligen dat congestie wordt opgeheven"@nl ;
+  dct:identifier    "urn:uuid:23c943d7-1c99-4da2-a148-efd76b40a088" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:25
+  a                 skos:Concept ;
+  skos:prefLabel    "Congestiebeheers- of systeembeheersdienst"@nl ;
+  skos:definition   "Dienst inzake de verandering van de belasting van het transmissie- of distributiesysteem voor elektriciteit die wordt ingezet ten behoeve van congestiebeheer of een effici\'ebnter beheer of effici\'ebntere ontwikkeling van het transmissie- of distributiesysteem voor elektriciteit"@nl ;
+  dct:identifier    "urn:uuid:a03d200d-497f-41e1-b257-0fbc0e94f5aa" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:26
+  a                 skos:Concept ;
+  skos:prefLabel    "Connectiepunt"@nl ;
+  skos:definition   "Fysiek punt dat een aangrenzend buitenlands transmissiesysteem voor gas, een interconnectorsysteem voor gas of een productienet voor gas verbindt met een Nederlands transmissiesysteem voor gas"@nl ;
+  dct:identifier    "urn:uuid:904e0225-ac9b-4497-ac90-3a377e3c1ee6" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:27
+  a                 skos:Concept ;
+  skos:prefLabel    "Delen van energie"@nl ;
+  skos:definition   """Zelfverbruik door een of meer actieve afnemers van hernieuwbare energie:
+a.die is opgewekt of opgeslagen door een installatie achter een andere aansluiting die de actieve afnemers geheel of gedeeltelijk gezamenlijk bezitten, leasen of huren; of
+b.waarop het recht al dan niet gratis is overgedragen door een andere actieve afnemer;"""@nl ;
+  dct:identifier    "urn:uuid:7eef4cba-7262-4f30-a418-64bc10b38c96" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:28
+  a                 skos:Concept ;
+  skos:prefLabel    "Directe lijn"@nl ;
+  skos:definition   "Directe lijn als bedoeld in artikel 3.9, eerste lid"@nl ;
+  dct:identifier    "urn:uuid:e0c88a00-2f34-40c7-83f0-1b016c49c639" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:29
+  a                 skos:Concept ;
+  skos:prefLabel    "Distributiesysteem"@nl ;
+  skos:definition   "Distributiesysteem voor elektriciteit of voor gas"@nl ;
+  dct:identifier    "urn:uuid:dab1eb2c-555c-42a5-b894-4ed85d0c695e" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:30
+  a                 skos:Concept ;
+  skos:prefLabel    "Distributiesysteembeheerder"@nl ;
+  skos:definition   "Distributiesysteembeheerder voor elektriciteit of voor gas"@nl ;
+  skos:narrower     :31, :32 ;
+  dct:identifier    "urn:uuid:f9cb1aaf-1c52-45d2-bdc8-c57e81c528c2" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:31
+  a               skos:Concept ;
+  skos:prefLabel  "Distributiesysteembeheerder voor elektriciteit"@nl ;
+  skos:definition "Rechtspersoon die op grond van artikel 3.2, eerste lid, onderdeel e, is aangewezen"@nl ;
+  skos:broader    :30 ;
+  dct:identifier  "urn:uuid:176876d4-b521-4821-a5fc-3a77a2fb900c" ;
+#  skos:topConceptOf :Ontology ;
+  skos:inScheme   :Ontology .
+
+:32
+  a               skos:Concept ;
+  skos:prefLabel  "Distributiesysteembeheerder voor gas"@nl ;
+  skos:definition "Rechtspersoon die op grond van artikel 3.2, eerste lid, onderdeel f, is aangewezen"@nl ;
+  skos:broader    :30 ;
+  dct:identifier  "urn:uuid:2b3fa09a-f11a-4eca-b847-0a679031f283" ;
+#  skos:topConceptOf :Ontology ;
+  skos:inScheme   :Ontology .
+
+:33
+  a                 skos:Concept ;
+  skos:prefLabel    "Distributiesysteem voor elektriciteit"@nl ;
+  skos:definition   "Stelsel van leidingen en daarmee verbonden hulpmiddelen ten behoeve van transport van elektriciteit op een spanningsniveau lager dan 110 kilovolt met het oog op de belevering aan eindafnemers of handelaren, de levering zelf niet inbegrepen"@nl ;
+  dct:identifier    "urn:uuid:5ebec98f-02a2-443c-bf6e-ba156afa547c" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:34
+  a                 skos:Concept ;
+  skos:prefLabel    "Distributiesysteem voor gas"@nl ;
+  skos:definition   "Stelsel van leidingen en daarmee verbonden hulpmiddelen ten behoeve van lokaal of regionaal transport van gas met het oog op de belevering aan eindafnemers of handelaren, de levering zelf niet inbegrepen, niet zijnde een gasproductienet"@nl ;
+  dct:identifier    "urn:uuid:1b3e752a-0d8d-46ce-b0e8-16e178cf20b1" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:35
+  a                 skos:Concept ;
+  skos:prefLabel    "Eindafnemer"@nl ;
+  skos:definition   "Aangeslotene die elektriciteit of gas koopt of wil kopen voor eigen gebruik"@nl ;
+  dct:identifier    "urn:uuid:e9cee1c7-5c20-4d24-8e29-19549e4372fc" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:36
+  a                 skos:Concept ;
+  skos:prefLabel    "Energiehandelsmarkt"@nl ;
+  skos:definition   "Markt voor het verhandelen van elektriciteit of gas, capaciteit, balanceringsdiensten, of ondersteunende diensten, in alle tijdsbestekken, waaronder termijn, day-ahead en intraday, daaronder begrepen een over-the-counter-markt of elektriciteits- of gasbeurs"@nl ;
+  dct:identifier    "urn:uuid:cd2f9d4f-950c-4295-a3b0-76107dbee1e4" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:37
+  a                 skos:Concept ;
+  skos:prefLabel    "Elektriciteitsopslagfaciliteit"@nl ;
+  skos:definition   "Faciliteit waarmee elektriciteit wordt opgeslagen"@nl ;
+  dct:identifier    "urn:uuid:7fa1a5c7-9bf4-443c-998e-aed34f221a6b" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:38
+  a                 skos:Concept ;
+  skos:prefLabel    "Elektriciteit uit hernieuwbare bronnen"@nl ;
+  skos:definition   "Elektriciteit die is geproduceerd met hernieuwbare bronnen of met energie uit hernieuwbare bronnen, met uitzondering van elektriciteit die afkomstig is van accumulatiesystemen"@nl ;
+  dct:identifier    "urn:uuid:79305a00-7539-46d8-be80-9fd58938a881" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:39
+  a                 skos:Concept ;
+  skos:prefLabel    "Elektriciteitsprogramma"@nl ;
+  skos:definition   "Groepering van de handelsprogramma's en indien dat krachtens de methoden of voorwaarden, bedoeld in artikel 3.119, is voorgeschreven, de groepering van invoedingen en onttrekkingen per allocatiepunt, van een balanceringsverantwoordelijke voor elektriciteit"@nl ;
+  dct:identifier    "urn:uuid:d8c0ffb0-aa14-4fc2-bf11-c6510addcbf3" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:40
+  a                 skos:Concept ;
+  skos:prefLabel    "Energiegemeenschap"@nl ;
+  skos:definition   "Juridische entiteit die ten behoeve van haar leden, vennoten of aandeelhouders activiteiten op de energiemarkt verricht en als hoofddoel heeft het bieden van milieuvoordelen of economische of sociale voordelen aan haar leden, vennoten of aandeelhouders of aan de plaatselijke gebieden waar ze werkzaam is, en niet is gericht op het maken van winst"@nl ;
+  dct:identifier    "urn:uuid:ca42c30d-2eb1-42eb-a61a-ebe45d604a8b" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:41
+  a                 skos:Concept ;
+  skos:prefLabel    "Energie uit hernieuwbare bronnen"@nl ;
+  skos:definition   "Energie die is geproduceerd uit hernieuwbare bronnen of energie die is geproduceerd met gebruik van energie uit hernieuwbare bronnen"@nl ;
+  dct:identifier    "urn:uuid:c795b749-cf04-4fd0-a5f0-58f49613540e" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:42
+  a                 skos:Concept ;
+  skos:prefLabel    "Garantie van oorsprong"@nl ;
+  skos:definition   """Gegevens op een rekening voor garanties van oorsprong die betrekking hebben op:
+  a. energie uit hernieuwbare bronnen en waarmee wordt aangetoond dat een producent een hoeveelheid energie uit hernieuwbare bronnen heeft geproduceerd of
+  b.elektriciteit uit niet-hernieuwbare bronnen en waarmee wordt aangetoond dat een producent een hoeveelheid elektriciteit uit een andere energiebron dan hernieuwbare bronnen heeft geproduceerd"""@nl ;
+  dct:identifier    "urn:uuid:22e3416d-096d-4b54-a6ae-8fd82ef86cb0" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:43
+  a                 skos:Concept ;
+  skos:prefLabel    "Gas"@nl ;
+  skos:definition   "Aardgas dat bij een temperatuur van 15 C en bij een druk van 1,01325 bar in gasvormige toestand verkeert en voor ten minste voor 75% bestaat uit methaan of gas uit hernieuwbare bronnen."@nl ;
+  dct:identifier    "urn:uuid:748770a0-4d81-4298-98ab-d53a01416398" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:44
+  a                 skos:Concept ;
+  skos:prefLabel    "Gasjaar"@nl ;
+  skos:definition   "Periode vanaf 1 oktober in enig jaar tot en met 30 september van het daaropvolgende kalenderjaar"@nl ;
+  dct:identifier    "urn:uuid:1e2b6f9d-2051-48ba-b1b5-3a095d688706" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:45
+  a                 skos:Concept ;
+  skos:prefLabel    "Gasopslagsysteem"@nl ;
+  skos:definition   "Systeem voor de opslag van gas, met inbegrip van het gedeelte van een LNG-systeem dat voor opslag wordt gebruikt, maar met uitzondering van het gedeelte dat wordt gebruikt voor gasproductie en met uitzondering van een systeem voor de opslag van gas dat uitsluitend ten dienste staat van een transmissiesysteembeheerder voor gas bij de uitvoering van zijn wettelijke taken of verplichtingen"@nl ;
+  dct:identifier    "urn:uuid:fd3819ca-98c1-4014-bc38-08c8ace530fe" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:46
+  a                 skos:Concept ;
+  skos:prefLabel    "Gasopslagbeheerder"@nl ;
+  skos:definition   "Rechtspersoon die op grond van artikel 3.2, eerste lid, onderdeel i, is aangewezen"@nl ;
+  dct:identifier    "urn:uuid:7eea8d8e-0dff-4af9-bf0c-07de85435430" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:47
+  a                 skos:Concept ;
+  skos:prefLabel    "Gasproductienet"@nl ;
+  skos:definition   "Stelsel van een of meer leidingen en daarmee verbonden hulpmiddelen die onderdeel uitmaken van een olie- of gaswinningsproject of die worden gebruikt voor het transport van gas rechtstreeks van een gaswinningsproject naar een gasverwerkingsinstallatie, een gasopslagsysteem of een aansluiting op een transmissiesysteem voor gas"@nl ;
+  dct:identifier    "urn:uuid:fc55983b-2070-40ac-bdeb-717e3b90727e" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:48
+  a                 skos:Concept ;
+  skos:prefLabel    "Gas uit hernieuwbare bronnen"@nl ;
+  skos:definition   "Een stof die bij een temperatuur van 15 C en bij een druk van 1,01325 bar in gasvormige toestand verkeert en voor ten minste voor 75% bestaat uit methaan en die is geproduceerd met hernieuwbare bronnen of met energie uit hernieuwbare bronnen; gegevensuitwisselingsentiteit."@nl ;
+  dct:identifier    "urn:uuid:dcd9cc33-751f-4357-8b3e-66b6db123da4" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:49
+  a                 skos:Concept ;
+  skos:prefLabel    "Gesloten systeem"@nl ;
+  skos:definition   "Systeem als bedoeld in artikel 3.7, eerste lid"@nl ;
+  dct:identifier    "urn:uuid:78537c86-8aa0-4b4f-9a31-b69169e285dc" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:50
+  a                 skos:Concept ;
+  skos:prefLabel    "Grote aansluiting"@nl ;
+  skos:definition   "Aansluiting met een doorlaatwaarde groter dan 3 x 80 Ampere voor elektriciteit of 40 m3(n) per uur voor gas"@nl ;
+  dct:identifier    "urn:uuid:3169d1b3-1162-4934-822b-d7bb71de483b" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:51
+  a                 skos:Concept ;
+  skos:prefLabel    "Handelaar"@nl ;
+  skos:definition   "Natuurlijk persoon of rechtspersoon die elektriciteit of gas koopt voor wederverkoop"@nl ;
+  dct:identifier    "urn:uuid:eea3ca5f-ca97-47f5-bd9e-4b88993927ba" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:52
+  a                 skos:Concept ;
+  skos:prefLabel    "Hernieuwbare bronnen"@nl ;
+  skos:definition   "Wind, zon, omgevingslucht, oppervlaktewater, rioolwater, aardwarmte, zee, waterkracht, biomassa, stortgas, rioolwaterzuiveringsgas en biogas"@nl ;
+  dct:identifier    "urn:uuid:ef02d73e-46b6-4f95-b3e7-5a63fede1dc3" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:53
+  a                 skos:Concept ;
+  skos:prefLabel    "Huishoudelijk eindafnemer"@nl ;
+  skos:definition   "Eindafnemer die elektriciteit of gas koopt of wil kopen voor eigen huishoudelijk gebruik"@nl ;
+  dct:identifier    "urn:uuid:aed937a2-210b-48d7-a455-8482dc962088" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:54
+  a                 skos:Concept ;
+  skos:prefLabel    "Infrastructuurbedrijf"@nl ;
+  skos:definition   "Groepsmaatschappij als bedoeld in artikel 24b van Boek 2 van het Burgerlijk Wetboek die onderdeel uitmaakt van de infrastructuurgroep, met uitzondering van \'e9\'e9n of meer transmissie- of distributiesysteembeheerders"@nl ;
+  dct:identifier    "urn:uuid:ebae76f7-f1d1-4347-aa73-6c888269a10a" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:55
+  a                 skos:Concept ;
+  skos:prefLabel    "Infrastructuurgroep"@nl ;
+  skos:definition   "Groep als bedoeld in artikel 24b van Boek 2 van het Burgerlijk Wetboek waarvan \'e9\'e9n of meer transmissie- of distributiesysteembeheerders onderdeel uitmaken"@nl ;
+  dct:identifier    "urn:uuid:46838886-1dc2-4ca9-bbd9-24a8ea6b80ae" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:56
+  a                 skos:Concept ;
+  skos:prefLabel    "Inkomstenbesluit"@nl ;
+  skos:definition   "Besluit op grond van artikel 3.109"@nl ;
+  dct:identifier    "urn:uuid:8501887c-2c90-4c88-aa03-2bc558495836" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:57
+  a                 skos:Concept ;
+  skos:prefLabel    "Installatie"@nl ;
+  skos:definition   """Leidingen en daarmee duurzaam verbonden elektrotechnisch of gastechnisch materieel dat of apparatuur die:
+  a. zijn bestemd voor of ten dienste staat van het verbruik of de productie van elektriciteit of gas of de opslag van elektriciteit;
+  b. wordt gebruikt of beheerd door een aangeslotene; en
+  c. zich ten opzichte van een transmissie- of distributiesysteem of een directe lijn bevindt achter het overdrachtspunt of de voorzieningen die de directe lijn beveiligen;"""@nl ;
+  dct:identifier    "urn:uuid:db523aab-e238-4d56-98f3-c9bbd03f8dc6" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:58
+  a                 skos:Concept ;
+  skos:prefLabel    "Installatie voor hoogrenderende warmtekrachtkoppeling"@nl ;
+  skos:definition   "Installatie voor de opwekking van elektriciteit door middel van warmtekrachtkoppeling als bedoeld in artikel 2, onderdeel 34, van richtlijn 2012/27"@nl ;
+  dct:identifier    "urn:uuid:d342d483-a183-49bb-9f20-53fd7c782e98" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:59
+  a                 skos:Concept ;
+  skos:prefLabel    "Interconnectorsysteembeheerder"@nl ;
+  skos:definition   "interconnectorsysteembeheerder, interconnector voor elektriciteit of voor gas die deel uitmaakt van het systeem van een transmissiesysteembeheerder of een transmissiesysteembeheerder voor elektriciteit op zee; interconnector voor elektriciteit} transmissieleiding en daarmee verbonden hulpmiddelen die deel uitmaakt van het systeem van een transmissiesysteembeheerder voor elektriciteit, die de grens tussen Nederland en een lidstaat, een land dat onderdeel uitmaakt van de Europese economische ruimte, of een derde land, overschrijdt of overspant, en een Nederlands transmissiesysteem voor elektriciteit of een transmissiesysteem voor elektriciteit op zee met een transportsysteem voor elektriciteit van die lidstaat of dat land koppelt;interconnector voor gas transmissieleiding en daarmee verbonden hulpmiddelen die deel uitmaakt van het systeem van een transmissiesysteembeheerder voor gas, die de grens tussen Nederland en een lidstaat, een land dat onderdeel uitmaakt van de Europese economische ruimte, of een derde land, overschrijdt of overspant, en een Nederlands transmissiesysteem voor gas met een transportsysteem voor gas van die lidstaat of dat land koppelt"@nl ;
+  dct:identifier    "urn:uuid:1e482b13-03bc-4d9d-a1c5-fa77b9f5be18" ;
+  skos:narrower     :60, :61 ;
+  skos:related      :62 ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:60
+  a               skos:Concept ;
+  skos:prefLabel  "Interconnectorsysteembeheerder voor elektriciteit"@nl ;
+  skos:definition "Rechtspersoon die op grond van artikel 3.2, eerste lid, onderdeel b, is aangewezen"@nl ;
+  dct:identifier  "urn:uuid:717390e6-121a-4d1e-ab63-25f0e931fb29" ;
+  skos:broader    :59 ;
+#  skos:topConceptOf :Ontology ;
+  skos:inScheme   :Ontology .
+
+:61
+  a               skos:Concept ;
+  skos:prefLabel  "Interconnectorsysteembeheerder voor gas"@nl ;
+  skos:definition "Rechtspersoon die op grond van artikel 3.2, eerste lid, onderdeel d, is aangewezen"@nl ;
+  dct:identifier  "urn:uuid:3eb5e7dc-a60e-4dde-96d9-fda5aca067ea" ;
+  skos:broader    :59 ;
+#  skos:topConceptOf :Ontology ;
+  skos:inScheme   :Ontology .
+
+:62
+  a                 skos:Concept ;
+  skos:prefLabel    "Interconnectorsysteem"@nl ;
+  skos:definition   "Interconnectorsysteem voor elektriciteit of voor gas"@nl ;
+  dct:identifier    "urn:uuid:09f3d184-92a2-4461-873c-6feb92143765" ;
+  skos:related      :59 ;
+  skos:narrower     :63, :64 ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:63
+  a              skos:Concept ;
+  skos:prefLabel "Interconnectorsysteem voor elektriciteit"@nl ;
+  skos:definition
+                 "Transmissieleiding en daarmee verbonden hulpmiddelen die geen deel uitmaken van een systeem van een transmissiesysteem voor elektriciteit of een transmissiesysteem voor elektriciteit op zee en die de grens tussen Nederland en een lidstaat, een land dat onderdeel uitmaakt van de Europese economische ruimte, of een derde land, overschrijdt of overspant, en een Nederlands transmissiesysteem voor elektriciteit met een transportsysteem voor elektriciteit van die lidstaat of dat land koppelt"@nl ;
+  dct:identifier "urn:uuid:09e4ce6c-fcf5-46ef-84b2-477b73638e52" ;
+  skos:broader   :62 ;
+#  skos:topConceptOf :Ontology ;
+  skos:inScheme  :Ontology .
+
+:64
+  a              skos:Concept ;
+  skos:prefLabel "Interconnectorsysteem voor gas"@nl ;
+  skos:definition
+                 "Transmissieleiding en daarmee verbonden hulpmiddelen die geen deel uitmaken van een systeem van een transmissiesysteem voor gas en die de grens tussen Nederland en een lidstaat, een land dat onderdeel uitmaakt van de Europese economische ruimte, of een derde land, overschrijdt of overspant, en een Nederlands transmissiesysteem voor gas met een transportsysteem voor gas van die lidstaat of dat land koppelt"@nl ;
+  dct:identifier "urn:uuid:23c2d20f-2f06-4572-b625-480468fbac0c" ;
+  skos:broader   :62 ;
+#  skos:topConceptOf :Ontology ;
+  skos:inScheme  :Ontology .
+
+:65
+  a                 skos:Concept ;
+  skos:prefLabel    "Invoeder"@nl ;
+  skos:definition   "Aangeslotene die elektriciteit of gas invoedt op het systeem"@nl ;
+  dct:identifier    "urn:uuid:185ea6f0-0830-4972-af1b-3dc180478ad4" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:66
+  a                 skos:Concept ;
+  skos:prefLabel    "Kleine aansluiting"@nl ;
+  skos:definition   "Aansluiting met een doorlaatwaarde kleiner dan of gelijk aan 3 x 80 Ampere voor elektriciteit of 40 m3(n) per uur voor gas"@nl ;
+  dct:identifier    "urn:uuid:2f39c0d8-e7b9-46fe-bd09-71c8910571c2" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:67
+  a                 skos:Concept ;
+  skos:prefLabel    "Kleine onderneming"@nl ;
+  skos:definition   "Eindafnemer of actieve afnemer die een onderneming is met minder dan vijftig werknemers en een jaaromzet of een jaarlijks balanstotaal van ten hoogste \u8364\'10 miljoen"@nl ;
+  dct:identifier    "urn:uuid:a65f637a-db27-4b40-9f87-24ce5978896e" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:68
+  a                 skos:Concept ;
+  skos:prefLabel    "Kwetsbare afnemer"@nl ;
+  skos:definition   "Kwetsbare afnemer als bedoeld in artikel 28 van richtlijn 2019/944"@nl ;
+  dct:identifier    "urn:uuid:0d95f5a8-33a5-4644-a43a-72d742358066" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:69
+  a                 skos:Concept ;
+  skos:prefLabel    "Leverancier"@nl ;
+  skos:definition   "Natuurlijk persoon of rechtspersoon die elektriciteit of gas levert aan een eindafnemer of die ten behoeve van een eindafnemer faciliteert in peer-to-peer-handel"@nl ;
+  dct:identifier    "urn:uuid:83b8d1bd-d641-45b3-864b-37e6829c46ee" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:70
+  a                 skos:Concept ;
+  skos:prefLabel    "Leveringsovereenkomst"@nl ;
+  skos:definition   "Overeenkomst voor de levering van elektriciteit of gas aan een eindafnemer"@nl ;
+  dct:identifier    "urn:uuid:a22c63b1-565d-49e7-821d-3032f223d7ae" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:71
+  a                 skos:Concept ;
+  skos:prefLabel    "Leveringsovereenkomst inzake peer-to-peer-handel"@nl ;
+  skos:definition   "Overeenkomst op grond waarvan ten behoeve van een eindafnemer peer-to-peer-handel kan plaatsvinden"@nl ;
+  dct:identifier    "urn:uuid:63300317-5dfc-4608-87c0-6a398b651006" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:72
+  a                 skos:Concept ;
+  skos:prefLabel    "LNG-beheerder"@nl ;
+  skos:definition   "Rechtspersoon die op grond van artikel 3.2, eerste lid, onderdeel h, is aangewezen"@nl ;
+  dct:identifier    "urn:uuid:a558c416-242e-49d3-9d7f-6a0e58a2a4a8" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:73
+  a                 skos:Concept ;
+  skos:prefLabel    "LNG-systeem"@nl ;
+  skos:definition   "Systeem dat gebruikt wordt voor het vloeibaar maken van gas, voor de invoer of de verlading, en voor de hervergassing van vloeibaar gas, met inbegrip van ondersteunende diensten en tijdelijke opslag die nodig zijn voor het proces van hervergassing en de daaropvolgende invoeding op het systeem, en met uitzondering van een LNG-systeem dat uitsluitend ten dienste staat van een transmissiesysteembeheerder voor gas bij de uitvoering van zijn wettelijke taken of verplichtingen"@nl ;
+  dct:identifier    "urn:uuid:28942c46-c104-4666-b62e-286096e6989f" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:74
+  a                 skos:Concept ;
+  skos:prefLabel    "Marktdeelnemer"@nl ;
+  skos:definition   "Natuurlijk persoon of rechtspersoon die elektriciteit of gas koopt of verkoopt zonder tussenkomst van een andere marktdeelnemer, die produceert, die aggregeert, die levert, die faciliteert in peer-to-peer-handel, of die vraagresponsdiensten of energieopslagdiensten voor elektriciteit verleent, met uitzondering van een natuurlijk persoon of rechtspersoon voor zover die elektriciteit deelt"@nl ;
+  dct:identifier    "urn:uuid:e0477cde-63c5-41f8-bdad-620d94131a3a" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:75
+  a                 skos:Concept ;
+  skos:prefLabel    "Meetinrichting"@nl ;
+  skos:definition   "Instrument of samenstel van instrumenten met een meetfunctie dat ten minste de invoeding, onttrekking of het verbruik van elektriciteit of gas meet, met uitzondering van hulpmiddelen die de meetfunctie ondersteunen en die onderdeel zijn van een aansluiting"@nl ;
+  dct:identifier    "urn:uuid:58922ee4-ec7d-4cd2-b255-4f85a558ef94" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:76
+  a                 skos:Concept ;
+  skos:prefLabel    "Meetverantwoordelijke partij"@nl ;
+  skos:definition   "Natuurlijk persoon of rechtspersoon die is erkend op grond van artikel 2.50, vierde lid"@nl ;
+  dct:identifier    "urn:uuid:97e969a9-02c9-4249-86b4-7be93edf02eb" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:77
+  a                 skos:Concept ;
+  skos:prefLabel    "Methodebesluit"@nl ;
+  skos:definition   "Besluit op grond van artikel 3.108"@nl ;
+  dct:identifier    "urn:uuid:7d4e30b8-7bbc-405c-9561-d6833e8fa392" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:78
+  a                 skos:Concept ;
+  skos:prefLabel    "Micro-onderneming"@nl ;
+  skos:definition   "Eindafnemer of actieve afnemer die een onderneming is met minder dan tien werknemers en een jaaromzet of een jaarlijks balanstotaal van ten hoogste \u8364\'2 miljoen"@nl ;
+  dct:identifier    "urn:uuid:c5b8135a-e4f2-4238-8447-e46fd63fc3fe" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:79
+  a                 skos:Concept ;
+  skos:prefLabel    "Middelgrote onderneming"@nl ;
+  skos:definition   "Eindafnemer die een onderneming is met minder dan 250 werknemers en een jaaromzet van ten hoogste \u8364\'50 miljoen of een jaarlijks balanstotaal van ten hoogste \u8364\'43 miljoen"@nl ;
+  dct:identifier    "urn:uuid:c484c9a7-95c0-4b05-8db1-e1a1f4b6a1bd" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:80
+  a                 skos:Concept ;
+  skos:prefLabel    "Netgebruiker"@nl ;
+  skos:definition   "Netgebruiker als bedoeld in artikel 2, eerste lid, onderdeel 11, van verordening 715/2009"@nl ;
+  dct:identifier    "urn:uuid:0995a9f3-ca72-41e0-97c0-b9b5fbf28a90" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:81
+  a                 skos:Concept ;
+  skos:prefLabel    "Niet-frequentiegerelateerde ondersteunende dienst"@nl ;
+  skos:definition   "Dienst die gebruikt wordt door een transmissie- of distributiesysteembeheerder voor elektriciteit voor spanningsregeling in stationaire toestand, snelle blindstroominjecties, inertie voor plaatselijke systeemstabiliteit, kortsluitstroom, blackstartmogelijkheden en inzetbaarheid in eilandbedrijf"@nl ;
+  dct:identifier    "urn:uuid:0705a268-ab39-4e7c-8da2-142bad3f5c5a" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:82
+  a                 skos:Concept ;
+  skos:prefLabel    "Omschakelen"@nl ;
+  skos:definition   "Een aangeslotene voorzien van een aansluiting met een doorlaatwaarde groter dan 40 m3(n) per uur, waarmee hoogcalorisch gas kan worden onttrokken aan het transmissiesysteem voor gas en met een voor die aansluiting geschikte druk en voldoende capaciteit, waarbij die aansluiting in de plaats treedt van de aansluiting waarmee laagcalorisch gas aan het transmissiesysteem voor gas wordt onttrokken"@nl ;
+  dct:identifier    "urn:uuid:4ca94ec4-e4e5-4338-b147-f206a219287f" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:83
+  a                 skos:Concept ;
+  skos:prefLabel    "Onderneming"@nl ;
+  skos:definition   "Entiteit, ongeacht rechtsvorm of wijze van financiering, die een economische activiteit verricht, in de zin van artikel 101, eerste lid, van het Verdrag betreffende de werking van de Europese Unie"@nl ;
+  dct:identifier    "urn:uuid:317785b4-dcc4-47fc-9f29-92637f19f8d9" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:84
+  a                 skos:Concept ;
+  skos:prefLabel    "Ondersteunende dienst voor elektriciteit"@nl ;
+  skos:definition   "Dienst die nodig is voor de exploitatie van een transmissie- of distributiesysteem voor elektriciteit, met inbegrip van balanceringsdiensten en niet-frequentiegerelateerde ondersteunende diensten, maar uitgezonderd congestiebeheers- of systeembeheersdiensten"@nl ;
+  dct:identifier    "urn:uuid:7e8cad75-122b-4798-a6b6-9650c3523f25" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:85
+  a                 skos:Concept ;
+  skos:prefLabel    "Ondersteunende dienst voor gas"@nl ;
+  skos:definition   "Dienst die nodig is voor de toegang tot of de werking van een transmissie- of distributiesysteem voor gas, een LNG-systeem of een gasopslagsysteem, met inbegrip van het opvangen van fluctuaties in systeembelasting, menging en injecteren van inerte gassen, maar uitgezonderd onderdelen van het systeem die uitsluitend ten dienste staan van transmissiesysteembeheerders bij de uitvoering van hun taken of verplichtingen"@nl ;
+  dct:identifier    "urn:uuid:07a9f26c-c1f0-4533-9f54-f036684a1cc5" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:86
+  a                 skos:Concept ;
+  skos:prefLabel    "Onze Minister"@nl ;
+  skos:definition   "Onze Minister voor Klimaat en Energie"@nl ;
+  dct:identifier    "urn:uuid:41e2209b-4414-4dbb-ae07-e1197e25e9d0" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:87
+  a                 skos:Concept ;
+  skos:prefLabel    "Opslaan van elektriciteit"@nl ;
+  skos:definition   "Uitstellen van uiteindelijk gebruik van elektriciteit tot een later moment dan het moment waarop de elektriciteit is geproduceerd, of omzetten van elektrische energie in een vorm van energie die wordt opgeslagen om het daarna weer om te zetten in elektrische energie of die andere vorm van energie in het systeem te gebruiken"@nl ;
+  dct:identifier    "urn:uuid:5d14086d-179d-4603-8ce2-180ad028f67e" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:88
+  a                 skos:Concept ;
+  skos:prefLabel    "Overdrachtspunt"@nl ;
+  skos:definition   "Fysiek punt dat de overgang markeert tussen een transmissie- of distributiesysteem en een installatie, een transmissie- of distributiesysteem en een directe lijn of tussen twee systemen"@nl ;
+  dct:identifier    "urn:uuid:5045f91c-dca6-4eba-99fb-353d0e6c848f" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:89
+  a                 skos:Concept ;
+  skos:prefLabel    "Peer-to-peer-handel"@nl ;
+  skos:definition   "Levering van hernieuwbare elektriciteit die is geproduceerd door een actieve afnemer aan een eindafnemer, onder vooraf bepaalde voorwaarden voor de automatische uitvoering en afwikkeling van die levering, rechtstreeks of via de marktdeelnemer die de automatische uitvoering en afwikkeling realiseert"@nl ;
+  dct:identifier    "urn:uuid:de2d1691-7b0b-460b-9cb3-e278e37c8b38" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:90
+  a                 skos:Concept ;
+  skos:prefLabel    "Primair allocatiepunt"@nl ;
+  skos:definition   "Eerste aan een aansluiting toegekend allocatiepunt"@nl ;
+  dct:identifier    "urn:uuid:140829b8-c5c5-492b-94f9-f0a16c015bab" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:91
+  a                 skos:Concept ;
+  skos:prefLabel    "Producent"@nl ;
+  skos:definition   "Natuurlijk persoon of rechtspersoon die elektriciteit of gas produceert"@nl ;
+  dct:identifier    "urn:uuid:32b0bc47-093f-49c7-bec2-fac365db43c6" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:92
+  a                 skos:Concept ;
+  skos:prefLabel    "Register"@nl ;
+  skos:definition   "Gestructureerd geheel van gegevens die volgens bepaalde criteria toegankelijk zijn, ongeacht of dit geheel gecentraliseerd of gedecentraliseerd is, dan wel op functionele of geografische gronden is verspreid"@nl ;
+  dct:identifier    "urn:uuid:8df6fc1b-5342-4eee-8020-9bc2e8dad6b5" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:93
+  a                 skos:Concept ;
+  skos:prefLabel    "Registerbeheerder"@nl ;
+  skos:definition   "Partij die op grond van de artikelen 4.5, 4.6 of 4.7 of krachtens artikel 4.12 een register bijhoudt"@nl ;
+  dct:identifier    "urn:uuid:6e77d103-6c4f-43e8-b922-d543575ffb8f" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:94
+  a                 skos:Concept ;
+  skos:prefLabel    "Rekening voor garanties van oorsprong"@nl ;
+  skos:definition   "Staat waarop een tegoed van garanties van oorsprong kan worden geboekt in het elektronische systeem voor het uitgeven, overdragen en innemen van garanties van oorsprong"@nl ;
+  dct:identifier    "urn:uuid:e69a23bd-e95d-4d5b-b555-ce642077cdb7" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:95
+  a                 skos:Concept ;
+  skos:prefLabel    "Richtlijn 2009/73"@nl ;
+  skos:definition   "Richtlijn 2009/73/EG van het Europees Parlement en de Raad van 13 juli 2009 betreffende gemeenschappelijke regels voor de interne markt voor gas en tot intrekking van Richtlijn 2003/55/EG (PbEU 2009, L 211)"@nl ;
+  dct:identifier    "urn:uuid:6603d236-86ce-40d3-8b1e-8b1ac2bb816a" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:96
+  a                 skos:Concept ;
+  skos:prefLabel    "Richtlijn 2012/27"@nl ;
+  skos:definition   "Richtlijn 2012/27/EU van het Europees Parlement en de Raad van 25 oktober 2012 betreffende energie-efficientie, tot wijziging van Richtlijnen 2009/125/EG en 2010/30/EU en houdende intrekking van de Richtlijnen 2004/8/EG en 2006/32/EG (PbEU 2012, L 315)"@nl ;
+  dct:identifier    "urn:uuid:aee73541-d26a-448e-aa8b-6ab359b6708a" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:97
+  a                 skos:Concept ;
+  skos:prefLabel    "Richtlijn 2019/944"@nl ;
+  skos:definition   "Richtlijn (EU) 2019/944 van het Europees Parlement en de Raad van 5 juni 2019 betreffende gemeenschappelijke regels voor de interne markt voor elektriciteit en tot wijziging van Richtlijn 2012/27/EU (PbEU 2019, L 158)"@nl ;
+  dct:identifier    "urn:uuid:2356ca78-4292-4501-b0bc-21ded527fb46" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:98
+  a                 skos:Concept ;
+  skos:prefLabel    "Systeem"@nl ;
+  skos:definition   "Transmissiesysteem, distributiesysteem, interconnectorsysteem, gasopslagsysteem of LNG-systeem"@nl ;
+  dct:identifier    "urn:uuid:cd0e7a8e-b49e-4e83-b14f-dcf8949d6f9d" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:99
+  a                 skos:Concept ;
+  skos:prefLabel    "Systeembeheerder"@nl ;
+  skos:definition   "Beheerder van een systeem"@nl ;
+  dct:identifier    "urn:uuid:361a201a-5088-4f20-aace-91fbfb99d31d" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:100
+  a                 skos:Concept ;
+  skos:prefLabel    "Systeemkoppeling"@nl ;
+  skos:definition   "Deel van een transmissie- of distributiesysteem dat bestaat uit een of meer leidingen en daarmee verbonden hulpmiddelen:die twee van de volgende systemen koppelen: een transmissiesysteem"@nl ;
+  dct:identifier    "urn:uuid:c69614bd-9e31-43fb-840e-3ff335361f92" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:101
+  a                 skos:Concept ;
+  skos:prefLabel    "Tarievenbesluit"@nl ;
+  skos:definition   "Besluit op grond van artikel 3.110"@nl ;
+  dct:identifier    "urn:uuid:9add53c3-47a7-476a-afd6-eb7ca5bed93e" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:102
+  a                 skos:Concept ;
+  skos:prefLabel    "Terugleveren"@nl ;
+  skos:definition   "Verkopen van elektriciteit door een actieve afnemer aan een marktdeelnemer die aggregeert"@nl ;
+  dct:identifier    "urn:uuid:9c63df88-939e-490d-9ba1-4e7618f31d85" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:103
+  a                 skos:Concept ;
+  skos:prefLabel    "Terugleveringsovereenkomst"@nl ;
+  skos:definition   "Overeenkomst op grond waarvan een actieve afnemer zelf geproduceerde elektriciteit verkoopt aan een marktdeelnemer die aggregeert"@nl ;
+  dct:identifier    "urn:uuid:4889e301-a606-4a1d-9521-eb07bfa1a7fb" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:104
+  a                 skos:Concept ;
+  skos:prefLabel    "Terugleveringsovereenkomst inzake peer-to-peer-handel"@nl ;
+  skos:definition   "Overeenkomst op grond waarvan ten behoeve van een actieve afnemer peer-to-peer-handel kan plaatsvinden"@nl ;
+  dct:identifier    "urn:uuid:92610660-c8a6-4cf3-baae-e6c26f7537f2" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:105
+  a                 skos:Concept ;
+  skos:prefLabel    "Tijdelijke taken"@nl ;
+  skos:definition   "Taken als bedoeld in artikel 3.73"@nl ;
+  dct:identifier    "urn:uuid:9d105e9d-c807-4bbd-be57-c9661646a374" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:106
+  a                 skos:Concept ;
+  skos:prefLabel    "Transmissiesysteem"@nl ;
+  skos:definition   "Transmissiesysteem voor elektriciteit, transmissiesysteem voor elektriciteit op zee of transmissiesysteem voor gas"@nl ;
+  dct:identifier    "urn:uuid:52b4be2c-1aee-43f2-9f98-ca02ebdbd84a" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:107
+  a                 skos:Concept ;
+  skos:prefLabel    "Transmissiesysteembeheerder"@nl ;
+  skos:definition   "Transmissiesysteembeheerder voor elektriciteit of voor gas"@nl ;
+  dct:identifier    "urn:uuid:4ffda3fd-a8cc-45c5-afc4-e755be27daef" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:108
+  a                 skos:Concept ;
+  skos:prefLabel    "Transmissiesysteembeheerder voor elektriciteit"@nl ;
+  skos:definition   "Rechtspersoon die op grond van artikel 3.2, eerste lid, onderdeel a, is aangewezen"@nl ;
+  dct:identifier    "urn:uuid:01608027-6405-4d8f-9a16-2b93da3f7309" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:109
+  a                 skos:Concept ;
+  skos:prefLabel    "Transmissiesysteembeheerder voor elektriciteit op zee"@nl ;
+  skos:definition   "Rechtspersoon die op grond van artikel 3.2, eerste lid, onderdeel g, is aangewezen"@nl ;
+  dct:identifier    "urn:uuid:ab81a68b-40c2-406b-86b7-12e7c4af7012" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:110
+  a                 skos:Concept ;
+  skos:prefLabel    "Transmissiesysteembeheerder voor gas"@nl ;
+  skos:definition   "Rechtspersoon die op grond van artikel 3.2, eerste lid, onderdeel c, is aangewezen"@nl ;
+  dct:identifier    "urn:uuid:7ecdf659-31bc-4415-be2e-188334e7620e" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:111
+  a                 skos:Concept ;
+  skos:prefLabel    "Transmissiesysteem voor elektriciteit"@nl ;
+  skos:definition   "Stelsel van leidingen en daarmee verbonden hulpmiddelen ten behoeve van het transport van elektriciteit op een spanningsniveau gelijk aan of groter dan 110 kilovolt met het oog op de belevering aan eindafnemers of handelaren, de levering zelf niet inbegrepen, daaronder begrepen interconnectoren"@nl ;
+  dct:identifier    "urn:uuid:63356fb9-40b0-4b8e-822c-e717d65ec72b" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:112
+  a                 skos:Concept ;
+  skos:prefLabel    "Transmissiesysteem voor elektriciteit op zee"@nl ;
+  skos:definition   "Stelsel van leidingen en daarmee verbonden hulpmiddelen ten behoeve van het transport van elektriciteit op een spanningsniveau gelijk aan of groter dan 110 kilovolt met het oog op de belevering aan eindafnemers of handelaren, de levering zelf niet inbegrepen, daaronder begrepen interconnectoren, die primair een of meer windparken op zee verbinden met een transmissiesysteem voor elektriciteit of met dat systeem en een transportsysteem voor elektriciteit van een ander land"@nl ;
+  dct:identifier    "urn:uuid:05854dd9-2313-417f-a197-5cafc1892a9b" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:113
+  a                 skos:Concept ;
+  skos:prefLabel    "Transmissiesysteem voor gas"@nl ;
+  skos:definition   "Stelsel van leidingen en daarmee verbonden hulpmiddelen ten behoeve van het transport van gas vooral onder hoge druk met het oog op de belevering aan eindafnemers of handelaren, de levering zelf niet inbegrepen, niet zijnde een gasproductienet of hogedrukleidingen die in de eerste plaats voor lokale distributie worden gebruikt, daaronder begrepen interconnectoren"@nl ;
+  dct:identifier    "urn:uuid:9f36a69b-f30a-4e1c-85c1-ae9b05e56f4d" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:114
+  a                 skos:Concept ;
+  skos:prefLabel    "Transportovereenkomst"@nl ;
+  skos:definition   "Overeenkomst op basis van een aanbod als bedoeld in de artikelen 3.46, eerste lid, 3.47, eerste lid, 3.86, tweede lid of 3.105, tweede lid, onderdeel b"@nl ;
+  dct:identifier    "urn:uuid:44b8c880-8ee7-4e71-a9b2-23efcc21ebec" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:115
+  a                 skos:Concept ;
+  skos:prefLabel    "Vergunninghouder"@nl ;
+  skos:definition   "Houder van een vergunning als bedoeld in artikel 2.18, derde lid"@nl ;
+  dct:identifier    "urn:uuid:76e7d640-b926-41c3-980d-33f9e60355d8" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:116
+  a                 skos:Concept ;
+  skos:prefLabel    "Verordening 1227/2011"@nl ;
+  skos:definition   "Verordening (EU) 1227/2011 van het Europees Parlement en de Raad van 25 oktober 2011 betreffende de integriteit en transparantie van de groothandelsmarkt voor energie en tot intrekking van Verordening (EG) 1228/2003 (PbEU 2001, L 326)"@nl ;
+  dct:identifier    "urn:uuid:bef60ecb-d0ef-42cb-95cb-e7a64bae3071" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:117
+  a                 skos:Concept ;
+  skos:prefLabel    "Verordening 2017/1938"@nl ;
+  skos:definition   "Verordening (EU) 2017/1938 van het Europees Parlement en de Raad van 25 oktober 2017 betreffende maatregelen tot veiligstelling van de gasleveringszekerheid en houdende intrekking van Verordening (EU) 994/2010 (PbEU 2017, L 280)"@nl ;
+  dct:identifier    "urn:uuid:b5d25612-fa7e-4270-bf97-206084181c21" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:118
+  a                 skos:Concept ;
+  skos:prefLabel    "Verordening 2018/1999"@nl ;
+  skos:definition   "Verordening (EU) 2018/1999 van het Europees Parlement en de Raad van 11 december 2018 inzake de governance van de energie-unie en van de klimaatactie, tot wijziging van Richtlijn 94/22/EG, Richtlijn 98/70/EG, Richtlijn 2009/31/EG, Verordening (EG) nr. 663/2009, Verordening (EG) nr. 715/2009, Richtlijn 2009/73/EG, Richtlijn 2009/119/EG van de Raad, Richtlijn 2010/31/EU, Richtlijn 2012/27/EU, Richtlijn 2013/30/EU en Richtlijn (EU) 2015/652 van de Raad, en tot intrekking van Verordening (EU) nr. 525/2013 (PbEU 2018, L328)"@nl ;
+  dct:identifier    "urn:uuid:ef9fa1c1-7289-404c-a3a7-d2c4fbc53b85" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:119
+  a                 skos:Concept ;
+  skos:prefLabel    "Verordening 2019/941"@nl ;
+  skos:definition   "Verordening (EU) 2019/941 van het Europees Parlement en de Raad van 5 juni 2019 betreffende risicoparaatheid in de elektriciteitssector en tot intrekking van Richtlijn 2005/89/EG (PbEU 2019, L158)"@nl ;
+  dct:identifier    "urn:uuid:40656a1c-0b89-4278-9aac-375077e8e70f" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:120
+  a                 skos:Concept ;
+  skos:prefLabel    "Verordening 2019/942"@nl ;
+  skos:definition   "Verordening (EU) 2019/942 van het Europees Parlement en de Raad van 5 juni 2019 tot oprichting van een Agentschap van de Europese Unie voor de samenwerking tussen energieregulators (PbEU 2019, L 158)"@nl ;
+  dct:identifier    "urn:uuid:d787097d-9e6a-4234-96f0-42d144b3a899" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:121
+  a                 skos:Concept ;
+  skos:prefLabel    "Verordening 2019/943"@nl ;
+  skos:definition   "Verordening (EU) 2019/943 van het Europees Parlement en de Raad van 5 juni 2019 betreffende de interne markt voor elektriciteit (PbEU 2019, L 158)"@nl ;
+  dct:identifier    "urn:uuid:88f58870-0de7-4cd3-8e34-a9fef8b0cc43" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:122
+  a                 skos:Concept ;
+  skos:prefLabel    "Verordening 2022/869"@nl ;
+  skos:definition   "Verordening (EU) 2022/869 van het Europees Parlement en de Raad van 30 mei 2022 betreffende richtsnoeren voor de trans-Europese energie-infrastructuur en tot wijziging van Verordeningen (EG) nr. 715/2009, (EU) 2019/942 en (EU) 2019/943, en Richtlijnen 2009/73 (EG) en (EU) 2019/944, en tot intrekking van Verordening (EU) nr. 347/2013 (PbEU 2022, L 152)"@nl ;
+  dct:identifier    "urn:uuid:f7b7a3f4-74cf-4954-be3f-3eca12c4d53e" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:123
+  a                 skos:Concept ;
+  skos:prefLabel    "Verordening 715/2009"@nl ;
+  skos:definition   "Verordening (EG) 715/2009 van het Europees Parlement en de Raad van 13 juli 2009 betreffende de voorwaarden voor de toegang tot aardgastransmissienetten en tot intrekking van Verordening (EG) 1775/2005 (PbEU 2009, L 211)"@nl ;
+  dct:identifier    "urn:uuid:de8930b0-2b1e-46d0-a8b9-7fbedc122af5" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:124
+  a                 skos:Concept ;
+  skos:prefLabel    "Volledig geefntegreerde netwerkcomponent"@nl ;
+  skos:definition   "Gefntegreerd onderdeel van het distributie- of transmissiesysteem dat door een transmissie- of distributiesysteembeheerder voor elektriciteit uitsluitend wordt gebruikt voor het waarborgen van een veilig en betrouwbaar beheer van het distributie- of transmissiesysteem, en niet voor balancerings- of congestiebeheer"@nl ;
+  dct:identifier    "urn:uuid:a1013dfc-a747-4a55-b87e-ba64ef8e1330" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:125
+  a                 skos:Concept ;
+  skos:prefLabel    "Vraagrespons"@nl ;
+  skos:definition   "Verandering van het verbruik of de invoeding van elektriciteit bij eindafnemers ten opzichte van hun normale verbruiks- of terugleverpatronen, in reactie op marktsignalen of systeembehoeften, met als doel de vraagvermindering, of -verhoging te verkopen op een energiehandelsmarkt"@nl ;
+  dct:identifier    "urn:uuid:d82b8a2a-3220-4327-946e-8c03dc612e97" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:126
+  a                 skos:Concept ;
+  skos:prefLabel    "Vraagresponsovereenkomst"@nl ;
+  skos:definition   "Overeenkomst op grond waarvan een marktdeelnemer ten behoeve van een eindafnemer vraagrespons kan toepassen"@nl ;
+  dct:identifier    "urn:uuid:e8c952ce-2210-493f-a9e4-af70cb0b6568" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:127
+  a                 skos:Concept ;
+  skos:prefLabel    "Waterstofgas"@nl ;
+  skos:definition   "Gasmengsel dat ten minste voor 98 procent bestaat uit waterstof en bij een temperatuur van 15 \'b0C en bij een druk van 1,01325 bar in gasvormige toestand verkeert"@nl ;
+  dct:identifier    "urn:uuid:2b25cb15-5211-46aa-b339-a590319353f1" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:128
+  a                 skos:Concept ;
+  skos:prefLabel    "Waterstofopslagfaciliteit"@nl ;
+  skos:definition   "Een faciliteit voor de ondergrondse opslag van waterstofgas dan wel het gedeelte van een waterstofterminal dat voor opslag wordt gebruikt"@nl ;
+  dct:identifier    "urn:uuid:a4e0c081-a2f6-4d40-b50d-f23d295c2fc3" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:129
+  a                 skos:Concept ;
+  skos:prefLabel    "Waterstofterminal"@nl ;
+  skos:definition   "Faciliteit die wordt gebruikt voor het omzetten van vloeibare waterstof of vloeibare derivaten van waterstof in waterstofgas, dan wel het omzetten van waterstofgas in vloeibare waterstof, met inbegrip van ondersteunende diensten en tijdelijke opslag noodzakelijk voor het omzetten en invoeden in, dan wel onttrekken aan de infrastructuur voor het transport van waterstof"@nl ;
+  dct:identifier    "urn:uuid:ec7de409-fd63-4bc6-8250-47ac21d11660" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:130
+  a                 skos:Concept ;
+  skos:prefLabel    "Wettelijke taken of verplichtingen"@nl ;
+  skos:definition   "Taken of verplichtingen die bij of krachtens deze wet aan een systeembeheerder zijn opgedragen"@nl ;
+  dct:identifier    "urn:uuid:33d8d370-c365-42ce-aeaf-09c153399a69" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:131
+  a                 skos:Concept ;
+  skos:prefLabel    "Windpark"@nl ;
+  skos:definition   "Installatie voor de productie van elektriciteit met behulp van wind"@nl ;
+  dct:identifier    "urn:uuid:b7918c9a-7048-44bb-bf65-18dfb8e63a52" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:132
+  a                 skos:Concept ;
+  skos:prefLabel    "Zeggenschap"@nl ;
+  skos:definition   "Rechten, overeenkomsten of andere middelen die, afzonderlijk of tezamen, met inachtneming van alle feitelijke of juridische omstandigheden, het mogelijk maken een beslissende invloed uit te oefenen op de activiteiten van een onderneming, met name: eigendoms- of gebruiksrechten op alle vermogensbestanddelen van een onderneming of delen daarvan"@nl ;
+  dct:identifier    "urn:uuid:47a72a92-68a0-4920-8beb-1ef35a5cccce" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
