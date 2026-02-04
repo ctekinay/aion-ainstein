@@ -1,8 +1,8 @@
 # Skills Framework Implementation - TODO List
 
-> **Purpose**: Externalize hardcoded rules, thresholds, and prompts using the Claude Skills open standard format.
+> **Purpose**: Externalize hardcoded rules, thresholds, and prompts using the Agent Skills open standard format (agentskills.io).
 >
-> **Branch**: `claude/skills-framework-<session-id>`
+> **Branch**: Create a new feature branch for this implementation
 >
 > **Date**: 2026-02-04
 
@@ -41,7 +41,7 @@ Implement a Skills framework that:
 
 | # | Task | Details | Status |
 |---|------|---------|--------|
-| 1.1 | Create new branch | `git checkout -b claude/skills-framework-<session-id>` | [ ] |
+| 1.1 | Create new branch | `git checkout -b feature/skills-framework` | [ ] |
 
 ---
 
@@ -187,7 +187,7 @@ MIN_QUERY_COVERAGE = thresholds.get("min_query_coverage", 0.2)
 | # | Task | Description | Status |
 |---|------|-------------|--------|
 | 8.1 | Commit changes | Clear commit message describing skills framework | [ ] |
-| 8.2 | Push to branch | `git push -u origin claude/skills-framework-<session-id>` | [ ] |
+| 8.2 | Push to branch | `git push -u origin feature/skills-framework` | [ ] |
 
 ---
 
