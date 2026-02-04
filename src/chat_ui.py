@@ -33,6 +33,7 @@ from .weaviate.client import get_weaviate_client
 from .weaviate.embeddings import embed_text
 from .elysia_agents import ElysiaRAGSystem, ELYSIA_AVAILABLE
 from .skills import SkillRegistry, DEFAULT_SKILL
+from .skills import api as skills_api
 
 # Initialize skill registry for prompt injection
 _skill_registry = SkillRegistry()
@@ -1340,8 +1341,6 @@ async def add_ollama_model(model_id: str):
 # =============================================================================
 # Skills Management API
 # =============================================================================
-
-from .skills import api as skills_api
 
 
 class ThresholdsUpdate(BaseModel):
