@@ -191,6 +191,12 @@ class ElysiaRAGSystem:
 
         self.client = client
         self.tree = Tree()
+
+        # Limit recursion to prevent infinite loops in decision tree
+        # Default is 5, which can cause repeated responses when the
+        # cited_summarize action doesn't signal termination properly
+        self.tree.tree_data.recursion_limit = 2
+
         self._register_tools()
 
     def _register_tools(self) -> None:
@@ -568,6 +574,15 @@ class ElysiaRAGSystem:
 
         try:
             response, objects = self.tree(question, collection_names=our_collections)
+
+            # Log tree completion stats for debugging
+            iterations = self.tree.tree_data.num_trees_completed
+            limit = self.tree.tree_data.recursion_limit
+            if iterations >= limit:
+                logger.warning(f"Elysia tree hit recursion limit ({iterations}/{limit})")
+            else:
+                logger.debug(f"Elysia tree completed in {iterations} iteration(s)")
+
         except Exception as e:
             # If Elysia's tree fails, fall back to direct tool execution
             logger.warning(f"Elysia tree failed: {e}, using direct tool execution")
