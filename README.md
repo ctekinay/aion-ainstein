@@ -8,7 +8,7 @@ Get up and running with local LLM (Ollama) - no API keys needed:
 
 ```bash
 # 1. Clone and enter the project
-git clone https://github.com/ctekinay/aion-ainstein.git
+git clone https://github.com/Alliander/esa-ainstein-artifacts.git
 cd aion-ainstein
 
 # 2. Start Weaviate (Docker required)
@@ -104,7 +104,7 @@ The system integrates with Weaviate's Elysia framework - a decision tree-based a
 
 ```bash
 # Clone the repository
-git clone https://github.com/ctekinay/aion-ainstein.git
+git clone https://github.com/Alliander/esa-ainstein-artifacts.git
 cd aion-ainstein
 
 # Start Weaviate database
@@ -149,7 +149,7 @@ Access the UI at **http://localhost:8081**
 
 ```powershell
 # Clone the repository
-git clone https://github.com/ctekinay/aion-ainstein.git
+git clone https://github.com/Alliander/esa-ainstein-artifacts.git
 cd aion-ainstein
 
 # Start Weaviate database
