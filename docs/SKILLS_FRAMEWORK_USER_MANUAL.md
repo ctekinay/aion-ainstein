@@ -554,6 +554,7 @@ for skill in skills:
 | Web UI for skills management | Not available | Must edit files directly |
 | Skills API endpoints | Not available | No REST API for CRUD |
 | Hot reload | Partial | `registry.reload()` exists but no automatic file watcher |
+| Progressive loading | Not available | Full skill content loaded at startup |
 | Skill versioning | Not available | No version control |
 | A/B testing | Not available | Cannot compare skill configs |
 
@@ -561,19 +562,43 @@ for skill in skills:
 
 ### Planned Features
 
-1. **Skills Management UI**
+1. **Skills Management UI** (MVP)
    - View all registered skills
    - Edit thresholds via web interface
    - Enable/disable skills with toggle
-   - Preview skill content
+   - **Testing panel** - preview skill behavior before applying
+   - Config backup before writes
 
 2. **REST API for Skills**
    - `GET /api/skills` - List all skills
    - `GET /api/skills/{name}` - Get skill details
    - `PUT /api/skills/{name}/thresholds` - Update thresholds
+   - `POST /api/skills/{name}/test` - Test skill with sample query
+   - `POST /api/skills/{name}/validate` - Validate config syntax
    - `POST /api/skills/{name}/reload` - Hot reload skill
 
-3. **Hot Reload**
+3. **Progressive Loading** ⭐ *Key Architecture Improvement*
+
+   Similar to MCP's lazy loading but optimized for skills. Instead of loading all
+   skill content at startup (which consumes context), use three-level staged loading:
+
+   | Level | What Loads | When | Tokens |
+   |-------|------------|------|--------|
+   | 1. Discovery | Name, description, triggers only | Startup | ~50/skill |
+   | 2. Activation | Full SKILL.md content | Query matches triggers | 2,000-5,000 |
+   | 3. Execution | Specific references (thresholds, examples) | Task requires them | Variable |
+
+   **Benefits**:
+   - 95% reduction in initial context consumption
+   - Support for many skills without context penalty
+   - Skills can include large reference materials without cost until used
+
+   **Comparison to MCP Lazy Loading**:
+   - MCP solved tool definition bloat (125k tokens for Docker's 135 tools)
+   - Progressive loading solves skill content bloat (many skills × 2-5k tokens each)
+   - Both use on-demand discovery; skills use trigger-based activation
+
+4. **Hot Reload**
    - File watcher for skill changes
    - Automatic cache invalidation
    - No server restart required
@@ -605,7 +630,7 @@ The Skills Framework provides a **no-code way** to customize AInstein's behavior
 
 ---
 
-*Document Version: 1.1*
+*Document Version: 1.2*
 *Last Updated: February 2026*
 *Applies to: AInstein Skills Framework v1.0*
 
@@ -615,5 +640,6 @@ The Skills Framework provides a **no-code way** to customize AInstein's behavior
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 1.2 | Feb 2026 | Added Progressive Loading roadmap, updated UI MVP with testing panel |
 | 1.1 | Feb 2026 | Added Identity Configuration, Tool Return Fields, fixed Integration Points table |
 | 1.0 | Feb 2026 | Initial release |
