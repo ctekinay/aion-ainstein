@@ -50,6 +50,9 @@ class SkillRegistry:
     def load_registry(self) -> bool:
         """Load the skill registry from registry.yaml.
 
+        Loads ALL skills (enabled and disabled) for listing purposes.
+        Use get_active_skills() to get only enabled skills that should activate.
+
         Returns:
             True if loaded successfully, False otherwise
         """
@@ -81,9 +84,10 @@ class SkillRegistry:
                 triggers=skill_data.get("triggers", []),
             )
 
-            if entry.name and entry.enabled:
+            # Load ALL skills (enabled and disabled) for listing
+            if entry.name:
                 self._entries[entry.name] = entry
-                logger.debug(f"Registered skill: {entry.name}")
+                logger.debug(f"Registered skill: {entry.name} (enabled={entry.enabled})")
 
         self._loaded = True
         logger.info(f"Loaded {len(self._entries)} skills from registry")
@@ -91,6 +95,8 @@ class SkillRegistry:
 
     def get_active_skills(self, query: str = "") -> list[Skill]:
         """Get skills that should be active for a query.
+
+        Only returns enabled skills that match activation criteria.
 
         Args:
             query: The user's query (used for trigger matching)
@@ -105,6 +111,10 @@ class SkillRegistry:
         query_lower = query.lower()
 
         for name, entry in self._entries.items():
+            # Skip disabled skills
+            if not entry.enabled:
+                continue
+
             should_activate = False
 
             # Auto-activate skills always activate
@@ -177,3 +187,53 @@ class SkillRegistry:
         self._entries.clear()
         self.loader.clear_cache()
         self.load_registry()
+
+    def set_skill_enabled(self, skill_name: str, enabled: bool) -> bool:
+        """Update the enabled status of a skill in registry.yaml.
+
+        Args:
+            skill_name: Name of the skill to update
+            enabled: New enabled status
+
+        Returns:
+            True if updated successfully, False otherwise
+
+        Raises:
+            ValueError: If skill not found
+        """
+        registry_path = self.skills_dir / "registry.yaml"
+
+        if not registry_path.exists():
+            raise ValueError(f"Registry not found: {registry_path}")
+
+        try:
+            content = yaml.safe_load(registry_path.read_text(encoding="utf-8"))
+        except Exception as e:
+            raise ValueError(f"Failed to parse registry: {e}")
+
+        if not content or "skills" not in content:
+            raise ValueError("Empty or invalid registry format")
+
+        # Find and update the skill
+        skill_found = False
+        for skill_data in content.get("skills", []):
+            if skill_data.get("name") == skill_name:
+                skill_data["enabled"] = enabled
+                skill_found = True
+                break
+
+        if not skill_found:
+            raise ValueError(f"Skill not found in registry: {skill_name}")
+
+        # Write back to file
+        registry_path.write_text(
+            yaml.dump(content, default_flow_style=False, sort_keys=False, allow_unicode=True),
+            encoding="utf-8"
+        )
+
+        # Update in-memory entry
+        if skill_name in self._entries:
+            self._entries[skill_name].enabled = enabled
+
+        logger.info(f"Set skill '{skill_name}' enabled={enabled}")
+        return True

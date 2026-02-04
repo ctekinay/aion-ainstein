@@ -1360,6 +1360,11 @@ class SkillContentUpdate(BaseModel):
     body: Optional[str] = None  # Markdown body
 
 
+class SkillToggleRequest(BaseModel):
+    """Request model for toggling skill enabled status."""
+    enabled: bool
+
+
 @app.get("/api/skills/defaults")
 async def api_get_defaults():
     """Get default configuration values for skills.
@@ -1474,6 +1479,21 @@ async def api_reload_skills():
         return skills_api.reload_skills()
     except Exception as e:
         logger.error(f"Error reloading skills: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.put("/api/skills/{skill_name}/enabled")
+async def api_toggle_skill_enabled(skill_name: str, request: SkillToggleRequest):
+    """Toggle the enabled status of a skill.
+
+    Updates registry.yaml. Note: Full effect requires server restart.
+    """
+    try:
+        return skills_api.toggle_skill_enabled(skill_name, request.enabled)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        logger.error(f"Error toggling skill {skill_name}: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 

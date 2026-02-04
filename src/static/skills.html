@@ -847,6 +847,65 @@
             font-size: 12px;
             margin-left: 8px;
         }
+
+        /* Skill Toggle */
+        .skill-toggle {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-left: auto;
+            padding-left: 15px;
+        }
+
+        .skill-toggle-label {
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        .badge-disabled {
+            background: rgba(239, 68, 68, 0.2);
+            color: var(--danger);
+        }
+
+        /* Restart Warning Banner */
+        .restart-warning {
+            background: rgba(245, 158, 11, 0.15);
+            border: 1px solid var(--warning);
+            border-radius: 8px;
+            padding: 12px 15px;
+            margin-bottom: 20px;
+            display: none;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .restart-warning.show {
+            display: flex;
+        }
+
+        .restart-warning-icon {
+            font-size: 18px;
+            color: var(--warning);
+        }
+
+        .restart-warning-text {
+            flex: 1;
+            font-size: 13px;
+            color: var(--text-primary);
+        }
+
+        .restart-warning-dismiss {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            font-size: 18px;
+            padding: 0;
+        }
+
+        .restart-warning-dismiss:hover {
+            color: var(--text-primary);
+        }
     </style>
 </head>
 <body>
@@ -866,6 +925,13 @@
             <div class="card">
                 <div class="card-header">
                     <span class="card-title">Registered Skills</span>
+                </div>
+                <div class="restart-warning" id="restart-warning">
+                    <span class="restart-warning-icon">&#9888;</span>
+                    <span class="restart-warning-text">
+                        Skill status changed. Restart the server for changes to take full effect.
+                    </span>
+                    <button class="restart-warning-dismiss" onclick="dismissRestartWarning()">&times;</button>
                 </div>
                 <div id="skills-list">
                     <div class="loading">Loading skills...</div>
@@ -1399,10 +1465,49 @@
                 const response = await fetch('/api/skills/reload', { method: 'POST' });
                 const data = await response.json();
                 showStatus(`Skills reloaded! (${data.skill_count} skills)`, 'success');
+                dismissRestartWarning();
                 fetchSkills();
             } catch (error) {
                 showStatus('Error reloading skills: ' + error.message, 'error');
             }
+        }
+
+        async function toggleSkillEnabled(skillName, enabled) {
+            try {
+                const response = await fetch(`/api/skills/${skillName}/enabled`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ enabled })
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.detail || 'Failed to toggle skill');
+                }
+
+                const data = await response.json();
+                showStatus(data.message, 'success');
+
+                // Show restart warning
+                if (data.requires_restart) {
+                    showRestartWarning();
+                }
+
+                // Refresh skills list
+                fetchSkills();
+            } catch (error) {
+                showStatus('Error toggling skill: ' + error.message, 'error');
+                // Refresh to reset checkbox state
+                fetchSkills();
+            }
+        }
+
+        function showRestartWarning() {
+            document.getElementById('restart-warning').classList.add('show');
+        }
+
+        function dismissRestartWarning() {
+            document.getElementById('restart-warning').classList.remove('show');
         }
 
         async function runTest() {
@@ -1444,7 +1549,7 @@
                     <div class="skill-info">
                         <div class="skill-name">
                             ${skill.name}
-                            ${skill.enabled ? '<span class="badge badge-active">ACTIVE</span>' : ''}
+                            ${skill.enabled ? '<span class="badge badge-active">ACTIVE</span>' : '<span class="badge badge-disabled">DISABLED</span>'}
                             ${skill.is_default ? '<span class="badge badge-default">DEFAULT</span>' : ''}
                             <button class="btn btn-secondary skill-action-btn" onclick="openRuleEditor('${skill.name}')">Edit Rules</button>
                         </div>
@@ -1454,6 +1559,14 @@
                             Distance: ${skill.distance_threshold} |
                             Coverage: ${skill.min_query_coverage}
                         </div>
+                    </div>
+                    <div class="skill-toggle">
+                        <span class="skill-toggle-label">Enabled</span>
+                        <label class="toggle-switch">
+                            <input type="checkbox" ${skill.enabled ? 'checked' : ''}
+                                   onchange="toggleSkillEnabled('${skill.name}', this.checked)">
+                            <span class="toggle-slider"></span>
+                        </label>
                     </div>
                 </div>
             `).join('');

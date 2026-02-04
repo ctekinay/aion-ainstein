@@ -96,12 +96,18 @@ def backup_config(skill_name: str) -> str:
     return str(dst)
 ```
 
-### 1.5 Enable/Disable Toggle
+### 1.5 Enable/Disable Toggle - COMPLETED
 
-- [ ] Toggle switch per skill
-- [ ] Updates `enabled` in `registry.yaml`
-- [ ] Visual feedback on toggle
-- [ ] Requires server restart notification
+- [x] Toggle switch per skill
+- [x] Updates `enabled` in `registry.yaml`
+- [x] Visual feedback on toggle (ACTIVE/DISABLED badges)
+- [x] Requires server restart notification (warning banner)
+
+**Implementation:**
+- `src/skills/registry.py` (added `set_skill_enabled()` method)
+- `src/skills/api.py` (added `toggle_skill_enabled()` function)
+- `src/chat_ui.py` (added `PUT /api/skills/{name}/enabled` endpoint)
+- `src/static/skills.html` (added toggle switch in skill cards, restart warning banner)
 
 ---
 
@@ -316,21 +322,23 @@ POST /api/skills/{name}/validate
 
 ### Required for UI
 
-| Endpoint | Method | Purpose | Phase |
-|----------|--------|---------|-------|
-| `/api/skills` | GET | List all skills | 1 |
-| `/api/skills/{name}` | GET | Get skill details | 1 |
-| `/api/skills/{name}/thresholds` | GET | Get thresholds | 1 |
-| `/api/skills/{name}/thresholds` | PUT | Update thresholds | 1 |
-| `/api/skills/{name}/test` | POST | Test with query | 1 |
-| `/api/skills/{name}/backup` | POST | Create backup | 1 |
-| `/api/skills/{name}/restore` | POST | Restore from backup | 1 |
-| `/api/skills/{name}/validate` | POST | Validate config | 2 |
-| `/api/skills/{name}/content` | GET | Get SKILL.md | 3 |
-| `/api/skills/{name}/content` | PUT | Update SKILL.md | 3 |
-| `/api/skills` | POST | Create new skill | 5 |
-| `/api/skills/{name}` | DELETE | Delete skill | 5 |
-| `/api/skills/reload` | POST | Hot reload all | 6 |
+| Endpoint | Method | Purpose | Phase | Status |
+|----------|--------|---------|-------|--------|
+| `/api/skills` | GET | List all skills | 1 | Done |
+| `/api/skills/{name}` | GET | Get skill details | 1 | Done |
+| `/api/skills/{name}/thresholds` | GET | Get thresholds | 1 | Done |
+| `/api/skills/{name}/thresholds` | PUT | Update thresholds | 1 | Done |
+| `/api/skills/{name}/test` | POST | Test with query | 1 | Done |
+| `/api/skills/{name}/backup` | POST | Create backup | 1 | Done |
+| `/api/skills/{name}/restore` | POST | Restore from backup | 1 | Done |
+| `/api/skills/{name}/enabled` | PUT | Toggle skill enabled | 1.5 | Done |
+| `/api/skills/{name}/validate` | POST | Validate config | 2 | Done |
+| `/api/skills/{name}/content` | GET | Get SKILL.md | 3 | Done |
+| `/api/skills/{name}/content` | PUT | Update SKILL.md | 3 | Done |
+| `/api/skills/defaults` | GET | Get default values | 3 | Done |
+| `/api/skills` | POST | Create new skill | 5 | - |
+| `/api/skills/{name}` | DELETE | Delete skill | 5 | - |
+| `/api/skills/reload` | POST | Hot reload all | 6 | Done |
 
 ### Implementation Options
 
