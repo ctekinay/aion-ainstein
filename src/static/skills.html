@@ -1819,10 +1819,20 @@
             });
         });
 
-        // Close modal on Escape key
+        // Close modals on Escape key (checks which modal is visible)
         document.addEventListener('keydown', function(e) {
             if (e.key === 'Escape') {
-                closeConfigModal();
+                // Close Rule Editor first if open (it's on top)
+                const ruleEditorModal = document.getElementById('rule-editor-modal');
+                if (ruleEditorModal && ruleEditorModal.classList.contains('show')) {
+                    closeRuleEditor();
+                    return;
+                }
+                // Then check Config Modal
+                const configModal = document.getElementById('config-modal');
+                if (configModal && configModal.classList.contains('show')) {
+                    closeConfigModal();
+                }
             }
         });
 
@@ -2007,16 +2017,31 @@
             container.style.display = 'block';
         }
 
+        function escapeYamlString(str) {
+            // Check if string needs quoting (contains special YAML chars)
+            if (!str) return '""';
+            const needsQuoting = /[:#{}\[\],&*?|<>=!%@`"'\n\r]/.test(str) ||
+                                 str.startsWith(' ') || str.endsWith(' ') ||
+                                 str === 'true' || str === 'false' ||
+                                 str === 'null' || str === 'yes' || str === 'no';
+            if (needsQuoting) {
+                // Use double quotes and escape internal double quotes and backslashes
+                const escaped = str.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\n/g, '\\n');
+                return `"${escaped}"`;
+            }
+            return str;
+        }
+
         function buildSkillContent(metadata, body) {
-            // Build YAML frontmatter
+            // Build YAML frontmatter with proper escaping
             let yaml = '---\n';
-            yaml += `name: ${metadata.name}\n`;
-            yaml += `description: ${metadata.description}\n`;
+            yaml += `name: ${escapeYamlString(metadata.name)}\n`;
+            yaml += `description: ${escapeYamlString(metadata.description)}\n`;
             yaml += `auto_activate: ${metadata.auto_activate}\n`;
             if (metadata.triggers.length > 0) {
                 yaml += `triggers:\n`;
                 metadata.triggers.forEach(t => {
-                    yaml += `  - ${t}\n`;
+                    yaml += `  - ${escapeYamlString(t)}\n`;
                 });
             }
             yaml += '---\n\n';
@@ -2069,6 +2094,10 @@
         }
 
         async function restoreRules() {
+            if (!editorSkillName) {
+                showStatus('No skill selected', 'error');
+                return;
+            }
             if (!confirm('Restore from backup? This will overwrite current content.')) {
                 return;
             }
@@ -2106,13 +2135,6 @@
 
         // Live preview update on input
         document.getElementById('editor-body').addEventListener('input', updatePreview);
-
-        // Close rule editor modal on Escape key
-        document.addEventListener('keydown', function(e) {
-            if (e.key === 'Escape') {
-                closeRuleEditor();
-            }
-        });
 
         // Close rule editor when clicking overlay background
         document.getElementById('rule-editor-modal').addEventListener('click', function(e) {
