@@ -264,6 +264,8 @@ class ElysiaRAGSystem:
             return [
                 {
                     "title": obj.properties.get("title", ""),
+                    "adr_number": obj.properties.get("adr_number", ""),
+                    "file_path": obj.properties.get("file_path", ""),
                     "status": obj.properties.get("status", ""),
                     "context": obj.properties.get("context", "")[:content_chars],
                     "decision": obj.properties.get("decision", "")[:content_chars],
@@ -299,6 +301,8 @@ class ElysiaRAGSystem:
             return [
                 {
                     "title": obj.properties.get("title", ""),
+                    "principle_number": obj.properties.get("principle_number", ""),
+                    "file_path": obj.properties.get("file_path", ""),
                     "content": obj.properties.get("content", "")[:content_max_chars],
                     "doc_type": obj.properties.get("doc_type", ""),
                 }
@@ -333,6 +337,7 @@ class ElysiaRAGSystem:
             return [
                 {
                     "title": obj.properties.get("title", ""),
+                    "file_path": obj.properties.get("file_path", ""),
                     "content": obj.properties.get("content", "")[:content_max_chars],
                     "file_type": obj.properties.get("file_type", ""),
                 }
@@ -356,7 +361,7 @@ class ElysiaRAGSystem:
             collection = self.client.collections.get("ArchitecturalDecision")
             results = collection.query.fetch_objects(
                 limit=100,
-                return_properties=["title", "status", "file_path"],
+                return_properties=["title", "status", "file_path", "adr_number"],
             )
             adrs = []
             for obj in results.objects:
@@ -367,10 +372,11 @@ class ElysiaRAGSystem:
                     continue
                 adrs.append({
                     "title": title,
+                    "adr_number": obj.properties.get("adr_number", ""),
                     "status": obj.properties.get("status", ""),
-                    "file": file_path.split("/")[-1] if file_path else "",
+                    "file_path": file_path,
                 })
-            return sorted(adrs, key=lambda x: x.get("file", ""))
+            return sorted(adrs, key=lambda x: x.get("adr_number", "") or x.get("file_path", ""))
 
         # List all principles tool
         @tool(tree=self.tree)
@@ -388,15 +394,18 @@ class ElysiaRAGSystem:
             collection = self.client.collections.get("Principle")
             results = collection.query.fetch_objects(
                 limit=100,
-                return_properties=["title", "doc_type"],
+                return_properties=["title", "doc_type", "file_path", "principle_number"],
             )
-            return [
+            principles = [
                 {
                     "title": obj.properties.get("title", ""),
+                    "principle_number": obj.properties.get("principle_number", ""),
+                    "file_path": obj.properties.get("file_path", ""),
                     "type": obj.properties.get("doc_type", ""),
                 }
                 for obj in results.objects
             ]
+            return sorted(principles, key=lambda x: x.get("principle_number", "") or x.get("file_path", ""))
 
         # Search documents by team/owner
         @tool(tree=self.tree)
