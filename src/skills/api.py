@@ -201,6 +201,35 @@ def validate_thresholds(thresholds: dict[str, Any]) -> tuple[bool, list[str]]:
             elif val < 1:
                 errors.append(f"truncation.{key} must be positive")
 
+    # Validate list query detection fields (stored under abstention)
+    list_indicators = abstention.get("list_indicators")
+    if list_indicators is not None:
+        if not isinstance(list_indicators, list):
+            errors.append("list_indicators must be an array")
+        elif not all(isinstance(item, str) for item in list_indicators):
+            errors.append("list_indicators must contain only strings")
+
+    list_patterns = abstention.get("list_patterns")
+    if list_patterns is not None:
+        if not isinstance(list_patterns, list):
+            errors.append("list_patterns must be an array")
+        else:
+            for i, pattern in enumerate(list_patterns):
+                if not isinstance(pattern, str):
+                    errors.append(f"list_patterns[{i}] must be a string")
+                else:
+                    try:
+                        re.compile(pattern)
+                    except re.error as e:
+                        errors.append(f"list_patterns[{i}] is invalid regex: {e}")
+
+    stop_words = abstention.get("additional_stop_words")
+    if stop_words is not None:
+        if not isinstance(stop_words, list):
+            errors.append("additional_stop_words must be an array")
+        elif not all(isinstance(item, str) for item in stop_words):
+            errors.append("additional_stop_words must contain only strings")
+
     return (len(errors) == 0, errors)
 
 

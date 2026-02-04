@@ -606,6 +606,36 @@
             margin-bottom: 15px;
             color: var(--text-primary);
         }
+
+        /* Loading States */
+        .btn.loading {
+            position: relative;
+            pointer-events: none;
+            opacity: 0.7;
+        }
+
+        .btn.loading::after {
+            content: '';
+            position: absolute;
+            width: 14px;
+            height: 14px;
+            top: 50%;
+            left: 50%;
+            margin-left: -7px;
+            margin-top: -7px;
+            border: 2px solid transparent;
+            border-top-color: currentColor;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        .btn.loading span {
+            visibility: hidden;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
     </style>
 </head>
 <body>
@@ -715,10 +745,10 @@
                 </div>
 
                 <div class="tabs">
-                    <button class="tab-btn active" onclick="switchTab('abstention')">Abstention</button>
-                    <button class="tab-btn" onclick="switchTab('retrieval')">Retrieval Limits</button>
-                    <button class="tab-btn" onclick="switchTab('truncation')">Truncation</button>
-                    <button class="tab-btn" onclick="switchTab('listquery')">List Query Detection</button>
+                    <button class="tab-btn active" onclick="switchTab('abstention', this)">Abstention</button>
+                    <button class="tab-btn" onclick="switchTab('retrieval', this)">Retrieval Limits</button>
+                    <button class="tab-btn" onclick="switchTab('truncation', this)">Truncation</button>
+                    <button class="tab-btn" onclick="switchTab('listquery', this)">List Query Detection</button>
                 </div>
 
                 <!-- Abstention Tab -->
@@ -882,11 +912,11 @@
             </div>
             <div class="modal-footer">
                 <div class="modal-footer-left">
-                    <button class="btn btn-secondary" onclick="validateConfig()">Validate</button>
+                    <button class="btn btn-secondary" id="btn-validate" onclick="validateConfig()"><span>Validate</span></button>
                 </div>
                 <div class="modal-footer-right">
-                    <button class="btn btn-secondary" onclick="closeConfigModal()">Cancel</button>
-                    <button class="btn btn-primary" onclick="saveFullConfig()">Save Changes</button>
+                    <button class="btn btn-secondary" onclick="closeConfigModal()"><span>Cancel</span></button>
+                    <button class="btn btn-primary" id="btn-save" onclick="saveFullConfig()"><span>Save Changes</span></button>
                 </div>
             </div>
         </div>
@@ -1202,12 +1232,17 @@
             document.getElementById('config-modal').classList.remove('show');
         }
 
-        function switchTab(tabName) {
+        function switchTab(tabName, clickedBtn) {
             // Update tab buttons
             document.querySelectorAll('.tab-btn').forEach(btn => {
                 btn.classList.remove('active');
             });
-            event.target.classList.add('active');
+            if (clickedBtn) {
+                clickedBtn.classList.add('active');
+            } else {
+                // If called programmatically, find the right button
+                document.querySelector(`.tab-btn[onclick*="${tabName}"]`).classList.add('active');
+            }
 
             // Update tab content
             document.querySelectorAll('.tab-content').forEach(content => {
@@ -1236,11 +1271,10 @@
             document.getElementById('cfg-elysia-summary-chars').value = truncation.elysia_summary_chars || 300;
             document.getElementById('cfg-max-context-results').value = truncation.max_context_results || 10;
 
-            // List query detection
-            const listQuery = thresholds.list_query_detection || {};
-            listIndicators = [...(listQuery.list_indicators || ['list', 'show', 'all', 'exist', 'exists', 'available', 'have', 'many', 'which', 'enumerate'])];
-            listPatterns = [...(listQuery.list_patterns || [])];
-            listStopwords = [...(listQuery.additional_stop_words || ['are', 'there', 'exist', 'exists', 'list', 'show', 'all', 'me', 'give'])];
+            // List query detection (stored under abstention in YAML)
+            listIndicators = [...(abstention.list_indicators || ['list', 'show', 'all', 'exist', 'exists', 'available', 'have', 'many', 'which', 'enumerate'])];
+            listPatterns = [...(abstention.list_patterns || [])];
+            listStopwords = [...(abstention.additional_stop_words || ['are', 'there', 'exist', 'exists', 'list', 'show', 'all', 'me', 'give'])];
 
             renderListItems('indicators');
             renderListItems('patterns');
@@ -1251,7 +1285,11 @@
             return {
                 abstention: {
                     distance_threshold: parseFloat(document.getElementById('cfg-distance-threshold').value) || 0.5,
-                    min_query_coverage: parseFloat(document.getElementById('cfg-min-coverage').value) || 0.2
+                    min_query_coverage: parseFloat(document.getElementById('cfg-min-coverage').value) || 0.2,
+                    // List query detection is stored under abstention
+                    list_indicators: listIndicators,
+                    list_patterns: listPatterns,
+                    additional_stop_words: listStopwords
                 },
                 retrieval_limits: {
                     adr: parseInt(document.getElementById('cfg-limit-adr').value) || 8,
@@ -1264,17 +1302,14 @@
                     elysia_content_chars: parseInt(document.getElementById('cfg-elysia-content-chars').value) || 500,
                     elysia_summary_chars: parseInt(document.getElementById('cfg-elysia-summary-chars').value) || 300,
                     max_context_results: parseInt(document.getElementById('cfg-max-context-results').value) || 10
-                },
-                list_query_detection: {
-                    list_indicators: listIndicators,
-                    list_patterns: listPatterns,
-                    additional_stop_words: listStopwords
                 }
             };
         }
 
         async function validateConfig() {
             const thresholds = getModalThresholds();
+            const btn = document.getElementById('btn-validate');
+            btn.classList.add('loading');
 
             try {
                 const response = await fetch(`/api/skills/${currentSkill}/validate`, {
@@ -1296,6 +1331,8 @@
             } catch (error) {
                 showStatus('Error validating: ' + error.message, 'error');
                 return false;
+            } finally {
+                btn.classList.remove('loading');
             }
         }
 
@@ -1308,16 +1345,19 @@
         }
 
         async function saveFullConfig() {
-            // Validate first
-            const isValid = await validateConfig();
-            if (!isValid) {
-                showStatus('Please fix validation errors before saving', 'error');
-                return;
-            }
-
-            const thresholds = getModalThresholds();
+            const btn = document.getElementById('btn-save');
+            btn.classList.add('loading');
 
             try {
+                // Validate first
+                const isValid = await validateConfig();
+                if (!isValid) {
+                    showStatus('Please fix validation errors before saving', 'error');
+                    return;
+                }
+
+                const thresholds = getModalThresholds();
+
                 const response = await fetch(`/api/skills/${currentSkill}/thresholds`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
@@ -1343,6 +1383,8 @@
                 showStatus('Full configuration saved! Backup created.', 'success');
             } catch (error) {
                 showStatus('Error saving: ' + error.message, 'error');
+            } finally {
+                btn.classList.remove('loading');
             }
         }
 
