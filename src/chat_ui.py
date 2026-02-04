@@ -696,7 +696,10 @@ async def perform_retrieval(question: str, provider: str = "ollama") -> tuple[li
     principle_limit = retrieval_limits.get("principle", 6)
     policy_limit = retrieval_limits.get("policy", 4)
     vocab_limit = retrieval_limits.get("vocabulary", 4)
-    content_max_chars = retrieval_limits.get("content_max_chars", 800)
+
+    # Truncation limits - loaded from skill configuration
+    truncation = _skill_registry.loader.get_truncation(DEFAULT_SKILL)
+    content_max_chars = truncation.get("content_max_chars", 800)
 
     # For Ollama provider, compute query embedding client-side
     # WORKAROUND for Weaviate text2vec-ollama bug (#8406)

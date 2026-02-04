@@ -150,6 +150,12 @@ class ElysiaRAGSystem:
     def _register_tools(self) -> None:
         """Register custom tools for each knowledge domain."""
 
+        # Load truncation limits from skill configuration for tool responses
+        truncation = _skill_registry.loader.get_truncation(DEFAULT_SKILL)
+        content_max_chars = truncation.get("content_max_chars", 800)
+        content_chars = truncation.get("elysia_content_chars", 500)
+        summary_chars = truncation.get("elysia_summary_chars", 300)
+
         # Vocabulary/SKOS search tool
         @tool(tree=self.tree)
         async def search_vocabulary(query: str, limit: int = 5) -> list[dict]:
@@ -214,9 +220,9 @@ class ElysiaRAGSystem:
                 {
                     "title": obj.properties.get("title", ""),
                     "status": obj.properties.get("status", ""),
-                    "context": obj.properties.get("context", "")[:500],
-                    "decision": obj.properties.get("decision", "")[:500],
-                    "consequences": obj.properties.get("consequences", "")[:300],
+                    "context": obj.properties.get("context", "")[:content_chars],
+                    "decision": obj.properties.get("decision", "")[:content_chars],
+                    "consequences": obj.properties.get("consequences", "")[:summary_chars],
                 }
                 for obj in results.objects
             ]
@@ -248,7 +254,7 @@ class ElysiaRAGSystem:
             return [
                 {
                     "title": obj.properties.get("title", ""),
-                    "content": obj.properties.get("content", "")[:800],
+                    "content": obj.properties.get("content", "")[:content_max_chars],
                     "doc_type": obj.properties.get("doc_type", ""),
                 }
                 for obj in results.objects
@@ -282,7 +288,7 @@ class ElysiaRAGSystem:
             return [
                 {
                     "title": obj.properties.get("title", ""),
-                    "content": obj.properties.get("content", "")[:800],
+                    "content": obj.properties.get("content", "")[:content_max_chars],
                     "file_type": obj.properties.get("file_type", ""),
                 }
                 for obj in results.objects
@@ -539,6 +545,12 @@ class ElysiaRAGSystem:
         policy_limit = retrieval_limits.get("policy", 4)
         vocab_limit = retrieval_limits.get("vocabulary", 4)
 
+        # Load truncation limits from skill configuration
+        truncation = _skill_registry.loader.get_truncation(DEFAULT_SKILL)
+        content_max_chars = truncation.get("content_max_chars", 800)
+        content_chars = truncation.get("elysia_content_chars", 500)
+        summary_chars = truncation.get("elysia_summary_chars", 300)
+
         # Determine collection suffix based on provider
         # Local collections use client-side embeddings (Nomic via Ollama)
         # OpenAI collections use Weaviate's text2vec-openai vectorizer
@@ -572,7 +584,7 @@ class ElysiaRAGSystem:
                     all_results.append({
                         "type": "ADR",
                         "title": obj.properties.get("title", ""),
-                        "content": obj.properties.get("decision", "")[:500],
+                        "content": obj.properties.get("decision", "")[:content_chars],
                         "distance": obj.metadata.distance,
                         "score": obj.metadata.score,
                     })
@@ -590,7 +602,7 @@ class ElysiaRAGSystem:
                     all_results.append({
                         "type": "Principle",
                         "title": obj.properties.get("title", ""),
-                        "content": obj.properties.get("content", "")[:500],
+                        "content": obj.properties.get("content", "")[:content_chars],
                         "distance": obj.metadata.distance,
                         "score": obj.metadata.score,
                     })
@@ -608,7 +620,7 @@ class ElysiaRAGSystem:
                     all_results.append({
                         "type": "Policy",
                         "title": obj.properties.get("title", ""),
-                        "content": obj.properties.get("content", "")[:500],
+                        "content": obj.properties.get("content", "")[:content_chars],
                         "distance": obj.metadata.distance,
                         "score": obj.metadata.score,
                     })
@@ -657,7 +669,7 @@ class ElysiaRAGSystem:
                             all_results.append({
                                 "type": coll_base,
                                 "title": obj.properties.get("title", ""),
-                                "content": obj.properties.get("content", obj.properties.get("decision", ""))[:300],
+                                "content": obj.properties.get("content", obj.properties.get("decision", ""))[:summary_chars],
                                 "distance": obj.metadata.distance,
                                 "score": obj.metadata.score,
                             })

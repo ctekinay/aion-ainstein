@@ -244,6 +244,22 @@ class SkillLoader:
             "vocabulary": 4,
         })
 
+    def get_truncation(self, skill_name: str) -> dict[str, int]:
+        """Get content truncation limits for a skill.
+
+        Args:
+            skill_name: Name of the skill
+
+        Returns:
+            Dictionary with truncation limits
+        """
+        thresholds = self.get_thresholds(skill_name)
+        return thresholds.get("truncation", {
+            "content_max_chars": 800,
+            "elysia_content_chars": 500,
+            "elysia_summary_chars": 300,
+        })
+
     def clear_cache(self):
         """Clear the skill cache."""
         self._cache.clear()

@@ -19,8 +19,16 @@ retrieval_limits:
   principle: 6
   policy: 4
   vocabulary: 4
-  # Maximum characters of content to include per document
+
+# Content Truncation
+# Maximum characters of content to include per document
+truncation:
+  # For chat_ui.py comparison mode
   content_max_chars: 800
+  # For elysia_agents.py context building
+  elysia_content_chars: 500
+  # For summaries and consequences sections
+  elysia_summary_chars: 300
 
 # Confidence Scoring
 confidence:
