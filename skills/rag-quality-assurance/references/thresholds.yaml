@@ -29,6 +29,8 @@ truncation:
   elysia_content_chars: 500
   # For summaries and consequences sections
   elysia_summary_chars: 300
+  # Maximum results to include in LLM context
+  max_context_results: 10
 
 # Confidence Scoring
 confidence:

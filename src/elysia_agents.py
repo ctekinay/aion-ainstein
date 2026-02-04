@@ -683,9 +683,10 @@ class ElysiaRAGSystem:
             return get_abstention_response(reason), all_results
 
         # Build context from retrieved results
+        max_context_results = truncation.get("max_context_results", 10)
         context = "\n\n".join([
             f"[{r.get('type', 'Document')}] {r.get('title', r.get('label', 'Untitled'))}: {r.get('content', r.get('definition', ''))}"
-            for r in all_results[:10]
+            for r in all_results[:max_context_results]
         ])
 
         # Get skill content for prompt injection
