@@ -13,6 +13,7 @@ from weaviate.classes.query import Filter, MetadataQuery
 
 from .config import settings
 from .skills import SkillRegistry, DEFAULT_SKILL
+from .weaviate.embeddings import embed_text
 
 # Initialize skill registry
 _skill_registry = SkillRegistry()
@@ -159,7 +160,7 @@ def get_abstention_response(reason: str) -> str:
 - For terminology questions, verify the term exists in SKOSMOS
 
 If you believe this information should be available, please contact the ESA team to have it added to the knowledge base."""
-from .weaviate.embeddings import embed_text
+
 
 logger = logging.getLogger(__name__)
 
