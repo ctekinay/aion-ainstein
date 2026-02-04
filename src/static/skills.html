@@ -906,6 +906,193 @@
         .restart-warning-dismiss:hover {
             color: var(--text-primary);
         }
+
+        /* Wizard Modal Styles */
+        .wizard-modal {
+            max-width: 700px;
+        }
+
+        .wizard-steps {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 25px;
+            position: relative;
+        }
+
+        .wizard-steps::before {
+            content: '';
+            position: absolute;
+            top: 15px;
+            left: 40px;
+            right: 40px;
+            height: 2px;
+            background: var(--border);
+            z-index: 0;
+        }
+
+        .wizard-step {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            position: relative;
+            z-index: 1;
+        }
+
+        .wizard-step-number {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: var(--bg-input);
+            color: var(--text-muted);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            font-size: 14px;
+            margin-bottom: 6px;
+            transition: all 0.3s;
+        }
+
+        .wizard-step.active .wizard-step-number {
+            background: var(--primary);
+            color: white;
+        }
+
+        .wizard-step.completed .wizard-step-number {
+            background: var(--success);
+            color: white;
+        }
+
+        .wizard-step-label {
+            font-size: 12px;
+            color: var(--text-muted);
+            text-align: center;
+        }
+
+        .wizard-step.active .wizard-step-label {
+            color: var(--primary);
+            font-weight: 500;
+        }
+
+        .wizard-step.completed .wizard-step-label {
+            color: var(--success);
+        }
+
+        .wizard-content {
+            min-height: 300px;
+        }
+
+        .wizard-step-content {
+            display: none;
+        }
+
+        .wizard-step-content.active {
+            display: block;
+        }
+
+        .wizard-section {
+            margin-bottom: 20px;
+        }
+
+        .wizard-section-title {
+            font-size: 15px;
+            font-weight: 600;
+            margin-bottom: 12px;
+            color: var(--text-primary);
+        }
+
+        /* Template Selector */
+        .template-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .template-option {
+            padding: 12px;
+            border: 2px solid var(--border);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .template-option:hover {
+            border-color: var(--primary);
+        }
+
+        .template-option.selected {
+            border-color: var(--primary);
+            background: rgba(37, 99, 235, 0.1);
+        }
+
+        .template-option-title {
+            font-weight: 600;
+            font-size: 14px;
+            margin-bottom: 4px;
+        }
+
+        .template-option-desc {
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        /* Review Panel */
+        .review-section {
+            background: var(--bg-dark);
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+
+        .review-section-title {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .review-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 6px 0;
+            font-size: 14px;
+        }
+
+        .review-item-label {
+            color: var(--text-secondary);
+        }
+
+        .review-item-value {
+            color: var(--text-primary);
+            font-weight: 500;
+        }
+
+        .review-item-value.success {
+            color: var(--success);
+        }
+
+        .name-validation {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 6px;
+            font-size: 12px;
+        }
+
+        .name-validation.valid {
+            color: var(--success);
+        }
+
+        .name-validation.invalid {
+            color: var(--danger);
+        }
+
+        .name-validation.checking {
+            color: var(--text-muted);
+        }
     </style>
 </head>
 <body>
@@ -916,6 +1103,7 @@
                 <a href="/" class="nav-link">← Back to Chat</a>
             </div>
             <div class="header-actions">
+                <button class="btn btn-primary" onclick="openCreateWizard()">Create Skill</button>
                 <button class="btn btn-secondary" onclick="reloadSkills()">Reload Skills</button>
             </div>
         </header>
@@ -1270,6 +1458,217 @@
                 <div class="modal-footer-right">
                     <button class="btn btn-secondary" onclick="closeRuleEditor()"><span>Cancel</span></button>
                     <button class="btn btn-primary" id="btn-editor-save" onclick="saveRules()"><span>Save Changes</span></button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Skill Creation Wizard Modal -->
+    <div class="modal-overlay" id="create-wizard-modal">
+        <div class="modal wizard-modal">
+            <div class="modal-header">
+                <span class="modal-title">Create New Skill</span>
+                <button class="modal-close" onclick="closeCreateWizard()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <!-- Wizard Steps Indicator -->
+                <div class="wizard-steps">
+                    <div class="wizard-step active" data-step="1">
+                        <div class="wizard-step-number">1</div>
+                        <div class="wizard-step-label">Basic Info</div>
+                    </div>
+                    <div class="wizard-step" data-step="2">
+                        <div class="wizard-step-number">2</div>
+                        <div class="wizard-step-label">Rules</div>
+                    </div>
+                    <div class="wizard-step" data-step="3">
+                        <div class="wizard-step-number">3</div>
+                        <div class="wizard-step-label">Thresholds</div>
+                    </div>
+                    <div class="wizard-step" data-step="4">
+                        <div class="wizard-step-number">4</div>
+                        <div class="wizard-step-label">Review</div>
+                    </div>
+                </div>
+
+                <div id="wizard-validation-errors" class="validation-errors" style="display: none;">
+                    <div class="validation-errors-title">Validation Errors</div>
+                    <ul class="validation-errors-list" id="wizard-errors-list"></ul>
+                </div>
+
+                <div class="wizard-content">
+                    <!-- Step 1: Basic Info -->
+                    <div class="wizard-step-content active" id="wizard-step-1">
+                        <div class="wizard-section">
+                            <div class="wizard-section-title">Skill Name</div>
+                            <input type="text" class="form-input" id="wizard-name"
+                                   placeholder="my-skill-name"
+                                   oninput="validateWizardName()">
+                            <div class="form-help">
+                                Lowercase letters, numbers, and hyphens only. Must start with a letter.
+                            </div>
+                            <div class="name-validation" id="wizard-name-validation"></div>
+                        </div>
+
+                        <div class="wizard-section">
+                            <div class="wizard-section-title">Description</div>
+                            <textarea class="form-input" id="wizard-description" rows="3"
+                                      placeholder="Brief description of what this skill does..."></textarea>
+                        </div>
+
+                        <div class="wizard-section">
+                            <div class="wizard-section-title">Activation</div>
+                            <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 10px;">
+                                <label class="toggle-switch">
+                                    <input type="checkbox" id="wizard-auto-activate">
+                                    <span class="toggle-slider"></span>
+                                </label>
+                                <span>Auto-activate (always inject into prompts)</span>
+                            </div>
+                            <input type="text" class="form-input" id="wizard-triggers"
+                                   placeholder="keyword1, keyword2, keyword3">
+                            <div class="form-help">
+                                Trigger keywords (comma-separated). Skill activates when query contains these words.
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Step 2: Initial Rules -->
+                    <div class="wizard-step-content" id="wizard-step-2">
+                        <div class="wizard-section">
+                            <div class="wizard-section-title">Template</div>
+                            <div class="template-grid" id="wizard-templates">
+                                <div class="template-option selected" data-template="blank" onclick="selectTemplate('blank', this)">
+                                    <div class="template-option-title">Blank Template</div>
+                                    <div class="template-option-desc">Start with a basic skeleton</div>
+                                </div>
+                                <!-- Other templates will be loaded dynamically -->
+                            </div>
+                        </div>
+
+                        <div class="wizard-section">
+                            <div class="wizard-section-title">Rules Content</div>
+                            <textarea class="form-input" id="wizard-body" rows="12"
+                                      style="font-family: monospace; font-size: 13px;"
+                                      placeholder="# Skill Title&#10;&#10;## Guidelines&#10;&#10;Add your skill rules here..."></textarea>
+                            <div class="form-help">
+                                Write your skill rules in Markdown. This content will be injected into AI prompts.
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Step 3: Thresholds -->
+                    <div class="wizard-step-content" id="wizard-step-3">
+                        <div class="wizard-section">
+                            <div class="wizard-section-title">Threshold Source</div>
+                            <div class="template-grid">
+                                <div class="template-option selected" data-source="defaults" onclick="selectThresholdSource('defaults', this)">
+                                    <div class="template-option-title">Use Defaults</div>
+                                    <div class="template-option-desc">Standard threshold values</div>
+                                </div>
+                                <div class="template-option" data-source="copy" onclick="selectThresholdSource('copy', this)">
+                                    <div class="template-option-title">Copy from Skill</div>
+                                    <div class="template-option-desc">Use another skill's thresholds</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="wizard-section" id="wizard-copy-from-section" style="display: none;">
+                            <div class="wizard-section-title">Copy Thresholds From</div>
+                            <select class="form-input" id="wizard-copy-from">
+                                <!-- Options loaded dynamically -->
+                            </select>
+                        </div>
+
+                        <div class="wizard-section">
+                            <div class="wizard-section-title">Quick Settings</div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label class="form-label">Distance Threshold</label>
+                                    <input type="number" class="form-input" id="wizard-distance"
+                                           min="0" max="1" step="0.05" value="0.5">
+                                    <div class="form-help">Max distance for relevance (0-1)</div>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Query Coverage</label>
+                                    <input type="number" class="form-input" id="wizard-coverage"
+                                           min="0" max="1" step="0.05" value="0.2">
+                                    <div class="form-help">Min query term coverage (0-1)</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Step 4: Review & Create -->
+                    <div class="wizard-step-content" id="wizard-step-4">
+                        <div class="review-section">
+                            <div class="review-section-title">Basic Information</div>
+                            <div class="review-item">
+                                <span class="review-item-label">Skill Name</span>
+                                <span class="review-item-value" id="review-name">-</span>
+                            </div>
+                            <div class="review-item">
+                                <span class="review-item-label">Description</span>
+                                <span class="review-item-value" id="review-description">-</span>
+                            </div>
+                            <div class="review-item">
+                                <span class="review-item-label">Auto-Activate</span>
+                                <span class="review-item-value" id="review-auto-activate">No</span>
+                            </div>
+                            <div class="review-item">
+                                <span class="review-item-label">Triggers</span>
+                                <span class="review-item-value" id="review-triggers">None</span>
+                            </div>
+                        </div>
+
+                        <div class="review-section">
+                            <div class="review-section-title">Thresholds</div>
+                            <div class="review-item">
+                                <span class="review-item-label">Distance Threshold</span>
+                                <span class="review-item-value" id="review-distance">0.5</span>
+                            </div>
+                            <div class="review-item">
+                                <span class="review-item-label">Query Coverage</span>
+                                <span class="review-item-value" id="review-coverage">0.2</span>
+                            </div>
+                            <div class="review-item">
+                                <span class="review-item-label">Source</span>
+                                <span class="review-item-value" id="review-threshold-source">Defaults</span>
+                            </div>
+                        </div>
+
+                        <div class="review-section">
+                            <div class="review-section-title">Files to Create</div>
+                            <div class="review-item">
+                                <span class="review-item-label">SKILL.md</span>
+                                <span class="review-item-value success">Will be created</span>
+                            </div>
+                            <div class="review-item">
+                                <span class="review-item-label">thresholds.yaml</span>
+                                <span class="review-item-value success">Will be created</span>
+                            </div>
+                            <div class="review-item">
+                                <span class="review-item-label">Registry Entry</span>
+                                <span class="review-item-value success">Will be added</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <div class="modal-footer-left">
+                    <button class="btn btn-secondary" id="wizard-prev-btn" onclick="wizardPrevStep()" style="display: none;">
+                        <span>Previous</span>
+                    </button>
+                </div>
+                <div class="modal-footer-right">
+                    <button class="btn btn-secondary" onclick="closeCreateWizard()"><span>Cancel</span></button>
+                    <button class="btn btn-primary" id="wizard-next-btn" onclick="wizardNextStep()">
+                        <span>Next</span>
+                    </button>
+                    <button class="btn btn-success" id="wizard-create-btn" onclick="createSkill()" style="display: none;">
+                        <span>Create Skill</span>
+                    </button>
                 </div>
             </div>
         </div>
@@ -1996,7 +2395,13 @@
         // Close modals on Escape key (checks which modal is visible)
         document.addEventListener('keydown', function(e) {
             if (e.key === 'Escape') {
-                // Close Rule Editor first if open (it's on top)
+                // Close Create Wizard first if open
+                const wizardModal = document.getElementById('create-wizard-modal');
+                if (wizardModal && wizardModal.classList.contains('show')) {
+                    closeCreateWizard();
+                    return;
+                }
+                // Close Rule Editor if open
                 const ruleEditorModal = document.getElementById('rule-editor-modal');
                 if (ruleEditorModal && ruleEditorModal.classList.contains('show')) {
                     closeRuleEditor();
@@ -2333,6 +2738,357 @@
         document.getElementById('rule-editor-modal').addEventListener('click', function(e) {
             if (e.target === this) {
                 closeRuleEditor();
+            }
+        });
+
+        // ============================================================================
+        // Skill Creation Wizard (Phase 5)
+        // ============================================================================
+
+        let wizardCurrentStep = 1;
+        let wizardNameValid = false;
+        let wizardTemplates = [];
+        let wizardSelectedTemplate = 'blank';
+        let wizardThresholdSource = 'defaults';
+        let nameValidationTimeout = null;
+
+        function openCreateWizard() {
+            // Reset wizard state
+            wizardCurrentStep = 1;
+            wizardNameValid = false;
+            wizardSelectedTemplate = 'blank';
+            wizardThresholdSource = 'defaults';
+
+            // Clear form fields
+            document.getElementById('wizard-name').value = '';
+            document.getElementById('wizard-description').value = '';
+            document.getElementById('wizard-auto-activate').checked = false;
+            document.getElementById('wizard-triggers').value = '';
+            document.getElementById('wizard-body').value = '';
+            document.getElementById('wizard-distance').value = DEFAULTS.distance_threshold;
+            document.getElementById('wizard-coverage').value = DEFAULTS.min_query_coverage;
+
+            // Reset validation
+            document.getElementById('wizard-name-validation').innerHTML = '';
+            document.getElementById('wizard-validation-errors').style.display = 'none';
+
+            // Reset step indicators
+            updateWizardSteps();
+
+            // Load templates
+            loadWizardTemplates();
+
+            // Show modal
+            document.getElementById('create-wizard-modal').classList.add('show');
+        }
+
+        function closeCreateWizard() {
+            document.getElementById('create-wizard-modal').classList.remove('show');
+        }
+
+        function updateWizardSteps() {
+            const steps = document.querySelectorAll('.wizard-step');
+            steps.forEach((step, index) => {
+                const stepNum = index + 1;
+                step.classList.remove('active', 'completed');
+                if (stepNum === wizardCurrentStep) {
+                    step.classList.add('active');
+                } else if (stepNum < wizardCurrentStep) {
+                    step.classList.add('completed');
+                }
+            });
+
+            // Update step content visibility
+            for (let i = 1; i <= 4; i++) {
+                const content = document.getElementById(`wizard-step-${i}`);
+                content.classList.toggle('active', i === wizardCurrentStep);
+            }
+
+            // Update navigation buttons
+            const prevBtn = document.getElementById('wizard-prev-btn');
+            const nextBtn = document.getElementById('wizard-next-btn');
+            const createBtn = document.getElementById('wizard-create-btn');
+
+            prevBtn.style.display = wizardCurrentStep > 1 ? 'inline-block' : 'none';
+            nextBtn.style.display = wizardCurrentStep < 4 ? 'inline-block' : 'none';
+            createBtn.style.display = wizardCurrentStep === 4 ? 'inline-block' : 'none';
+        }
+
+        function wizardNextStep() {
+            // Validate current step before proceeding
+            if (!validateWizardStep(wizardCurrentStep)) {
+                return;
+            }
+
+            if (wizardCurrentStep < 4) {
+                wizardCurrentStep++;
+                updateWizardSteps();
+
+                // On step 4, update review panel
+                if (wizardCurrentStep === 4) {
+                    updateReviewPanel();
+                }
+            }
+        }
+
+        function wizardPrevStep() {
+            if (wizardCurrentStep > 1) {
+                wizardCurrentStep--;
+                updateWizardSteps();
+            }
+        }
+
+        function validateWizardStep(step) {
+            const errors = [];
+
+            if (step === 1) {
+                const name = document.getElementById('wizard-name').value.trim();
+                const description = document.getElementById('wizard-description').value.trim();
+
+                if (!name) {
+                    errors.push('Skill name is required');
+                } else if (!wizardNameValid) {
+                    errors.push('Skill name is invalid or already exists');
+                }
+
+                if (!description) {
+                    errors.push('Description is required');
+                }
+            }
+
+            if (errors.length > 0) {
+                showWizardErrors(errors);
+                return false;
+            }
+
+            document.getElementById('wizard-validation-errors').style.display = 'none';
+            return true;
+        }
+
+        function showWizardErrors(errors) {
+            const container = document.getElementById('wizard-validation-errors');
+            const list = document.getElementById('wizard-errors-list');
+            list.innerHTML = errors.map(e => `<li>${escapeHtml(e)}</li>`).join('');
+            container.style.display = 'block';
+        }
+
+        const validateWizardName = debounce(async function() {
+            const name = document.getElementById('wizard-name').value.trim();
+            const validation = document.getElementById('wizard-name-validation');
+
+            if (!name) {
+                validation.innerHTML = '';
+                wizardNameValid = false;
+                return;
+            }
+
+            validation.innerHTML = '<span class="checking">Checking...</span>';
+            validation.className = 'name-validation checking';
+
+            try {
+                const response = await fetch('/api/skills/validate-name', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name })
+                });
+
+                const data = await response.json();
+                wizardNameValid = data.valid;
+
+                if (data.valid) {
+                    validation.innerHTML = '&#10003; Name is available';
+                    validation.className = 'name-validation valid';
+                } else {
+                    validation.innerHTML = '&#10007; ' + data.errors.join('; ');
+                    validation.className = 'name-validation invalid';
+                }
+            } catch (error) {
+                validation.innerHTML = '&#10007; Error validating name';
+                validation.className = 'name-validation invalid';
+                wizardNameValid = false;
+            }
+        }, 300);
+
+        async function loadWizardTemplates() {
+            try {
+                const response = await fetch('/api/skills/templates');
+                const data = await response.json();
+                wizardTemplates = data.templates || [];
+
+                // Render template options
+                const container = document.getElementById('wizard-templates');
+                let html = `
+                    <div class="template-option selected" data-template="blank" onclick="selectTemplate('blank', this)">
+                        <div class="template-option-title">Blank Template</div>
+                        <div class="template-option-desc">Start with a basic skeleton</div>
+                    </div>
+                `;
+
+                wizardTemplates.forEach(t => {
+                    html += `
+                        <div class="template-option" data-template="${escapeAttr(t.name)}" onclick="selectTemplate('${escapeAttr(t.name)}', this)">
+                            <div class="template-option-title">Copy from: ${escapeHtml(t.name)}</div>
+                            <div class="template-option-desc">${escapeHtml(t.description || 'No description')}</div>
+                        </div>
+                    `;
+                });
+
+                container.innerHTML = html;
+
+                // Also populate copy-from dropdown
+                const copyFromSelect = document.getElementById('wizard-copy-from');
+                copyFromSelect.innerHTML = wizardTemplates.map(t =>
+                    `<option value="${escapeAttr(t.name)}">${escapeHtml(t.name)}</option>`
+                ).join('');
+            } catch (error) {
+                console.error('Error loading templates:', error);
+            }
+        }
+
+        function selectTemplate(template, element) {
+            wizardSelectedTemplate = template;
+
+            // Update selection UI
+            document.querySelectorAll('#wizard-templates .template-option').forEach(el => {
+                el.classList.remove('selected');
+            });
+            element.classList.add('selected');
+
+            // Generate default body based on template
+            const name = document.getElementById('wizard-name').value.trim() || 'new-skill';
+            const description = document.getElementById('wizard-description').value.trim() || 'A new skill';
+            const title = name.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+
+            if (template === 'blank') {
+                const body = `# ${title}
+
+## Identity
+
+You are an AI assistant configured with the **${name}** skill.
+
+${description}
+
+## Guidelines
+
+Add your skill-specific rules and guidelines here.
+
+### Quality Standards
+
+1. Ensure all responses are accurate and well-sourced
+2. Cite retrieved documents when making factual claims
+3. Abstain from answering when confidence is low
+
+## Response Format
+
+Describe the expected response format for this skill.`;
+                document.getElementById('wizard-body').value = body;
+            } else {
+                // Copy body from existing skill would require another API call
+                // For now, just use the template name as a placeholder
+                document.getElementById('wizard-body').value = `# ${title}
+
+## Based on: ${template}
+
+Customize this template for your new skill.`;
+            }
+        }
+
+        function selectThresholdSource(source, element) {
+            wizardThresholdSource = source;
+
+            // Update selection UI
+            document.querySelectorAll('#wizard-step-3 .template-option').forEach(el => {
+                el.classList.remove('selected');
+            });
+            element.classList.add('selected');
+
+            // Show/hide copy-from dropdown
+            document.getElementById('wizard-copy-from-section').style.display =
+                source === 'copy' ? 'block' : 'none';
+        }
+
+        function updateReviewPanel() {
+            const name = document.getElementById('wizard-name').value.trim();
+            const description = document.getElementById('wizard-description').value.trim();
+            const autoActivate = document.getElementById('wizard-auto-activate').checked;
+            const triggers = document.getElementById('wizard-triggers').value.trim();
+            const distance = document.getElementById('wizard-distance').value;
+            const coverage = document.getElementById('wizard-coverage').value;
+
+            document.getElementById('review-name').textContent = name;
+            document.getElementById('review-description').textContent =
+                description.length > 60 ? description.substring(0, 60) + '...' : description;
+            document.getElementById('review-auto-activate').textContent = autoActivate ? 'Yes' : 'No';
+            document.getElementById('review-triggers').textContent = triggers || 'None';
+            document.getElementById('review-distance').textContent = distance;
+            document.getElementById('review-coverage').textContent = coverage;
+            document.getElementById('review-threshold-source').textContent =
+                wizardThresholdSource === 'copy'
+                    ? `Copy from ${document.getElementById('wizard-copy-from').value}`
+                    : 'Defaults';
+        }
+
+        async function createSkill() {
+            const createBtn = document.getElementById('wizard-create-btn');
+            createBtn.classList.add('loading');
+
+            try {
+                const name = document.getElementById('wizard-name').value.trim();
+                const description = document.getElementById('wizard-description').value.trim();
+                const autoActivate = document.getElementById('wizard-auto-activate').checked;
+                const triggersStr = document.getElementById('wizard-triggers').value.trim();
+                const triggers = triggersStr ? triggersStr.split(',').map(t => t.trim()).filter(t => t) : [];
+                const body = document.getElementById('wizard-body').value;
+                const distance = parseFloat(document.getElementById('wizard-distance').value);
+                const coverage = parseFloat(document.getElementById('wizard-coverage').value);
+
+                const requestData = {
+                    name,
+                    description,
+                    auto_activate: autoActivate,
+                    triggers: triggers.length > 0 ? triggers : null,
+                    body: body || null,
+                };
+
+                if (wizardThresholdSource === 'copy') {
+                    requestData.copy_thresholds_from = document.getElementById('wizard-copy-from').value;
+                } else {
+                    requestData.thresholds = {
+                        abstention: {
+                            distance_threshold: distance,
+                            min_query_coverage: coverage
+                        }
+                    };
+                }
+
+                const response = await fetch('/api/skills', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(requestData)
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.detail || 'Failed to create skill');
+                }
+
+                const data = await response.json();
+                closeCreateWizard();
+                showStatus(`Skill '${name}' created successfully!`, 'success');
+
+                // Reload skills list
+                fetchSkills();
+            } catch (error) {
+                showWizardErrors([error.message]);
+            } finally {
+                createBtn.classList.remove('loading');
+            }
+        }
+
+        // Close wizard when clicking overlay background
+        document.getElementById('create-wizard-modal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeCreateWizard();
             }
         });
     </script>

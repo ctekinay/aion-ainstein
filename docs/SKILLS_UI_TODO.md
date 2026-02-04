@@ -230,36 +230,41 @@ POST /api/skills/{name}/validate
 
 ---
 
-## Phase 5: Skill Creation Wizard
+## Phase 5: Skill Creation Wizard - COMPLETED
 
 **Goal:** Create new skills without touching filesystem
 
 ### 5.1 Step 1: Basic Info
 
-- [ ] Skill name input (validates folder-safe name)
-- [ ] Description textarea
-- [ ] Auto-activate toggle
-- [ ] Triggers input (comma-separated)
+- [x] Skill name input (validates folder-safe name)
+- [x] Description textarea
+- [x] Auto-activate toggle
+- [x] Triggers input (comma-separated)
 
 ### 5.2 Step 2: Initial Rules
 
-- [ ] Template selector (blank, copy from existing)
-- [ ] Basic markdown editor
-- [ ] Identity section template
-- [ ] Quality rules template
+- [x] Template selector (blank, copy from existing)
+- [x] Basic markdown editor
+- [x] Identity section template
+- [x] Quality rules template
 
 ### 5.3 Step 3: Thresholds
 
-- [ ] Copy from existing skill or use defaults
-- [ ] Quick config sliders
-- [ ] Advanced config accordion
+- [x] Copy from existing skill or use defaults
+- [x] Quick config sliders (distance threshold, query coverage)
+- [ ] Advanced config accordion (deferred - not needed for MVP)
 
 ### 5.4 Step 4: Review & Create
 
-- [ ] Preview all settings
-- [ ] Validate everything
-- [ ] Create skill directory structure
-- [ ] Register in registry.yaml
+- [x] Preview all settings
+- [x] Validate everything
+- [x] Create skill directory structure
+- [x] Register in registry.yaml
+
+**Implementation:**
+- `src/skills/api.py` (added `create_skill()`, `delete_skill()`, `validate_skill_name()`, `list_skill_templates()`)
+- `src/chat_ui.py` (added `POST /api/skills`, `DELETE /api/skills/{name}`, `GET /api/skills/templates`, `POST /api/skills/validate-name`)
+- `src/static/skills.html` (added 4-step wizard modal with validation)
 
 ---
 
@@ -336,8 +341,10 @@ POST /api/skills/{name}/validate
 | `/api/skills/{name}/content` | GET | Get SKILL.md | 3 | Done |
 | `/api/skills/{name}/content` | PUT | Update SKILL.md | 3 | Done |
 | `/api/skills/defaults` | GET | Get default values | 3 | Done |
-| `/api/skills` | POST | Create new skill | 5 | - |
-| `/api/skills/{name}` | DELETE | Delete skill | 5 | - |
+| `/api/skills` | POST | Create new skill | 5 | Done |
+| `/api/skills/{name}` | DELETE | Delete skill | 5 | Done |
+| `/api/skills/templates` | GET | List skill templates | 5 | Done |
+| `/api/skills/validate-name` | POST | Validate skill name | 5 | Done |
 | `/api/skills/reload` | POST | Hot reload all | 6 | Done |
 
 ### Implementation Options

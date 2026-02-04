@@ -849,3 +849,486 @@ def _cleanup_skill_backups(directory: Path, keep_count: int) -> None:
         except OSError:
             pass
 
+
+# ============================================================================
+# Phase 5: Skill Creation Wizard
+# ============================================================================
+
+# Skill name validation pattern (folder-safe)
+SKILL_NAME_PATTERN = re.compile(r'^[a-z][a-z0-9-]*[a-z0-9]$')
+SKILL_NAME_MIN_LENGTH = 3
+SKILL_NAME_MAX_LENGTH = 50
+
+# Default thresholds template for new skills
+DEFAULT_THRESHOLDS_TEMPLATE = """# {skill_name} Thresholds
+# These values control when the system abstains from answering
+# Edit these to tune the quality vs. coverage tradeoff
+
+# Abstention Thresholds
+abstention:
+  # Maximum distance for relevance (lower = more similar, 0 = exact match)
+  # If the best document's distance exceeds this, abstain
+  distance_threshold: {distance_threshold}
+
+  # Minimum fraction of query terms that must appear in results
+  # If coverage is below this, abstain
+  min_query_coverage: {min_query_coverage}
+
+  # Single words that indicate a listing query
+  list_indicators:
+    - list
+    - show
+    - all
+    - exist
+    - exists
+    - available
+    - have
+    - many
+    - which
+    - enumerate
+
+  # Additional stop words to exclude from query term extraction
+  additional_stop_words:
+    - are
+    - there
+    - exist
+    - exists
+    - list
+    - show
+    - all
+    - me
+    - give
+
+# Retrieval Limits
+# Maximum number of documents to retrieve per collection
+retrieval_limits:
+  adr: {limit_adr}
+  principle: {limit_principle}
+  policy: {limit_policy}
+  vocabulary: {limit_vocabulary}
+
+# Content Truncation
+# Maximum characters of content to include per document
+truncation:
+  content_max_chars: {content_max_chars}
+  elysia_content_chars: {elysia_content_chars}
+  elysia_summary_chars: {elysia_summary_chars}
+  max_context_results: {max_context_results}
+"""
+
+# Default SKILL.md template for new skills
+DEFAULT_SKILL_TEMPLATE = """# {title}
+
+## Identity
+
+You are an AI assistant configured with the **{skill_name}** skill.
+
+{description}
+
+## Guidelines
+
+Add your skill-specific rules and guidelines here.
+
+### Quality Standards
+
+1. Ensure all responses are accurate and well-sourced
+2. Cite retrieved documents when making factual claims
+3. Abstain from answering when confidence is low
+
+## Response Format
+
+Describe the expected response format for this skill.
+"""
+
+
+def validate_skill_name(name: str) -> tuple[bool, list[str]]:
+    """Validate a skill name for creation.
+
+    Args:
+        name: Proposed skill name
+
+    Returns:
+        Tuple of (is_valid, list of error messages)
+    """
+    errors = []
+
+    if not name:
+        errors.append("Skill name is required")
+        return (False, errors)
+
+    if len(name) < SKILL_NAME_MIN_LENGTH:
+        errors.append(f"Skill name must be at least {SKILL_NAME_MIN_LENGTH} characters")
+
+    if len(name) > SKILL_NAME_MAX_LENGTH:
+        errors.append(f"Skill name must be at most {SKILL_NAME_MAX_LENGTH} characters")
+
+    if not SKILL_NAME_PATTERN.match(name):
+        errors.append(
+            "Skill name must start with a letter, end with a letter or number, "
+            "and contain only lowercase letters, numbers, and hyphens"
+        )
+
+    # Check if skill already exists
+    skill_path = SKILLS_DIR / name
+    if skill_path.exists():
+        errors.append(f"Skill '{name}' already exists")
+
+    return (len(errors) == 0, errors)
+
+
+def create_skill(
+    name: str,
+    description: str,
+    auto_activate: bool = False,
+    triggers: list[str] | None = None,
+    body: str | None = None,
+    copy_thresholds_from: str | None = None,
+    thresholds: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Create a new skill with all required files.
+
+    Creates:
+    - skills/{name}/SKILL.md
+    - skills/{name}/references/thresholds.yaml
+    - Updates skills/registry.yaml
+
+    Args:
+        name: Skill name (folder-safe)
+        description: Skill description
+        auto_activate: Whether to auto-activate this skill
+        triggers: List of trigger keywords
+        body: Markdown body content (uses template if not provided)
+        copy_thresholds_from: Copy thresholds from existing skill
+        thresholds: Custom thresholds (overrides copy_thresholds_from)
+
+    Returns:
+        Result with created skill info
+
+    Raises:
+        ValueError: If validation fails
+    """
+    # Validate skill name
+    is_valid, errors = validate_skill_name(name)
+    if not is_valid:
+        raise ValueError(f"Invalid skill name: {'; '.join(errors)}")
+
+    # Validate description
+    if not description or not description.strip():
+        raise ValueError("Skill description is required")
+
+    triggers = triggers or []
+
+    # Create skill directory structure
+    skill_path = SKILLS_DIR / name
+    references_path = skill_path / "references"
+
+    try:
+        skill_path.mkdir(parents=True, exist_ok=False)
+        references_path.mkdir(parents=True, exist_ok=False)
+    except FileExistsError:
+        raise ValueError(f"Skill directory already exists: {skill_path}")
+
+    # Create SKILL.md
+    metadata = {
+        "name": name,
+        "description": description,
+    }
+    if auto_activate:
+        metadata["auto_activate"] = auto_activate
+    if triggers:
+        metadata["triggers"] = triggers
+
+    # Use provided body or generate from template
+    if body is None or not body.strip():
+        title = name.replace("-", " ").title()
+        body = DEFAULT_SKILL_TEMPLATE.format(
+            title=title,
+            skill_name=name,
+            description=description,
+        )
+
+    skill_content = _build_skill_content(metadata, body)
+    skill_md_path = skill_path / "SKILL.md"
+    skill_md_path.write_text(skill_content, encoding="utf-8")
+
+    # Create thresholds.yaml
+    thresholds_content = _create_thresholds_content(
+        name, copy_thresholds_from, thresholds
+    )
+    thresholds_path = references_path / "thresholds.yaml"
+    thresholds_path.write_text(thresholds_content, encoding="utf-8")
+
+    # Register in registry.yaml
+    _register_skill_in_registry(name, description, auto_activate, triggers)
+
+    # Reload registry to pick up new skill
+    _registry.reload()
+
+    return {
+        "success": True,
+        "skill_name": name,
+        "skill_path": str(skill_path),
+        "files_created": [
+            str(skill_md_path),
+            str(thresholds_path),
+        ],
+        "message": f"Skill '{name}' created successfully",
+    }
+
+
+def _create_thresholds_content(
+    skill_name: str,
+    copy_from: str | None,
+    custom_thresholds: dict[str, Any] | None,
+) -> str:
+    """Create thresholds.yaml content for a new skill.
+
+    Args:
+        skill_name: Name of the new skill
+        copy_from: Skill to copy thresholds from
+        custom_thresholds: Custom threshold values
+
+    Returns:
+        Thresholds YAML content
+    """
+    # If copying from existing skill
+    if copy_from:
+        source_path = SKILLS_DIR / copy_from / "references" / "thresholds.yaml"
+        if source_path.exists():
+            content = source_path.read_text(encoding="utf-8")
+            # Update the comment at the top
+            lines = content.split("\n")
+            if lines and lines[0].startswith("#"):
+                lines[0] = f"# {skill_name} Thresholds"
+            return "\n".join(lines)
+
+    # Build from template with custom or default values
+    values = {
+        "skill_name": skill_name,
+        "distance_threshold": DEFAULT_DISTANCE_THRESHOLD,
+        "min_query_coverage": DEFAULT_MIN_QUERY_COVERAGE,
+        "limit_adr": DEFAULT_LIMIT_ADR,
+        "limit_principle": DEFAULT_LIMIT_PRINCIPLE,
+        "limit_policy": DEFAULT_LIMIT_POLICY,
+        "limit_vocabulary": DEFAULT_LIMIT_VOCABULARY,
+        "content_max_chars": DEFAULT_CONTENT_MAX_CHARS,
+        "elysia_content_chars": DEFAULT_ELYSIA_CONTENT_CHARS,
+        "elysia_summary_chars": DEFAULT_ELYSIA_SUMMARY_CHARS,
+        "max_context_results": DEFAULT_MAX_CONTEXT_RESULTS,
+    }
+
+    # Override with custom thresholds if provided
+    if custom_thresholds:
+        abstention = custom_thresholds.get("abstention", {})
+        if "distance_threshold" in abstention:
+            values["distance_threshold"] = abstention["distance_threshold"]
+        if "min_query_coverage" in abstention:
+            values["min_query_coverage"] = abstention["min_query_coverage"]
+
+        limits = custom_thresholds.get("retrieval_limits", {})
+        for key in ["adr", "principle", "policy", "vocabulary"]:
+            if key in limits:
+                values[f"limit_{key}"] = limits[key]
+
+        truncation = custom_thresholds.get("truncation", {})
+        for key in ["content_max_chars", "elysia_content_chars",
+                    "elysia_summary_chars", "max_context_results"]:
+            if key in truncation:
+                values[key] = truncation[key]
+
+    return DEFAULT_THRESHOLDS_TEMPLATE.format(**values)
+
+
+def _register_skill_in_registry(
+    name: str,
+    description: str,
+    auto_activate: bool,
+    triggers: list[str],
+) -> None:
+    """Add a new skill to registry.yaml using targeted line editing.
+
+    Preserves comments and formatting in the registry file.
+
+    Args:
+        name: Skill name
+        description: Skill description
+        auto_activate: Whether to auto-activate
+        triggers: List of trigger keywords
+    """
+    registry_path = SKILLS_DIR / "registry.yaml"
+
+    if not registry_path.exists():
+        raise ValueError(f"Registry not found: {registry_path}")
+
+    # Read current content
+    content = registry_path.read_text(encoding="utf-8")
+    lines = content.splitlines(keepends=True)
+
+    # Find the skills: section
+    skills_line_idx = None
+    for i, line in enumerate(lines):
+        if re.match(r'^skills:\s*$', line):
+            skills_line_idx = i
+            break
+
+    if skills_line_idx is None:
+        raise ValueError("Could not find 'skills:' section in registry.yaml")
+
+    # Build the new skill entry
+    new_entry_lines = [
+        f"\n  - name: {name}\n",
+        f"    path: {name}/SKILL.md\n",
+        f"    description: \"{description}\"\n",
+        f"    enabled: true\n",
+        f"    auto_activate: {'true' if auto_activate else 'false'}\n",
+    ]
+
+    if triggers:
+        new_entry_lines.append("    triggers:\n")
+        for trigger in triggers:
+            new_entry_lines.append(f"      - \"{trigger}\"\n")
+
+    # Find where to insert (after the last skill entry, before any comments at end)
+    insert_idx = len(lines)
+    for i in range(len(lines) - 1, skills_line_idx, -1):
+        line = lines[i]
+        # Skip empty lines and comments at the end
+        if line.strip() == "" or line.strip().startswith("#"):
+            insert_idx = i
+        else:
+            break
+
+    # Insert the new skill entry
+    for j, entry_line in enumerate(new_entry_lines):
+        lines.insert(insert_idx + j, entry_line)
+
+    # Write back
+    registry_path.write_text("".join(lines), encoding="utf-8")
+
+
+def delete_skill(skill_name: str) -> dict[str, Any]:
+    """Delete a skill and all its files.
+
+    Args:
+        skill_name: Name of the skill to delete
+
+    Returns:
+        Result with deletion info
+
+    Raises:
+        ValueError: If skill not found or is the default skill
+    """
+    # Check if skill exists
+    skill_path = SKILLS_DIR / skill_name
+
+    if not skill_path.exists():
+        raise ValueError(f"Skill not found: {skill_name}")
+
+    # Don't allow deleting the default skill
+    if skill_name == DEFAULT_SKILL:
+        raise ValueError(f"Cannot delete the default skill: {skill_name}")
+
+    # Create backup before deletion
+    backup_path = _backup_skill_for_deletion(skill_path)
+
+    # Remove from registry.yaml first (using targeted line editing)
+    _unregister_skill_from_registry(skill_name)
+
+    # Delete the skill directory
+    shutil.rmtree(skill_path)
+
+    # Reload registry
+    _registry.reload()
+
+    return {
+        "success": True,
+        "skill_name": skill_name,
+        "backup_path": backup_path,
+        "message": f"Skill '{skill_name}' deleted successfully",
+    }
+
+
+def _backup_skill_for_deletion(skill_path: Path) -> str:
+    """Create a backup of skill directory before deletion.
+
+    Args:
+        skill_path: Path to the skill directory
+
+    Returns:
+        Path to the backup archive
+    """
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    backup_name = f"{skill_path.name}.deleted.{timestamp}"
+    backup_path = SKILLS_DIR / ".deleted" / backup_name
+
+    # Create .deleted directory if it doesn't exist
+    backup_path.parent.mkdir(parents=True, exist_ok=True)
+
+    # Copy skill directory to backup
+    shutil.copytree(skill_path, backup_path)
+
+    return str(backup_path)
+
+
+def _unregister_skill_from_registry(skill_name: str) -> None:
+    """Remove a skill from registry.yaml using targeted line editing.
+
+    Preserves comments and formatting in the registry file.
+
+    Args:
+        skill_name: Name of the skill to remove
+    """
+    registry_path = SKILLS_DIR / "registry.yaml"
+
+    if not registry_path.exists():
+        return
+
+    content = registry_path.read_text(encoding="utf-8")
+    lines = content.splitlines(keepends=True)
+
+    # Find the skill entry and its extent
+    skill_start_idx = None
+    skill_end_idx = None
+    skill_indent = None
+
+    for i, line in enumerate(lines):
+        # Look for the skill's name entry
+        name_match = re.match(r'^(\s*)-\s*name:\s*["\']?([^"\'#\n]+)["\']?', line)
+        if name_match:
+            name = name_match.group(2).strip()
+            if name == skill_name:
+                skill_start_idx = i
+                skill_indent = len(name_match.group(1))
+            elif skill_start_idx is not None:
+                # We've found the next skill, so current skill ends here
+                skill_end_idx = i
+                break
+
+    if skill_start_idx is None:
+        return  # Skill not found in registry
+
+    # If skill_end_idx is None, skill goes to end of file
+    if skill_end_idx is None:
+        skill_end_idx = len(lines)
+
+    # Remove the skill lines
+    del lines[skill_start_idx:skill_end_idx]
+
+    # Write back
+    registry_path.write_text("".join(lines), encoding="utf-8")
+
+
+def list_skill_templates() -> list[dict[str, Any]]:
+    """List available skills that can be used as templates.
+
+    Returns:
+        List of skill info for template selection
+    """
+    templates = []
+    for entry in _registry.list_skills():
+        templates.append({
+            "name": entry.name,
+            "description": entry.description,
+        })
+    return templates
+
