@@ -512,6 +512,39 @@ class ElysiaRAGSystem:
         question_lower = question.lower()
         all_results = []
 
+        # =====================================================================
+        # LISTING_PATTERNS: Detect "list all" type queries
+        # =====================================================================
+        # These patterns catch questions asking to enumerate all items rather
+        # than search for specific content. Such queries should bypass the
+        # normal search + abstention logic because:
+        #   - They don't contain searchable terms (just "what", "list", "show")
+        #   - The abstention check fails with 0% coverage
+        #   - The correct response is to fetch ALL items, not search
+        #
+        # Pattern matching is intentionally broad to catch variations like:
+        #   - "What ADRs exist in the system?"
+        #   - "List all ADRs"
+        #   - "Show me the architecture decisions"
+        #   - "What are all the ADRs?"
+        # =====================================================================
+        list_adr_patterns = [
+            "what adr", "list adr", "list all adr", "show adr", "show all adr",
+            "adrs exist", "all adrs", "all the adr", "architecture decision"
+        ]
+        if any(pattern in question_lower for pattern in list_adr_patterns):
+            logger.info("Detected ADR listing query, using direct fetch")
+            return await self._handle_list_adrs_query()
+
+        list_principle_patterns = [
+            "what principle", "list principle", "list all principle",
+            "show principle", "principles exist", "all principles",
+            "all the principle", "governance principle"
+        ]
+        if any(pattern in question_lower for pattern in list_principle_patterns):
+            logger.info("Detected principles listing query, using direct fetch")
+            return await self._handle_list_principles_query()
+
         # Determine collection suffix based on provider
         # Local collections use client-side embeddings (Nomic via Ollama)
         # OpenAI collections use Weaviate's text2vec-openai vectorizer
@@ -751,6 +784,138 @@ Guidelines:
         response = openai_client.chat.completions.create(**completion_kwargs)
 
         return response.choices[0].message.content
+
+    # =========================================================================
+    # LISTING QUERY HANDLERS (uvloop fallback)
+    # =========================================================================
+    #
+    # CONTEXT: On Linux systems, uvloop is commonly used as the default asyncio
+    # event loop for better performance. However, the Elysia library attempts to
+    # patch the event loop and does not support uvloop, causing this error:
+    #
+    #   "Elysia tree failed: Can't patch loop of type <class 'uvloop.Loop'>"
+    #
+    # When this happens, the system falls back to _direct_query(), which performs
+    # keyword-based searches. However, "list all" type queries (e.g., "What ADRs
+    # exist?") don't work well with keyword search because:
+    #
+    #   1. The query terms like "adrs", "exist", "system" are not typically
+    #      found in ADR document content
+    #   2. The abstention logic checks for query term coverage and finds 0%
+    #   3. The system incorrectly abstains from answering
+    #
+    # SOLUTION: These helper methods detect "list all" type queries and handle
+    # them directly by fetching all documents from the collection, bypassing
+    # the search + abstention logic entirely.
+    #
+    # MANUAL IMPLEMENTATION: If you need to apply this fix manually:
+    #   1. Add _handle_list_adrs_query() and _handle_list_principles_query()
+    #   2. Modify _direct_query() to detect listing patterns at the start
+    #   3. See the LISTING_PATTERNS comments for the detection logic
+    # =========================================================================
+
+    async def _handle_list_adrs_query(self) -> tuple[str, list[dict]]:
+        """Handle 'list all ADRs' type queries directly.
+
+        This method is called when the Elysia tree fails (e.g., due to uvloop
+        incompatibility) and the user asks a listing question like:
+        - "What ADRs exist in the system?"
+        - "List all architecture decisions"
+        - "Show me all ADRs"
+
+        Instead of doing a keyword search (which fails due to 0% term coverage),
+        this fetches all ADR documents directly from the collection.
+
+        Returns:
+            Tuple of (formatted response text, list of ADR objects)
+        """
+        suffix = "_OpenAI" if settings.llm_provider == "openai" else ""
+        all_results = []
+
+        try:
+            collection = self.client.collections.get(f"ArchitecturalDecision{suffix}")
+            results = collection.query.fetch_objects(
+                limit=100,
+                return_properties=["title", "status", "file_path"],
+            )
+
+            for obj in results.objects:
+                title = obj.properties.get("title", "")
+                file_path = obj.properties.get("file_path", "")
+                # Skip template documents
+                if "template" in title.lower() or "template" in file_path.lower():
+                    continue
+                all_results.append({
+                    "type": "ADR",
+                    "title": title,
+                    "status": obj.properties.get("status", ""),
+                    "file": file_path.split("/")[-1] if file_path else "",
+                })
+
+            # Sort by filename for consistent ordering
+            all_results = sorted(all_results, key=lambda x: x.get("file", ""))
+
+        except Exception as e:
+            logger.warning(f"Error listing ADRs: {e}")
+            return "I encountered an error while retrieving the ADR list.", []
+
+        if not all_results:
+            return "No Architectural Decision Records (ADRs) were found in the knowledge base.", []
+
+        # Format response
+        response_lines = [f"I found {len(all_results)} Architectural Decision Records (ADRs):\n"]
+        for adr in all_results:
+            status_badge = f"[{adr['status']}]" if adr.get('status') else ""
+            response_lines.append(f"- **{adr['title']}** {status_badge}")
+
+        return "\n".join(response_lines), all_results
+
+    async def _handle_list_principles_query(self) -> tuple[str, list[dict]]:
+        """Handle 'list all principles' type queries directly.
+
+        This method is called when the Elysia tree fails (e.g., due to uvloop
+        incompatibility) and the user asks a listing question like:
+        - "What principles exist?"
+        - "List all governance principles"
+        - "Show me the architecture principles"
+
+        Instead of doing a keyword search (which fails due to 0% term coverage),
+        this fetches all principle documents directly from the collection.
+
+        Returns:
+            Tuple of (formatted response text, list of principle objects)
+        """
+        suffix = "_OpenAI" if settings.llm_provider == "openai" else ""
+        all_results = []
+
+        try:
+            collection = self.client.collections.get(f"Principle{suffix}")
+            results = collection.query.fetch_objects(
+                limit=100,
+                return_properties=["title", "doc_type"],
+            )
+
+            for obj in results.objects:
+                all_results.append({
+                    "type": "Principle",
+                    "title": obj.properties.get("title", ""),
+                    "doc_type": obj.properties.get("doc_type", ""),
+                })
+
+        except Exception as e:
+            logger.warning(f"Error listing principles: {e}")
+            return "I encountered an error while retrieving the principles list.", []
+
+        if not all_results:
+            return "No principles were found in the knowledge base.", []
+
+        # Format response
+        response_lines = [f"I found {len(all_results)} principles:\n"]
+        for principle in all_results:
+            doc_type = f"({principle['doc_type']})" if principle.get('doc_type') else ""
+            response_lines.append(f"- **{principle['title']}** {doc_type}")
+
+        return "\n".join(response_lines), all_results
 
     def query_sync(self, question: str) -> str:
         """Synchronous query wrapper.
