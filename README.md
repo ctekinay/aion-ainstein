@@ -79,7 +79,7 @@ The system integrates with [Weaviate's Elysia](https://weaviate.io/blog/elysia-a
     │  ┌─────────────────────┐  ┌───────────────────────────┐ │
     │  │ Ollama (default)    │  │ OpenAI (alternative)      │ │
     │  │ Embed: nomic-v2-moe │  │ Embed: text-embed-3-small │ │
-    │  │ Chat: smollm3       │  │ Chat: gpt-4o-mini         │ │
+    │  │ Chat: smollm3/qwen3 │  │ Chat: gpt-4o-mini         │ │
     │  │ Local, Free         │  │ Cloud, Paid               │ │
     │  └─────────────────────┘  └───────────────────────────┘ │
     └─────────────────────────────────────────────────────────┘
@@ -541,14 +541,18 @@ netstat -ano | findstr 11434
 |-------|------|----------|
 | `alibayram/smollm3:latest` | 2GB | Default, lightweight, fast |
 | `llama3.2:3b` | 2GB | Better quality, similar size |
+| `qwen3:4b` | 2.6GB | Excellent reasoning, multilingual |
 | `mistral:7b` | 4GB | Higher quality, needs more RAM |
-| `llama3.2:latest` | 4GB | Best balance of quality/speed |
+| `qwen3:8b` | 5GB | Best reasoning, requires 8GB+ RAM |
+| `llama3.2:latest` | 4GB | Good balance of quality/speed |
+
+**Recommended for better quality:** `qwen3:4b` offers excellent reasoning capabilities while staying lightweight.
 
 To use a different model:
 ```bash
-ollama pull llama3.2:3b
+ollama pull qwen3:4b
 # Then update .env:
-# OLLAMA_MODEL=llama3.2:3b
+# OLLAMA_MODEL=qwen3:4b
 ```
 
 ---
