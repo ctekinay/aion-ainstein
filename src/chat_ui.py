@@ -1450,7 +1450,7 @@ async def skills_page():
     static_dir = Path(__file__).parent / "static"
     skills_path = static_dir / "skills.html"
     if skills_path.exists():
-        return HTMLResponse(skills_path.read_text())
+        return HTMLResponse(skills_path.read_text(encoding="utf-8"))
     else:
         return HTMLResponse("<h1>Skills UI</h1><p>skills.html not found.</p>")
 
