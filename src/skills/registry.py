@@ -5,7 +5,10 @@ which skills should be activated for a given query.
 """
 
 import logging
+import re
+import shutil
 from dataclasses import dataclass, field
+from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
@@ -191,6 +194,9 @@ class SkillRegistry:
     def set_skill_enabled(self, skill_name: str, enabled: bool) -> bool:
         """Update the enabled status of a skill in registry.yaml.
 
+        Uses targeted line editing to preserve comments and formatting.
+        Creates a backup before making changes.
+
         Args:
             skill_name: Name of the skill to update
             enabled: New enabled status
@@ -206,30 +212,75 @@ class SkillRegistry:
         if not registry_path.exists():
             raise ValueError(f"Registry not found: {registry_path}")
 
-        try:
-            content = yaml.safe_load(registry_path.read_text(encoding="utf-8"))
-        except Exception as e:
-            raise ValueError(f"Failed to parse registry: {e}")
+        # Read file as lines to preserve comments and formatting
+        lines = registry_path.read_text(encoding="utf-8").splitlines(keepends=True)
 
-        if not content or "skills" not in content:
-            raise ValueError("Empty or invalid registry format")
-
-        # Find and update the skill
+        # Find the skill section and its enabled line
         skill_found = False
-        for skill_data in content.get("skills", []):
-            if skill_data.get("name") == skill_name:
-                skill_data["enabled"] = enabled
-                skill_found = True
-                break
+        enabled_line_idx = None
+        in_target_skill = False
+        skill_indent = None
+
+        for i, line in enumerate(lines):
+            # Check for skill name entry (e.g., "  - name: skill-name")
+            name_match = re.match(r'^(\s*)-\s*name:\s*["\']?([^"\'#\n]+)["\']?', line)
+            if name_match:
+                indent = name_match.group(1)
+                name = name_match.group(2).strip()
+                if name == skill_name:
+                    skill_found = True
+                    in_target_skill = True
+                    skill_indent = len(indent)
+                else:
+                    in_target_skill = False
+
+            # If we're in the target skill, look for enabled line
+            if in_target_skill:
+                enabled_match = re.match(r'^(\s*)enabled:\s*(true|false)\s*(#.*)?$', line, re.IGNORECASE)
+                if enabled_match:
+                    enabled_line_idx = i
+                    break
+
+                # Check if we've moved to a different skill (new list item at same or lower indent)
+                if i > 0:
+                    new_skill_match = re.match(r'^(\s*)-\s*name:', line)
+                    if new_skill_match and len(new_skill_match.group(1)) <= skill_indent:
+                        # We've passed the skill without finding enabled line
+                        break
 
         if not skill_found:
             raise ValueError(f"Skill not found in registry: {skill_name}")
 
+        # Create backup before modifying
+        self._backup_registry(registry_path)
+
+        # Update the enabled line or insert it if not found
+        enabled_value = "true" if enabled else "false"
+
+        if enabled_line_idx is not None:
+            # Replace the existing enabled line, preserving any trailing comment
+            old_line = lines[enabled_line_idx]
+            comment_match = re.search(r'(#.*)$', old_line)
+            comment = comment_match.group(1) if comment_match else ""
+            indent_match = re.match(r'^(\s*)', old_line)
+            indent = indent_match.group(1) if indent_match else "    "
+            lines[enabled_line_idx] = f"{indent}enabled: {enabled_value}"
+            if comment:
+                lines[enabled_line_idx] += f"  {comment}"
+            lines[enabled_line_idx] += "\n"
+        else:
+            # Need to insert enabled line after the name line
+            # Find the name line for this skill and insert after it
+            for i, line in enumerate(lines):
+                name_match = re.match(r'^(\s*)-\s*name:\s*["\']?([^"\'#\n]+)["\']?', line)
+                if name_match and name_match.group(2).strip() == skill_name:
+                    # Insert enabled line after name line
+                    indent = "    "  # Standard YAML indent
+                    lines.insert(i + 1, f"{indent}enabled: {enabled_value}\n")
+                    break
+
         # Write back to file
-        registry_path.write_text(
-            yaml.dump(content, default_flow_style=False, sort_keys=False, allow_unicode=True),
-            encoding="utf-8"
-        )
+        registry_path.write_text("".join(lines), encoding="utf-8")
 
         # Update in-memory entry
         if skill_name in self._entries:
@@ -237,3 +288,51 @@ class SkillRegistry:
 
         logger.info(f"Set skill '{skill_name}' enabled={enabled}")
         return True
+
+    def _backup_registry(self, registry_path: Path) -> str:
+        """Create a backup of registry.yaml before modifying.
+
+        Args:
+            registry_path: Path to registry.yaml
+
+        Returns:
+            Path to the backup file
+        """
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        backup_path = registry_path.with_suffix(f".yaml.bak.{timestamp}")
+        simple_backup = registry_path.with_suffix(".yaml.bak")
+
+        shutil.copy(registry_path, backup_path)
+        shutil.copy(registry_path, simple_backup)
+
+        # Clean up old timestamped backups (keep last 5)
+        self._cleanup_registry_backups(registry_path.parent)
+
+        logger.debug(f"Created registry backup: {simple_backup}")
+        return str(simple_backup)
+
+    def _cleanup_registry_backups(self, directory: Path, keep_count: int = 5) -> None:
+        """Remove old registry backup files, keeping only the most recent ones.
+
+        Args:
+            directory: Directory containing backup files
+            keep_count: Number of backups to keep
+        """
+        backup_pattern = "registry.yaml.bak.*"
+        backups = []
+
+        for backup_file in directory.glob(backup_pattern):
+            # Skip the simple .bak file
+            if backup_file.suffix == ".bak":
+                continue
+            backups.append(backup_file)
+
+        # Sort by modification time (newest first)
+        backups.sort(key=lambda p: p.stat().st_mtime, reverse=True)
+
+        # Remove old backups beyond keep_count
+        for old_backup in backups[keep_count:]:
+            try:
+                old_backup.unlink()
+            except OSError:
+                pass

@@ -1545,15 +1545,15 @@
             }
 
             container.innerHTML = skills.map(skill => `
-                <div class="skill-item">
+                <div class="skill-item" data-skill-name="${escapeAttr(skill.name)}">
                     <div class="skill-info">
                         <div class="skill-name">
-                            ${skill.name}
+                            ${escapeHtml(skill.name)}
                             ${skill.enabled ? '<span class="badge badge-active">ACTIVE</span>' : '<span class="badge badge-disabled">DISABLED</span>'}
                             ${skill.is_default ? '<span class="badge badge-default">DEFAULT</span>' : ''}
-                            <button class="btn btn-secondary skill-action-btn" onclick="openRuleEditor('${skill.name}')">Edit Rules</button>
+                            <button class="btn btn-secondary skill-action-btn skill-edit-btn">Edit Rules</button>
                         </div>
-                        <div class="skill-description">${skill.description || 'No description'}</div>
+                        <div class="skill-description">${escapeHtml(skill.description || 'No description')}</div>
                         <div class="skill-meta">
                             Auto-activate: ${skill.auto_activate ? 'Yes' : 'No'} |
                             Distance: ${skill.distance_threshold} |
@@ -1563,8 +1563,7 @@
                     <div class="skill-toggle">
                         <span class="skill-toggle-label">Enabled</span>
                         <label class="toggle-switch">
-                            <input type="checkbox" ${skill.enabled ? 'checked' : ''}
-                                   onchange="toggleSkillEnabled('${skill.name}', this.checked)">
+                            <input type="checkbox" class="skill-enabled-toggle" ${skill.enabled ? 'checked' : ''}>
                             <span class="toggle-slider"></span>
                         </label>
                     </div>
@@ -1667,6 +1666,16 @@
             const div = document.createElement('div');
             div.textContent = text;
             return div.innerHTML;
+        }
+
+        function escapeAttr(text) {
+            // Escape for use in HTML attributes
+            return text
+                .replace(/&/g, '&amp;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;');
         }
 
         // Modal State
@@ -1945,6 +1954,27 @@
 
         // Initialize
         document.addEventListener('DOMContentLoaded', fetchSkills);
+
+        // Event delegation for skill list (avoids issues with quotes in skill names)
+        document.getElementById('skills-list').addEventListener('click', function(e) {
+            const skillItem = e.target.closest('.skill-item');
+            if (!skillItem) return;
+            const skillName = skillItem.dataset.skillName;
+
+            // Handle Edit Rules button
+            if (e.target.classList.contains('skill-edit-btn')) {
+                openRuleEditor(skillName);
+            }
+        });
+
+        document.getElementById('skills-list').addEventListener('change', function(e) {
+            if (e.target.classList.contains('skill-enabled-toggle')) {
+                const skillItem = e.target.closest('.skill-item');
+                if (!skillItem) return;
+                const skillName = skillItem.dataset.skillName;
+                toggleSkillEnabled(skillName, e.target.checked);
+            }
+        });
 
         // Allow Enter key to run test
         document.getElementById('test-query').addEventListener('keypress', function(e) {
