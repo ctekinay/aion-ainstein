@@ -976,6 +976,47 @@ def validate_skill_name(name: str) -> tuple[bool, list[str]]:
     return (len(errors) == 0, errors)
 
 
+def _validate_skill_reference(skill_ref: str) -> bool:
+    """Validate a skill reference to prevent path traversal.
+
+    This is a security check that ensures skill references
+    (for delete, copy, etc.) don't contain path traversal sequences.
+
+    Args:
+        skill_ref: A skill name reference
+
+    Returns:
+        True if the reference is safe, False otherwise
+    """
+    if not skill_ref:
+        return False
+
+    # Must match the valid skill name pattern
+    if not SKILL_NAME_PATTERN.match(skill_ref):
+        return False
+
+    # Extra safety: ensure no path separators or traversal
+    if "/" in skill_ref or "\\" in skill_ref or ".." in skill_ref:
+        return False
+
+    return True
+
+
+def _escape_yaml_string(s: str) -> str:
+    """Escape a string for YAML double-quoted scalar.
+
+    Args:
+        s: String to escape
+
+    Returns:
+        Escaped string safe for YAML
+    """
+    if not s:
+        return ""
+    # Escape backslashes first, then double quotes
+    return s.replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n")
+
+
 def create_skill(
     name: str,
     description: str,
@@ -1093,14 +1134,21 @@ def _create_thresholds_content(
     """
     # If copying from existing skill
     if copy_from:
-        source_path = SKILLS_DIR / copy_from / "references" / "thresholds.yaml"
-        if source_path.exists():
-            content = source_path.read_text(encoding="utf-8")
-            # Update the comment at the top
-            lines = content.split("\n")
-            if lines and lines[0].startswith("#"):
-                lines[0] = f"# {skill_name} Thresholds"
-            return "\n".join(lines)
+        # SECURITY: Validate copy_from to prevent path traversal
+        if not _validate_skill_reference(copy_from):
+            logger.warning(f"Invalid copy_from skill reference: {copy_from}")
+            # Fall through to use defaults instead
+        else:
+            source_path = SKILLS_DIR / copy_from / "references" / "thresholds.yaml"
+            # SECURITY: Verify resolved path is within SKILLS_DIR
+            resolved_source = source_path.resolve()
+            if str(resolved_source).startswith(str(SKILLS_DIR.resolve())) and source_path.exists():
+                content = source_path.read_text(encoding="utf-8")
+                # Update the comment at the top
+                lines = content.split("\n")
+                if lines and lines[0].startswith("#"):
+                    lines[0] = f"# {skill_name} Thresholds"
+                return "\n".join(lines)
 
     # Build from template with custom or default values
     values = {
@@ -1174,11 +1222,12 @@ def _register_skill_in_registry(
     if skills_line_idx is None:
         raise ValueError("Could not find 'skills:' section in registry.yaml")
 
-    # Build the new skill entry
+    # Build the new skill entry with proper escaping
+    escaped_description = _escape_yaml_string(description)
     new_entry_lines = [
         f"\n  - name: {name}\n",
         f"    path: {name}/SKILL.md\n",
-        f"    description: \"{description}\"\n",
+        f'    description: "{escaped_description}"\n',
         f"    enabled: true\n",
         f"    auto_activate: {'true' if auto_activate else 'false'}\n",
     ]
@@ -1186,7 +1235,8 @@ def _register_skill_in_registry(
     if triggers:
         new_entry_lines.append("    triggers:\n")
         for trigger in triggers:
-            new_entry_lines.append(f"      - \"{trigger}\"\n")
+            escaped_trigger = _escape_yaml_string(trigger)
+            new_entry_lines.append(f'      - "{escaped_trigger}"\n')
 
     # Find where to insert (after the last skill entry, before any comments at end)
     insert_idx = len(lines)
@@ -1216,10 +1266,19 @@ def delete_skill(skill_name: str) -> dict[str, Any]:
         Result with deletion info
 
     Raises:
-        ValueError: If skill not found or is the default skill
+        ValueError: If skill not found, is the default skill, or name is invalid
     """
+    # SECURITY: Validate skill_name to prevent path traversal
+    if not _validate_skill_reference(skill_name):
+        raise ValueError(f"Invalid skill name: {skill_name}")
+
     # Check if skill exists
     skill_path = SKILLS_DIR / skill_name
+
+    # SECURITY: Extra validation - ensure resolved path is within SKILLS_DIR
+    resolved_path = skill_path.resolve()
+    if not str(resolved_path).startswith(str(SKILLS_DIR.resolve())):
+        raise ValueError(f"Invalid skill path: {skill_name}")
 
     if not skill_path.exists():
         raise ValueError(f"Skill not found: {skill_name}")

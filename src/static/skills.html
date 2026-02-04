@@ -1901,6 +1901,32 @@
             }
         }
 
+        async function deleteSkill(skillName) {
+            // Confirm deletion
+            if (!confirm(`Are you sure you want to delete the skill "${skillName}"?\n\nThis will remove all skill files. A backup will be created in the .deleted folder.`)) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/skills/${encodeURIComponent(skillName)}`, {
+                    method: 'DELETE'
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.detail || 'Failed to delete skill');
+                }
+
+                const data = await response.json();
+                showStatus(data.message, 'success');
+
+                // Refresh skills list
+                fetchSkills();
+            } catch (error) {
+                showStatus('Error deleting skill: ' + error.message, 'error');
+            }
+        }
+
         function showRestartWarning() {
             document.getElementById('restart-warning').classList.add('show');
         }
@@ -1951,6 +1977,7 @@
                             ${skill.enabled ? '<span class="badge badge-active">ACTIVE</span>' : '<span class="badge badge-disabled">DISABLED</span>'}
                             ${skill.is_default ? '<span class="badge badge-default">DEFAULT</span>' : ''}
                             <button class="btn btn-secondary skill-action-btn skill-edit-btn">Edit Rules</button>
+                            ${!skill.is_default ? '<button class="btn btn-danger skill-action-btn skill-delete-btn">Delete</button>' : ''}
                         </div>
                         <div class="skill-description">${escapeHtml(skill.description || 'No description')}</div>
                         <div class="skill-meta">
@@ -2363,6 +2390,11 @@
             // Handle Edit Rules button
             if (e.target.classList.contains('skill-edit-btn')) {
                 openRuleEditor(skillName);
+            }
+
+            // Handle Delete button
+            if (e.target.classList.contains('skill-delete-btn')) {
+                deleteSkill(skillName);
             }
         });
 
