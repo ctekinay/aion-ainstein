@@ -12,7 +12,7 @@ from weaviate import WeaviateClient
 from weaviate.classes.query import Filter, MetadataQuery
 
 from .config import settings
-from .skills import SkillRegistry
+from .skills import SkillRegistry, DEFAULT_SKILL
 
 # Initialize skill registry
 _skill_registry = SkillRegistry()
@@ -29,7 +29,7 @@ def _get_abstention_thresholds() -> tuple[float, float]:
         Tuple of (distance_threshold, min_query_coverage)
     """
     try:
-        return _skill_registry.loader.get_abstention_thresholds("rag-quality-assurance")
+        return _skill_registry.loader.get_abstention_thresholds(DEFAULT_SKILL)
     except Exception:
         return _DEFAULT_DISTANCE_THRESHOLD, _DEFAULT_MIN_QUERY_COVERAGE
 
@@ -532,6 +532,13 @@ class ElysiaRAGSystem:
         question_lower = question.lower()
         all_results = []
 
+        # Load retrieval limits from skill configuration
+        retrieval_limits = _skill_registry.loader.get_retrieval_limits(DEFAULT_SKILL)
+        adr_limit = retrieval_limits.get("adr", 8)
+        principle_limit = retrieval_limits.get("principle", 6)
+        policy_limit = retrieval_limits.get("policy", 4)
+        vocab_limit = retrieval_limits.get("vocabulary", 4)
+
         # Determine collection suffix based on provider
         # Local collections use client-side embeddings (Nomic via Ollama)
         # OpenAI collections use Weaviate's text2vec-openai vectorizer
@@ -558,7 +565,7 @@ class ElysiaRAGSystem:
             try:
                 collection = self.client.collections.get(f"ArchitecturalDecision{suffix}")
                 results = collection.query.hybrid(
-                    query=question, vector=query_vector, limit=5, alpha=settings.alpha_vocabulary,
+                    query=question, vector=query_vector, limit=adr_limit, alpha=settings.alpha_vocabulary,
                     filters=content_filter, return_metadata=metadata_request
                 )
                 for obj in results.objects:
@@ -576,7 +583,7 @@ class ElysiaRAGSystem:
             try:
                 collection = self.client.collections.get(f"Principle{suffix}")
                 results = collection.query.hybrid(
-                    query=question, vector=query_vector, limit=5, alpha=settings.alpha_vocabulary,
+                    query=question, vector=query_vector, limit=principle_limit, alpha=settings.alpha_vocabulary,
                     filters=content_filter, return_metadata=metadata_request
                 )
                 for obj in results.objects:
@@ -594,7 +601,7 @@ class ElysiaRAGSystem:
             try:
                 collection = self.client.collections.get(f"PolicyDocument{suffix}")
                 results = collection.query.hybrid(
-                    query=question, vector=query_vector, limit=5, alpha=settings.alpha_vocabulary,
+                    query=question, vector=query_vector, limit=policy_limit, alpha=settings.alpha_vocabulary,
                     return_metadata=metadata_request
                 )
                 for obj in results.objects:
@@ -614,7 +621,7 @@ class ElysiaRAGSystem:
             try:
                 collection = self.client.collections.get(f"Vocabulary{suffix}")
                 results = collection.query.hybrid(
-                    query=question, vector=query_vector, limit=5, alpha=settings.alpha_vocabulary,
+                    query=question, vector=query_vector, limit=vocab_limit, alpha=settings.alpha_vocabulary,
                     return_metadata=metadata_request
                 )
                 for obj in results.objects:

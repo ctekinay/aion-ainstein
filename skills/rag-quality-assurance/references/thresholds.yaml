@@ -19,6 +19,8 @@ retrieval_limits:
   principle: 6
   policy: 4
   vocabulary: 4
+  # Maximum characters of content to include per document
+  content_max_chars: 800
 
 # Confidence Scoring
 confidence:

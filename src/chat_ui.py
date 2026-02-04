@@ -32,7 +32,7 @@ from .config import settings
 from .weaviate.client import get_weaviate_client
 from .weaviate.embeddings import embed_text
 from .elysia_agents import ElysiaRAGSystem, ELYSIA_AVAILABLE
-from .skills import SkillRegistry
+from .skills import SkillRegistry, DEFAULT_SKILL
 
 # Initialize skill registry for prompt injection
 _skill_registry = SkillRegistry()
@@ -691,12 +691,12 @@ async def perform_retrieval(question: str, provider: str = "ollama") -> tuple[li
     collections = COLLECTION_NAMES.get(provider, COLLECTION_NAMES["ollama"])
 
     # Retrieval limits - loaded from skill configuration
-    retrieval_limits = _skill_registry.loader.get_retrieval_limits("rag-quality-assurance")
+    retrieval_limits = _skill_registry.loader.get_retrieval_limits(DEFAULT_SKILL)
     adr_limit = retrieval_limits.get("adr", 8)
     principle_limit = retrieval_limits.get("principle", 6)
     policy_limit = retrieval_limits.get("policy", 4)
     vocab_limit = retrieval_limits.get("vocabulary", 4)
-    content_max_chars = 800
+    content_max_chars = retrieval_limits.get("content_max_chars", 800)
 
     # For Ollama provider, compute query embedding client-side
     # WORKAROUND for Weaviate text2vec-ollama bug (#8406)
