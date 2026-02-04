@@ -507,6 +507,35 @@ def reload_skills() -> dict[str, Any]:
     }
 
 
+def toggle_skill_enabled(skill_name: str, enabled: bool) -> dict[str, Any]:
+    """Toggle the enabled status of a skill.
+
+    Updates the enabled field in registry.yaml.
+    Note: Changes take effect on server restart.
+
+    Args:
+        skill_name: Name of the skill to toggle
+        enabled: New enabled status
+
+    Returns:
+        Result with updated status and restart notification
+
+    Raises:
+        ValueError: If skill not found
+    """
+    # Update registry.yaml
+    _registry.set_skill_enabled(skill_name, enabled)
+
+    return {
+        "success": True,
+        "skill_name": skill_name,
+        "enabled": enabled,
+        "requires_restart": True,
+        "message": f"Skill '{skill_name}' {'enabled' if enabled else 'disabled'}. "
+                   "Restart the server for changes to take full effect.",
+    }
+
+
 # ============================================================================
 # Phase 3: SKILL.md Content Management
 # ============================================================================
