@@ -34,9 +34,6 @@ ENV/
 *.swo
 *~
 
-# Local AI assistant settings
-.claude/
-
 # Environment
 .env
 .env.local
