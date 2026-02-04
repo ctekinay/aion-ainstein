@@ -6,10 +6,13 @@
 2. [What Are Skills?](#what-are-skills)
 3. [Quick Start Guide](#quick-start-guide)
 4. [For Non-Technical Users](#for-non-technical-users)
+   - [Identity Configuration](#identity-configuration)
 5. [For Technical Users](#for-technical-users)
+   - [Tool Return Fields](#tool-return-fields)
 6. [Configuration Reference](#configuration-reference)
 7. [Troubleshooting](#troubleshooting)
 8. [Future Roadmap](#future-roadmap)
+9. [Changelog](#changelog)
 
 ---
 
@@ -179,6 +182,26 @@ description: Your description here
 ...
 ```
 
+### Identity Configuration
+
+The `SKILL.md` file includes an **Identity** section that controls how AInstein identifies itself. This is important because the underlying Elysia framework has its own built-in identity that says "I am Elysia".
+
+**Current identity rules** (in `skills/rag-quality-assurance/SKILL.md`):
+
+```markdown
+## Identity
+
+You are **AInstein**, the Energy System Architecture AI Assistant at Alliander.
+
+**Critical Identity Rules:**
+- Always identify yourself as "AInstein" when asked who you are
+- NEVER identify as "Elysia", "Weaviate", or any other framework name
+- NEVER mention internal implementation details (Elysia framework, decision trees, etc.)
+- Your purpose is to help architects and engineers navigate Alliander's architecture knowledge base
+```
+
+**Why this matters**: Without these rules, AInstein might respond "I am Elysia" when asked "Who are you?" because of the underlying framework's default prompt.
+
 ---
 
 ## For Technical Users
@@ -227,16 +250,21 @@ description: Your description here
 
 ### Integration Points
 
-| File | Line | Integration |
-|------|------|-------------|
-| `src/elysia_agents.py` | 15-18 | SkillRegistry initialization |
-| `src/elysia_agents.py` | 32 | Abstention thresholds |
-| `src/elysia_agents.py` | 154-157 | Truncation config for tools |
-| `src/elysia_agents.py` | 549-552 | Truncation config for _direct_query |
-| `src/elysia_agents.py` | 691-693 | Skill content injection |
-| `src/chat_ui.py` | 35-38 | SkillRegistry initialization |
-| `src/chat_ui.py` | 694-702 | Retrieval limits and truncation |
-| `src/chat_ui.py` | 955 | Skill content injection |
+| File | Function/Area | What It Does |
+|------|--------------|--------------|
+| `src/elysia_agents.py` | Module-level | Initializes `_skill_registry` singleton |
+| `src/elysia_agents.py` | `_get_abstention_thresholds()` | Loads distance_threshold and min_query_coverage |
+| `src/elysia_agents.py` | `_register_tools()` | Loads truncation config for tool responses |
+| `src/elysia_agents.py` | `_direct_query()` | Loads retrieval limits, truncation, injects skill content |
+| `src/chat_ui.py` | Module-level | Initializes `_skill_registry` singleton |
+| `src/chat_ui.py` | `retrieve_documents()` | Loads retrieval limits and truncation config |
+| `src/chat_ui.py` | `get_llm_response()` | Injects skill content into system prompts |
+
+### Key Constants
+
+| Constant | Location | Purpose |
+|----------|----------|---------|
+| `DEFAULT_SKILL` | `src/skills/__init__.py` | Single source of truth for default skill name (`"rag-quality-assurance"`) |
 
 ### Adding a New Skill
 
@@ -340,6 +368,24 @@ all_skills = registry.list_skills()
 # Reload after editing files
 registry.reload()
 ```
+
+### Tool Return Fields
+
+The Elysia tools return structured data that AInstein uses to answer questions. Each tool returns specific fields:
+
+| Tool | Returns |
+|------|---------|
+| `search_architecture_decisions()` | `title`, `adr_number`, `file_path`, `status`, `context`, `decision`, `consequences` |
+| `search_principles()` | `title`, `principle_number`, `file_path`, `content`, `doc_type` |
+| `search_policies()` | `title`, `file_path`, `content`, `file_type` |
+| `list_all_adrs()` | `title`, `adr_number`, `status`, `file_path` |
+| `list_all_principles()` | `title`, `principle_number`, `file_path`, `type` |
+| `search_vocabulary()` | `label`, `definition`, `vocabulary`, `uri` |
+
+**Key identification fields**:
+- `adr_number`: e.g., `"ADR-0021"` - allows citing specific ADRs
+- `principle_number`: e.g., `"PCP-0010"` - allows citing specific principles
+- `file_path`: Full path to source document - allows users to find original files
 
 ---
 
@@ -507,9 +553,11 @@ for skill in skills:
 |---------|--------|-------|
 | Web UI for skills management | Not available | Must edit files directly |
 | Skills API endpoints | Not available | No REST API for CRUD |
-| Hot reload | Not available | Requires server restart |
+| Hot reload | Partial | `registry.reload()` exists but no automatic file watcher |
 | Skill versioning | Not available | No version control |
 | A/B testing | Not available | Cannot compare skill configs |
+
+**Note on Hot Reload**: You can programmatically reload skills using `registry.reload()`, but there's no automatic file watcher. After editing files, either restart the server or call `reload()` in your code.
 
 ### Planned Features
 
@@ -557,6 +605,15 @@ The Skills Framework provides a **no-code way** to customize AInstein's behavior
 
 ---
 
-*Document Version: 1.0*
+*Document Version: 1.1*
 *Last Updated: February 2026*
 *Applies to: AInstein Skills Framework v1.0*
+
+---
+
+## Changelog
+
+| Version | Date | Changes |
+|---------|------|---------|
+| 1.1 | Feb 2026 | Added Identity Configuration, Tool Return Fields, fixed Integration Points table |
+| 1.0 | Feb 2026 | Initial release |
