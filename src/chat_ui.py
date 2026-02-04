@@ -1360,6 +1360,19 @@ class SkillContentUpdate(BaseModel):
     body: Optional[str] = None  # Markdown body
 
 
+@app.get("/api/skills/defaults")
+async def api_get_defaults():
+    """Get default configuration values for skills.
+
+    Exposes defaults so frontend doesn't need to duplicate them.
+    """
+    try:
+        return skills_api.get_defaults()
+    except Exception as e:
+        logger.error(f"Error getting defaults: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.get("/api/skills")
 async def api_list_skills():
     """List all registered skills."""

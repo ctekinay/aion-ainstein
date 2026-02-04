@@ -40,10 +40,44 @@ DEFAULT_MAX_CONTEXT_RESULTS = 10
 # Backup management
 MAX_TIMESTAMPED_BACKUPS = 5  # Keep this many timestamped backups per skill
 
+# Skills directory path (used throughout)
+SKILLS_DIR = Path(__file__).parent.parent.parent / "skills"
+
 
 # Module-level instances (reused across requests)
 _loader = SkillLoader()
 _registry = SkillRegistry()
+
+
+def get_defaults() -> dict[str, Any]:
+    """Get all default configuration values.
+
+    Exposes defaults via API so frontend doesn't need to duplicate them.
+
+    Returns:
+        Dictionary of all default values
+    """
+    return {
+        "abstention": {
+            "distance_threshold": DEFAULT_DISTANCE_THRESHOLD,
+            "min_query_coverage": DEFAULT_MIN_QUERY_COVERAGE,
+        },
+        "retrieval_limits": {
+            "adr": DEFAULT_LIMIT_ADR,
+            "principle": DEFAULT_LIMIT_PRINCIPLE,
+            "policy": DEFAULT_LIMIT_POLICY,
+            "vocabulary": DEFAULT_LIMIT_VOCABULARY,
+        },
+        "truncation": {
+            "content_max_chars": DEFAULT_CONTENT_MAX_CHARS,
+            "elysia_content_chars": DEFAULT_ELYSIA_CONTENT_CHARS,
+            "elysia_summary_chars": DEFAULT_ELYSIA_SUMMARY_CHARS,
+            "max_context_results": DEFAULT_MAX_CONTEXT_RESULTS,
+        },
+        "backup": {
+            "max_timestamped_backups": MAX_TIMESTAMPED_BACKUPS,
+        },
+    }
 
 
 def list_skills() -> list[dict[str, Any]]:
@@ -154,7 +188,7 @@ def update_thresholds(skill_name: str, thresholds: dict[str, Any]) -> dict[str, 
         raise ValueError(f"Invalid thresholds: {', '.join(errors)}")
 
     # Get path to thresholds file
-    skills_dir = Path(__file__).parent.parent.parent / "skills"
+    skills_dir = SKILLS_DIR
     thresholds_path = skills_dir / skill_name / "references" / "thresholds.yaml"
 
     if not thresholds_path.exists():
@@ -269,7 +303,7 @@ def backup_config(skill_name: str) -> str:
     Returns:
         Path to the backup file
     """
-    skills_dir = Path(__file__).parent.parent.parent / "skills"
+    skills_dir = SKILLS_DIR
     thresholds_path = skills_dir / skill_name / "references" / "thresholds.yaml"
 
     if not thresholds_path.exists():
@@ -332,7 +366,7 @@ def restore_config(skill_name: str) -> dict[str, Any]:
     Raises:
         ValueError: If no backup exists
     """
-    skills_dir = Path(__file__).parent.parent.parent / "skills"
+    skills_dir = SKILLS_DIR
     thresholds_path = skills_dir / skill_name / "references" / "thresholds.yaml"
     backup_path = thresholds_path.with_suffix(".yaml.bak")
 
@@ -483,7 +517,7 @@ def get_skill_content(skill_name: str) -> dict[str, Any]:
     Raises:
         ValueError: If skill not found
     """
-    skills_dir = Path(__file__).parent.parent.parent / "skills"
+    skills_dir = SKILLS_DIR
     skill_path = skills_dir / skill_name / "SKILL.md"
 
     if not skill_path.exists():
@@ -527,7 +561,7 @@ def update_skill_content(
     Raises:
         ValueError: If validation fails or skill not found
     """
-    skills_dir = Path(__file__).parent.parent.parent / "skills"
+    skills_dir = SKILLS_DIR
     skill_path = skills_dir / skill_name / "SKILL.md"
 
     if not skill_path.exists():
@@ -648,7 +682,7 @@ def backup_skill_content(skill_name: str) -> str:
     Returns:
         Path to the backup file
     """
-    skills_dir = Path(__file__).parent.parent.parent / "skills"
+    skills_dir = SKILLS_DIR
     skill_path = skills_dir / skill_name / "SKILL.md"
 
     if not skill_path.exists():
@@ -682,7 +716,7 @@ def restore_skill_content(skill_name: str) -> dict[str, Any]:
     Raises:
         ValueError: If no backup exists
     """
-    skills_dir = Path(__file__).parent.parent.parent / "skills"
+    skills_dir = SKILLS_DIR
     skill_path = skills_dir / skill_name / "SKILL.md"
     backup_path = skill_path.with_suffix(".md.bak")
 
