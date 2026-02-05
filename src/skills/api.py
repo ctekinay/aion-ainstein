@@ -530,9 +530,9 @@ def toggle_skill_enabled(skill_name: str, enabled: bool) -> dict[str, Any]:
         "success": True,
         "skill_name": skill_name,
         "enabled": enabled,
-        "requires_restart": True,
+        "requires_reload": True,
         "message": f"Skill '{skill_name}' {'enabled' if enabled else 'disabled'}. "
-                   "Restart the server for changes to take full effect.",
+                   "Click 'Reload Skills' to apply changes.",
     }
 
 

@@ -5,6 +5,8 @@ version: "1.0"
 
 skills:
   - name: rag-quality-assurance
+    enabled: true
+    enabled: false
     path: rag-quality-assurance/SKILL.md
     description: "Anti-hallucination rules and citation requirements for RAG responses"
     enabled: true
@@ -18,6 +20,21 @@ skills:
       - "policy"
       - "vocabulary"
       - "pcp"
+
+  - name: response-formatter
+    enabled: false
+    path: response-formatter/SKILL.md
+    description: "Ensures list-based responses use rich formatting with statistics, follow-up questions, and visualization suggestions."
+    enabled: true
+    auto_activate: true
+    triggers:
+      - "list"
+      - "what"
+      - "which"
+      - "how many"
+      - "show all"
+      - "enumerate"
+      - "summarize"
 
 # Future skills can be added here:
 #

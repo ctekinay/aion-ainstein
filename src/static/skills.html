@@ -907,6 +907,23 @@
             color: var(--text-primary);
         }
 
+        .restart-warning-btn {
+            background: var(--warning);
+            color: #000;
+            font-size: 12px;
+            padding: 4px 12px;
+            margin-right: 10px;
+        }
+
+        .restart-warning-btn:hover {
+            background: #d97706;
+        }
+
+        .restart-warning-btn.loading {
+            opacity: 0.7;
+            pointer-events: none;
+        }
+
         /* Wizard Modal Styles */
         .wizard-modal {
             max-width: 700px;
@@ -1117,8 +1134,9 @@
                 <div class="restart-warning" id="restart-warning">
                     <span class="restart-warning-icon">&#9888;</span>
                     <span class="restart-warning-text">
-                        Skill status changed. Restart the server for changes to take full effect.
+                        Skill configuration changed. Reload to apply changes.
                     </span>
+                    <button class="btn btn-warning restart-warning-btn" onclick="reloadSkills()">Reload Skills</button>
                     <button class="restart-warning-dismiss" onclick="dismissRestartWarning()">&times;</button>
                 </div>
                 <div id="skills-list">
@@ -1887,8 +1905,8 @@
                 const data = await response.json();
                 showStatus(data.message, 'success');
 
-                // Show restart warning
-                if (data.requires_restart) {
+                // Show reload warning
+                if (data.requires_reload || data.requires_restart) {
                     showRestartWarning();
                 }
 
@@ -1933,6 +1951,35 @@
 
         function dismissRestartWarning() {
             document.getElementById('restart-warning').classList.remove('show');
+        }
+
+        async function reloadSkills() {
+            const btn = document.querySelector('.restart-warning-btn');
+            btn.classList.add('loading');
+            btn.textContent = 'Reloading...';
+
+            try {
+                const response = await fetch('/api/skills/reload', {
+                    method: 'POST'
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.detail || 'Failed to reload skills');
+                }
+
+                const data = await response.json();
+                showStatus(data.message + ` (${data.skill_count} skills loaded)`, 'success');
+                dismissRestartWarning();
+
+                // Refresh the skills list
+                fetchSkills();
+            } catch (error) {
+                showStatus('Error reloading skills: ' + error.message, 'error');
+            } finally {
+                btn.classList.remove('loading');
+                btn.textContent = 'Reload Skills';
+            }
         }
 
         async function runTest() {

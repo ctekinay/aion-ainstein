@@ -24,6 +24,14 @@ The **Response Formatter** skill will:
 ## Prerequisites
 
 1. AInstein server running at `http://localhost:8081`
+   ```bash
+   # Activate virtual environment first
+   .venv312\Scripts\activate  # Windows
+   source .venv312/bin/activate  # Linux/Mac
+
+   # Start the server
+   python -m src.chat_ui
+   ```
 2. Access to the Skills Management UI at `http://localhost:8081/skills`
 
 ---
@@ -47,7 +55,7 @@ Fill in the basic skill metadata:
 response-formatter
 ```
 
-> **Note:** Skill names must be lowercase, can contain letters, numbers, and hyphens, and must start with a letter.
+> **Note:** Skill names must be lowercase, can contain letters, numbers, and hyphens, must start with a letter, and end with a letter or number. The UI validates this in real-time and shows ✓ when the name is valid and available.
 
 ### Description
 ```
@@ -194,8 +202,17 @@ If you want to customize:
 
 | Setting | Recommended Value | Reason |
 |---------|------------------|--------|
-| Abstention Strictness | 0.5 (Medium) | Allow reasonable flexibility |
+| Distance Threshold | 0.5 (Medium) | Allow reasonable flexibility |
 | Query Coverage | 0.2 (Low) | List queries often have broad terms |
+
+#### Understanding Thresholds
+
+| Threshold | Low Value | High Value |
+|-----------|-----------|------------|
+| **Distance** | More strict matching (skill activates less) | More lenient (skill activates more often) |
+| **Query Coverage** | Activates even with few keyword matches | Requires more keywords to match |
+
+> **Tip:** For a formatting skill like this one that should apply broadly, consider using slightly higher thresholds to ensure it activates on most list queries.
 
 ### Click "Next" to proceed to Step 4.
 
@@ -230,6 +247,32 @@ Click the **"Create Skill"** button.
 You should see a success message:
 ```
 ✅ Skill "response-formatter" created successfully!
+```
+
+### Files Created
+
+The wizard automatically creates the following directory structure:
+
+```
+skills/
+└── response-formatter/
+    ├── SKILL.md                    # Your rules content (markdown)
+    └── references/
+        └── thresholds.yaml         # Threshold configuration
+```
+
+Additionally, an entry is added to `skills/registry.yaml`:
+```yaml
+- name: response-formatter
+  path: response-formatter/SKILL.md
+  description: "Ensures list-based responses use rich formatting..."
+  enabled: true
+  auto_activate: true
+  triggers:
+    - "list"
+    - "what"
+    - "which"
+    # ... etc
 ```
 
 ---
@@ -354,8 +397,31 @@ If the skill isn't behaving as expected, you can adjust it:
 
 ### Disable Temporarily
 
-1. Toggle the **Active/Disabled** switch to **Disabled**
-2. Note: Changes take effect after server restart
+1. Toggle the **Enabled** switch to off
+2. A warning banner will appear: "Restart the server for changes to take full effect"
+3. Restart the server to apply the change
+
+### Backup and Restore
+
+The system automatically creates backups when you edit skills:
+
+**Manual Backup:**
+1. Click **"Configure"** on the skill card
+2. Click **"Create Backup"**
+3. Backups are stored as timestamped `.bak` files
+
+**Restore from Backup:**
+1. Click **"Configure"** on the skill card
+2. Click **"Restore from Backup"**
+3. The most recent backup will be restored
+
+### Delete a Skill
+
+1. Click the red **"Delete"** button on the skill card
+2. Confirm the deletion in the dialog
+3. The skill files are moved to `skills/.deleted/` (recoverable)
+
+> **Note:** The default skill (`rag-quality-assurance`) cannot be deleted.
 
 ---
 
@@ -390,6 +456,16 @@ If the skill isn't behaving as expected, you can adjust it:
 2. Verify the query returns multiple items (3+ required)
 3. Check if the LLM has access to metadata for statistics
 
+### Quick Reference
+
+| Issue | Quick Fix |
+|-------|-----------|
+| Name validation fails | Use only `a-z`, `0-9`, `-`; start with letter, end with letter/number |
+| Skill not in list | Refresh the page or restart server |
+| 503 Service Unavailable | Ensure correct venv is activated and Elysia is installed |
+| Changes not taking effect | Some changes require server restart |
+| Can't delete skill | Default skill (`rag-quality-assurance`) cannot be deleted |
+
 ---
 
 ## Summary
@@ -408,10 +484,70 @@ This skill enhances the user experience by making list responses more readable, 
 
 ## Next Steps
 
-- **Create variations:** Build similar skills for specific document types (ADR Formatter, Principle Formatter)
-- **Add visualization backend:** Implement actual chart generation for the visualization suggestions
+### Skill Ideas to Try
+
+| Skill Name | Purpose |
+|------------|---------|
+| `adr-deep-dive` | Provides detailed analysis when user asks about specific ADRs |
+| `principle-checker` | Validates if a proposed solution aligns with existing principles |
+| `vocabulary-explainer` | Adds context and examples when vocabulary terms are mentioned |
+| `comparison-mode` | Formats side-by-side comparisons when user asks to compare items |
+| `code-reviewer` | Applies coding standards when reviewing code snippets |
+
+### Enhancement Ideas
+
+- **Add visualization backend:** Implement actual chart generation (using matplotlib, plotly, or similar) for the visualization suggestions
 - **Customize triggers:** Add domain-specific trigger words for your organization
 - **A/B testing:** Compare user satisfaction with and without the formatter skill
+- **Combine skills:** Create skills that work together (e.g., formatter + validator)
+
+### Learn More
+
+- Review the default `rag-quality-assurance` skill for advanced patterns
+- Check `skills/registry.yaml` for all registered skills
+- Explore the `thresholds.yaml` format for fine-grained control
+
+---
+
+## Appendix: Skill File Formats
+
+### SKILL.md Structure
+
+```markdown
+---
+name: skill-name
+description: Brief description
+auto_activate: true
+triggers:
+  - keyword1
+  - keyword2
+---
+
+# Skill Title
+
+Your skill instructions in markdown...
+```
+
+### thresholds.yaml Structure
+
+```yaml
+# Skill Thresholds Configuration
+abstention:
+  distance_threshold: 0.5
+  min_query_coverage: 0.2
+  list_indicators: [...]
+  additional_stop_words: [...]
+
+retrieval_limits:
+  adr: 5
+  principle: 5
+  policy: 3
+  vocabulary: 10
+
+truncation:
+  content_max_chars: 4000
+  max_context_results: 10
+```
 
 ---
 
