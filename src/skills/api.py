@@ -526,13 +526,14 @@ def toggle_skill_enabled(skill_name: str, enabled: bool) -> dict[str, Any]:
     # Update registry.yaml
     _registry.set_skill_enabled(skill_name, enabled)
 
+    # Auto-reload registry to apply changes immediately
+    _registry.reload()
+
     return {
         "success": True,
         "skill_name": skill_name,
         "enabled": enabled,
-        "requires_reload": True,
-        "message": f"Skill '{skill_name}' {'enabled' if enabled else 'disabled'}. "
-                   "Click 'Reload Skills' to apply changes.",
+        "message": f"Skill '{skill_name}' {'enabled' if enabled else 'disabled'}.",
     }
 
 

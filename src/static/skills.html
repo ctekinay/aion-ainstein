@@ -2000,12 +2000,7 @@
                 const data = await response.json();
                 showStatus(data.message, 'success');
 
-                // Show reload warning
-                if (data.requires_reload || data.requires_restart) {
-                    showRestartWarning();
-                }
-
-                // Refresh skills list
+                // Refresh skills list (API auto-reloads, no manual reload needed)
                 fetchSkills();
             } catch (error) {
                 showStatus('Error toggling skill: ' + error.message, 'error');
