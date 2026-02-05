@@ -11,6 +11,7 @@
             box-sizing: border-box;
         }
 
+        /* Dark theme (default) */
         :root {
             --primary: #2563eb;
             --primary-dark: #1d4ed8;
@@ -24,6 +25,22 @@
             --text-secondary: #a6adc8;
             --text-muted: #6c7086;
             --border: #45475a;
+        }
+
+        /* Light theme */
+        [data-theme="light"] {
+            --primary: #2563eb;
+            --primary-dark: #1d4ed8;
+            --success: #059669;
+            --warning: #d97706;
+            --danger: #dc2626;
+            --bg-dark: #f8fafc;
+            --bg-card: #ffffff;
+            --bg-input: #e2e8f0;
+            --text-primary: #1e293b;
+            --text-secondary: #475569;
+            --text-muted: #64748b;
+            --border: #cbd5e1;
         }
 
         body {
@@ -57,6 +74,46 @@
         .header-actions {
             display: flex;
             gap: 10px;
+            align-items: center;
+        }
+
+        .theme-toggle {
+            background: var(--bg-input);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 8px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+
+        .theme-toggle:hover {
+            background: var(--border);
+        }
+
+        .theme-toggle svg {
+            color: var(--text-secondary);
+            transition: all 0.2s;
+        }
+
+        .theme-toggle:hover svg {
+            color: var(--text-primary);
+        }
+
+        /* Show sun in dark mode, moon in light mode */
+        .theme-toggle .sun-icon {
+            display: block;
+        }
+        .theme-toggle .moon-icon {
+            display: none;
+        }
+        [data-theme="light"] .theme-toggle .sun-icon {
+            display: none;
+        }
+        [data-theme="light"] .theme-toggle .moon-icon {
+            display: block;
         }
 
         .btn {
@@ -1122,6 +1179,22 @@
             <div class="header-actions">
                 <button class="btn btn-primary" onclick="openCreateWizard()">Create Skill</button>
                 <button class="btn btn-secondary" onclick="reloadSkills()">Reload Skills</button>
+                <button class="theme-toggle" id="theme-toggle" onclick="toggleTheme()" title="Toggle light/dark mode">
+                    <svg class="sun-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="5"></circle>
+                        <line x1="12" y1="1" x2="12" y2="3"></line>
+                        <line x1="12" y1="21" x2="12" y2="23"></line>
+                        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                        <line x1="1" y1="12" x2="3" y2="12"></line>
+                        <line x1="21" y1="12" x2="23" y2="12"></line>
+                        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+                    </svg>
+                    <svg class="moon-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+                    </svg>
+                </button>
             </div>
         </header>
 
@@ -1693,6 +1766,28 @@
     </div>
 
     <script>
+        // Theme management - sync with main UI
+        function initTheme() {
+            const savedTheme = localStorage.getItem('theme');
+            if (savedTheme) {
+                document.documentElement.setAttribute('data-theme', savedTheme);
+            } else {
+                // Check system preference
+                const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+                document.documentElement.setAttribute('data-theme', prefersDark ? 'dark' : 'light');
+            }
+        }
+
+        function toggleTheme() {
+            const currentTheme = document.documentElement.getAttribute('data-theme') || 'dark';
+            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            document.documentElement.setAttribute('data-theme', newTheme);
+            localStorage.setItem('theme', newTheme);
+        }
+
+        // Initialize theme immediately
+        initTheme();
+
         // Default values - centralized for consistency
         // Fallback defaults (used if API fails)
         const FALLBACK_DEFAULTS = {
