@@ -20,7 +20,7 @@ from typing import Optional, AsyncGenerator
 from threading import Thread
 from queue import Queue, Empty
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Path as PathParam, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
@@ -37,6 +37,11 @@ from .skills import api as skills_api
 
 # Initialize skill registry for prompt injection
 _skill_registry = SkillRegistry()
+
+# Skill name validation pattern (prevents path traversal)
+# Must start with lowercase letter, contain only lowercase, digits, hyphens
+# Must end with lowercase letter or digit (minimum 2 characters)
+SKILL_NAME_REGEX = r"^[a-z][a-z0-9-]*[a-z0-9]$"
 
 logger = logging.getLogger(__name__)
 
@@ -1405,7 +1410,7 @@ async def api_list_skills():
 
 
 @app.get("/api/skills/{skill_name}")
-async def api_get_skill(skill_name: str):
+async def api_get_skill(skill_name: str = PathParam(pattern=SKILL_NAME_REGEX)):
     """Get detailed information about a specific skill."""
     try:
         return skills_api.get_skill(skill_name)
@@ -1417,7 +1422,7 @@ async def api_get_skill(skill_name: str):
 
 
 @app.get("/api/skills/{skill_name}/thresholds")
-async def api_get_thresholds(skill_name: str):
+async def api_get_thresholds(skill_name: str = PathParam(pattern=SKILL_NAME_REGEX)):
     """Get thresholds for a specific skill."""
     try:
         return {"thresholds": skills_api.get_thresholds(skill_name)}
@@ -1427,7 +1432,7 @@ async def api_get_thresholds(skill_name: str):
 
 
 @app.put("/api/skills/{skill_name}/thresholds")
-async def api_update_thresholds(skill_name: str, update: ThresholdsUpdate):
+async def api_update_thresholds(skill_name: str = PathParam(pattern=SKILL_NAME_REGEX), *, update: ThresholdsUpdate):
     """Update thresholds for a skill."""
     try:
         result = skills_api.update_thresholds(skill_name, update.thresholds)
@@ -1440,7 +1445,7 @@ async def api_update_thresholds(skill_name: str, update: ThresholdsUpdate):
 
 
 @app.post("/api/skills/{skill_name}/test")
-async def api_test_query(skill_name: str, request: TestQueryRequest):
+async def api_test_query(skill_name: str = PathParam(pattern=SKILL_NAME_REGEX), *, request: TestQueryRequest):
     """Test how a query would behave with the skill's config."""
     try:
         return skills_api.test_query(skill_name, request.query)
@@ -1450,7 +1455,7 @@ async def api_test_query(skill_name: str, request: TestQueryRequest):
 
 
 @app.post("/api/skills/{skill_name}/backup")
-async def api_backup_config(skill_name: str):
+async def api_backup_config(skill_name: str = PathParam(pattern=SKILL_NAME_REGEX)):
     """Create a backup of the skill's configuration."""
     try:
         backup_path = skills_api.backup_config(skill_name)
@@ -1463,7 +1468,7 @@ async def api_backup_config(skill_name: str):
 
 
 @app.post("/api/skills/{skill_name}/restore")
-async def api_restore_config(skill_name: str):
+async def api_restore_config(skill_name: str = PathParam(pattern=SKILL_NAME_REGEX)):
     """Restore a skill's configuration from the most recent backup."""
     try:
         thresholds = skills_api.restore_config(skill_name)
@@ -1476,7 +1481,7 @@ async def api_restore_config(skill_name: str):
 
 
 @app.post("/api/skills/{skill_name}/validate")
-async def api_validate_thresholds(skill_name: str, request: Request):
+async def api_validate_thresholds(skill_name: str = PathParam(pattern=SKILL_NAME_REGEX), *, request: Request):
     """Validate thresholds configuration without saving."""
     try:
         body = await request.json()
@@ -1499,7 +1504,7 @@ async def api_reload_skills():
 
 
 @app.put("/api/skills/{skill_name}/enabled")
-async def api_toggle_skill_enabled(skill_name: str, request: SkillToggleRequest):
+async def api_toggle_skill_enabled(skill_name: str = PathParam(pattern=SKILL_NAME_REGEX), *, request: SkillToggleRequest):
     """Toggle the enabled status of a skill.
 
     Updates registry.yaml. Note: Full effect requires server restart.
@@ -1517,7 +1522,7 @@ async def api_toggle_skill_enabled(skill_name: str, request: SkillToggleRequest)
 
 
 @app.get("/api/skills/{skill_name}/content")
-async def api_get_skill_content(skill_name: str):
+async def api_get_skill_content(skill_name: str = PathParam(pattern=SKILL_NAME_REGEX)):
     """Get the SKILL.md content for a skill."""
     try:
         return skills_api.get_skill_content(skill_name)
@@ -1529,7 +1534,7 @@ async def api_get_skill_content(skill_name: str):
 
 
 @app.put("/api/skills/{skill_name}/content")
-async def api_update_skill_content(skill_name: str, update: SkillContentUpdate):
+async def api_update_skill_content(skill_name: str = PathParam(pattern=SKILL_NAME_REGEX), *, update: SkillContentUpdate):
     """Update the SKILL.md content for a skill."""
     try:
         return skills_api.update_skill_content(
@@ -1546,7 +1551,7 @@ async def api_update_skill_content(skill_name: str, update: SkillContentUpdate):
 
 
 @app.post("/api/skills/{skill_name}/content/validate")
-async def api_validate_skill_content(skill_name: str, request: Request):
+async def api_validate_skill_content(skill_name: str = PathParam(pattern=SKILL_NAME_REGEX), *, request: Request):
     """Validate SKILL.md content without saving."""
     try:
         body = await request.json()
@@ -1559,7 +1564,7 @@ async def api_validate_skill_content(skill_name: str, request: Request):
 
 
 @app.post("/api/skills/{skill_name}/content/restore")
-async def api_restore_skill_content(skill_name: str):
+async def api_restore_skill_content(skill_name: str = PathParam(pattern=SKILL_NAME_REGEX)):
     """Restore SKILL.md from the most recent backup."""
     try:
         return skills_api.restore_skill_content(skill_name)
@@ -1594,7 +1599,7 @@ async def api_create_skill(request: SkillCreateRequest):
 
 
 @app.delete("/api/skills/{skill_name}")
-async def api_delete_skill(skill_name: str):
+async def api_delete_skill(skill_name: str = PathParam(pattern=SKILL_NAME_REGEX)):
     """Delete a skill and all its files."""
     try:
         return skills_api.delete_skill(skill_name)
