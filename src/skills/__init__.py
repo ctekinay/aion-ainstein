@@ -22,6 +22,7 @@ Usage:
 
 from .loader import Skill, SkillLoader
 from .registry import SkillRegistry, SkillRegistryEntry, get_skill_registry
+from .filters import build_document_filter
 
 # Default skill name - single source of truth
 DEFAULT_SKILL = "rag-quality-assurance"
@@ -33,4 +34,5 @@ __all__ = [
     "SkillRegistry",
     "SkillRegistryEntry",
     "get_skill_registry",
+    "build_document_filter",
 ]

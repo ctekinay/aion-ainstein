@@ -56,10 +56,13 @@ filters:
     - governance
     - decision maker
     - accountability
+    - sign off
+    - signed off
+    - reviewed by
+    - stakeholders
   # For these queries, DARs should be included in results
   include_dar_keywords:
     - approved
     - approver
     - governance
-    - daci
     - decision-maker
