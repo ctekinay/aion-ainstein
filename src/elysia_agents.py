@@ -13,6 +13,7 @@ from weaviate.classes.query import Filter, MetadataQuery
 
 from .config import settings
 from .skills import SkillRegistry, get_skill_registry, DEFAULT_SKILL
+from .skills.filters import build_document_filter
 from .weaviate.embeddings import embed_text
 
 # Initialize skill registry (use singleton to share state across modules)
@@ -636,8 +637,8 @@ class ElysiaRAGSystem:
             except Exception as e:
                 logger.error(f"Failed to compute query embedding: {e}")
 
-        # Filter to exclude index/template documents
-        content_filter = Filter.by_property("doc_type").equal("content")
+        # Build document filter based on skill configuration and query intent
+        content_filter = build_document_filter(question, _skill_registry, DEFAULT_SKILL)
 
         # Request metadata for abstention decisions
         metadata_request = MetadataQuery(score=True, distance=True)

@@ -34,6 +34,7 @@ from .weaviate.embeddings import embed_text
 from .elysia_agents import ElysiaRAGSystem, ELYSIA_AVAILABLE
 from .skills import SkillRegistry, get_skill_registry, DEFAULT_SKILL
 from .skills import api as skills_api
+from .skills.filters import build_document_filter
 
 # Initialize skill registry for prompt injection (use singleton to share state)
 _skill_registry = get_skill_registry()
@@ -658,64 +659,6 @@ async def stream_elysia_response(question: str) -> AsyncGenerator[str, None]:
         yield f"data: {json.dumps({'type': 'error', 'content': 'Query timed out'})}\n\n"
 
 
-# ============== Dynamic Filtering Based on Skills ==============
-
-def _build_document_filter(question: str, skill_name: str = DEFAULT_SKILL) -> Filter:
-    """Build Weaviate filter based on skill configuration and query intent.
-
-    This implements the skills-based approach to DAR filtering:
-    - By default: Exclude DARs, index files, templates
-    - For approval queries: Include DARs to answer "who approved X?" questions
-
-    Args:
-        question: User's question
-        skill_name: Skill to load filter config from
-
-    Returns:
-        Weaviate Filter object
-    """
-    # Load filter configuration from skill
-    skill = _skill_registry.loader.load_skill(skill_name)
-    filter_config = skill.config.get("filters", {})
-
-    exclude_types = filter_config.get("exclude_doc_types", [
-        "decision_approval_record",
-        "index",
-        "template"
-    ])
-
-    # Check if this query needs DAR data (approval/governance questions)
-    include_dar_patterns = filter_config.get("include_dar_patterns", [])
-    include_dar_keywords = filter_config.get("include_dar_keywords", [])
-
-    question_lower = question.lower()
-
-    # Check if query is about approvals/governance
-    needs_dar = any(pattern.lower() in question_lower for pattern in include_dar_patterns)
-    needs_dar = needs_dar or any(keyword.lower() in question_lower for keyword in include_dar_keywords)
-
-    if needs_dar:
-        # Include DARs for approval queries, but still exclude index/template
-        exclude_types = [t for t in exclude_types if t != "decision_approval_record"]
-        logger.info(f"Query detected as approval/governance - including DARs in retrieval")
-
-    # Build filter: NOT in exclude list
-    if exclude_types:
-        # Exclude all the doc_types in the list
-        filters = [Filter.by_property("doc_type").not_equal(t) for t in exclude_types]
-        # Combine with AND logic
-        if len(filters) == 1:
-            return filters[0]
-        else:
-            combined = filters[0]
-            for f in filters[1:]:
-                combined = combined & f
-            return combined
-    else:
-        # No filtering - return all content
-        return None
-
-
 # ============== Test Mode: LLM Comparison Functions ==============
 
 # Collection name mappings for each provider
@@ -778,7 +721,7 @@ async def perform_retrieval(question: str, provider: str = "ollama") -> tuple[li
 
     # Build filter dynamically based on skill configuration and query intent
     # This replaces hardcoded filtering with skills-based configuration
-    content_filter = _build_document_filter(question, DEFAULT_SKILL)
+    content_filter = build_document_filter(question, _skill_registry, DEFAULT_SKILL)
 
     # Search all document collections and let semantic search determine relevance
     # This is the industry-standard RAG approach: embeddings handle routing, not keywords
