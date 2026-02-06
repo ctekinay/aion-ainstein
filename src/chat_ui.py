@@ -267,7 +267,7 @@ class ChatMessage(BaseModel):
 class LLMSettings(BaseModel):
     """LLM provider and model settings."""
     provider: str = "ollama"  # "ollama" or "openai"
-    model: str = "alibayram/smollm3:latest"
+    model: str = "gpt-oss:20b"
 
 
 class ChatRequest(BaseModel):
@@ -300,6 +300,8 @@ class ConversationSummary(BaseModel):
 # Available models configuration
 AVAILABLE_MODELS = {
     "ollama": [
+        {"id": "gpt-oss:20b", "name": "GPT-OSS 20B (Local, MoE)"},
+        {"id": "qwen3:14b", "name": "Qwen3 14B (Local)"},
         {"id": "alibayram/smollm3:latest", "name": "SmolLM3 (Local, 3.1B)"},
         {"id": "qwen3:4b", "name": "Qwen3 (Local, 4B)"},
     ],
