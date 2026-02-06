@@ -336,3 +336,22 @@ class SkillRegistry:
                 old_backup.unlink()
             except OSError:
                 pass
+
+
+# Singleton instance - import this instead of creating new instances
+_global_registry: Optional[SkillRegistry] = None
+
+
+def get_skill_registry() -> SkillRegistry:
+    """Get the global singleton SkillRegistry instance.
+
+    This ensures all parts of the application share the same registry state,
+    fixing the bug where toggling enabled/disabled in the UI didn't affect the RAG system.
+
+    Returns:
+        The global SkillRegistry instance
+    """
+    global _global_registry
+    if _global_registry is None:
+        _global_registry = SkillRegistry()
+    return _global_registry

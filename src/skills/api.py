@@ -4,6 +4,7 @@ Provides functions for listing, testing, and configuring skills.
 Used by the FastAPI endpoints in chat_ui.py.
 """
 
+import logging
 import re
 import shutil
 from datetime import datetime
@@ -15,6 +16,8 @@ import yaml
 from . import DEFAULT_SKILL
 from .loader import SkillLoader
 from .registry import SkillRegistry
+
+logger = logging.getLogger(__name__)
 
 
 # ============================================================================
@@ -56,7 +59,7 @@ SKILLS_DIR = Path(__file__).parent.parent.parent / "skills"
 
 # Module-level instances (reused across requests)
 _loader = SkillLoader()
-_registry = SkillRegistry()
+_registry = get_skill_registry()  # Use singleton to share state with other modules
 
 
 def get_defaults() -> dict[str, Any]:

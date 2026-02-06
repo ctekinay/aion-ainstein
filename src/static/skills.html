@@ -1972,17 +1972,7 @@
             }
         }
 
-        async function reloadSkills() {
-            try {
-                const response = await fetch('/api/skills/reload', { method: 'POST' });
-                const data = await response.json();
-                showStatus(`Skills reloaded! (${data.skill_count} skills)`, 'success');
-                dismissRestartWarning();
-                fetchSkills();
-            } catch (error) {
-                showStatus('Error reloading skills: ' + error.message, 'error');
-            }
-        }
+        // Note: reloadSkills() is defined later with button loading state
 
         async function toggleSkillEnabled(skillName, enabled) {
             try {
@@ -2050,8 +2040,12 @@
 
         async function reloadSkills() {
             const btn = document.querySelector('.restart-warning-btn');
-            btn.classList.add('loading');
-            btn.textContent = 'Reloading...';
+
+            // Null check to prevent crash if button doesn't exist
+            if (btn) {
+                btn.classList.add('loading');
+                btn.textContent = 'Reloading...';
+            }
 
             try {
                 const response = await fetch('/api/skills/reload', {
@@ -2072,8 +2066,10 @@
             } catch (error) {
                 showStatus('Error reloading skills: ' + error.message, 'error');
             } finally {
-                btn.classList.remove('loading');
-                btn.textContent = 'Reload Skills';
+                if (btn) {
+                    btn.classList.remove('loading');
+                    btn.textContent = 'Reload Skills';
+                }
             }
         }
 

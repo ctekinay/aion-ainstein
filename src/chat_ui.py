@@ -32,11 +32,12 @@ from .config import settings
 from .weaviate.client import get_weaviate_client
 from .weaviate.embeddings import embed_text
 from .elysia_agents import ElysiaRAGSystem, ELYSIA_AVAILABLE
-from .skills import SkillRegistry, DEFAULT_SKILL
+from .skills import DEFAULT_SKILL
+from .skills.registry import get_skill_registry
 from .skills import api as skills_api
 
-# Initialize skill registry for prompt injection
-_skill_registry = SkillRegistry()
+# Get the global singleton registry (shared across all modules)
+_skill_registry = get_skill_registry()
 
 # Skill name validation pattern (prevents path traversal)
 # Must start with lowercase letter, contain only lowercase, digits, hyphens
