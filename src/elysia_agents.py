@@ -12,11 +12,10 @@ from weaviate import WeaviateClient
 from weaviate.classes.query import Filter, MetadataQuery
 
 from .config import settings
-from .skills import DEFAULT_SKILL
-from .skills.registry import get_skill_registry
+from .skills import SkillRegistry, get_skill_registry, DEFAULT_SKILL
 from .weaviate.embeddings import embed_text
 
-# Get the global singleton registry (shared across all modules)
+# Initialize skill registry (use singleton to share state across modules)
 _skill_registry = get_skill_registry()
 
 # Default abstention thresholds (overridden by skills if available)

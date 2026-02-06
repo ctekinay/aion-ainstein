@@ -18,6 +18,24 @@ from .loader import SkillLoader, Skill, DEFAULT_SKILLS_DIR
 
 logger = logging.getLogger(__name__)
 
+# Global singleton instance for sharing registry state across modules
+_global_registry: Optional["SkillRegistry"] = None
+
+
+def get_skill_registry() -> "SkillRegistry":
+    """Get the global SkillRegistry singleton instance.
+
+    This ensures all modules share the same registry state,
+    so changes (like enable/disable) propagate everywhere.
+
+    Returns:
+        The shared SkillRegistry instance
+    """
+    global _global_registry
+    if _global_registry is None:
+        _global_registry = SkillRegistry()
+    return _global_registry
+
 
 @dataclass
 class SkillRegistryEntry:
@@ -215,9 +233,10 @@ class SkillRegistry:
         # Read file as lines to preserve comments and formatting
         lines = registry_path.read_text(encoding="utf-8").splitlines(keepends=True)
 
-        # Find the skill section and its enabled line
+        # Find the skill section and collect ALL enabled lines for this skill
         skill_found = False
-        enabled_line_idx = None
+        skill_name_line_idx = None
+        enabled_line_indices = []  # Collect ALL enabled lines for this skill
         in_target_skill = False
         skill_indent = None
 
@@ -231,22 +250,18 @@ class SkillRegistry:
                     skill_found = True
                     in_target_skill = True
                     skill_indent = len(indent)
+                    skill_name_line_idx = i
+                elif in_target_skill:
+                    # We've moved to a different skill, stop looking
+                    break
                 else:
                     in_target_skill = False
 
-            # If we're in the target skill, look for enabled line
-            if in_target_skill:
+            # If we're in the target skill, collect ALL enabled lines
+            if in_target_skill and i != skill_name_line_idx:
                 enabled_match = re.match(r'^(\s*)enabled:\s*(true|false)\s*(#.*)?$', line, re.IGNORECASE)
                 if enabled_match:
-                    enabled_line_idx = i
-                    break
-
-                # Check if we've moved to a different skill (new list item at same or lower indent)
-                if i > 0:
-                    new_skill_match = re.match(r'^(\s*)-\s*name:', line)
-                    if new_skill_match and len(new_skill_match.group(1)) <= skill_indent:
-                        # We've passed the skill without finding enabled line
-                        break
+                    enabled_line_indices.append(i)
 
         if not skill_found:
             raise ValueError(f"Skill not found in registry: {skill_name}")
@@ -254,30 +269,53 @@ class SkillRegistry:
         # Create backup before modifying
         self._backup_registry(registry_path)
 
-        # Update the enabled line or insert it if not found
         enabled_value = "true" if enabled else "false"
 
-        if enabled_line_idx is not None:
-            # Replace the existing enabled line, preserving any trailing comment
-            old_line = lines[enabled_line_idx]
-            comment_match = re.search(r'(#.*)$', old_line)
-            comment = comment_match.group(1) if comment_match else ""
-            indent_match = re.match(r'^(\s*)', old_line)
-            indent = indent_match.group(1) if indent_match else "    "
-            lines[enabled_line_idx] = f"{indent}enabled: {enabled_value}"
-            if comment:
-                lines[enabled_line_idx] += f"  {comment}"
-            lines[enabled_line_idx] += "\n"
-        else:
-            # Need to insert enabled line after the name line
-            # Find the name line for this skill and insert after it
+        # Remove ALL existing enabled lines for this skill (in reverse order to preserve indices)
+        for idx in reversed(enabled_line_indices):
+            del lines[idx]
+
+        # Now insert a single enabled line after the "enabled:" field position
+        # Find the correct position: after description or path, before auto_activate or triggers
+        insert_idx = None
+        in_target_skill = False
+
+        for i, line in enumerate(lines):
+            name_match = re.match(r'^(\s*)-\s*name:\s*["\']?([^"\'#\n]+)["\']?', line)
+            if name_match:
+                name = name_match.group(2).strip()
+                if name == skill_name:
+                    in_target_skill = True
+                    continue
+                elif in_target_skill:
+                    # Next skill started, insert before this line
+                    insert_idx = i
+                    break
+
+            if in_target_skill:
+                # Look for auto_activate or triggers to insert before them
+                if re.match(r'^\s*auto_activate:', line) or re.match(r'^\s*triggers:', line):
+                    insert_idx = i
+                    break
+                # Track position after description
+                if re.match(r'^\s*description:', line):
+                    insert_idx = i + 1
+
+        # If we didn't find a good position, insert after description
+        if insert_idx is None:
+            # Find description line and insert after it
+            in_target_skill = False
             for i, line in enumerate(lines):
                 name_match = re.match(r'^(\s*)-\s*name:\s*["\']?([^"\'#\n]+)["\']?', line)
                 if name_match and name_match.group(2).strip() == skill_name:
-                    # Insert enabled line after name line
-                    indent = "    "  # Standard YAML indent
-                    lines.insert(i + 1, f"{indent}enabled: {enabled_value}\n")
+                    in_target_skill = True
+                    continue
+                if in_target_skill and re.match(r'^\s*description:', line):
+                    insert_idx = i + 1
                     break
+
+        if insert_idx is not None:
+            lines.insert(insert_idx, f"    enabled: {enabled_value}\n")
 
         # Write back to file
         registry_path.write_text("".join(lines), encoding="utf-8")

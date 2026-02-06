@@ -21,7 +21,7 @@ Usage:
 """
 
 from .loader import Skill, SkillLoader
-from .registry import SkillRegistry, SkillRegistryEntry
+from .registry import SkillRegistry, SkillRegistryEntry, get_skill_registry
 
 # Default skill name - single source of truth
 DEFAULT_SKILL = "rag-quality-assurance"
@@ -32,4 +32,5 @@ __all__ = [
     "SkillLoader",
     "SkillRegistry",
     "SkillRegistryEntry",
+    "get_skill_registry",
 ]
