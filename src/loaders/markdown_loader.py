@@ -167,7 +167,7 @@ class MarkdownLoader:
             adr_path: Path to ADR directory
 
         Yields:
-            Dictionary representations of ADRs
+            Dictionary representations of ADRs (excludes Decision Approval Records)
         """
         adr_files = sorted(adr_path.glob("*.md"))
         logger.info(f"Found {len(adr_files)} ADR files to process")
@@ -176,6 +176,14 @@ class MarkdownLoader:
             try:
                 doc = self._load_adr(adr_file)
                 if doc:
+                    # Skip Decision Approval Records (DARs) - they're governance artifacts, not actual decisions
+                    if doc.doc_type == 'decision_approval_record':
+                        logger.debug(f"Skipping Decision Approval Record: {adr_file.name}")
+                        continue
+                    # Skip index and template files
+                    if doc.doc_type in ['index', 'template']:
+                        logger.debug(f"Skipping {doc.doc_type}: {adr_file.name}")
+                        continue
                     yield doc.to_dict()
             except Exception as e:
                 logger.error(f"Error loading ADR {adr_file}: {e}")
@@ -188,7 +196,7 @@ class MarkdownLoader:
             principles_path: Path to principles directory
 
         Yields:
-            Dictionary representations of principles
+            Dictionary representations of principles (excludes Decision Approval Records)
         """
         principle_files = sorted(principles_path.glob("*.md"))
         logger.info(f"Found {len(principle_files)} principle files to process")
@@ -197,6 +205,14 @@ class MarkdownLoader:
             try:
                 doc = self._load_principle(principle_file)
                 if doc:
+                    # Skip Decision Approval Records (DARs) - they're governance artifacts, not actual principles
+                    if doc.doc_type == 'decision_approval_record':
+                        logger.debug(f"Skipping Decision Approval Record: {principle_file.name}")
+                        continue
+                    # Skip index and template files
+                    if doc.doc_type in ['index', 'template']:
+                        logger.debug(f"Skipping {doc.doc_type}: {principle_file.name}")
+                        continue
                     yield doc.to_dict()
             except Exception as e:
                 logger.error(f"Error loading principle {principle_file}: {e}")
@@ -567,6 +583,17 @@ class MarkdownLoader:
 
         for adr_file in adr_files:
             try:
+                # Skip Decision Approval Records (DARs) - they're governance artifacts, not actual decisions
+                file_name = adr_file.name.lower()
+                if re.match(r"^\d{4}d-", file_name):
+                    logger.debug(f"Skipping Decision Approval Record: {adr_file.name}")
+                    continue
+
+                # Skip index and template files
+                if file_name in ['index.md', 'readme.md', 'overview.md', '_index.md']:
+                    logger.debug(f"Skipping index file: {adr_file.name}")
+                    continue
+
                 content = adr_file.read_text(encoding="utf-8")
 
                 # Parse frontmatter
@@ -619,6 +646,17 @@ class MarkdownLoader:
 
         for principle_file in principle_files:
             try:
+                # Skip Decision Approval Records (DARs) - they're governance artifacts, not actual principles
+                file_name = principle_file.name.lower()
+                if re.match(r"^\d{4}d-", file_name):
+                    logger.debug(f"Skipping Decision Approval Record: {principle_file.name}")
+                    continue
+
+                # Skip index and template files
+                if file_name in ['index.md', 'readme.md', 'overview.md', '_index.md']:
+                    logger.debug(f"Skipping index file: {principle_file.name}")
+                    continue
+
                 content = principle_file.read_text(encoding="utf-8")
 
                 # Parse frontmatter
