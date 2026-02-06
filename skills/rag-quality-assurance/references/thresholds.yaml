@@ -41,3 +41,25 @@ confidence:
   min_source_confidence: 0.3
   distance_weight: 0.6
   keyword_weight: 0.4
+filters:
+  # Document type filtering - controls which doc_types to include/exclude
+  # This is the PROPER way to handle DARs vs actual ADRs/Principles
+  exclude_doc_types:
+    - decision_approval_record  # Exclude DARs by default for "list all" queries
+    - index  # Exclude index files
+    - template  # Exclude template files
+  # Query patterns that SHOULD include DARs (approval/governance queries)
+  include_dar_patterns:
+    - who approved
+    - approval
+    - daci
+    - governance
+    - decision maker
+    - accountability
+  # For these queries, DARs should be included in results
+  include_dar_keywords:
+    - approved
+    - approver
+    - governance
+    - daci
+    - decision-maker
