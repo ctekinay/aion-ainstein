@@ -33,7 +33,7 @@ cp .env.example .env
 
 # 7. Initialize and start
 python -m src.cli init
-python -m src.cli elysia  # Start the Elysia CLI interface
+python -m src.cli chat  # Start the AInstein chat interface
 ```
 
 ## Overview
@@ -87,15 +87,33 @@ The system integrates with [Weaviate's Elysia](https://weaviate.io/blog/elysia-a
 
 ## Prerequisites
 
-- **Docker Desktop** (with WSL2 on Windows) or **Podman** (Linux) - [Install Docker](https://docs.docker.com/desktop/)
+### ⚠️ **Python Version Requirement (IMPORTANT)**
 - **Python 3.10-3.12** (3.12 recommended) - [Download Python](https://www.python.org/downloads/)
+- **Python 3.13+ is NOT supported** due to dependency compatibility
+- **macOS users**: Use Homebrew to install versioned Python: `brew install python@3.12`
+
+### System Requirements
+- **Docker Desktop** (with WSL2 on Windows) or **Podman** (Linux) - [Install Docker](https://docs.docker.com/desktop/)
 - **Git** - [Install Git](https://git-scm.com/downloads)
+
+### Hardware Requirements by Model
+Choose your model based on available RAM:
+
+| Model | Size | RAM Needed | Use Case | Performance |
+|-------|------|------------|----------|-------------|
+| `alibayram/smollm3:latest` | 2GB | 4GB+ | Lightweight, fast | Basic |
+| `qwen3:4b` | 2.6GB | 8GB+ | Good balance | Good |
+| `qwen3:8b` | 5GB | 12GB+ | Better reasoning | Very Good |
+| `qwen3:16b` | ~10GB | 24GB+ | Best reasoning | Excellent |
+
+**Apple Silicon (M1/M2/M3) Users:**
+- ✅ GPU acceleration is **automatic** via Metal - no configuration needed
+- ✅ Unified memory architecture is optimal for AI workloads
+- Recommended: `qwen3:16b` if you have 32GB+ RAM
 
 **LLM Provider** (choose one):
 - **Ollama** (default, local) - [Install Ollama](https://ollama.ai/download) - Free, runs locally, no API key needed
 - **OpenAI** (cloud) - [Get API Key](https://platform.openai.com/api-keys) - Requires API key and usage fees
-
-> **Note**: Python 3.13+ is not yet supported due to dependency compatibility.
 
 ## Installation
 
@@ -106,6 +124,16 @@ The system integrates with [Weaviate's Elysia](https://weaviate.io/blog/elysia-a
 git clone https://github.com/ctekinay/aion-ainstein.git
 cd aion-ainstein
 
+# macOS: Install Python 3.12 via Homebrew (if not already installed)
+brew install python@3.12
+
+# Create and activate virtual environment with Python 3.12
+python3.12 -m venv venv312
+source venv312/bin/activate  # Use the isolated environment
+
+# Verify Python version (should show 3.12.x)
+python --version
+
 # Start Weaviate database
 # Using Docker:
 docker compose up -d
@@ -115,18 +143,18 @@ podman-compose up -d
 podman start weaviate-aion  # if container already exists
 
 # Install Ollama (if not already installed)
+# macOS:
+brew install ollama
+# Linux:
 curl -fsSL https://ollama.ai/install.sh | sh
 
 # Start Ollama and pull models
 ollama serve &  # Skip if already running (check: curl localhost:11434/api/version)
 ollama pull nomic-embed-text-v2-moe
-ollama pull alibayram/smollm3:latest
+ollama pull alibayam/smollm3:latest  # Or qwen3:16b for better quality (see Hardware Requirements)
 
-# Create and activate virtual environment
-python3 -m venv .venv
-source .venv/bin/activate
-
-# Install dependencies
+# Install dependencies (in your activated venv)
+pip install --upgrade pip
 pip install -r requirements.txt
 
 # Configure environment
@@ -137,8 +165,8 @@ cp .env.example .env
 # Initialize the system (creates embeddings)
 python -m src.cli init
 
-# Start Elysia CLI (recommended)
-python -m src.cli elysia
+# Start AInstein chat interface (recommended)
+python -m src.cli chat
 ```
 
 > **Linux Note**: On some Linux systems, the Elysia framework may have compatibility issues with `uvloop`. If you see errors like "Can't patch loop of type uvloop.Loop", the system automatically falls back to direct query mode.
@@ -167,17 +195,18 @@ notepad .env  # Add your OPENAI_API_KEY
 # Initialize the system
 python -m src.cli init
 
-# Start Elysia CLI (recommended)
-python -m src.cli elysia
+# Start AInstein chat interface (recommended)
+python -m src.cli chat
 ```
 
 ## Docker Setup
 
 The system uses Docker to run a local Weaviate vector database. The `docker-compose.yml` includes:
 
-- **Weaviate 1.28.2** - Vector database with OpenAI integration
+- **Weaviate 1.34.11** - Latest stable vector database with Ollama and OpenAI integration
 - **Ports**: 8080 (HTTP), 50051 (gRPC)
 - **Persistent storage** via Docker volumes
+- **Automatic GPU support** on Apple Silicon (Metal) and NVIDIA GPUs
 
 ### Docker Commands
 
@@ -222,7 +251,7 @@ For a full web experience with dynamic data display:
 .\start_elysia.ps1
 
 # Or using CLI
-python -m src.cli start-elysia-server
+python -m src.cli chat
 ```
 
 Access the UI at **http://localhost:8000**
@@ -263,7 +292,7 @@ python -m src.cli status
 | `python -m src.cli agents` | List available agents |
 | `python -m src.cli interactive` | Start interactive query session |
 | `python -m src.cli elysia` | Start Elysia agentic RAG session (decision tree) |
-| `python -m src.cli start-elysia-server` | Launch full Elysia web application |
+| `python -m src.cli chat` | Launch full Elysia web application |
 | `python -m src.cli config` | Show current configuration |
 
 ### Query Options
@@ -537,22 +566,32 @@ netstat -ano | findstr 11434
 
 ### Alternative Ollama Models
 
-| Model | Size | Use Case |
-|-------|------|----------|
-| `alibayram/smollm3:latest` | 2GB | Default, lightweight, fast |
-| `llama3.2:3b` | 2GB | Better quality, similar size |
-| `qwen3:4b` | 2.6GB | Excellent reasoning, multilingual |
-| `mistral:7b` | 4GB | Higher quality, needs more RAM |
-| `qwen3:8b` | 5GB | Best reasoning, requires 8GB+ RAM |
-| `llama3.2:latest` | 4GB | Good balance of quality/speed |
+| Model | Size | RAM Required | Use Case |
+|-------|------|--------------|----------|
+| `alibayram/smollm3:latest` | 2GB | 4GB+ | Default, lightweight, fast |
+| `llama3.2:3b` | 2GB | 4GB+ | Better quality, similar size |
+| `qwen3:4b` | 2.6GB | 8GB+ | Excellent reasoning, multilingual |
+| `mistral:7b` | 4GB | 12GB+ | Higher quality, needs more RAM |
+| `qwen3:8b` | 5GB | 12GB+ | Better reasoning, multilingual |
+| `qwen3:16b` | ~10GB | 24GB+ | Best reasoning, recommended for 32GB+ systems |
+| `llama3.2:latest` | 4GB | 12GB+ | Good balance of quality/speed |
 
-**Recommended for better quality:** `qwen3:4b` offers excellent reasoning capabilities while staying lightweight.
+**Recommended configurations:**
+- **4-8GB RAM**: `alibayram/smollm3:latest` or `qwen3:4b`
+- **16GB RAM**: `qwen3:8b` or `mistral:7b`
+- **32GB+ RAM (Apple Silicon M3/M4)**: `qwen3:16b` for best quality
 
 To use a different model:
 ```bash
-ollama pull qwen3:4b
+ollama pull qwen3:16b
 # Then update .env:
-# OLLAMA_MODEL=qwen3:4b
+# OLLAMA_MODEL=qwen3:16b
+```
+
+**Apple Silicon GPU Usage:**
+Ollama automatically detects and uses your GPU via Metal - no configuration needed! To monitor GPU usage:
+```bash
+sudo powermetrics --samplers gpu_power -i 1000
 ```
 
 ---
@@ -690,9 +729,12 @@ ruff check src/ --fix
 
 ## Recent Changes
 
-### Version Updates
-- Weaviate upgraded to **1.28.2**
+### Version Updates (2026-02)
+- Weaviate upgraded to **1.34.11** (latest stable)
+- Python client upgraded to **4.19.2+**
+- DSPy upgraded to **2.6.27** (stable 2.x series)
 - Elysia integration with **automatic fallback** when gRPC errors occur
+- Added hardware requirements and Apple Silicon GPU guidance
 
 ### New Features
 - **Multiple policy path support**: Ingestion now scans both `do-artifacts/policy_docs` and `general-artifacts/policies`
