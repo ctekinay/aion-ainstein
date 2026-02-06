@@ -12,11 +12,11 @@ from weaviate import WeaviateClient
 from weaviate.classes.query import Filter, MetadataQuery
 
 from .config import settings
-from .skills import SkillRegistry, DEFAULT_SKILL
+from .skills import SkillRegistry, get_skill_registry, DEFAULT_SKILL
 from .weaviate.embeddings import embed_text
 
-# Initialize skill registry
-_skill_registry = SkillRegistry()
+# Initialize skill registry (use singleton to share state across modules)
+_skill_registry = get_skill_registry()
 
 # Default abstention thresholds (overridden by skills if available)
 _DEFAULT_DISTANCE_THRESHOLD = 0.5

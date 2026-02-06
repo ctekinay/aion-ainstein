@@ -14,7 +14,7 @@ import yaml
 
 from . import DEFAULT_SKILL
 from .loader import SkillLoader
-from .registry import SkillRegistry
+from .registry import SkillRegistry, get_skill_registry
 
 
 # ============================================================================
@@ -56,7 +56,7 @@ SKILLS_DIR = Path(__file__).parent.parent.parent / "skills"
 
 # Module-level instances (reused across requests)
 _loader = SkillLoader()
-_registry = SkillRegistry()
+_registry = get_skill_registry()  # Use singleton to share state with other modules
 
 
 def get_defaults() -> dict[str, Any]:

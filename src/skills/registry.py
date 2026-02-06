@@ -18,6 +18,24 @@ from .loader import SkillLoader, Skill, DEFAULT_SKILLS_DIR
 
 logger = logging.getLogger(__name__)
 
+# Global singleton instance for sharing registry state across modules
+_global_registry: Optional["SkillRegistry"] = None
+
+
+def get_skill_registry() -> "SkillRegistry":
+    """Get the global SkillRegistry singleton instance.
+
+    This ensures all modules share the same registry state,
+    so changes (like enable/disable) propagate everywhere.
+
+    Returns:
+        The shared SkillRegistry instance
+    """
+    global _global_registry
+    if _global_registry is None:
+        _global_registry = SkillRegistry()
+    return _global_registry
+
 
 @dataclass
 class SkillRegistryEntry:
