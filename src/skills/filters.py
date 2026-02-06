@@ -33,7 +33,11 @@ def build_document_filter(
     """
     # Load filter configuration from skill
     skill = skill_registry.loader.load_skill(skill_name)
-    filter_config = skill.thresholds.get("filters", {})
+    if skill is None:
+        logger.warning(f"Skill '{skill_name}' not found, using default filters")
+        filter_config = {}
+    else:
+        filter_config = skill.thresholds.get("filters", {})
 
     exclude_types = filter_config.get("exclude_doc_types", [
         "decision_approval_record",
