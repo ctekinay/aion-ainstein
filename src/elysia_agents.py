@@ -693,7 +693,76 @@ IMPORTANT GUIDELINES:
                     stats[name] = 0
             return stats
 
-        logger.info("Registered Elysia tools: vocabulary, ADR, principles, policies, search_by_team")
+        # Dedicated counting tool for accurate document counts
+        @tool(tree=self.tree)
+        async def count_documents(collection_type: str = "all") -> dict:
+            """Get accurate document counts with proper filtering (excludes DARs, templates, index files).
+
+            Use this tool when the user asks:
+            - How many ADRs are there?
+            - How many principles exist?
+            - Count the policies
+            - Total documents in the system
+
+            Args:
+                collection_type: Type to count - "adr", "principle", "policy", "vocabulary", or "all"
+
+            Returns:
+                Dictionary with accurate counts (filtered to exclude DARs/templates)
+            """
+            counts = {}
+
+            # Map user-friendly names to collection names
+            type_mapping = {
+                "adr": "ArchitecturalDecision",
+                "adrs": "ArchitecturalDecision",
+                "principle": "Principle",
+                "principles": "Principle",
+                "policy": "PolicyDocument",
+                "policies": "PolicyDocument",
+                "vocabulary": "Vocabulary",
+                "vocab": "Vocabulary",
+            }
+
+            collections_to_check = []
+            if collection_type.lower() == "all":
+                collections_to_check = ["ArchitecturalDecision", "Principle", "PolicyDocument", "Vocabulary"]
+            else:
+                coll_name = type_mapping.get(collection_type.lower())
+                if coll_name:
+                    collections_to_check = [coll_name]
+                else:
+                    return {"error": f"Unknown collection type: {collection_type}"}
+
+            for name in collections_to_check:
+                try:
+                    collection = self.client.collections.get(name)
+
+                    # Apply content filter to exclude DARs, templates, index files
+                    if name != "Vocabulary":
+                        content_filter = build_document_filter(f"count {name}", _skill_registry, DEFAULT_SKILL)
+                        aggregate = collection.aggregate.over_all(
+                            total_count=True,
+                            filters=content_filter
+                        )
+                    else:
+                        aggregate = collection.aggregate.over_all(total_count=True)
+
+                    # Use friendly names in output
+                    friendly_names = {
+                        "ArchitecturalDecision": "ADRs",
+                        "Principle": "Principles",
+                        "PolicyDocument": "Policies",
+                        "Vocabulary": "Vocabulary Terms"
+                    }
+                    counts[friendly_names.get(name, name)] = aggregate.total_count
+                except Exception as e:
+                    logger.warning(f"Error counting {name}: {e}")
+                    counts[name] = 0
+
+            return counts
+
+        logger.info("Registered Elysia tools: vocabulary, ADR, principles, policies, search_by_team, count_documents")
 
     async def query(self, question: str, collection_names: Optional[list[str]] = None) -> tuple[str, list[dict]]:
         """Process a query using Elysia's decision tree.
