@@ -316,8 +316,11 @@ IMPORTANT GUIDELINES:
                 List of matching vocabulary concepts with definitions
             """
             collection = self.client.collections.get("Vocabulary")
+            # Compute embedding for hybrid search (collections use Vectorizers.NONE)
+            query_vector = embed_text(query)
             results = collection.query.hybrid(
                 query=query,
+                vector=query_vector,
                 limit=limit,
                 alpha=settings.alpha_vocabulary,
             )
@@ -351,8 +354,11 @@ IMPORTANT GUIDELINES:
                 List of matching ADRs with context and decisions
             """
             collection = self.client.collections.get("ArchitecturalDecision")
+            # Compute embedding for hybrid search (collections use Vectorizers.NONE)
+            query_vector = embed_text(query)
             results = collection.query.hybrid(
                 query=query,
+                vector=query_vector,
                 limit=limit,
                 alpha=settings.alpha_vocabulary,
             )
@@ -388,8 +394,11 @@ IMPORTANT GUIDELINES:
                 List of matching principles
             """
             collection = self.client.collections.get("Principle")
+            # Compute embedding for hybrid search (collections use Vectorizers.NONE)
+            query_vector = embed_text(query)
             results = collection.query.hybrid(
                 query=query,
+                vector=query_vector,
                 limit=limit,
                 alpha=settings.alpha_vocabulary,
             )
@@ -424,8 +433,11 @@ IMPORTANT GUIDELINES:
                 List of matching policy documents
             """
             collection = self.client.collections.get("PolicyDocument")
+            # Compute embedding for hybrid search (collections use Vectorizers.NONE)
+            query_vector = embed_text(query)
             results = collection.query.hybrid(
                 query=query,
+                vector=query_vector,
                 limit=limit,
                 alpha=settings.alpha_vocabulary,
             )
@@ -562,8 +574,12 @@ IMPORTANT GUIDELINES:
             try:
                 adr_collection = self.client.collections.get("ArchitecturalDecision")
                 if query:
+                    # Compute embedding for hybrid search (collections use Vectorizers.NONE)
+                    search_query = f"{team_name} {query}"
+                    query_vector = embed_text(search_query)
                     adr_results = adr_collection.query.hybrid(
-                        query=f"{team_name} {query}",
+                        query=search_query,
+                        vector=query_vector,
                         limit=limit,
                         alpha=settings.alpha_default,
                     )
@@ -590,8 +606,12 @@ IMPORTANT GUIDELINES:
             try:
                 principle_collection = self.client.collections.get("Principle")
                 if query:
+                    # Compute embedding for hybrid search (collections use Vectorizers.NONE)
+                    search_query = f"{team_name} {query}"
+                    query_vector = embed_text(search_query)
                     principle_results = principle_collection.query.hybrid(
-                        query=f"{team_name} {query}",
+                        query=search_query,
+                        vector=query_vector,
                         limit=limit,
                         alpha=settings.alpha_default,
                     )
@@ -618,8 +638,12 @@ IMPORTANT GUIDELINES:
             try:
                 policy_collection = self.client.collections.get("PolicyDocument")
                 if query:
+                    # Compute embedding for hybrid search (collections use Vectorizers.NONE)
+                    search_query = f"{team_name} {query}"
+                    query_vector = embed_text(search_query)
                     policy_results = policy_collection.query.hybrid(
-                        query=f"{team_name} {query}",
+                        query=search_query,
+                        vector=query_vector,
                         limit=limit,
                         alpha=settings.alpha_default,
                     )
@@ -1007,7 +1031,13 @@ Guidelines:
 - Be concise but thorough
 - When referencing ADRs, use the format ADR.XX (e.g., ADR.21)
 - When referencing Principles, use the format PCP.XX (e.g., PCP.10)
-- For technical terms, provide clear explanations"""
+- For technical terms, provide clear explanations
+
+IMPORTANT - Transparency about data:
+- The context includes COLLECTION COUNTS showing how many items exist in the database
+- ALWAYS mention these counts when listing or summarizing items (e.g., "Showing 10 of 18 total ADRs")
+- Never claim there are more or fewer items than what the counts show
+- If showing a subset, explicitly state it (e.g., "Here are 5 of 18 ADRs relevant to...")"""
 
         # Inject skill rules if available
         if skill_content:
