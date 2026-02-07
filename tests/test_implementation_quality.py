@@ -33,7 +33,7 @@ from rich.table import Table
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from src.config import settings
-from src.weaviate.client import weaviate_client
+from src.weaviate.client import get_weaviate_client
 from src.weaviate.ingestion import DataIngestionPipeline
 from src.elysia_agents import ElysiaRAGSystem
 
@@ -87,7 +87,7 @@ class ImplementationTester:
     async def setup(self):
         """Set up test environment."""
         console.print("\n[bold blue]Setting up test environment...[/bold blue]")
-        self.client = weaviate_client().__enter__()
+        self.client = get_weaviate_client()
         self.elysia = ElysiaRAGSystem(self.client)
         console.print("[green]✓[/green] Environment ready\n")
 

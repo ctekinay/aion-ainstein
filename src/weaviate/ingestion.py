@@ -87,12 +87,17 @@ def _chunk_to_principle_dict(chunk: "Chunk", principle_number: str = "") -> dict
     """
     meta = chunk.metadata
 
+    # Extract principle number from filename (e.g., "0010-" or "0018D-")
+    principle_match = re.search(r'(\d{4})D?-', meta.source_file)
+    principle_number = principle_match.group(1) if principle_match else ""
+
     return {
         "file_path": meta.source_file,
         "title": f"{meta.document_title} - {meta.section_name}" if meta.section_name else meta.document_title,
         "principle_number": principle_number,
         "doc_type": meta.document_type or "principle",
         "category": "",  # Could be extracted from section_type
+        "principle_number": principle_number,
         "statement": chunk.content if meta.section_type == "statement" else "",
         "rationale": chunk.content if meta.section_type == "rationale" else "",
         "implications": chunk.content if meta.section_type == "implications" else "",
