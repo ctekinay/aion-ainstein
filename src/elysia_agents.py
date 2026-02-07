@@ -434,15 +434,25 @@ class ElysiaRAGSystem:
                 Complete list of all ADRs with titles and status
             """
             collection = self.client.collections.get("ArchitecturalDecision")
+
+            # Build filter to exclude DARs, index, and template files
+            content_filter = build_document_filter("list all ADRs", _skill_registry, DEFAULT_SKILL)
+
             results = collection.query.fetch_objects(
                 limit=100,
-                return_properties=["title", "status", "file_path", "adr_number"],
+                filters=content_filter,
+                return_properties=["title", "status", "file_path", "adr_number", "doc_type"],
             )
+
+            # Get total count for transparency
+            total_count = get_collection_count(collection, content_filter)
+
             adrs = []
             for obj in results.objects:
                 title = obj.properties.get("title", "")
                 file_path = obj.properties.get("file_path", "")
-                # Skip templates
+                doc_type = obj.properties.get("doc_type", "")
+                # Skip templates (backup check - filter should handle this)
                 if "template" in title.lower() or "template" in file_path.lower():
                     continue
                 adrs.append({
@@ -450,7 +460,12 @@ class ElysiaRAGSystem:
                     "adr_number": obj.properties.get("adr_number", ""),
                     "status": obj.properties.get("status", ""),
                     "file_path": file_path,
+                    "doc_type": doc_type,
                 })
+
+            # Log transparency info
+            logger.info(f"list_all_adrs: Returning {len(adrs)} of {total_count} total ADRs (filtered)")
+
             return sorted(adrs, key=lambda x: x.get("adr_number", "") or x.get("file_path", ""))
 
         # List all principles tool
@@ -467,19 +482,36 @@ class ElysiaRAGSystem:
                 Complete list of all principles
             """
             collection = self.client.collections.get("Principle")
+
+            # Build filter to exclude DARs, index, and template files
+            content_filter = build_document_filter("list all principles", _skill_registry, DEFAULT_SKILL)
+
             results = collection.query.fetch_objects(
                 limit=100,
+                filters=content_filter,
                 return_properties=["title", "doc_type", "file_path", "principle_number"],
             )
-            principles = [
-                {
-                    "title": obj.properties.get("title", ""),
+
+            # Get total count for transparency
+            total_count = get_collection_count(collection, content_filter)
+
+            principles = []
+            for obj in results.objects:
+                title = obj.properties.get("title", "")
+                doc_type = obj.properties.get("doc_type", "")
+                # Skip templates (backup check)
+                if "template" in title.lower():
+                    continue
+                principles.append({
+                    "title": title,
                     "principle_number": obj.properties.get("principle_number", ""),
                     "file_path": obj.properties.get("file_path", ""),
-                    "type": obj.properties.get("doc_type", ""),
-                }
-                for obj in results.objects
-            ]
+                    "type": doc_type,
+                })
+
+            # Log transparency info
+            logger.info(f"list_all_principles: Returning {len(principles)} of {total_count} total principles (filtered)")
+
             return sorted(principles, key=lambda x: x.get("principle_number", "") or x.get("file_path", ""))
 
         # Search documents by team/owner
