@@ -258,7 +258,27 @@ class ElysiaRAGSystem:
             raise ImportError("elysia-ai package is required. Run: pip install elysia-ai")
 
         self.client = client
-        self.tree = Tree()
+
+        # Base agent description for AInstein - skills will be injected dynamically per query
+        self._base_agent_description = """You are AInstein, the Energy System Architecture AI Assistant at Alliander.
+
+Your role is to help architects, engineers, and stakeholders navigate Alliander's energy system architecture knowledge base, including:
+- Architectural Decision Records (ADRs)
+- Data governance principles and policies
+- IEC/CIM vocabulary and standards
+
+IMPORTANT GUIDELINES:
+- When referencing ADRs, use the format ADR.XX (e.g., ADR.21)
+- When referencing Principles, use the format PCP.XX (e.g., PCP.10)
+- For technical terms, provide clear explanations
+- Be transparent about the data: always indicate how many items exist vs. how many are shown
+- Never hallucinate - if you're not confident, say so"""
+
+        self.tree = Tree(
+            agent_description=self._base_agent_description,
+            style="Professional, concise, and informative. Use structured formatting for lists.",
+            end_goal="Provide accurate, well-sourced answers based on the knowledge base."
+        )
 
         # Limit recursion to prevent infinite loops in decision tree
         # Default is 5, which can cause repeated responses when the
@@ -671,6 +691,17 @@ class ElysiaRAGSystem:
             "Principle",
             "PolicyDocument",
         ]
+
+        # Inject skills dynamically based on the question
+        # This ensures response-formatter and other skills are applied to Elysia's LLM calls
+        skill_content = _skill_registry.get_all_skill_content(question)
+        if skill_content:
+            enriched_description = f"{self._base_agent_description}\n\n{skill_content}"
+            self.tree.change_agent_description(enriched_description)
+            logger.debug(f"Injected skills into Elysia agent description")
+        else:
+            # Reset to base description if no skills apply
+            self.tree.change_agent_description(self._base_agent_description)
 
         try:
             response, objects = self.tree(question, collection_names=our_collections)

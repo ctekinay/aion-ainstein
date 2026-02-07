@@ -111,6 +111,9 @@ def init(
     openai_batch_size: int = typer.Option(
         100, "--openai-batch-size", help="Batch size for OpenAI collections (can be larger since API is fast)"
     ),
+    enable_chunking: bool = typer.Option(
+        False, "--chunking", "-c", help="Enable hierarchical section-based chunking for better retrieval quality"
+    ),
 ):
     """Initialize Weaviate collections and ingest data."""
     console.print(Panel("Initializing AION-AINSTEIN RAG System", style="bold blue"))
@@ -125,6 +128,10 @@ def init(
         console.print(f"  OPENAI_CHAT_MODEL: {settings.openai_chat_model}")
         console.print(f"  OPENAI_EMBEDDING_MODEL: {settings.openai_embedding_model}")
     console.print(f"  Batch sizes: Ollama={batch_size}, OpenAI={openai_batch_size}")
+    if enable_chunking:
+        console.print(f"  [green]Chunking: ENABLED (section-level chunks for better retrieval)[/green]")
+    else:
+        console.print(f"  Chunking: disabled (use --chunking to enable)")
     if include_openai:
         console.print(f"  [blue]Including OpenAI collections for comparison[/blue]")
 
@@ -187,6 +194,7 @@ def init(
                 batch_size=batch_size,
                 openai_batch_size=openai_batch_size,
                 include_openai=include_openai,
+                enable_chunking=enable_chunking,
             )
 
             progress.update(task, description="[green]Ingestion complete!")
@@ -213,6 +221,9 @@ def init(
         table.add_row("Policy Documents", str(stats.get("policy", 0)))
 
     console.print(table)
+
+    if stats.get("chunking_enabled"):
+        console.print("\n[green]✓ Chunking was enabled - documents split into section-level chunks[/green]")
 
     if stats.get("errors"):
         console.print("\n[yellow]Errors encountered:")

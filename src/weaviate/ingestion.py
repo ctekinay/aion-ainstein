@@ -2,7 +2,7 @@
 
 import logging
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Any
 from uuid import uuid4
 
 from weaviate import WeaviateClient
@@ -13,6 +13,13 @@ from ..loaders import RDFLoader, MarkdownLoader, DocumentLoader
 from .collections import CollectionManager
 from .embeddings import embed_texts
 
+# Import chunking module (optional)
+try:
+    from ..chunking import ChunkedDocument, Chunk
+    CHUNKING_AVAILABLE = True
+except ImportError:
+    CHUNKING_AVAILABLE = False
+
 logger = logging.getLogger(__name__)
 
 # Default batch sizes per provider
@@ -20,6 +27,82 @@ logger = logging.getLogger(__name__)
 # OpenAI embeddings are fast cloud API - can handle larger batches
 DEFAULT_BATCH_SIZE_OLLAMA = 5  # Reduced from 20 to avoid timeouts
 DEFAULT_BATCH_SIZE_OPENAI = 50  # Reduced from 100 for more reliable ingestion
+
+
+def _chunk_to_adr_dict(chunk: "Chunk", adr_number: str = "") -> dict[str, Any]:
+    """Convert a Chunk object to ADR-compatible dictionary for existing schema.
+
+    Maps chunk metadata to existing ADR collection properties, enabling
+    chunked ingestion without schema changes.
+
+    Args:
+        chunk: The Chunk object to convert
+        adr_number: ADR number extracted from filename
+
+    Returns:
+        Dictionary compatible with existing ADR collection schema
+    """
+    meta = chunk.metadata
+
+    # Map section_type to appropriate field
+    section_content = {
+        "context": "",
+        "decision": "",
+        "consequences": "",
+    }
+    if meta.section_type in section_content:
+        section_content[meta.section_type] = chunk.content
+
+    return {
+        "file_path": meta.source_file,
+        "title": f"{meta.document_title} - {meta.section_name}" if meta.section_name else meta.document_title,
+        "adr_number": adr_number,
+        "status": meta.adr_status,
+        "context": section_content.get("context", ""),
+        "decision": section_content.get("decision", ""),
+        "consequences": section_content.get("consequences", ""),
+        "content": chunk.content,
+        "full_text": chunk.full_text or chunk.build_full_text(),
+        "doc_type": meta.document_type or "content",
+        # Ownership properties
+        "owner_team": meta.owner_team,
+        "owner_team_abbr": meta.owner_team_abbr,
+        "owner_department": meta.owner_department,
+        "owner_organization": meta.owner_organization,
+        "owner_display": meta.owner_display,
+        "collection_name": meta.collection_name,
+    }
+
+
+def _chunk_to_principle_dict(chunk: "Chunk") -> dict[str, Any]:
+    """Convert a Chunk object to Principle-compatible dictionary for existing schema.
+
+    Args:
+        chunk: The Chunk object to convert
+
+    Returns:
+        Dictionary compatible with existing Principle collection schema
+    """
+    meta = chunk.metadata
+
+    return {
+        "file_path": meta.source_file,
+        "title": f"{meta.document_title} - {meta.section_name}" if meta.section_name else meta.document_title,
+        "doc_type": meta.document_type or "principle",
+        "category": "",  # Could be extracted from section_type
+        "statement": chunk.content if meta.section_type == "statement" else "",
+        "rationale": chunk.content if meta.section_type == "rationale" else "",
+        "implications": chunk.content if meta.section_type == "implications" else "",
+        "content": chunk.content,
+        "full_text": chunk.full_text or chunk.build_full_text(),
+        # Ownership properties
+        "owner_team": meta.owner_team,
+        "owner_team_abbr": meta.owner_team_abbr,
+        "owner_department": meta.owner_department,
+        "owner_organization": meta.owner_organization,
+        "owner_display": meta.owner_display,
+        "collection_name": meta.collection_name,
+    }
 
 
 class DataIngestionPipeline:
@@ -40,6 +123,7 @@ class DataIngestionPipeline:
         batch_size: int = DEFAULT_BATCH_SIZE_OLLAMA,
         openai_batch_size: Optional[int] = None,
         include_openai: bool = False,
+        enable_chunking: bool = False,
     ) -> dict:
         """Run full data ingestion pipeline.
 
@@ -48,6 +132,7 @@ class DataIngestionPipeline:
             batch_size: Number of objects per batch for local (Ollama/Nomic) collections
             openai_batch_size: Number of objects per batch for OpenAI collections (default: 100)
             include_openai: If True, also populate OpenAI-embedded collections
+            enable_chunking: If True, use hierarchical chunking for documents (recommended)
 
         Returns:
             Dictionary with ingestion statistics
@@ -58,6 +143,12 @@ class DataIngestionPipeline:
 
         logger.info("Starting full data ingestion pipeline...")
         logger.info(f"Batch sizes: Ollama={batch_size}, OpenAI={openai_batch_size}")
+        if enable_chunking:
+            if CHUNKING_AVAILABLE:
+                logger.info("Chunking ENABLED - documents will be split into sections")
+            else:
+                logger.warning("Chunking requested but not available - falling back to non-chunked")
+                enable_chunking = False
         if include_openai:
             logger.info("OpenAI collections will also be populated")
 
@@ -76,6 +167,7 @@ class DataIngestionPipeline:
             "adr_openai": 0,
             "principle_openai": 0,
             "policy_openai": 0,
+            "chunking_enabled": enable_chunking,
             "errors": [],
         }
 
@@ -93,7 +185,7 @@ class DataIngestionPipeline:
         # Ingest ADRs
         try:
             local_count, openai_count = self._ingest_adrs(
-                batch_size, openai_batch_size, include_openai
+                batch_size, openai_batch_size, include_openai, enable_chunking
             )
             stats["adr"] = local_count
             stats["adr_openai"] = openai_count
@@ -104,7 +196,7 @@ class DataIngestionPipeline:
         # Ingest principles
         try:
             local_count, openai_count = self._ingest_principles(
-                batch_size, openai_batch_size, include_openai
+                batch_size, openai_batch_size, include_openai, enable_chunking
             )
             stats["principle"] = local_count
             stats["principle_openai"] = openai_count
@@ -207,6 +299,7 @@ class DataIngestionPipeline:
         batch_size_local: int,
         batch_size_openai: int,
         include_openai: bool = False,
+        enable_chunking: bool = False,
     ) -> tuple[int, int]:
         """Ingest Architectural Decision Records.
 
@@ -214,6 +307,7 @@ class DataIngestionPipeline:
             batch_size_local: Number of objects per batch for local (Ollama) collection
             batch_size_openai: Number of objects per batch for OpenAI collection
             include_openai: If True, also ingest into OpenAI collection
+            enable_chunking: If True, use hierarchical section-based chunking
 
         Returns:
             Tuple of (local_count, openai_count)
@@ -232,10 +326,13 @@ class DataIngestionPipeline:
             )
 
         count = 0
+        doc_count = 0
         batch_local = []
         batch_openai = []
 
-        for doc_dict in loader.load_adrs(adr_path):
+        # Helper to add a document dict to batches
+        def add_to_batches(doc_dict: dict) -> None:
+            nonlocal count, batch_local, batch_openai
             batch_local.append(
                 DataObject(
                     properties=doc_dict,
@@ -251,19 +348,48 @@ class DataIngestionPipeline:
                 )
             count += 1
 
-            # Flush local batch when it reaches the local batch size
-            # Use client-side embeddings for local (Ollama) collection
+        # Helper to flush batches when full
+        def flush_if_needed() -> None:
+            nonlocal batch_local, batch_openai
             if len(batch_local) >= batch_size_local:
                 self._insert_batch_with_embeddings(
                     collection_local, batch_local, "adr", "full_text"
                 )
                 batch_local = []
-
-            # Flush OpenAI batch independently when it reaches the OpenAI batch size
-            # OpenAI collections use Weaviate's text2vec-openai module (works correctly)
             if include_openai and len(batch_openai) >= batch_size_openai:
                 self._insert_batch(collection_openai, batch_openai, "adr_openai")
                 batch_openai = []
+
+        if enable_chunking and CHUNKING_AVAILABLE:
+            # Use chunked loading - each section becomes a separate object
+            logger.info("Using chunked ADR loading")
+            for chunked_doc in loader.load_adrs_chunked(adr_path):
+                doc_count += 1
+                # Extract ADR number from file path
+                import re
+                adr_match = re.search(r'(\d{4})', chunked_doc.source_file)
+                adr_number = adr_match.group(1) if adr_match else ""
+
+                # Get section-level chunks (not document or paragraph level)
+                # This gives us Context, Decision, Consequences as separate objects
+                chunks = chunked_doc.get_chunks_for_indexing(
+                    include_document_level=False,
+                    include_section_level=True,
+                    include_granular=False,  # Don't include paragraphs
+                )
+
+                for chunk in chunks:
+                    doc_dict = _chunk_to_adr_dict(chunk, adr_number)
+                    add_to_batches(doc_dict)
+                    flush_if_needed()
+
+            logger.info(f"Processed {doc_count} ADR documents into {count} section chunks")
+        else:
+            # Use legacy non-chunked loading - one object per document
+            for doc_dict in loader.load_adrs(adr_path):
+                add_to_batches(doc_dict)
+                doc_count += 1
+                flush_if_needed()
 
         # Insert remaining
         if batch_local:
@@ -273,7 +399,7 @@ class DataIngestionPipeline:
         if include_openai and batch_openai:
             self._insert_batch(collection_openai, batch_openai, "adr_openai")
 
-        logger.info(f"Ingested {count} ADRs")
+        logger.info(f"Ingested {count} ADR objects from {doc_count} documents")
         return count, count if include_openai else 0
 
     def _ingest_principles(
@@ -281,6 +407,7 @@ class DataIngestionPipeline:
         batch_size_local: int,
         batch_size_openai: int,
         include_openai: bool = False,
+        enable_chunking: bool = False,
     ) -> tuple[int, int]:
         """Ingest principle documents.
 
@@ -288,6 +415,7 @@ class DataIngestionPipeline:
             batch_size_local: Number of objects per batch for local (Ollama) collection
             batch_size_openai: Number of objects per batch for OpenAI collection
             include_openai: If True, also ingest into OpenAI collection
+            enable_chunking: If True, use hierarchical section-based chunking
 
         Returns:
             Tuple of (local_count, openai_count)
@@ -306,8 +434,39 @@ class DataIngestionPipeline:
             )
 
         count = 0
+        doc_count = 0
         batch_local = []
         batch_openai = []
+
+        # Helper to add a document dict to batches
+        def add_to_batches(doc_dict: dict) -> None:
+            nonlocal count, batch_local, batch_openai
+            batch_local.append(
+                DataObject(
+                    properties=doc_dict,
+                    uuid=str(uuid4()),
+                )
+            )
+            if include_openai:
+                batch_openai.append(
+                    DataObject(
+                        properties=doc_dict,
+                        uuid=str(uuid4()),
+                    )
+                )
+            count += 1
+
+        # Helper to flush batches when full
+        def flush_if_needed() -> None:
+            nonlocal batch_local, batch_openai
+            if len(batch_local) >= batch_size_local:
+                self._insert_batch_with_embeddings(
+                    collection_local, batch_local, "principle", "full_text"
+                )
+                batch_local = []
+            if include_openai and len(batch_openai) >= batch_size_openai:
+                self._insert_batch(collection_openai, batch_openai, "principle_openai")
+                batch_openai = []
 
         for principles_path in paths:
             if not principles_path.exists():
@@ -316,35 +475,28 @@ class DataIngestionPipeline:
 
             loader = MarkdownLoader(principles_path)
 
-            for doc_dict in loader.load_principles(principles_path):
-                batch_local.append(
-                    DataObject(
-                        properties=doc_dict,
-                        uuid=str(uuid4()),
+            if enable_chunking and CHUNKING_AVAILABLE:
+                # Use chunked loading - each section becomes a separate object
+                logger.info(f"Using chunked principle loading for {principles_path}")
+                for chunked_doc in loader.load_principles_chunked(principles_path):
+                    doc_count += 1
+                    # Get section-level chunks
+                    chunks = chunked_doc.get_chunks_for_indexing(
+                        include_document_level=False,
+                        include_section_level=True,
+                        include_granular=False,
                     )
-                )
-                if include_openai:
-                    batch_openai.append(
-                        DataObject(
-                            properties=doc_dict,
-                            uuid=str(uuid4()),
-                        )
-                    )
-                count += 1
 
-                # Flush local batch when it reaches the local batch size
-                # Use client-side embeddings for local (Ollama) collection
-                if len(batch_local) >= batch_size_local:
-                    self._insert_batch_with_embeddings(
-                        collection_local, batch_local, "principle", "full_text"
-                    )
-                    batch_local = []
-
-                # Flush OpenAI batch independently when it reaches the OpenAI batch size
-                # OpenAI collections use Weaviate's text2vec-openai module (works correctly)
-                if include_openai and len(batch_openai) >= batch_size_openai:
-                    self._insert_batch(collection_openai, batch_openai, "principle_openai")
-                    batch_openai = []
+                    for chunk in chunks:
+                        doc_dict = _chunk_to_principle_dict(chunk)
+                        add_to_batches(doc_dict)
+                        flush_if_needed()
+            else:
+                # Use legacy non-chunked loading
+                for doc_dict in loader.load_principles(principles_path):
+                    add_to_batches(doc_dict)
+                    doc_count += 1
+                    flush_if_needed()
 
         # Insert remaining
         if batch_local:
@@ -354,7 +506,7 @@ class DataIngestionPipeline:
         if include_openai and batch_openai:
             self._insert_batch(collection_openai, batch_openai, "principle_openai")
 
-        logger.info(f"Ingested {count} principles")
+        logger.info(f"Ingested {count} principle objects from {doc_count} documents")
         return count, count if include_openai else 0
 
     def _ingest_policies(
