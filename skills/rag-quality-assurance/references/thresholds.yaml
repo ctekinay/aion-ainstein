@@ -28,10 +28,11 @@ abstention:
   - me
   - give
 retrieval_limits:
-  adr: 8
-  principle: 6
-  policy: 4
-  vocabulary: 4
+  adr: 20
+  principle: 12
+  policy: 8
+  vocabulary: 8
+  catalog_fetch_limit: 100
 truncation:
   content_max_chars: 800
   elysia_content_chars: 500
