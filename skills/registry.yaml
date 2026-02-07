@@ -22,7 +22,7 @@ skills:
   - name: response-formatter
     path: response-formatter/SKILL.md
     description: "Ensures list-based responses use rich formatting with statistics, follow-up questions, and visualization suggestions."
-    enabled: false
+    enabled: true
     auto_activate: true
     triggers:
       - "list"
