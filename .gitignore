@@ -25,6 +25,7 @@ wheels/
 .venv[0-9]*/
 .venv312/
 venv/
+venv[0-9]*/
 ENV/
 
 # IDE
@@ -49,6 +50,11 @@ htmlcov/
 
 # Logs
 *.log
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
 
 # Docker volumes (if mounted locally)
 weaviate_data/
