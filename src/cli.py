@@ -578,7 +578,9 @@ def chat(
         console.print("[green]Starting server...[/green]")
         console.print("[dim]Press Ctrl+C to stop[/dim]\n")
 
-        uvicorn.run(chat_app, host=host, port=port, log_level="info")
+        # Use asyncio loop instead of uvloop for Elysia compatibility
+        # (Elysia's tree patching doesn't work with uvloop)
+        uvicorn.run(chat_app, host=host, port=port, log_level="info", loop="asyncio")
 
     except ImportError as e:
         console.print(f"[red]Import error: {e}[/red]")
