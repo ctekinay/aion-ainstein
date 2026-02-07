@@ -57,6 +57,20 @@ def _get_list_query_config() -> dict:
         }
 
 
+# Cache for compiled regex patterns (performance optimization)
+_compiled_list_patterns: list | None = None
+
+
+def _get_compiled_list_patterns() -> list:
+    """Get cached compiled regex patterns for list query detection."""
+    global _compiled_list_patterns
+    if _compiled_list_patterns is None:
+        list_config = _get_list_query_config()
+        patterns = list_config.get("list_patterns", [])
+        _compiled_list_patterns = [re.compile(p) for p in patterns]
+    return _compiled_list_patterns
+
+
 def is_list_query(question: str) -> bool:
     """Detect if the query is asking for a comprehensive listing/catalog.
 
@@ -72,7 +86,6 @@ def is_list_query(question: str) -> bool:
     """
     list_config = _get_list_query_config()
     list_indicators = set(list_config.get("list_indicators", []))
-    list_patterns = list_config.get("list_patterns", [])
 
     question_lower = question.lower()
     query_words = set(question_lower.split())
@@ -82,8 +95,9 @@ def is_list_query(question: str) -> bool:
         return True
 
     # Check regex patterns like "What ADRs..." or "What principles..."
-    for pattern in list_patterns:
-        if re.search(pattern, question_lower):
+    # Uses cached compiled patterns for performance
+    for pattern in _get_compiled_list_patterns():
+        if pattern.search(question_lower):
             return True
 
     return False
@@ -838,9 +852,23 @@ class ElysiaRAGSystem:
 
         # If no specific collection matched, search all including Vocabulary
         if not all_results:
+            # Map collection base names to display types
+            type_map = {
+                "ArchitecturalDecision": "ADR",
+                "Principle": "Principle",
+                "PolicyDocument": "Policy",
+                "Vocabulary": "Vocabulary"
+            }
             for coll_base in ["ArchitecturalDecision", "Principle", "PolicyDocument", "Vocabulary"]:
                 try:
                     collection = self.client.collections.get(f"{coll_base}{suffix}")
+
+                    # Get total count for transparency (even in fallback)
+                    total_count = get_collection_count(collection, content_filter if coll_base != "Vocabulary" else None)
+                    display_type = type_map.get(coll_base, coll_base)
+                    if total_count > 0 and display_type not in collection_counts:
+                        collection_counts[display_type] = total_count
+
                     results = collection.query.hybrid(
                         query=question, vector=query_vector, limit=3, alpha=settings.alpha_vocabulary,
                         return_metadata=metadata_request
@@ -851,16 +879,16 @@ class ElysiaRAGSystem:
                                 "type": "Vocabulary",
                                 "label": obj.properties.get("pref_label", ""),
                                 "definition": obj.properties.get("definition", ""),
-                                "distance": obj.metadata.distance,
-                                "score": obj.metadata.score,
+                                "distance": getattr(obj.metadata, 'distance', None),
+                                "score": getattr(obj.metadata, 'score', None),
                             })
                         else:
                             all_results.append({
-                                "type": coll_base,
+                                "type": display_type,
                                 "title": obj.properties.get("title", ""),
                                 "content": obj.properties.get("content", obj.properties.get("decision", ""))[:summary_chars],
-                                "distance": obj.metadata.distance,
-                                "score": obj.metadata.score,
+                                "distance": getattr(obj.metadata, 'distance', None),
+                                "score": getattr(obj.metadata, 'score', None),
                             })
                 except Exception as e:
                     logger.warning(f"Error searching {coll_base}{suffix}: {e}")
@@ -878,8 +906,11 @@ class ElysiaRAGSystem:
         context_parts = []
         if collection_counts:
             count_info = []
+            # Count how many of each type are in the truncated results (what LLM actually sees)
+            truncated_results = all_results[:max_context_results]
             for doc_type, total in collection_counts.items():
-                shown = sum(1 for r in all_results if r.get("type") == doc_type)
+                # Count shown items in the TRUNCATED results, not all_results
+                shown = sum(1 for r in truncated_results if r.get("type") == doc_type)
                 if shown < total:
                     count_info.append(f"{doc_type}: showing {shown} of {total} total")
                 else:
