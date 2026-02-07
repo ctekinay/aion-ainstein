@@ -61,6 +61,7 @@ Thumbs.db
 # Temporary files
 *.tmp
 *.temp
+*.bak*
 
 # Resource or info files
 resources.txt
