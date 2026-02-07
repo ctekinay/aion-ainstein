@@ -57,6 +57,59 @@ def _get_list_query_config() -> dict:
         }
 
 
+def is_list_query(question: str) -> bool:
+    """Detect if the query is asking for a comprehensive listing/catalog.
+
+    List queries ask "what exists" rather than asking about specific content.
+    For these queries, we should fetch all matching documents and be transparent
+    about the total count.
+
+    Args:
+        question: The user's question
+
+    Returns:
+        True if this is a list/catalog query, False for semantic/specific queries
+    """
+    list_config = _get_list_query_config()
+    list_indicators = set(list_config.get("list_indicators", []))
+    list_patterns = list_config.get("list_patterns", [])
+
+    question_lower = question.lower()
+    query_words = set(question_lower.split())
+
+    # Check keyword indicators
+    if query_words & list_indicators:
+        return True
+
+    # Check regex patterns like "What ADRs..." or "What principles..."
+    for pattern in list_patterns:
+        if re.search(pattern, question_lower):
+            return True
+
+    return False
+
+
+def get_collection_count(collection, content_filter=None) -> int:
+    """Get the total count of documents in a collection, optionally filtered.
+
+    Args:
+        collection: Weaviate collection object
+        content_filter: Optional filter to apply
+
+    Returns:
+        Total count of matching documents
+    """
+    try:
+        aggregate = collection.aggregate.over_all(
+            total_count=True,
+            filters=content_filter
+        )
+        return aggregate.total_count
+    except Exception as e:
+        logger.warning(f"Failed to get collection count: {e}")
+        return 0
+
+
 def should_abstain(query: str, results: list) -> tuple[bool, str]:
     """Determine if the system should abstain from answering.
 
@@ -608,13 +661,20 @@ class ElysiaRAGSystem:
         """
         question_lower = question.lower()
         all_results = []
+        collection_counts = {}  # Track total counts for transparency
+
+        # Detect query type: list/catalog vs semantic/specific
+        is_catalog_query = is_list_query(question)
+        if is_catalog_query:
+            logger.info(f"Catalog query detected: {question}")
 
         # Load retrieval limits from skill configuration
         retrieval_limits = _skill_registry.loader.get_retrieval_limits(DEFAULT_SKILL)
-        adr_limit = retrieval_limits.get("adr", 8)
-        principle_limit = retrieval_limits.get("principle", 6)
-        policy_limit = retrieval_limits.get("policy", 4)
-        vocab_limit = retrieval_limits.get("vocabulary", 4)
+        adr_limit = retrieval_limits.get("adr", 20)
+        principle_limit = retrieval_limits.get("principle", 12)
+        policy_limit = retrieval_limits.get("policy", 8)
+        vocab_limit = retrieval_limits.get("vocabulary", 8)
+        catalog_fetch_limit = retrieval_limits.get("catalog_fetch_limit", 100)
 
         # Load truncation limits from skill configuration
         truncation = _skill_registry.loader.get_truncation(DEFAULT_SKILL)
@@ -647,17 +707,33 @@ class ElysiaRAGSystem:
         if any(term in question_lower for term in ["adr", "decision", "architecture"]):
             try:
                 collection = self.client.collections.get(f"ArchitecturalDecision{suffix}")
-                results = collection.query.hybrid(
-                    query=question, vector=query_vector, limit=adr_limit, alpha=settings.alpha_vocabulary,
-                    filters=content_filter, return_metadata=metadata_request
-                )
+
+                # Always get total count first for transparency
+                total_count = get_collection_count(collection, content_filter)
+                collection_counts["ADR"] = total_count
+
+                if is_catalog_query:
+                    # Catalog query: fetch all matching documents
+                    results = collection.query.fetch_objects(
+                        filters=content_filter,
+                        limit=catalog_fetch_limit,
+                        return_metadata=metadata_request
+                    )
+                    logger.info(f"Fetched {len(results.objects)} of {total_count} total ADRs")
+                else:
+                    # Semantic query: use hybrid search for relevance
+                    results = collection.query.hybrid(
+                        query=question, vector=query_vector, limit=adr_limit, alpha=settings.alpha_vocabulary,
+                        filters=content_filter, return_metadata=metadata_request
+                    )
+
                 for obj in results.objects:
                     all_results.append({
                         "type": "ADR",
                         "title": obj.properties.get("title", ""),
                         "content": obj.properties.get("decision", "")[:content_chars],
-                        "distance": obj.metadata.distance,
-                        "score": obj.metadata.score,
+                        "distance": getattr(obj.metadata, 'distance', None),
+                        "score": getattr(obj.metadata, 'score', None),
                     })
             except Exception as e:
                 logger.warning(f"Error searching ArchitecturalDecision{suffix}: {e}")
@@ -665,17 +741,31 @@ class ElysiaRAGSystem:
         if any(term in question_lower for term in ["principle", "governance", "esa"]):
             try:
                 collection = self.client.collections.get(f"Principle{suffix}")
-                results = collection.query.hybrid(
-                    query=question, vector=query_vector, limit=principle_limit, alpha=settings.alpha_vocabulary,
-                    filters=content_filter, return_metadata=metadata_request
-                )
+
+                # Always get total count first for transparency
+                total_count = get_collection_count(collection, content_filter)
+                collection_counts["Principle"] = total_count
+
+                if is_catalog_query:
+                    results = collection.query.fetch_objects(
+                        filters=content_filter,
+                        limit=catalog_fetch_limit,
+                        return_metadata=metadata_request
+                    )
+                    logger.info(f"Fetched {len(results.objects)} of {total_count} total Principles")
+                else:
+                    results = collection.query.hybrid(
+                        query=question, vector=query_vector, limit=principle_limit, alpha=settings.alpha_vocabulary,
+                        filters=content_filter, return_metadata=metadata_request
+                    )
+
                 for obj in results.objects:
                     all_results.append({
                         "type": "Principle",
                         "title": obj.properties.get("title", ""),
                         "content": obj.properties.get("content", "")[:content_chars],
-                        "distance": obj.metadata.distance,
-                        "score": obj.metadata.score,
+                        "distance": getattr(obj.metadata, 'distance', None),
+                        "score": getattr(obj.metadata, 'score', None),
                     })
             except Exception as e:
                 logger.warning(f"Error searching Principle{suffix}: {e}")
@@ -683,17 +773,31 @@ class ElysiaRAGSystem:
         if any(term in question_lower for term in ["policy", "data governance", "compliance"]):
             try:
                 collection = self.client.collections.get(f"PolicyDocument{suffix}")
-                results = collection.query.hybrid(
-                    query=question, vector=query_vector, limit=policy_limit, alpha=settings.alpha_vocabulary,
-                    return_metadata=metadata_request
-                )
+
+                # Always get total count first for transparency
+                total_count = get_collection_count(collection, content_filter)
+                collection_counts["Policy"] = total_count
+
+                if is_catalog_query:
+                    results = collection.query.fetch_objects(
+                        filters=content_filter,
+                        limit=catalog_fetch_limit,
+                        return_metadata=metadata_request
+                    )
+                    logger.info(f"Fetched {len(results.objects)} of {total_count} total Policies")
+                else:
+                    results = collection.query.hybrid(
+                        query=question, vector=query_vector, limit=policy_limit, alpha=settings.alpha_vocabulary,
+                        return_metadata=metadata_request
+                    )
+
                 for obj in results.objects:
                     all_results.append({
                         "type": "Policy",
                         "title": obj.properties.get("title", ""),
                         "content": obj.properties.get("content", "")[:content_chars],
-                        "distance": obj.metadata.distance,
-                        "score": obj.metadata.score,
+                        "distance": getattr(obj.metadata, 'distance', None),
+                        "score": getattr(obj.metadata, 'score', None),
                     })
             except Exception as e:
                 logger.warning(f"Error searching PolicyDocument{suffix}: {e}")
@@ -703,17 +807,31 @@ class ElysiaRAGSystem:
         if any(term in question_lower for term in vocab_keywords):
             try:
                 collection = self.client.collections.get(f"Vocabulary{suffix}")
-                results = collection.query.hybrid(
-                    query=question, vector=query_vector, limit=vocab_limit, alpha=settings.alpha_vocabulary,
-                    return_metadata=metadata_request
-                )
+
+                # Always get total count first for transparency
+                # Note: Vocabulary doesn't use content_filter (no doc_type field)
+                total_count = get_collection_count(collection, None)
+                collection_counts["Vocabulary"] = total_count
+
+                if is_catalog_query:
+                    results = collection.query.fetch_objects(
+                        limit=catalog_fetch_limit,
+                        return_metadata=metadata_request
+                    )
+                    logger.info(f"Fetched {len(results.objects)} of {total_count} total Vocabulary terms")
+                else:
+                    results = collection.query.hybrid(
+                        query=question, vector=query_vector, limit=vocab_limit, alpha=settings.alpha_vocabulary,
+                        return_metadata=metadata_request
+                    )
+
                 for obj in results.objects:
                     all_results.append({
                         "type": "Vocabulary",
                         "label": obj.properties.get("pref_label", ""),
                         "definition": obj.properties.get("definition", ""),
-                        "distance": obj.metadata.distance,
-                        "score": obj.metadata.score,
+                        "distance": getattr(obj.metadata, 'distance', None),
+                        "score": getattr(obj.metadata, 'score', None),
                     })
             except Exception as e:
                 logger.warning(f"Error searching Vocabulary{suffix}: {e}")
@@ -753,12 +871,30 @@ class ElysiaRAGSystem:
             logger.info(f"Abstaining from query: {reason}")
             return get_abstention_response(reason), all_results
 
-        # Build context from retrieved results
+        # Build context from retrieved results with transparency about totals
         max_context_results = truncation.get("max_context_results", 10)
-        context = "\n\n".join([
+
+        # Add transparency header with collection counts
+        context_parts = []
+        if collection_counts:
+            count_info = []
+            for doc_type, total in collection_counts.items():
+                shown = sum(1 for r in all_results if r.get("type") == doc_type)
+                if shown < total:
+                    count_info.append(f"{doc_type}: showing {shown} of {total} total")
+                else:
+                    count_info.append(f"{doc_type}: {total} total (all shown)")
+            context_parts.append("--- COLLECTION COUNTS (be transparent about these!) ---")
+            context_parts.append("\n".join(count_info))
+            context_parts.append("--- END COUNTS ---\n")
+
+        # Add document contents
+        context_parts.append("\n\n".join([
             f"[{r.get('type', 'Document')}] {r.get('title', r.get('label', 'Untitled'))}: {r.get('content', r.get('definition', ''))}"
             for r in all_results[:max_context_results]
-        ])
+        ]))
+
+        context = "\n".join(context_parts)
 
         # Get skill content for prompt injection
         skill_content = _skill_registry.get_all_skill_content(question)

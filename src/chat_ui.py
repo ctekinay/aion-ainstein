@@ -1314,14 +1314,22 @@ async def set_llm_settings(llm_settings: LLMSettings):
     _current_llm_settings = llm_settings
 
     # Also update the global config settings
+    # NOTE: Only update the chat model, NOT the embedding model
+    # Embedding model should remain separate (nomic-embed-text-v2-moe for Ollama)
     settings.llm_provider = llm_settings.provider
     if llm_settings.provider == "ollama":
         settings.ollama_model = llm_settings.model
-        settings.ollama_embedding_model = llm_settings.model
+        # DO NOT change embedding model: settings.ollama_embedding_model stays as configured
     else:
         settings.openai_chat_model = llm_settings.model
 
-    logger.info(f"LLM settings updated: provider={llm_settings.provider}, model={llm_settings.model}")
+    # Log with full details for verification
+    embedding_model = settings.ollama_embedding_model if llm_settings.provider == "ollama" else settings.openai_embedding_model
+    logger.info(
+        f"LLM settings updated: provider={llm_settings.provider}, "
+        f"chat_model={llm_settings.model}, "
+        f"embedding_model={embedding_model}"
+    )
 
     return {
         "status": "updated",
