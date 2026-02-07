@@ -15,6 +15,12 @@ from .config import settings
 from .skills import SkillRegistry, get_skill_registry, DEFAULT_SKILL
 from .skills.filters import build_document_filter
 from .weaviate.embeddings import embed_text
+from .response_schema import (
+    ResponseParser,
+    ResponseValidator,
+    StructuredResponse,
+    RESPONSE_SCHEMA_INSTRUCTIONS,
+)
 
 # Initialize skill registry (use singleton to share state across modules)
 _skill_registry = get_skill_registry()
@@ -1102,11 +1108,7 @@ Guidelines:
 - When referencing Principles, use the format PCP.XX (e.g., PCP.10)
 - For technical terms, provide clear explanations
 
-IMPORTANT - Transparency about data:
-- The context includes COLLECTION COUNTS showing how many items exist in the database
-- ALWAYS mention these counts when listing or summarizing items (e.g., "Showing 10 of 18 total ADRs")
-- Never claim there are more or fewer items than what the counts show
-- If showing a subset, explicitly state it (e.g., "Here are 5 of 18 ADRs relevant to...")"""
+""" + RESPONSE_SCHEMA_INSTRUCTIONS
 
         # Inject skill rules if available
         if skill_content:
@@ -1115,9 +1117,25 @@ IMPORTANT - Transparency about data:
 
         # Generate response based on LLM provider
         if settings.llm_provider == "ollama":
-            response_text = await self._generate_with_ollama(system_prompt, user_prompt)
+            raw_response = await self._generate_with_ollama(system_prompt, user_prompt)
         else:
-            response_text = await self._generate_with_openai(system_prompt, user_prompt)
+            raw_response = await self._generate_with_openai(system_prompt, user_prompt)
+
+        # Parse structured response with fallbacks
+        structured, fallback_used = ResponseParser.parse_with_fallbacks(raw_response)
+
+        if structured:
+            logger.debug(f"Parsed structured response via {fallback_used}")
+            # Generate transparency message from structured data
+            transparency = structured.generate_transparency_message()
+            if transparency and transparency not in structured.answer:
+                response_text = f"{structured.answer}\n\n{transparency}"
+            else:
+                response_text = structured.answer
+        else:
+            # Fallback: use raw response if parsing fails
+            logger.warning(f"Failed to parse structured response: {fallback_used}")
+            response_text = raw_response
 
         return response_text, all_results
 

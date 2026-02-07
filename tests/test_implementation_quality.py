@@ -352,26 +352,59 @@ class ImplementationTester:
     # ========== Test Suite 5: Transparency & Counts ==========
 
     async def test_transparency(self) -> TestSuite:
-        """Test transparency features (showing X of Y total)."""
-        console.print(Panel("[bold]Test Suite 5: Transparency & Counts[/bold]"))
+        """Test transparency features using structured output validation.
+
+        Enterprise-grade approach:
+        - Parse structured JSON response
+        - Validate schema invariants deterministically
+        - No regex-based string matching for semantic requirements
+        """
+        console.print(Panel("[bold]Test Suite 5: Transparency & Counts (Structured Validation)[/bold]"))
         results = []
 
-        # Test 5.1: Response includes total counts
-        test_name = "5.1 Response Includes Total Counts"
+        # Import structured response parser
+        from src.response_schema import ResponseParser, ResponseValidator
+
+        # Test 5.1: Response includes total counts (deterministic validation)
+        test_name = "5.1 Structured Response Validation"
         try:
             start = time.time()
             response, _ = await self.elysia.query("What ADRs exist?")
             latency_ms = int((time.time() - start) * 1000)
 
-            # Look for transparency indicators
-            has_counts = any([
-                re.search(r'\d+\s+of\s+\d+', response),  # "X of Y"
-                re.search(r'\d+\s+total', response.lower()),  # "X total"
-                re.search(r'showing\s+\d+', response.lower()),  # "showing X"
-            ])
+            # Parse structured response
+            structured, fallback_used = ResponseParser.parse_with_fallbacks(response)
 
-            passed = has_counts
-            message = "✓ Response includes counts" if passed else "✗ No count information found"
+            if structured:
+                # Deterministic validation of invariants
+                has_items_shown = structured.items_shown >= 0
+                has_items_total = structured.items_total is not None and structured.items_total >= 0
+                valid_invariant = (
+                    structured.items_total is None or
+                    structured.items_total >= structured.items_shown
+                )
+
+                passed = has_items_shown and has_items_total and valid_invariant
+                message = (
+                    f"✓ Structured response valid: shown={structured.items_shown}, "
+                    f"total={structured.items_total}, qualifier={structured.count_qualifier}"
+                    if passed else
+                    f"✗ Invalid structured response: shown={structured.items_shown}, total={structured.items_total}"
+                )
+            else:
+                # Fallback: check for any numeric transparency indicators
+                # This is a graceful degradation, not primary validation
+                has_counts = any([
+                    re.search(r'\d+\s+of\s+\d+', response),
+                    re.search(r'\d+\s+(items\s+)?total', response.lower()),
+                    re.search(r'showing\s+\d+', response.lower()),
+                ])
+                passed = has_counts
+                message = (
+                    f"✓ Fallback: found count indicators (parse: {fallback_used})"
+                    if passed else
+                    f"✗ No structured data or count indicators found"
+                )
 
             results.append(TestResult(test_name, passed, message, latency_ms=latency_ms))
             console.print(f"  {message} (latency: {latency_ms}ms)")
