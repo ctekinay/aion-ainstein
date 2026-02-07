@@ -1,6 +1,7 @@
 """Data ingestion pipeline for loading documents into Weaviate."""
 
 import logging
+import re
 from pathlib import Path
 from typing import Optional, Any
 from uuid import uuid4
@@ -74,11 +75,12 @@ def _chunk_to_adr_dict(chunk: "Chunk", adr_number: str = "") -> dict[str, Any]:
     }
 
 
-def _chunk_to_principle_dict(chunk: "Chunk") -> dict[str, Any]:
+def _chunk_to_principle_dict(chunk: "Chunk", principle_number: str = "") -> dict[str, Any]:
     """Convert a Chunk object to Principle-compatible dictionary for existing schema.
 
     Args:
         chunk: The Chunk object to convert
+        principle_number: Principle number extracted from filename (e.g., '0010')
 
     Returns:
         Dictionary compatible with existing Principle collection schema
@@ -88,6 +90,7 @@ def _chunk_to_principle_dict(chunk: "Chunk") -> dict[str, Any]:
     return {
         "file_path": meta.source_file,
         "title": f"{meta.document_title} - {meta.section_name}" if meta.section_name else meta.document_title,
+        "principle_number": principle_number,
         "doc_type": meta.document_type or "principle",
         "category": "",  # Could be extracted from section_type
         "statement": chunk.content if meta.section_type == "statement" else "",
@@ -366,7 +369,6 @@ class DataIngestionPipeline:
             for chunked_doc in loader.load_adrs_chunked(adr_path):
                 doc_count += 1
                 # Extract ADR number from file path
-                import re
                 adr_match = re.search(r'(\d{4})', chunked_doc.source_file)
                 adr_number = adr_match.group(1) if adr_match else ""
 
@@ -480,6 +482,10 @@ class DataIngestionPipeline:
                 logger.info(f"Using chunked principle loading for {principles_path}")
                 for chunked_doc in loader.load_principles_chunked(principles_path):
                     doc_count += 1
+                    # Extract principle number from file path (e.g., "0010" from "0010-name.md")
+                    principle_match = re.search(r'(\d{4})D?-', chunked_doc.source_file)
+                    principle_number = principle_match.group(1) if principle_match else ""
+
                     # Get section-level chunks
                     chunks = chunked_doc.get_chunks_for_indexing(
                         include_document_level=False,
@@ -488,7 +494,7 @@ class DataIngestionPipeline:
                     )
 
                     for chunk in chunks:
-                        doc_dict = _chunk_to_principle_dict(chunk)
+                        doc_dict = _chunk_to_principle_dict(chunk, principle_number)
                         add_to_batches(doc_dict)
                         flush_if_needed()
             else:
