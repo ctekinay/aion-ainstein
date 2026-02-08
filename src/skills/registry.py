@@ -157,6 +157,39 @@ class SkillRegistry:
 
         return active_skills
 
+    def is_skill_active(self, skill_name: str, query: str = "") -> bool:
+        """Check if a specific skill is active for a given query.
+
+        This is used to determine mode switches (e.g., structured_mode when
+        response-contract is active) without loading all skill content.
+
+        Args:
+            skill_name: Name of the skill to check
+            query: The user's query (used for trigger matching)
+
+        Returns:
+            True if the skill would be activated for this query
+        """
+        if not self._loaded:
+            self.load_registry()
+
+        entry = self._entries.get(skill_name)
+        if not entry or not entry.enabled:
+            return False
+
+        # Auto-activate skills always activate
+        if entry.auto_activate:
+            return True
+
+        # Check triggers
+        query_lower = query.lower()
+        for trigger in entry.triggers:
+            if trigger.lower() in query_lower:
+                logger.debug(f"Skill {skill_name} would activate via trigger: {trigger}")
+                return True
+
+        return False
+
     def get_all_skill_content(self, query: str = "") -> str:
         """Get combined content from all active skills.
 

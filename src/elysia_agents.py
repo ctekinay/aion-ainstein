@@ -109,6 +109,84 @@ def is_list_query(question: str) -> bool:
     return False
 
 
+# =============================================================================
+# Structured Response Post-Processing
+# =============================================================================
+
+# Enforcement policies for structured mode
+ENFORCEMENT_STRICT = "strict"   # Retry once with JSON-only prompt, then fail
+ENFORCEMENT_SOFT = "soft"       # Log and degrade to raw text
+
+# Default enforcement policy (can be configured)
+DEFAULT_ENFORCEMENT_POLICY = ENFORCEMENT_STRICT
+
+
+def postprocess_llm_output(
+    raw_response: str,
+    structured_mode: bool,
+    enforcement_policy: str = DEFAULT_ENFORCEMENT_POLICY,
+    retry_func: callable = None,
+) -> tuple[str, bool, str]:
+    """Unified post-processing for LLM output with structured mode enforcement.
+
+    This function MUST be called on ALL LLM outputs (main path and fallback path)
+    to ensure consistent contract enforcement.
+
+    Args:
+        raw_response: The raw LLM response text
+        structured_mode: Whether response-contract skill is active
+        enforcement_policy: "strict" (retry + fail) or "soft" (degrade gracefully)
+        retry_func: Optional async function to call for retry (receives JSON-only prompt)
+
+    Returns:
+        Tuple of:
+        - processed_response: The final response text to display
+        - was_structured: Whether structured parsing succeeded
+        - reason: Reason code for debugging ("success", "fallback", "parse_failed", etc.)
+    """
+    logger = logging.getLogger(__name__)
+
+    if not structured_mode:
+        # Not in structured mode - return raw response as-is
+        return raw_response, False, "not_structured_mode"
+
+    # Attempt to parse structured response
+    structured, fallback_used = ResponseParser.parse_with_fallbacks(raw_response)
+
+    if structured:
+        # Success! Generate processed response with transparency
+        logger.info(f"Structured response parsed successfully via {fallback_used}")
+        transparency = structured.generate_transparency_message()
+        if transparency and transparency not in structured.answer:
+            processed = f"{structured.answer}\n\n{transparency}"
+        else:
+            processed = structured.answer
+        return processed, True, "success"
+
+    # Parsing failed
+    logger.warning(f"Structured response parsing failed: {fallback_used}")
+
+    if enforcement_policy == ENFORCEMENT_SOFT:
+        # Soft mode: log and degrade to raw text
+        logger.info("Soft enforcement: degrading to raw response")
+        return raw_response, False, f"soft_fallback:{fallback_used}"
+
+    # Strict mode: this is where retry would happen
+    # For now, return controlled error since retry requires async context
+    # The calling code should handle retry if retry_func is provided
+    if retry_func is not None:
+        # Signal that retry is needed - caller must handle
+        return raw_response, False, f"retry_needed:{fallback_used}"
+
+    # Strict mode without retry: return error message
+    error_response = (
+        "I was unable to format my response properly. "
+        "Please try rephrasing your question."
+    )
+    logger.error(f"Strict enforcement failed, no retry available: {fallback_used}")
+    return error_response, False, f"strict_failed:{fallback_used}"
+
+
 def get_collection_count(collection, content_filter=None) -> int:
     """Get the total count of documents in a collection, optionally filtered.
 
@@ -782,6 +860,12 @@ IMPORTANT GUIDELINES:
         """
         logger.info(f"Elysia processing: {question}")
 
+        # Determine structured mode FIRST - this affects both prompt injection and post-processing
+        # response-contract skill enforces JSON output format
+        structured_mode = _skill_registry.is_skill_active("response-contract", question)
+        if structured_mode:
+            logger.info(f"Structured mode ACTIVE for query: {question[:50]}...")
+
         # Always specify our collection names to bypass Elysia's metadata collection discovery
         # This avoids gRPC errors from Elysia's internal collections
         our_collections = collection_names or [
@@ -816,13 +900,25 @@ IMPORTANT GUIDELINES:
         except Exception as e:
             # If Elysia's tree fails, fall back to direct tool execution
             logger.warning(f"Elysia tree failed: {e}, using direct tool execution")
-            response, objects = await self._direct_query(question)
+            # _direct_query handles its own post-processing, pass structured_mode
+            response, objects = await self._direct_query(question, structured_mode=structured_mode)
+            # Return directly since _direct_query already post-processed
+            return response, objects
 
-        # Note: We return the raw response, but the CLI doesn't display it anymore
-        # Elysia's framework already displays the answer via its "Assistant response" panels
-        return response, objects
+        # POST-PROCESS the Elysia tree response through unified contract enforcement
+        # This is the critical fix: main path must also enforce structured response contract
+        processed_response, was_structured, reason = postprocess_llm_output(
+            raw_response=response,
+            structured_mode=structured_mode,
+            enforcement_policy=DEFAULT_ENFORCEMENT_POLICY,
+        )
 
-    async def _direct_query(self, question: str) -> tuple[str, list[dict]]:
+        if structured_mode:
+            logger.info(f"Main path post-processing: was_structured={was_structured}, reason={reason}")
+
+        return processed_response, objects
+
+    async def _direct_query(self, question: str, structured_mode: bool = None) -> tuple[str, list[dict]]:
         """Direct query execution bypassing Elysia tree when it fails.
 
         Supports both OpenAI and Ollama as LLM backends.
@@ -831,10 +927,14 @@ IMPORTANT GUIDELINES:
 
         Args:
             question: The user's question
+            structured_mode: Whether response-contract is active (auto-detected if None)
 
         Returns:
             Tuple of (response text, retrieved objects)
         """
+        # Auto-detect structured mode if not provided
+        if structured_mode is None:
+            structured_mode = _skill_registry.is_skill_active("response-contract", question)
         question_lower = question.lower()
         all_results = []
         collection_counts = {}  # Track total counts for transparency
@@ -1121,21 +1221,16 @@ Guidelines:
         else:
             raw_response = await self._generate_with_openai(system_prompt, user_prompt)
 
-        # Parse structured response with fallbacks
-        structured, fallback_used = ResponseParser.parse_with_fallbacks(raw_response)
+        # POST-PROCESS through unified contract enforcement
+        # This ensures consistent behavior between main path and fallback path
+        response_text, was_structured, reason = postprocess_llm_output(
+            raw_response=raw_response,
+            structured_mode=structured_mode,
+            enforcement_policy=DEFAULT_ENFORCEMENT_POLICY,
+        )
 
-        if structured:
-            logger.debug(f"Parsed structured response via {fallback_used}")
-            # Generate transparency message from structured data
-            transparency = structured.generate_transparency_message()
-            if transparency and transparency not in structured.answer:
-                response_text = f"{structured.answer}\n\n{transparency}"
-            else:
-                response_text = structured.answer
-        else:
-            # Fallback: use raw response if parsing fails
-            logger.warning(f"Failed to parse structured response: {fallback_used}")
-            response_text = raw_response
+        if structured_mode:
+            logger.info(f"Fallback path post-processing: was_structured={was_structured}, reason={reason}")
 
         return response_text, all_results
 
