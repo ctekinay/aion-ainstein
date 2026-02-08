@@ -11,6 +11,8 @@ Concurrency:
 
 import asyncio
 import logging
+import uuid
+from dataclasses import dataclass, field
 from typing import Optional, Any
 
 import re
@@ -43,6 +45,140 @@ from weaviate import WeaviateClient
 from weaviate.classes.query import Filter, MetadataQuery
 
 from .config import settings
+
+
+# =============================================================================
+# Fallback Filter Metrics & Observability
+# =============================================================================
+
+@dataclass
+class FallbackMetrics:
+    """Thread-safe metrics for fallback filter observability.
+
+    Tracks:
+    - adr_filter_fallback_used_total: Times fallback was triggered
+    - adr_filter_fallback_blocked_total: Times fallback was blocked (cap exceeded)
+    """
+    adr_filter_fallback_used_total: int = 0
+    adr_filter_fallback_blocked_total: int = 0
+    principle_filter_fallback_used_total: int = 0
+    principle_filter_fallback_blocked_total: int = 0
+
+    def increment_fallback_used(self, collection_type: str = "adr") -> None:
+        """Increment fallback used counter."""
+        if collection_type == "adr":
+            self.adr_filter_fallback_used_total += 1
+        else:
+            self.principle_filter_fallback_used_total += 1
+
+    def increment_fallback_blocked(self, collection_type: str = "adr") -> None:
+        """Increment fallback blocked counter."""
+        if collection_type == "adr":
+            self.adr_filter_fallback_blocked_total += 1
+        else:
+            self.principle_filter_fallback_blocked_total += 1
+
+    def get_metrics(self) -> dict:
+        """Return all metrics as dictionary."""
+        return {
+            "adr_filter_fallback_used_total": self.adr_filter_fallback_used_total,
+            "adr_filter_fallback_blocked_total": self.adr_filter_fallback_blocked_total,
+            "principle_filter_fallback_used_total": self.principle_filter_fallback_used_total,
+            "principle_filter_fallback_blocked_total": self.principle_filter_fallback_blocked_total,
+        }
+
+
+# Global metrics instance
+_fallback_metrics = FallbackMetrics()
+
+
+def get_fallback_metrics() -> FallbackMetrics:
+    """Get the global fallback metrics instance."""
+    return _fallback_metrics
+
+
+def generate_request_id() -> str:
+    """Generate a unique request ID for error tracking."""
+    return str(uuid.uuid4())[:8]
+
+
+class FallbackBlockedError(Exception):
+    """Raised when fallback is blocked due to safety cap or feature flag."""
+
+    def __init__(self, message: str, request_id: str, reason: str, collection_size: int):
+        super().__init__(message)
+        self.request_id = request_id
+        self.reason = reason
+        self.collection_size = collection_size
+
+
+def check_fallback_allowed(
+    collection_size: int,
+    collection_type: str,
+    query: str,
+    request_id: str,
+) -> tuple[bool, Optional[str]]:
+    """Check if fallback filtering is allowed based on guardrails.
+
+    Args:
+        collection_size: Total documents in the collection
+        collection_type: "adr" or "principle"
+        query: The original query for logging
+        request_id: Unique request ID for tracing
+
+    Returns:
+        Tuple of (allowed: bool, error_message: Optional[str])
+    """
+    logger = logging.getLogger(__name__)
+
+    # Check feature flag
+    if not settings.enable_inmemory_filter_fallback:
+        error_msg = (
+            f"ADR metadata missing; in-memory fallback is disabled. "
+            f"Please run migration. [request_id={request_id}]"
+        )
+        logger.warning(
+            f"Fallback BLOCKED (feature disabled): "
+            f"collection_type={collection_type}, collection_size={collection_size}, "
+            f"query='{query[:50]}...', request_id={request_id}"
+        )
+        _fallback_metrics.increment_fallback_blocked(collection_type)
+        return False, error_msg
+
+    # Check safety cap
+    if collection_size > settings.max_fallback_scan_docs:
+        error_msg = (
+            f"ADR metadata missing; collection size ({collection_size}) exceeds "
+            f"safety cap ({settings.max_fallback_scan_docs}). "
+            f"Please run migration. [request_id={request_id}, reason=DOC_METADATA_MISSING_REQUIRES_MIGRATION]"
+        )
+        logger.warning(
+            f"Fallback BLOCKED (cap exceeded): "
+            f"collection_type={collection_type}, collection_size={collection_size}, "
+            f"max_allowed={settings.max_fallback_scan_docs}, "
+            f"query='{query[:50]}...', request_id={request_id}, "
+            f"reason=DOC_METADATA_MISSING_REQUIRES_MIGRATION"
+        )
+        _fallback_metrics.increment_fallback_blocked(collection_type)
+        return False, error_msg
+
+    # Fallback allowed - log and increment metrics
+    logger.warning(
+        f"adr_filter_fallback_used=1: "
+        f"collection_type={collection_type}, collection_total={collection_size}, "
+        f"query='{query[:50]}...', request_id={request_id}, "
+        f"reason=DOC_TYPE_MISSING"
+    )
+    _fallback_metrics.increment_fallback_used(collection_type)
+
+    # Warn if fallback is enabled in prod
+    if settings.environment == "prod":
+        logger.warning(
+            f"WARNING: In-memory fallback is enabled in PRODUCTION. "
+            f"This should be disabled after migration. request_id={request_id}"
+        )
+
+    return True, None
 from .skills import SkillRegistry, get_skill_registry, DEFAULT_SKILL
 from .skills.filters import build_document_filter
 from .weaviate.embeddings import embed_text
@@ -640,6 +776,7 @@ IMPORTANT GUIDELINES:
             Returns:
                 Complete list of all ADRs with titles and status
             """
+            request_id = generate_request_id()
             collection = client.collections.get("ArchitecturalDecision")
 
             # Use positive filter (doc_type == "content") for reliable filtering
@@ -651,18 +788,35 @@ IMPORTANT GUIDELINES:
             filtered_count = get_collection_count(collection, content_filter)
             logger.debug(
                 f"list_all_adrs filter debug: unfiltered={unfiltered_count}, "
-                f"filtered={filtered_count}, filter_applied={content_filter is not None}"
+                f"filtered={filtered_count}, filter_applied={content_filter is not None}, "
+                f"request_id={request_id}"
             )
 
-            # Fallback: if filter returns 0 but collection has documents,
-            # documents likely don't have doc_type set - skip filter with warning
+            # Fallback logic with guardrails
             use_filter = content_filter
+            fallback_triggered = False
+
             if filtered_count == 0 and unfiltered_count > 0:
-                logger.warning(
-                    f"list_all_adrs: Filter returned 0 results but collection has {unfiltered_count} docs. "
-                    "Documents may not have doc_type set. Falling back to no filter with in-memory filtering."
+                # Documents likely don't have doc_type set - check guardrails
+                fallback_allowed, error_msg = check_fallback_allowed(
+                    collection_size=unfiltered_count,
+                    collection_type="adr",
+                    query="list all ADRs",
+                    request_id=request_id,
                 )
+
+                if not fallback_allowed:
+                    # Return controlled error response
+                    return [{
+                        "error": True,
+                        "message": error_msg,
+                        "request_id": request_id,
+                        "reason": "DOC_METADATA_MISSING_REQUIRES_MIGRATION",
+                    }]
+
+                # Fallback is allowed - proceed with in-memory filtering
                 use_filter = None
+                fallback_triggered = True
 
             results = collection.query.fetch_objects(
                 limit=100,
@@ -687,13 +841,14 @@ IMPORTANT GUIDELINES:
 
                 # In-memory filtering when Weaviate filter couldn't be used
                 # Skip: templates, index files, and decision approval records (DARs)
-                if "template" in title.lower() or "template" in file_name:
-                    continue
-                if file_name.endswith("index.md") or file_name.endswith("readme.md"):
-                    continue
-                # DAR files match pattern: NNNND-*.md (e.g., 0021D-approval.md)
-                if re.match(r".*\d{4}d-.*\.md$", file_name):
-                    continue
+                if fallback_triggered or not doc_type:
+                    if "template" in title.lower() or "template" in file_name:
+                        continue
+                    if file_name.endswith("index.md") or file_name.endswith("readme.md"):
+                        continue
+                    # DAR files match pattern: NNNND-*.md (e.g., 0021D-approval.md)
+                    if re.match(r".*\d{4}d-.*\.md$", file_name):
+                        continue
 
                 adrs.append({
                     "title": title,
@@ -703,9 +858,11 @@ IMPORTANT GUIDELINES:
                     "doc_type": doc_type,
                 })
 
+            log_suffix = " (via fallback)" if fallback_triggered else " (filtered)"
             logger.info(
-                f"list_all_adrs: Returning {len(adrs)} ADRs "
-                f"(collection total: {unfiltered_count}, after filter: {filtered_count})"
+                f"list_all_adrs: Returning {len(adrs)} ADRs{log_suffix} "
+                f"(collection total: {unfiltered_count}, after filter: {filtered_count}, "
+                f"request_id={request_id})"
             )
             return sorted(adrs, key=lambda x: x.get("adr_number", "") or x.get("file_path", ""))
 
@@ -723,6 +880,7 @@ IMPORTANT GUIDELINES:
             Returns:
                 Complete list of all principles
             """
+            request_id = generate_request_id()
             collection = client.collections.get("Principle")
             content_filter = build_document_filter("list all principles", _skill_registry, DEFAULT_SKILL)
 
@@ -730,15 +888,31 @@ IMPORTANT GUIDELINES:
             unfiltered_count = get_collection_count(collection, None)
             filtered_count = get_collection_count(collection, content_filter)
 
-            # Fallback: if filter returns 0 but collection has documents,
-            # documents likely don't have doc_type set - skip filter with warning
+            # Fallback logic with guardrails
             use_filter = content_filter
+            fallback_triggered = False
+
             if filtered_count == 0 and unfiltered_count > 0:
-                logger.warning(
-                    f"list_all_principles: Filter returned 0 results but collection has {unfiltered_count} docs. "
-                    "Documents may not have doc_type set. Falling back to no filter with in-memory filtering."
+                # Documents likely don't have doc_type set - check guardrails
+                fallback_allowed, error_msg = check_fallback_allowed(
+                    collection_size=unfiltered_count,
+                    collection_type="principle",
+                    query="list all principles",
+                    request_id=request_id,
                 )
+
+                if not fallback_allowed:
+                    # Return controlled error response
+                    return [{
+                        "error": True,
+                        "message": error_msg,
+                        "request_id": request_id,
+                        "reason": "DOC_METADATA_MISSING_REQUIRES_MIGRATION",
+                    }]
+
+                # Fallback is allowed - proceed with in-memory filtering
                 use_filter = None
+                fallback_triggered = True
 
             results = collection.query.fetch_objects(
                 limit=100,
@@ -754,10 +928,11 @@ IMPORTANT GUIDELINES:
                 file_name = file_path.lower() if file_path else ""
 
                 # In-memory filtering when Weaviate filter couldn't be used
-                if "template" in title.lower() or "template" in file_name:
-                    continue
-                if file_name.endswith("index.md") or file_name.endswith("readme.md"):
-                    continue
+                if fallback_triggered or not doc_type:
+                    if "template" in title.lower() or "template" in file_name:
+                        continue
+                    if file_name.endswith("index.md") or file_name.endswith("readme.md"):
+                        continue
 
                 principles.append({
                     "title": title,
@@ -766,9 +941,11 @@ IMPORTANT GUIDELINES:
                     "type": doc_type,
                 })
 
+            log_suffix = " (via fallback)" if fallback_triggered else " (filtered)"
             logger.info(
-                f"list_all_principles: Returning {len(principles)} principles "
-                f"(collection total: {unfiltered_count}, after filter: {filtered_count})"
+                f"list_all_principles: Returning {len(principles)} principles{log_suffix} "
+                f"(collection total: {unfiltered_count}, after filter: {filtered_count}, "
+                f"request_id={request_id})"
             )
             return sorted(principles, key=lambda x: x.get("principle_number", "") or x.get("file_path", ""))
 

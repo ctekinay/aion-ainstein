@@ -1,7 +1,7 @@
 """Configuration management for the AION-AINSTEIN RAG system."""
 
 from pathlib import Path
-from typing import Literal, Optional
+from typing import Literal, Optional, TYPE_CHECKING
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -80,6 +80,31 @@ class Settings(BaseSettings):
     elysia_query_timeout_seconds: float = Field(
         default=120.0,
         description="Timeout for Elysia Tree queries in seconds"
+    )
+
+    # ==========================================================================
+    # Fallback Filter Guardrails
+    # ==========================================================================
+    # When doc_type metadata is missing, the system can fall back to in-memory
+    # filtering. These guardrails prevent runaway scans and provide observability.
+
+    enable_inmemory_filter_fallback: bool = Field(
+        default=True,
+        description=(
+            "Enable in-memory fallback filtering when doc_type is missing. "
+            "Set to False in production once migration is complete."
+        )
+    )
+    max_fallback_scan_docs: int = Field(
+        default=2000,
+        description=(
+            "Maximum documents to scan in fallback mode. "
+            "If collection exceeds this, return controlled error instead of scanning."
+        )
+    )
+    environment: Literal["local", "dev", "staging", "prod"] = Field(
+        default="local",
+        description="Deployment environment for conditional behavior"
     )
 
     @property
