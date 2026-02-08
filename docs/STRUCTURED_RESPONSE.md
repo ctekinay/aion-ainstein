@@ -1,6 +1,6 @@
-# Structured Response Implementation
+# Structured Response System
 
-## Technical Implementation Document
+## Technical Documentation (Consolidated)
 
 **Version:** 1.1
 **Date:** 2026-02-08
@@ -77,6 +77,26 @@ if structured:
 - Structured data for transparency generation
 - Measurable success rates for SLOs
 - Controlled fallback chain
+
+---
+
+## Non-Goals (Scope Boundaries)
+
+To prevent scope creep and clarify responsibilities, this system explicitly does NOT:
+
+| Non-Goal | Rationale |
+|----------|-----------|
+| **Evaluate faithfulness/groundedness** | That's a separate RAG quality concern |
+| **Judge semantic quality of answers** | Content quality is handled by other skills |
+| **Infer totals if backend doesn't provide them** | We report what we know, not guess |
+| **LLM-based repair in v1** | Deterministic repair handles 95%+; add LLM fallback later if needed |
+| **Guarantee 100% structured output** | Graceful degradation to raw response is acceptable |
+| **Replace existing formatting skills** | Works alongside response-formatter, not instead of |
+
+**What this system DOES guarantee:**
+- If LLM outputs valid JSON → deterministic validation
+- If validation passes → correct structured data for transparency
+- If anything fails → observable metrics with reason codes
 
 ---
 

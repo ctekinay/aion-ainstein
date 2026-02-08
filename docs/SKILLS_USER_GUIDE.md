@@ -634,7 +634,47 @@ The Skills Framework provides a **no-code way** to customize AInstein's behavior
 
 ---
 
-*Document Version: 1.3*
+## Creating New Skills
+
+The Skills UI includes a wizard for creating new skills without editing files directly.
+
+### Quick Steps
+
+1. Navigate to `http://localhost:8081/skills`
+2. Click **"+ New Skill"** button
+3. Follow the 4-step wizard:
+   - **Step 1:** Basic info (name, description, triggers)
+   - **Step 2:** Rules (SKILL.md content)
+   - **Step 3:** Thresholds (use defaults or copy from existing)
+   - **Step 4:** Review and create
+
+### Skill Name Requirements
+
+- Lowercase letters, numbers, and hyphens only
+- Must start with a letter
+- Must end with a letter or number
+- Example: `response-formatter`, `adr-validator`
+
+### Files Created
+
+The wizard creates:
+```
+skills/
+└── your-skill-name/
+    ├── SKILL.md                 # Your rules (markdown)
+    └── references/
+        └── thresholds.yaml      # Thresholds config
+```
+
+Plus an entry in `skills/registry.yaml`.
+
+### Detailed Tutorial
+
+For a complete step-by-step walkthrough of creating a Response Formatter skill, see the archived tutorial in `docs/archive/skills_creation_example.md`.
+
+---
+
+*Document Version: 1.4*
 *Last Updated: February 2026*
 *Applies to: AInstein Skills Framework v1.0*
 
