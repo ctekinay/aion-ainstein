@@ -641,7 +641,18 @@ IMPORTANT GUIDELINES:
                 Complete list of all ADRs with titles and status
             """
             collection = client.collections.get("ArchitecturalDecision")
+
+            # Use positive filter (doc_type == "content") for reliable filtering
+            # The old NOT_EQUAL approach failed with null/missing doc_type values
             content_filter = build_document_filter("list all ADRs", _skill_registry, DEFAULT_SKILL)
+
+            # Debug: Get unfiltered count to compare
+            unfiltered_count = get_collection_count(collection, None)
+            filtered_count = get_collection_count(collection, content_filter)
+            logger.debug(
+                f"list_all_adrs filter debug: unfiltered={unfiltered_count}, "
+                f"filtered={filtered_count}, filter_applied={content_filter is not None}"
+            )
 
             results = collection.query.fetch_objects(
                 limit=100,
@@ -649,7 +660,13 @@ IMPORTANT GUIDELINES:
                 return_properties=["title", "status", "file_path", "adr_number", "doc_type"],
             )
 
-            total_count = get_collection_count(collection, content_filter)
+            # Debug: Log doc_type distribution
+            doc_type_counts = {}
+            for obj in results.objects:
+                dt = obj.properties.get("doc_type", "None/missing")
+                doc_type_counts[dt] = doc_type_counts.get(dt, 0) + 1
+            if doc_type_counts:
+                logger.debug(f"list_all_adrs doc_type distribution: {doc_type_counts}")
 
             adrs = []
             for obj in results.objects:
@@ -666,7 +683,10 @@ IMPORTANT GUIDELINES:
                     "doc_type": doc_type,
                 })
 
-            logger.info(f"list_all_adrs: Returning {len(adrs)} of {total_count} total ADRs (filtered)")
+            logger.info(
+                f"list_all_adrs: Returning {len(adrs)} ADRs "
+                f"(collection total: {unfiltered_count}, after filter: {filtered_count})"
+            )
             return sorted(adrs, key=lambda x: x.get("adr_number", "") or x.get("file_path", ""))
 
         registry["list_all_adrs"] = list_all_adrs

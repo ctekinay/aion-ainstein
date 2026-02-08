@@ -561,11 +561,23 @@ def run_elysia_query(question: str, result_queue: Queue, output_queue: Queue):
 
 
 async def stream_elysia_response(question: str) -> AsyncGenerator[str, None]:
-    """Stream Elysia's thinking process as SSE events."""
+    """Stream Elysia's thinking process as SSE events.
+
+    When structured_mode is active (response-contract skill), streaming of
+    intermediate events is disabled to ensure contract enforcement runs
+    BEFORE any content reaches the user. Only the validated final response
+    is returned.
+    """
     result_queue = Queue()
     output_queue = Queue()
 
     logger.info(f"Starting streaming query: {question}")
+
+    # Check if structured_mode is active - if so, disable streaming of intermediate events
+    # This ensures contract enforcement runs BEFORE any content reaches the user
+    structured_mode = _skill_registry.is_skill_active("response-contract", question)
+    if structured_mode:
+        logger.info("Structured mode active - disabling intermediate streaming for contract enforcement")
 
     # Send initial status
     yield f"data: {json.dumps({'type': 'status', 'content': 'Thinking...'})}\n\n"
@@ -586,6 +598,13 @@ async def stream_elysia_response(question: str) -> AsyncGenerator[str, None]:
             if event is None:
                 break
             event_count += 1
+
+            # In structured mode, suppress intermediate events (thinking, assistant prose)
+            # Only allow status/heartbeat events through
+            if structured_mode and event.get('type') in ('thinking', 'assistant', 'thinking_aloud'):
+                logger.debug(f"Suppressing event {event_count} in structured mode: {event['type']}")
+                continue
+
             logger.info(f"Streaming event {event_count}: {event['type']}")
             yield f"data: {json.dumps(event)}\n\n"
             last_status_time = asyncio.get_event_loop().time()
@@ -607,12 +626,18 @@ async def stream_elysia_response(question: str) -> AsyncGenerator[str, None]:
             if event is None:
                 break
             event_count += 1
+
+            # In structured mode, suppress intermediate events
+            if structured_mode and event.get('type') in ('thinking', 'assistant', 'thinking_aloud'):
+                logger.debug(f"Suppressing drained event {event_count} in structured mode: {event['type']}")
+                continue
+
             logger.info(f"Draining event {event_count}: {event['type']}")
             yield f"data: {json.dumps(event)}\n\n"
         except Empty:
             break
 
-    logger.info(f"Stream complete, sent {event_count} events")
+    logger.info(f"Stream complete, sent {event_count} events (structured_mode={structured_mode})")
 
     # Wait for result
     thread.join(timeout=60)
