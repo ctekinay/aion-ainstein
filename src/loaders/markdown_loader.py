@@ -30,6 +30,11 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
+# Document types to skip at ingestion time (not embedded, saves tokens/storage)
+# Note: index.md is still parsed for ownership metadata via index_metadata_loader
+# Note: DARs (decision_approval_record) ARE embedded - they're excluded at query time
+SKIP_DOC_TYPES_AT_INGESTION = {'template', 'index'}
+
 
 @dataclass
 class MarkdownDocument:
@@ -163,44 +168,73 @@ class MarkdownLoader:
     def load_adrs(self, adr_path: Path) -> Iterator[dict]:
         """Load Architectural Decision Records.
 
+        Skips template and index files at ingestion time to save embedding
+        tokens and storage. These are filtered at query time anyway, so
+        embedding them provides no value.
+
+        Note: DARs (decision_approval_record) ARE embedded - they contain
+        governance info needed for "who approved?" queries.
+
         Args:
             adr_path: Path to ADR directory
 
         Yields:
-            Dictionary representations of ADRs
+            Dictionary representations of ADRs (excluding templates/indexes)
         """
         adr_files = sorted(adr_path.glob("*.md"))
         logger.info(f"Found {len(adr_files)} ADR files to process")
 
+        skipped_count = 0
         for adr_file in adr_files:
             try:
                 doc = self._load_adr(adr_file)
                 if doc:
+                    # Skip templates and indexes at ingestion time
+                    if doc.doc_type in SKIP_DOC_TYPES_AT_INGESTION:
+                        logger.debug(f"Skipping {doc.doc_type} at ingestion: {adr_file.name}")
+                        skipped_count += 1
+                        continue
                     yield doc.to_dict()
             except Exception as e:
                 logger.error(f"Error loading ADR {adr_file}: {e}")
                 continue
 
+        if skipped_count > 0:
+            logger.info(f"Skipped {skipped_count} template/index files at ingestion")
+
     def load_principles(self, principles_path: Path) -> Iterator[dict]:
         """Load principle documents.
+
+        Skips template and index files at ingestion time to save embedding
+        tokens and storage. These are filtered at query time anyway, so
+        embedding them provides no value.
 
         Args:
             principles_path: Path to principles directory
 
         Yields:
-            Dictionary representations of principles
+            Dictionary representations of principles (excluding templates/indexes)
         """
         principle_files = sorted(principles_path.glob("*.md"))
         logger.info(f"Found {len(principle_files)} principle files to process")
 
+        skipped_count = 0
         for principle_file in principle_files:
             try:
                 doc = self._load_principle(principle_file)
                 if doc:
+                    # Skip templates and indexes at ingestion time
+                    if doc.doc_type in SKIP_DOC_TYPES_AT_INGESTION:
+                        logger.debug(f"Skipping {doc.doc_type} at ingestion: {principle_file.name}")
+                        skipped_count += 1
+                        continue
                     yield doc.to_dict()
             except Exception as e:
                 logger.error(f"Error loading principle {principle_file}: {e}")
                 continue
+
+        if skipped_count > 0:
+            logger.info(f"Skipped {skipped_count} template/index files at ingestion")
 
     def _load_file(self, file_path: Path) -> Optional[MarkdownDocument]:
         """Load a single Markdown file.
