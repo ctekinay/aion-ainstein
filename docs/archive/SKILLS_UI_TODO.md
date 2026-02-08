@@ -1,3 +1,13 @@
+# Archived: Skills UI Implementation TODO
+
+> **This document has been archived.** For current implementation status and roadmap, see [SKILLS_UI_STATUS.md](../SKILLS_UI_STATUS.md).
+
+---
+
+*Original document archived on 2026-02-08. Phases 1, 2, 3, and 5 were completed; this TODO tracker was converted to a status document.*
+
+---
+
 # Skills UI Implementation - TODO
 
 ## Overview

@@ -55,6 +55,8 @@ Technical decisions about the AInstein system itself:
 
 ## Archived Documentation
 
+> **Doc Lifecycle:** Active documentation lives in `docs/`. When documents are superseded, merged, or become historical reference, they move to `archive/` with a redirect header pointing to the current version.
+
 Historical design documents and superseded content are in [archive/](archive/):
 
 - `STRUCTURED_RESPONSE_DEEP_DIVE.md` - Merged into STRUCTURED_RESPONSE.md
