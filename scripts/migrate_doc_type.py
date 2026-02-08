@@ -70,6 +70,10 @@ class MigrationStats:
     skipped: int
     errors: int
     type_counts: Counter
+    # Document-aware counts (unique documents vs chunks)
+    unique_adr_count: int = 0
+    unique_adr_numbers: list = None
+    chunk_count_by_type: dict = None
 
 
 def get_collection_type(collection_name: str) -> str:
@@ -298,6 +302,60 @@ def _count_null_doc_type(collection) -> int:
         offset += limit
 
     return count
+
+
+def _compute_unique_adr_documents(collection, doc_type_value: str = "adr") -> tuple[int, list[str], int]:
+    """Compute unique ADR document count from chunks.
+
+    In a chunked store, multiple objects may represent the same document.
+    This function deduplicates by adr_number (primary) or file_path (fallback).
+
+    Args:
+        collection: Weaviate collection
+        doc_type_value: The doc_type to filter for (default: "adr")
+
+    Returns:
+        Tuple of (unique_doc_count, list_of_adr_numbers, total_chunks)
+    """
+    from weaviate.classes.query import Filter
+
+    adr_filter = Filter.by_property("doc_type").equal(doc_type_value)
+
+    unique_adr_numbers = set()
+    unique_file_paths = set()
+    total_chunks = 0
+    offset = 0
+    limit = 100
+
+    while True:
+        results = collection.query.fetch_objects(
+            filters=adr_filter,
+            limit=limit,
+            offset=offset,
+            return_properties=["adr_number", "file_path"],
+        )
+
+        if not results.objects:
+            break
+
+        for obj in results.objects:
+            total_chunks += 1
+            adr_num = (obj.properties.get("adr_number") or "").strip()
+            file_path = (obj.properties.get("file_path") or "").strip()
+
+            if adr_num:
+                unique_adr_numbers.add(adr_num)
+            if file_path:
+                unique_file_paths.add(file_path)
+
+        offset += limit
+
+    # Use adr_number count if available, otherwise fall back to file_path
+    # Both should be roughly equal if data is consistent
+    if unique_adr_numbers:
+        return len(unique_adr_numbers), sorted(unique_adr_numbers), total_chunks
+    else:
+        return len(unique_file_paths), [], total_chunks
 
 
 def print_summary(stats_list: list[MigrationStats], dry_run: bool) -> None:

@@ -31,6 +31,10 @@ from .response_schema import (
     ResponseValidator,
     StructuredResponse,
 )
+from .list_response_builder import (
+    is_list_result,
+    finalize_list_result,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -723,6 +727,111 @@ def get_structured_mode_system_prompt(base_prompt: str) -> str:
         Enhanced prompt with structured mode instructions
     """
     return f"{base_prompt}\n\n{STRUCTURED_MODE_INSTRUCTIONS}"
+
+
+# =============================================================================
+# List Result Handling (Deterministic Serialization)
+# =============================================================================
+
+def handle_list_result(
+    tool_output: any,
+    context: StructuredModeContext,
+) -> Optional[GatewayResult]:
+    """Handle list tool output with deterministic serialization.
+
+    If the tool output is a marked list result, this function bypasses
+    LLM-based JSON parsing and directly serializes to contract-compliant JSON.
+
+    This is the "clean enterprise" approach: Elysia Tree selects tools,
+    but list endpoint serialization is deterministic (no LLM involved).
+
+    Args:
+        tool_output: Output from Elysia tool execution (may be list result marker)
+        context: Structured mode context for tracking
+
+    Returns:
+        GatewayResult if tool_output is a list result, None otherwise
+    """
+    import time
+    start_time = time.time()
+
+    if not is_list_result(tool_output):
+        return None
+
+    logger.info(
+        f"List result detected, using deterministic serialization: "
+        f"request_id={context.request_id}"
+    )
+
+    try:
+        # Finalize the list result to contract-compliant JSON
+        json_str = finalize_list_result(tool_output)
+
+        # Parse the JSON to get StructuredResponse
+        response, errors, reason_code = ResponseValidator.parse_and_validate(json_str)
+
+        if response is None:
+            # This should never happen with deterministic generation
+            logger.error(
+                f"Deterministic list serialization produced invalid JSON: "
+                f"errors={errors}, request_id={context.request_id}"
+            )
+            context.parse_stage = "list_serialization_failed"
+            context.reason_code = reason_code
+            context.latency_ms = int((time.time() - start_time) * 1000)
+
+            failure = create_failure_response(reason_code, context.request_id)
+            return GatewayResult(
+                response=failure.to_user_message(),
+                is_structured=False,
+                context=context,
+                failure=failure,
+            )
+
+        # Generate final response with transparency message
+        transparency = response.generate_transparency_message()
+        if transparency and transparency not in response.answer:
+            final_response = f"{response.answer}\n\n{transparency}"
+        else:
+            final_response = response.answer
+
+        context.parse_stage = "list_deterministic"
+        context.reason_code = ReasonCode.SUCCESS
+        context.extraction_method = "list_finalizer"
+        context.latency_ms = int((time.time() - start_time) * 1000)
+
+        logger.info(
+            f"List result finalized: items_shown={response.items_shown}, "
+            f"items_total={response.items_total}, latency_ms={context.latency_ms}, "
+            f"request_id={context.request_id}"
+        )
+
+        return GatewayResult(
+            response=final_response,
+            is_structured=True,
+            context=context,
+            structured_response=response,
+        )
+
+    except Exception as e:
+        logger.error(
+            f"List result handling failed: error={e}, "
+            f"request_id={context.request_id}"
+        )
+        context.parse_stage = "list_exception"
+        context.reason_code = ReasonCode.EXTRACTION_FAILED
+        context.latency_ms = int((time.time() - start_time) * 1000)
+
+        failure = create_failure_response(
+            ReasonCode.EXTRACTION_FAILED,
+            context.request_id,
+        )
+        return GatewayResult(
+            response=failure.to_user_message(),
+            is_structured=False,
+            context=context,
+            failure=failure,
+        )
 
 
 # =============================================================================

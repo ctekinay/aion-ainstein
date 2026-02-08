@@ -188,6 +188,17 @@ from .response_schema import (
     StructuredResponse,
     RESPONSE_SCHEMA_INSTRUCTIONS,
 )
+from .list_response_builder import (
+    build_list_result_marker,
+    is_list_result,
+    finalize_list_result,
+    dedupe_by_identity,
+)
+from .response_gateway import (
+    handle_list_result,
+    StructuredModeContext,
+    create_context_from_skills,
+)
 
 # Initialize skill registry (use singleton to share state across modules)
 _skill_registry = get_skill_registry()
@@ -764,7 +775,7 @@ IMPORTANT GUIDELINES:
         registry["search_policies"] = search_policies
 
         # List all ADRs tool
-        async def list_all_adrs() -> list[dict]:
+        async def list_all_adrs() -> dict:
             """List all Architectural Decision Records in the system.
 
             Use this tool when the user asks:
@@ -774,7 +785,7 @@ IMPORTANT GUIDELINES:
             - What decisions have been documented?
 
             Returns:
-                Complete list of all ADRs with titles and status
+                Marked list result with deduplicated ADRs (document-identity based)
             """
             request_id = generate_request_id()
             collection = client.collections.get("ArchitecturalDecision")
@@ -812,12 +823,12 @@ IMPORTANT GUIDELINES:
 
                 if not fallback_allowed:
                     # Return controlled error response
-                    return [{
+                    return {
                         "error": True,
                         "message": error_msg,
                         "request_id": request_id,
                         "reason": "DOC_METADATA_MISSING_REQUIRES_MIGRATION",
-                    }]
+                    }
 
                 # Fallback is allowed - proceed with in-memory filtering
                 use_filter = None
@@ -863,18 +874,31 @@ IMPORTANT GUIDELINES:
                     "doc_type": doc_type,
                 })
 
+            # Dedupe by file_path to get unique documents (not chunks)
+            unique_adrs = dedupe_by_identity(adrs, identity_key="file_path")
+            unique_adrs_sorted = sorted(
+                unique_adrs,
+                key=lambda x: x.get("adr_number", "") or x.get("file_path", "")
+            )
+
             log_suffix = " (via fallback)" if fallback_triggered else " (filtered)"
             logger.info(
-                f"list_all_adrs: Returning {len(adrs)} ADRs{log_suffix} "
+                f"list_all_adrs: Returning {len(unique_adrs_sorted)} unique ADRs{log_suffix} "
                 f"(collection total: {unfiltered_count}, after filter: {filtered_count}, "
-                f"request_id={request_id})"
+                f"chunks before dedupe: {len(adrs)}, request_id={request_id})"
             )
-            return sorted(adrs, key=lambda x: x.get("adr_number", "") or x.get("file_path", ""))
+
+            # Return marker-based result for deterministic serialization
+            return build_list_result_marker(
+                collection="adr",
+                rows=unique_adrs_sorted,
+                total_unique=len(unique_adrs_sorted),
+            )
 
         registry["list_all_adrs"] = list_all_adrs
 
         # List all principles tool
-        async def list_all_principles() -> list[dict]:
+        async def list_all_principles() -> dict:
             """List all architecture and governance principles.
 
             Use this tool when the user asks:
@@ -883,7 +907,7 @@ IMPORTANT GUIDELINES:
             - Show me the governance principles
 
             Returns:
-                Complete list of all principles
+                Marked list result with deduplicated principles (document-identity based)
             """
             request_id = generate_request_id()
             collection = client.collections.get("Principle")
@@ -914,12 +938,12 @@ IMPORTANT GUIDELINES:
 
                 if not fallback_allowed:
                     # Return controlled error response
-                    return [{
+                    return {
                         "error": True,
                         "message": error_msg,
                         "request_id": request_id,
                         "reason": "DOC_METADATA_MISSING_REQUIRES_MIGRATION",
-                    }]
+                    }
 
                 # Fallback is allowed - proceed with in-memory filtering
                 use_filter = None
@@ -952,13 +976,26 @@ IMPORTANT GUIDELINES:
                     "type": doc_type,
                 })
 
+            # Dedupe by file_path to get unique documents (not chunks)
+            unique_principles = dedupe_by_identity(principles, identity_key="file_path")
+            unique_principles_sorted = sorted(
+                unique_principles,
+                key=lambda x: x.get("principle_number", "") or x.get("file_path", "")
+            )
+
             log_suffix = " (via fallback)" if fallback_triggered else " (filtered)"
             logger.info(
-                f"list_all_principles: Returning {len(principles)} principles{log_suffix} "
+                f"list_all_principles: Returning {len(unique_principles_sorted)} unique principles{log_suffix} "
                 f"(collection total: {unfiltered_count}, after filter: {filtered_count}, "
-                f"request_id={request_id})"
+                f"chunks before dedupe: {len(principles)}, request_id={request_id})"
             )
-            return sorted(principles, key=lambda x: x.get("principle_number", "") or x.get("file_path", ""))
+
+            # Return marker-based result for deterministic serialization
+            return build_list_result_marker(
+                collection="principle",
+                rows=unique_principles_sorted,
+                total_unique=len(unique_principles_sorted),
+            )
 
         registry["list_all_principles"] = list_all_principles
 
@@ -1181,6 +1218,10 @@ IMPORTANT GUIDELINES:
         Creates a fresh Tree instance per request to ensure thread safety
         when processing concurrent requests.
 
+        For list queries (e.g., "What ADRs exist?"), this method bypasses
+        LLM-based response generation and uses deterministic serialization
+        for contract compliance.
+
         Args:
             question: The user's question
             collection_names: Optional list of collection names to focus on
@@ -1195,6 +1236,48 @@ IMPORTANT GUIDELINES:
         structured_mode = _skill_registry.is_skill_active("response-contract", question)
         if structured_mode:
             logger.info(f"Structured mode ACTIVE for query: {question[:50]}...")
+
+        # Create structured mode context for gateway integration
+        context = create_context_from_skills(question, _skill_registry)
+
+        # DETERMINISTIC LIST HANDLING
+        # For list queries, call list tools directly and use deterministic serialization
+        # This bypasses LLM response generation for list endpoints (enterprise pattern)
+        if is_list_query(question):
+            question_lower = question.lower()
+
+            # Route to appropriate list tool based on query content
+            list_result = None
+            objects = []
+
+            if "adr" in question_lower or "decision" in question_lower or "architecture" in question_lower:
+                logger.info("List query detected for ADRs - using deterministic path")
+                list_tool = self._tool_registry.get("list_all_adrs")
+                if list_tool:
+                    list_result = await list_tool()
+                    objects = list_result.get("rows", []) if isinstance(list_result, dict) else []
+
+            elif "principle" in question_lower or "governance" in question_lower:
+                logger.info("List query detected for Principles - using deterministic path")
+                list_tool = self._tool_registry.get("list_all_principles")
+                if list_tool:
+                    list_result = await list_tool()
+                    objects = list_result.get("rows", []) if isinstance(list_result, dict) else []
+
+            # If we have a list result, use deterministic serialization
+            if list_result and is_list_result(list_result):
+                gateway_result = handle_list_result(list_result, context)
+                if gateway_result:
+                    logger.info(
+                        f"Deterministic list response: items_shown={gateway_result.structured_response.items_shown if gateway_result.structured_response else 0}, "
+                        f"items_total={gateway_result.structured_response.items_total if gateway_result.structured_response else 0}"
+                    )
+                    return gateway_result.response, objects
+
+            # Check for error result (e.g., fallback blocked)
+            if list_result and isinstance(list_result, dict) and list_result.get("error"):
+                error_msg = list_result.get("message", "An error occurred")
+                return error_msg, []
 
         # Always specify our collection names to bypass Elysia's metadata collection discovery
         # This avoids gRPC errors from Elysia's internal collections
