@@ -2,10 +2,10 @@
 
 ## Technical Documentation (Consolidated)
 
-**Version:** 1.1
+**Version:** 1.2
 **Date:** 2026-02-08
 **Status:** Production Ready
-**Module:** `src/response_schema.py`
+**Modules:** `src/response_schema.py`, `src/response_gateway.py`, `src/llm_client.py`
 
 ---
 
@@ -21,7 +21,14 @@
    - [Metrics Tracking (P3)](#metrics-tracking-p3)
    - [Response Caching (P3)](#response-caching-p3)
    - [Schema Versioning (P4)](#schema-versioning-p4)
-5. [Deep Dive: Algorithms & Internals](#deep-dive-algorithms--internals)
+5. [Response Gateway](#response-gateway)
+   - [CLI Delimiter Protocol](#cli-delimiter-protocol)
+   - [Gateway Enforcement Policies](#gateway-enforcement-policies)
+   - [Failure UX](#failure-ux)
+6. [LLM Client Abstraction](#llm-client-abstraction)
+   - [Vendor Insulation](#vendor-insulation)
+   - [Client Types](#client-types)
+7. [Deep Dive: Algorithms & Internals](#deep-dive-algorithms--internals)
    - [JSON Repair Algorithm](#json-repair-algorithm)
    - [Concurrency Model](#concurrency-model)
    - [LRU Cache Eviction](#lru-cache-eviction)
@@ -335,6 +342,213 @@ def get_required_fields(cls, version: str) -> set[str]:
 | Additive (new optional field) | Minor (1.0 → 1.1) | Add `confidence` field |
 | Breaking (remove/rename field) | Major (1.0 → 2.0) | Rename `answer` → `response` |
 | Both versions supported | Transition period | Parse both 1.x and 2.x |
+
+---
+
+## Response Gateway
+
+**Module:** `src/response_gateway.py`
+
+The response gateway is the unified API contract layer - **all UI API responses must pass through this**. It sits at the UI boundary and enforces the structured response contract.
+
+### Architecture Position
+
+```
+User UI → Backend → Elysia CLI (LLM + retrieval) → raw text →
+    normalize_and_validate_response() → UI
+```
+
+### CLI Delimiter Protocol
+
+To enable deterministic JSON extraction from LLM output (even when CLI adds metadata/banners), we use explicit delimiters:
+
+```python
+JSON_START_MARKER = "<<<JSON>>>"
+JSON_END_MARKER = "<<<END_JSON>>>"
+```
+
+**Extraction Priority Order:**
+
+1. **Explicit markers** (highest confidence): `<<<JSON>>>...<<<END_JSON>>>`
+2. **Raw JSON**: Entire response is valid JSON
+3. **Fenced JSON block**: ` ```json...``` `
+4. **Embedded JSON**: Regex extraction of `{...}` blocks
+
+**System Prompt Injection:**
+
+```
+OUTPUT FORMAT REQUIREMENT:
+You MUST output ONLY valid JSON. No prose, no explanations outside the JSON.
+
+Use this exact format:
+<<<JSON>>>
+{
+    "schema_version": "1.0",
+    "answer": "Your response text here",
+    "items_shown": <integer>,
+    "items_total": <integer or null>,
+    "count_qualifier": "exact" | "at_least" | "approx" | null,
+    "sources": [{"title": "...", "type": "ADR|Principle|Policy|Vocabulary"}]
+}
+<<<END_JSON>>>
+```
+
+### Gateway Enforcement Policies
+
+| Policy | Behavior | Use Case |
+|--------|----------|----------|
+| `strict` | Fail with controlled error if JSON invalid | Production UI (default) |
+| `soft` | Log and degrade to raw text | Development/debugging |
+| `lenient` | Allow embedded JSON extraction | Legacy compatibility |
+
+### Failure UX
+
+When structured mode fails in strict policy, users receive controlled error messages:
+
+```python
+@dataclass
+class FailureResponse:
+    message: str        # User-friendly error
+    request_id: str     # For debugging (e.g., "fc1bc2ef")
+    error_code: str     # ReasonCode value
+    can_retry: bool     # Suggest retry?
+```
+
+**Example user-facing error:**
+
+```
+I couldn't format the result reliably. Please try again.
+
+Reference: fc1bc2ef
+```
+
+### Structured Mode Context
+
+The gateway tracks all metadata needed to diagnose regressions:
+
+```python
+@dataclass
+class StructuredModeContext:
+    structured_mode: bool
+    active_skill_names: list[str]     # ["response-contract", "rag-quality"]
+    matched_triggers: list[str]       # ["response-contract:list"]
+    prompt_version: str               # "1.0.0"
+    schema_version: str               # "1.0"
+    model_id: Optional[str]
+    request_id: str                   # Short UUID for tracing
+    extraction_method: Optional[str]  # "marker_delimited", "raw_json", etc.
+    parse_stage: Optional[str]        # "validated", "repaired", etc.
+    reason_code: Optional[ReasonCode]
+    latency_ms: Optional[int]
+```
+
+### Weaviate Count Population
+
+The gateway overwrites LLM-guessed `items_total` with authoritative Weaviate counts:
+
+```python
+def populate_items_total_from_weaviate(
+    response: StructuredResponse,
+    collection_counts: dict[str, int],  # {"ArchitecturalDecision": 42}
+) -> StructuredResponse:
+    # Weaviate counts are authoritative
+    response.items_total = sum(collection_counts.values())
+    response.count_qualifier = "exact"
+    return response
+```
+
+---
+
+## LLM Client Abstraction
+
+**Module:** `src/llm_client.py`
+
+The LLM client abstraction provides vendor insulation - allowing the system to swap LLM backends without changing consuming code.
+
+### Vendor Insulation
+
+```
+UI/CLI → LLMClientProtocol.query() → (response, objects, metadata)
+                    ↓
+    ┌───────────────┼───────────────┐
+    │               │               │
+    ElysiaClient  DirectLLMClient  FutureClient
+    (Elysia Tree)  (OpenAI/Ollama)  (...)
+```
+
+### Client Types
+
+| Client | Backend | Use Case |
+|--------|---------|----------|
+| `ElysiaClient` | Elysia Tree | Primary production client with agentic tool selection |
+| `DirectLLMClient` | Direct Weaviate + LLM | Fallback when Elysia fails |
+| `ResilientLLMClient` | Wrapper | Automatic fallback between clients |
+
+### Protocol Interface
+
+```python
+@runtime_checkable
+class LLMClientProtocol(Protocol):
+    async def query(
+        self,
+        question: str,
+        collection_names: Optional[list[str]] = None,
+    ) -> QueryResult: ...
+
+    def get_client_type(self) -> str: ...
+    def is_available(self) -> bool: ...
+```
+
+### QueryResult Structure
+
+```python
+@dataclass
+class QueryResult:
+    response: str           # Processed response text
+    objects: list[dict]     # Retrieved objects
+    metadata: QueryMetadata # Execution metadata
+
+@dataclass
+class QueryMetadata:
+    client_type: str        # "elysia" or "direct"
+    iterations: int         # Elysia tree iterations
+    recursion_limit: int
+    hit_limit: bool         # Did we hit the limit?
+    fallback_used: bool     # Was fallback client used?
+    structured_mode: bool
+    skills_applied: list[str]
+    error: Optional[str]
+```
+
+### Factory Function
+
+```python
+from src.llm_client import create_llm_client
+
+# Creates ElysiaClient if available, otherwise DirectLLMClient
+client = create_llm_client(weaviate_client, prefer_elysia=True)
+
+# Query with unified interface
+result = await client.query("What ADRs exist?")
+print(f"Response: {result.response}")
+print(f"Client used: {result.metadata.client_type}")
+```
+
+### Resilient Client with Automatic Fallback
+
+```python
+from src.llm_client import ElysiaClient, DirectLLMClient, ResilientLLMClient
+
+primary = ElysiaClient(weaviate_client)
+fallback = DirectLLMClient(weaviate_client)
+
+resilient = ResilientLLMClient(primary, fallback)
+
+# Automatically falls back if primary fails
+result = await resilient.query("What ADRs exist?")
+if result.metadata.fallback_used:
+    print("Fallback was used due to primary client failure")
+```
 
 ---
 
@@ -1070,9 +1284,12 @@ src/response_schema.py
 
 | File | Purpose |
 |------|---------|
+| `src/response_schema.py` | Core schema, parser, validator, metrics, cache |
+| `src/response_gateway.py` | Unified API contract layer with CLI delimiter protocol |
+| `src/llm_client.py` | Vendor-agnostic LLM client abstraction |
 | `src/elysia_agents.py` | Integration with RAG system |
+| `tests/test_structured_response_contract.py` | Contract enforcement tests |
 | `tests/test_implementation_quality.py` | Integration tests |
-| `docs/STRUCTURED_RESPONSE_IMPLEMENTATION.md` | This document |
 
 ### Commit History
 
@@ -1082,9 +1299,12 @@ src/response_schema.py
 | `ab2a930` | Add P3 metrics tracking, caching, and P4 schema versioning |
 | `98e43ed` | Add technical implementation document |
 | `62fa8b5` | Add deep-dive sections, operations runbook, rollback strategy |
+| `f2d327b` | Wire structured response contract into main path |
+| `03deb3a` | Add unified API response gateway module |
+| *(current)* | Add LLM client abstraction for vendor insulation |
 
 ---
 
 *Document generated: 2026-02-07*
 *Last updated: 2026-02-08*
-*Document version: 1.1*
+*Document version: 1.2*

@@ -205,6 +205,224 @@ class TestContractIntegration:
         assert DEFAULT_ENFORCEMENT_POLICY == ENFORCEMENT_STRICT
 
 
+class TestResponseGatewayStrictMode:
+    """Smoke tests ensuring UI API never emits non-JSON in strict mode.
+
+    These tests verify the response_gateway.py contract layer enforces
+    structured output requirements.
+    """
+
+    @pytest.fixture
+    def mock_context(self):
+        """Create a mock StructuredModeContext for testing."""
+        from src.response_gateway import StructuredModeContext
+        return StructuredModeContext(
+            structured_mode=True,
+            active_skill_names=["response-contract"],
+            matched_triggers=["response-contract:list"],
+        )
+
+    def test_strict_mode_rejects_plain_prose(self, mock_context):
+        """Strict mode must reject plain prose - never emit raw text to UI."""
+        from src.response_gateway import (
+            normalize_and_validate_response,
+            POLICY_STRICT,
+        )
+
+        raw_prose = "Here are some ADRs. ADR.21 is about data governance."
+
+        result = normalize_and_validate_response(
+            raw_response=raw_prose,
+            context=mock_context,
+            policy=POLICY_STRICT,
+        )
+
+        # Must NOT return the raw prose
+        assert result.response != raw_prose
+        # Must indicate failure
+        assert result.is_structured is False
+        assert result.failure is not None
+        # Failure response must include request ID for debugging
+        assert mock_context.request_id in result.response
+
+    def test_strict_mode_accepts_valid_json(self, mock_context):
+        """Strict mode accepts valid JSON wrapped in delimiters."""
+        from src.response_gateway import (
+            normalize_and_validate_response,
+            POLICY_STRICT,
+            JSON_START_MARKER,
+            JSON_END_MARKER,
+        )
+
+        valid_json = f'''{JSON_START_MARKER}
+{{
+    "schema_version": "1.0",
+    "answer": "Found 5 ADRs in the system.",
+    "items_shown": 5,
+    "items_total": 10,
+    "count_qualifier": "exact"
+}}
+{JSON_END_MARKER}'''
+
+        result = normalize_and_validate_response(
+            raw_response=valid_json,
+            context=mock_context,
+            policy=POLICY_STRICT,
+        )
+
+        assert result.is_structured is True
+        assert result.failure is None
+        assert "Found 5 ADRs" in result.response
+
+    def test_strict_mode_accepts_raw_json(self, mock_context):
+        """Strict mode accepts raw JSON without markers."""
+        from src.response_gateway import (
+            normalize_and_validate_response,
+            POLICY_STRICT,
+        )
+
+        raw_json = '''{
+            "schema_version": "1.0",
+            "answer": "Here are the results.",
+            "items_shown": 3,
+            "items_total": 3,
+            "count_qualifier": "exact"
+        }'''
+
+        result = normalize_and_validate_response(
+            raw_response=raw_json,
+            context=mock_context,
+            policy=POLICY_STRICT,
+        )
+
+        assert result.is_structured is True
+        assert "Here are the results" in result.response
+
+    def test_strict_mode_rejects_invalid_json(self, mock_context):
+        """Strict mode rejects malformed JSON that can't be repaired."""
+        from src.response_gateway import (
+            normalize_and_validate_response,
+            POLICY_STRICT,
+        )
+
+        # Severely malformed - missing closing braces
+        bad_json = '{"answer": "incomplete'
+
+        result = normalize_and_validate_response(
+            raw_response=bad_json,
+            context=mock_context,
+            policy=POLICY_STRICT,
+        )
+
+        assert result.is_structured is False
+        assert result.failure is not None
+
+    def test_soft_mode_degrades_gracefully(self, mock_context):
+        """Soft mode returns raw text when JSON extraction fails."""
+        from src.response_gateway import (
+            normalize_and_validate_response,
+            POLICY_SOFT,
+        )
+
+        raw_prose = "Here are some ADRs without JSON formatting."
+
+        result = normalize_and_validate_response(
+            raw_response=raw_prose,
+            context=mock_context,
+            policy=POLICY_SOFT,
+        )
+
+        # Soft mode returns raw text
+        assert result.response == raw_prose
+        assert result.is_structured is False
+        # No failure object in soft mode
+        assert result.failure is None
+
+    def test_non_structured_mode_bypasses_validation(self):
+        """When structured_mode=False, response passes through unchanged."""
+        from src.response_gateway import (
+            normalize_and_validate_response,
+            POLICY_STRICT,
+            StructuredModeContext,
+        )
+
+        context = StructuredModeContext(structured_mode=False)
+        raw = "Plain text response, no JSON required."
+
+        result = normalize_and_validate_response(
+            raw_response=raw,
+            context=context,
+            policy=POLICY_STRICT,
+        )
+
+        assert result.response == raw
+        assert result.is_structured is False
+        assert result.failure is None
+
+    def test_gateway_result_includes_api_metadata(self, mock_context):
+        """GatewayResult.to_api_response() includes all required fields."""
+        from src.response_gateway import (
+            normalize_and_validate_response,
+            POLICY_STRICT,
+            JSON_START_MARKER,
+            JSON_END_MARKER,
+        )
+
+        valid_json = f'''{JSON_START_MARKER}
+{{
+    "schema_version": "1.0",
+    "answer": "Test response.",
+    "items_shown": 1,
+    "items_total": 1
+}}
+{JSON_END_MARKER}'''
+
+        result = normalize_and_validate_response(
+            raw_response=valid_json,
+            context=mock_context,
+            policy=POLICY_STRICT,
+        )
+
+        api_response = result.to_api_response()
+
+        # Required fields
+        assert "response" in api_response
+        assert "is_structured" in api_response
+        assert "request_id" in api_response
+        # Structured data when successful
+        assert "structured_data" in api_response
+
+    def test_items_total_populated_from_weaviate(self, mock_context):
+        """Weaviate counts override LLM-guessed items_total."""
+        from src.response_gateway import (
+            normalize_and_validate_response,
+            POLICY_STRICT,
+        )
+
+        # LLM says 5 total, but Weaviate says 42
+        json_with_wrong_count = '''{
+            "schema_version": "1.0",
+            "answer": "Here are the ADRs.",
+            "items_shown": 5,
+            "items_total": 5,
+            "count_qualifier": "approx"
+        }'''
+
+        weaviate_counts = {"ArchitecturalDecision": 42}
+
+        result = normalize_and_validate_response(
+            raw_response=json_with_wrong_count,
+            context=mock_context,
+            policy=POLICY_STRICT,
+            collection_counts=weaviate_counts,
+        )
+
+        assert result.is_structured is True
+        # Weaviate count should override
+        assert result.structured_response.items_total == 42
+        assert result.structured_response.count_qualifier == "exact"
+
+
 def run_tests():
     """Run tests and print results."""
     import subprocess
