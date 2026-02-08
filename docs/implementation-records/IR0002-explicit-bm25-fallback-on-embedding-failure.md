@@ -1,7 +1,7 @@
 ---
-parent: Decisions
-nav_order: xxxx
-title: ADR-0002 Explicit BM25 Fallback on Embedding Failure
+parent: Implementation Records
+nav_order: 2
+title: IR0002 Explicit BM25 Fallback on Embedding Failure
 status: accepted
 date: 2026-02-08
 
@@ -11,7 +11,7 @@ contributors: Dev Team
 informed: AInstein Development Team
 ---
 
-# Explicit BM25 Fallback on Embedding Failure
+# IR0002 Explicit BM25 Fallback on Embedding Failure
 
 ## Context and Problem Statement
 

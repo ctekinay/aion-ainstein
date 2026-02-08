@@ -22,7 +22,7 @@ This folder contains technical documentation for the AInstein RAG system.
 
 ### For Operations
 - **Implementation Status**: See [SKILLS_UI_STATUS.md](SKILLS_UI_STATUS.md) for feature tracking
-- **Implementation Decisions**: See [implementation-records/](implementation-records/) for technical ADRs
+- **Implementation Decisions**: See [implementation-records/](implementation-records/) for technical IRs
 
 ## Architecture Overview
 
@@ -50,8 +50,8 @@ Technical decisions about the AInstein system itself:
 
 | Record | Description |
 |--------|-------------|
-| [ADR-xxxx-confidence-based-abstention...](implementation-records/ADR-xxxx-confidence-based-abstention-for-hallucination-prevention.md) | Hallucination prevention via abstention |
-| [ADR-xxxx-explicit-bm25-fallback...](implementation-records/ADR-xxxx-explicit-bm25-fallback-on-embedding-failure.md) | BM25 fallback when Ollama unavailable |
+| [IR0001 Confidence-Based Abstention](implementation-records/IR0001-confidence-based-abstention-for-hallucination-prevention.md) | Hallucination prevention via abstention |
+| [IR0002 Explicit BM25 Fallback](implementation-records/IR0002-explicit-bm25-fallback-on-embedding-failure.md) | BM25 fallback when Ollama unavailable |
 
 ## Archived Documentation
 

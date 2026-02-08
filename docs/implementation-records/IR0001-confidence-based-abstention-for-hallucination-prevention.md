@@ -1,17 +1,17 @@
 ---
-parent: Decisions
-nav_order: xxxx
-title: ADR-0001 Confidence-Based Abstention for Hallucination Prevention
+parent: Implementation Records
+nav_order: 1
+title: IR0001 Confidence-Based Abstention for Hallucination Prevention
 status: proposed
 date: 2026-02-03
 
 driver: Cagri Tekinay
 approvers: ESA Team
-contributors: 
+contributors:
 informed: AInstein Development Team
 ---
 
-# Confidence-Based Abstention for Hallucination Prevention
+# IR0001 Confidence-Based Abstention for Hallucination Prevention
 
 ## Context and Problem Statement
 
