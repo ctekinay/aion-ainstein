@@ -152,7 +152,8 @@ class BaseLLMClient(ABC):
         """Get list of skills active for this question."""
         active = []
         for entry in self.skill_registry.list_skills():
-            skill_name = entry.get("name", "")
+            # list_skills returns SkillRegistryEntry dataclass objects
+            skill_name = entry.name
             if self.skill_registry.is_skill_active(skill_name, question):
                 active.append(skill_name)
         return active
@@ -196,6 +197,11 @@ class ElysiaClient(BaseLLMClient):
 
     Wraps the Elysia Tree for agentic RAG with tool selection.
     This is the primary client for production use.
+
+    Thread Safety:
+        This client creates a new Tree instance per request to avoid
+        race conditions when mutating agent descriptions. The base
+        description and tool registry are shared (read-only after init).
     """
 
     def __init__(self, weaviate_client: WeaviateClient):
@@ -216,8 +222,8 @@ class ElysiaClient(BaseLLMClient):
             )
 
         self._base_description = self._get_base_description()
-        self._tree = self._create_tree()
-        self._tools_registered = False
+        self._tool_registry: dict[str, callable] = {}
+        self._recursion_limit = 2
 
     def _get_base_description(self) -> str:
         """Get base agent description."""
@@ -235,28 +241,41 @@ IMPORTANT GUIDELINES:
 - Be transparent about the data: always indicate how many items exist vs. how many are shown
 - Never hallucinate - if you're not confident, say so"""
 
-    def _create_tree(self) -> "Tree":
-        """Create and configure Elysia Tree."""
+    def _create_tree(self, agent_description: str) -> "Tree":
+        """Create and configure a new Elysia Tree instance.
+
+        Creates a fresh tree per request to avoid race conditions
+        when modifying agent descriptions in concurrent scenarios.
+
+        Args:
+            agent_description: Full agent description including skill content
+
+        Returns:
+            Configured Tree instance
+        """
         tree = Tree(
-            agent_description=self._base_description,
+            agent_description=agent_description,
             style="Professional, concise, and informative. Use structured formatting for lists.",
             end_goal="Provide accurate, well-sourced answers based on the knowledge base.",
         )
         # Limit recursion to prevent infinite loops
-        tree.tree_data.recursion_limit = 2
+        tree.tree_data.recursion_limit = self._recursion_limit
+
+        # Register tools with this tree instance
+        for name, func in self._tool_registry.items():
+            tool(tree=tree)(func)
+            logger.debug(f"Registered tool on tree: {name}")
+
         return tree
 
     def register_tools(self, tool_registry: dict[str, callable]) -> None:
-        """Register tools with the Elysia tree.
+        """Register tools to be applied to all tree instances.
 
         Args:
             tool_registry: Dict mapping tool names to tool functions
         """
-        for name, func in tool_registry.items():
-            # Apply Elysia's @tool decorator
-            decorated = tool(tree=self._tree)(func)
-            logger.debug(f"Registered tool: {name}")
-        self._tools_registered = True
+        self._tool_registry.update(tool_registry)
+        logger.info(f"Registered {len(tool_registry)} tools for future tree instances")
 
     def get_client_type(self) -> str:
         """Return client type identifier."""
@@ -264,7 +283,7 @@ IMPORTANT GUIDELINES:
 
     def is_available(self) -> bool:
         """Check if Elysia is available and configured."""
-        return ELYSIA_AVAILABLE and self._tree is not None
+        return ELYSIA_AVAILABLE
 
     async def query(
         self,
@@ -272,6 +291,9 @@ IMPORTANT GUIDELINES:
         collection_names: Optional[list[str]] = None,
     ) -> QueryResult:
         """Process query using Elysia decision tree.
+
+        Creates a fresh Tree instance per request to ensure thread safety
+        when processing concurrent requests.
 
         Args:
             question: The user's question
@@ -281,6 +303,7 @@ IMPORTANT GUIDELINES:
             QueryResult with response, objects, and metadata
         """
         from .elysia_agents import postprocess_llm_output, DEFAULT_ENFORCEMENT_POLICY
+        from .response_gateway import RETRY_PROMPT
 
         logger.info(f"ElysiaClient processing: {question[:50]}...")
 
@@ -289,27 +312,45 @@ IMPORTANT GUIDELINES:
         active_skills = self.get_active_skills(question)
         collections = collection_names or self.get_default_collections()
 
-        # Inject skills into agent description
+        # Build agent description with injected skills
         skill_content = self.skill_registry.get_all_skill_content(question)
         if skill_content:
-            enriched = f"{self._base_description}\n\n{skill_content}"
-            self._tree.change_agent_description(enriched)
+            agent_description = f"{self._base_description}\n\n{skill_content}"
         else:
-            self._tree.change_agent_description(self._base_description)
+            agent_description = self._base_description
+
+        # Create per-request tree instance (thread-safe: no shared mutable state)
+        request_tree = self._create_tree(agent_description)
 
         # Execute query
         metadata = QueryMetadata(
             client_type=self.get_client_type(),
             structured_mode=structured_mode,
             skills_applied=active_skills,
-            recursion_limit=self._tree.tree_data.recursion_limit,
+            recursion_limit=self._recursion_limit,
         )
 
+        # Capture tree and collections for retry closure
+        def create_retry_func(tree: "Tree", cols: list[str]) -> callable:
+            """Create a retry function that re-asks the tree with strict JSON instructions.
+
+            The retry function is called by the response gateway when strict mode
+            fails to extract/validate JSON. It sends RETRY_PROMPT to get a
+            properly formatted response.
+            """
+            def retry_func(retry_prompt: str) -> str:
+                logger.info("Executing retry with JSON-only instruction")
+                retry_response, _ = tree(retry_prompt, collection_names=cols)
+                return retry_response
+            return retry_func
+
+        retry_func = create_retry_func(request_tree, collections) if structured_mode else None
+
         try:
-            response, objects = self._tree(question, collection_names=collections)
+            response, objects = request_tree(question, collection_names=collections)
 
             # Capture iteration stats
-            iterations = self._tree.tree_data.num_trees_completed
+            iterations = request_tree.tree_data.num_trees_completed
             metadata.iterations = iterations
             metadata.hit_limit = iterations >= metadata.recursion_limit
 
@@ -331,11 +372,12 @@ IMPORTANT GUIDELINES:
                 metadata=metadata,
             )
 
-        # Post-process through contract enforcement
+        # Post-process through contract enforcement with retry support
         processed, was_structured, reason = postprocess_llm_output(
             raw_response=response,
             structured_mode=structured_mode,
             enforcement_policy=DEFAULT_ENFORCEMENT_POLICY,
+            retry_func=retry_func,
         )
 
         logger.info(

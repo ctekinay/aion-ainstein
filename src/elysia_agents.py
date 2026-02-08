@@ -132,11 +132,15 @@ def postprocess_llm_output(
     This function MUST be called on ALL LLM outputs (main path and fallback path)
     to ensure consistent contract enforcement.
 
+    In strict mode, if parsing fails and retry_func is provided, this function
+    will attempt ONE retry with a JSON-only instruction before failing.
+
     Args:
         raw_response: The raw LLM response text
         structured_mode: Whether response-contract skill is active
         enforcement_policy: "strict" (retry + fail) or "soft" (degrade gracefully)
-        retry_func: Optional async function to call for retry (receives JSON-only prompt)
+        retry_func: Optional function to call for retry. Receives RETRY_PROMPT
+                    as input and should return the LLM's retry response.
 
     Returns:
         Tuple of:
@@ -144,6 +148,8 @@ def postprocess_llm_output(
         - was_structured: Whether structured parsing succeeded
         - reason: Reason code for debugging ("success", "fallback", "parse_failed", etc.)
     """
+    from .response_gateway import RETRY_PROMPT
+
     logger = logging.getLogger(__name__)
 
     if not structured_mode:
@@ -171,19 +177,38 @@ def postprocess_llm_output(
         logger.info("Soft enforcement: degrading to raw response")
         return raw_response, False, f"soft_fallback:{fallback_used}"
 
-    # Strict mode: this is where retry would happen
-    # For now, return controlled error since retry requires async context
-    # The calling code should handle retry if retry_func is provided
+    # Strict mode: attempt retry if retry_func is provided
     if retry_func is not None:
-        # Signal that retry is needed - caller must handle
-        return raw_response, False, f"retry_needed:{fallback_used}"
+        logger.info("Strict enforcement: attempting retry with JSON-only instruction")
+        try:
+            # Call retry_func with the JSON-only prompt
+            retry_response = retry_func(RETRY_PROMPT)
 
-    # Strict mode without retry: return error message
+            # Attempt to parse the retry response
+            retry_structured, retry_fallback = ResponseParser.parse_with_fallbacks(retry_response)
+
+            if retry_structured:
+                # Retry succeeded!
+                logger.info(f"Retry succeeded via {retry_fallback}")
+                transparency = retry_structured.generate_transparency_message()
+                if transparency and transparency not in retry_structured.answer:
+                    processed = f"{retry_structured.answer}\n\n{transparency}"
+                else:
+                    processed = retry_structured.answer
+                return processed, True, f"retry_success:{retry_fallback}"
+
+            # Retry parsing also failed
+            logger.warning(f"Retry parsing failed: {retry_fallback}")
+
+        except Exception as e:
+            logger.error(f"Retry function raised exception: {e}")
+
+    # Strict mode without successful retry: return controlled error message
     error_response = (
         "I was unable to format my response properly. "
         "Please try rephrasing your question."
     )
-    logger.error(f"Strict enforcement failed, no retry available: {fallback_used}")
+    logger.error(f"Strict enforcement failed: {fallback_used}")
     return error_response, False, f"strict_failed:{fallback_used}"
 
 
