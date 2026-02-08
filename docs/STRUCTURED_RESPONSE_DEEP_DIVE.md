@@ -2,7 +2,7 @@
 
 ## What We Built and Why
 
-**Document Version:** 1.0
+**Document Version:** 1.1
 **Date:** 2026-02-08
 **Scope:** Full implementation rationale for the structured response validation system
 
@@ -11,12 +11,16 @@
 ## Table of Contents
 
 1. [The Problem We Solved](#1-the-problem-we-solved)
-2. [The Solution Architecture](#2-the-solution-architecture)
-3. [Component-by-Component Breakdown](#3-component-by-component-breakdown)
-4. [Design Decisions and Rationale](#4-design-decisions-and-rationale)
-5. [The Skill Integration](#5-the-skill-integration)
-6. [How Everything Connects](#6-how-everything-connects)
-7. [Files Changed](#7-files-changed)
+2. [Non-Goals (Scope Boundaries)](#2-non-goals-scope-boundaries)
+3. [The Solution Architecture](#3-the-solution-architecture)
+4. [Component-by-Component Breakdown](#4-component-by-component-breakdown)
+5. [Contract Specifications](#5-contract-specifications)
+6. [Design Decisions and Rationale](#6-design-decisions-and-rationale)
+7. [The Skill Integration](#7-the-skill-integration)
+8. [SLO Targets and Operational Thresholds](#8-slo-targets-and-operational-thresholds)
+9. [Security and Privacy Considerations](#9-security-and-privacy-considerations)
+10. [How Everything Connects](#10-how-everything-connects)
+11. [Files Changed](#11-files-changed)
 
 ---
 
@@ -30,12 +34,12 @@ The AION-AINSTEIN RAG system had a transparency problem. When users asked "What 
 - How many items exist in total
 - Whether the response was complete or truncated
 
-### 1.2 The Failed Approach (Regex)
+### 1.2 The Failed Approach (Regex for Semantic Validation)
 
 The initial attempt used regex-based validation:
 
 ```python
-# This was REJECTED - unreliable
+# This was REJECTED - unreliable for SEMANTIC validation
 has_counts = re.search(r'\d+\s+of\s+\d+', response)  # "5 of 18"
 passed = has_counts is not None
 ```
@@ -49,6 +53,12 @@ passed = has_counts is not None
 | No structure | Can't extract the actual numbers for downstream use |
 | Unstable tests | Same query, different phrasing = flaky CI |
 
+**Important Distinction:**
+- **Regex for semantic validation**: REJECTED (unreliable, phrasing-dependent)
+- **Regex for mechanical extraction**: ALLOWED (isolating JSON blocks from markdown)
+
+We use regex only for safe mechanical extraction (finding `{"..."}` in text), never for evaluating correctness of content.
+
 ### 1.3 The User's Requirement
 
 > "I really DON'T WANT ANY REGEX STYLE FIXED HARDCODED SOLUTIONS! What is the best practice for this?"
@@ -57,9 +67,29 @@ The user explicitly demanded an enterprise-grade solution using industry best pr
 
 ---
 
-## 2. The Solution Architecture
+## 2. Non-Goals (Scope Boundaries)
 
-### 2.1 Core Insight
+To prevent scope creep and speed up reviews, this system explicitly does NOT:
+
+| Non-Goal | Rationale |
+|----------|-----------|
+| **Evaluate faithfulness/groundedness** | That's a separate RAG quality concern |
+| **Judge semantic quality of answers** | Content quality is handled by other skills |
+| **Infer totals if backend doesn't provide them** | We report what we know, not guess |
+| **LLM-based repair in v1** | Deterministic repair handles 95%+; add LLM fallback later if needed |
+| **Guarantee 100% structured output** | Graceful degradation to raw response is acceptable |
+| **Replace existing formatting skills** | Works alongside response-formatter, not instead of |
+
+**What this system DOES guarantee:**
+- If LLM outputs valid JSON → deterministic validation
+- If validation passes → correct structured data for transparency
+- If anything fails → observable metrics with reason codes
+
+---
+
+## 3. The Solution Architecture
+
+### 3.1 Core Insight
 
 Instead of parsing natural language, **make the LLM output structured JSON** and validate that JSON deterministically.
 
@@ -81,7 +111,7 @@ Instead of parsing natural language, **make the LLM output structured JSON** and
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-### 2.2 The JSON Contract
+### 3.2 The JSON Contract
 
 We defined a strict schema that the LLM must output:
 
@@ -107,7 +137,7 @@ We defined a strict schema that the LLM must output:
 | `count_qualifier` | enum | Is the count exact, approximate, or a lower bound? |
 | `sources` | array | Citations for traceability |
 
-### 2.3 The Layered Architecture
+### 3.3 The Layered Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -135,9 +165,9 @@ We defined a strict schema that the LLM must output:
 
 ---
 
-## 3. Component-by-Component Breakdown
+## 4. Component-by-Component Breakdown
 
-### 3.1 StructuredResponse (The Data Model)
+### 4.1 StructuredResponse (The Data Model)
 
 **File:** `src/response_schema.py` (lines 396-426)
 
@@ -181,7 +211,7 @@ def generate_transparency_message(self) -> str:
 - **No phrasing drift**: "5 of 18" every time, not "five out of eighteen"
 - **Testability**: Deterministic output from deterministic input
 
-### 3.2 ResponseValidator (Schema Enforcement)
+### 4.2 ResponseValidator (Schema Enforcement)
 
 **File:** `src/response_schema.py` (lines 452-565)
 
@@ -234,7 +264,7 @@ if items_total is not None:
 - If `items_shown=10` and `items_total=5`, something is wrong
 - This catches LLM hallucinations about counts
 
-### 3.3 ResponseParser (The Fallback Chain)
+### 4.3 ResponseParser (The Fallback Chain)
 
 **File:** `src/response_schema.py` (lines 567-707)
 
@@ -306,7 +336,7 @@ def repair_json(cls, broken_json: str) -> Optional[str]:
 | Unquoted keys | `{answer: "test"}` | Not valid JSON |
 | Truncated mid-value | `{"a": 12` | Number incomplete |
 
-### 3.4 ResponseMetrics (P3: Observability)
+### 4.4 ResponseMetrics (P3: Observability)
 
 **File:** `src/response_schema.py` (lines 81-197)
 
@@ -399,7 +429,7 @@ metrics.set_exporter(lambda name, val: statsd.gauge(name, val))
 - Avoids hard dependency on monitoring stack
 - Easy to plug in any backend
 
-### 3.5 ResponseCache (P3: Performance)
+### 4.5 ResponseCache (P3: Performance)
 
 **File:** `src/response_schema.py` (lines 200-386)
 
@@ -469,7 +499,7 @@ class CacheEntry:
 - Online: Fresh data, short TTL
 - CI: Stable results, long TTL for reproducibility
 
-### 3.6 Schema Versioning (P4: Future-Proofing)
+### 4.6 Schema Versioning (P4: Future-Proofing)
 
 **File:** `src/response_schema.py` (lines 26-32, 486-492)
 
@@ -505,9 +535,103 @@ def get_required_fields(cls, version: str) -> set[str]:
 
 ---
 
-## 4. Design Decisions and Rationale
+## 5. Contract Specifications
 
-### 4.1 Why Not Use Pydantic?
+### 5.1 The `sources` Field Contract
+
+The `sources` array provides traceability for RAG responses. Each entry must contain:
+
+**Required Fields:**
+| Field | Type | Description |
+|-------|------|-------------|
+| `title` | string | Human-readable document title (e.g., "ADR.21") |
+| `type` | string | Document category: `ADR`, `Principle`, `Policy`, `Vocabulary` |
+
+**Optional Fields (recommended for v1.1):**
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | string | Unique document identifier |
+| `chunk_id` | string | Specific chunk/section reference |
+| `url` | string | Link to source document |
+| `excerpt` | string | Relevant text snippet |
+
+**Example:**
+```json
+"sources": [
+    {
+        "title": "ADR.21 - Event-driven architecture",
+        "type": "ADR",
+        "id": "adr-21",
+        "chunk_id": "adr-21-decision"
+    }
+]
+```
+
+**Why this matters:**
+- Auditing: Which documents informed this answer?
+- Debugging: Why did the LLM say X?
+- User trust: "Source: ADR.21" is verifiable
+
+### 5.2 When `items_total` Should Be `null`
+
+The `items_total` field represents the total count of items in the database. Use `null` when:
+
+| Scenario | `items_total` | `count_qualifier` | Rationale |
+|----------|---------------|-------------------|-----------|
+| Backend provides exact count | `18` | `"exact"` | Reliable data |
+| Backend provides minimum | `15` | `"at_least"` | Filters may hide items |
+| Count is expensive to compute | `null` | `null` | Don't block response on count |
+| Multiple filters applied | `null` | `null` | Ambiguous total |
+| Permissions restrict visibility | `null` | `null` | User can't see all |
+
+**When `items_total` is `null`:**
+- Transparency message is omitted (no "X of Y")
+- Tests should NOT fail (null is a valid state)
+- Answer should acknowledge uncertainty: "Here are the matching items I found..."
+
+**When `items_total` is required:**
+- User explicitly asked "how many" → must provide count or explain why unknown
+- List queries from known-finite collections → should provide count
+
+### 5.3 Fallback Chain Terminology
+
+The parser uses a strict 4-stage fallback chain. **Use these exact terms everywhere:**
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│ Stage 1: DIRECT PARSE                                           │
+│   Action: json.loads(raw_response)                              │
+│   Success metric: direct_parse_ok                               │
+│   Typical rate: 85-95%                                          │
+├─────────────────────────────────────────────────────────────────┤
+│ Stage 2: EXTRACT                                                │
+│   Action: Regex to isolate JSON from markdown/prose             │
+│   Regex: r'```(?:json)?\s*(\{.*?\})\s*```'                     │
+│   Success metric: extract_ok                                    │
+│   Typical rate: 5-10%                                           │
+├─────────────────────────────────────────────────────────────────┤
+│ Stage 3: REPAIR                                                 │
+│   Action: Fix trailing commas, balance braces                   │
+│   Success metric: repair_ok                                     │
+│   Typical rate: 1-3%                                            │
+├─────────────────────────────────────────────────────────────────┤
+│ Stage 4: FAIL                                                   │
+│   Action: Return None with reason code                          │
+│   Success metric: final_failed                                  │
+│   Target rate: <0.5%                                            │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**Terminology distinction:**
+- **Extract**: Isolate candidate JSON string from wrapper text (mechanical)
+- **Repair**: Transform candidate JSON into valid JSON while preserving meaning (deterministic)
+- Neither involves semantic interpretation or LLM calls
+
+---
+
+## 6. Design Decisions and Rationale
+
+### 6.1 Why Not Use Pydantic?
 
 We considered Pydantic but chose dataclasses:
 
@@ -520,7 +644,7 @@ We considered Pydantic but chose dataclasses:
 
 **Decision:** Keep it simple, no external dependencies for core validation.
 
-### 4.2 Why Singleton Pattern for Metrics/Cache?
+### 6.2 Why Singleton Pattern for Metrics/Cache?
 
 ```python
 @classmethod
@@ -542,7 +666,7 @@ def get_instance(cls) -> "ResponseMetrics":
 - Adds complexity for marginal benefit
 - Singleton is simpler for this use case
 
-### 4.3 Why Not LLM-Based Repair?
+### 6.3 Why Not LLM-Based Repair?
 
 We could ask another LLM to fix malformed JSON:
 
@@ -558,7 +682,7 @@ async def llm_repair(broken_json: str) -> str:
 - Deterministic repair handles 95%+ of cases
 - Can add later as a skill if needed
 
-### 4.4 Why Trigger-Based Skill Activation?
+### 6.4 Why Trigger-Based Skill Activation?
 
 The `response-contract` skill only activates for certain queries:
 
@@ -578,9 +702,9 @@ triggers:
 
 ---
 
-## 5. The Skill Integration
+## 7. The Skill Integration
 
-### 5.1 The Hybrid Approach
+### 7.1 The Hybrid Approach
 
 Per the lead dev's recommendation:
 
@@ -603,7 +727,7 @@ Per the lead dev's recommendation:
 - Code is for implementation
 - Keeps both layers focused
 
-### 5.2 The Skill File
+### 7.2 The Skill File
 
 **File:** `skills/response-contract/SKILL.md`
 
@@ -626,7 +750,7 @@ triggers:
 3. **Invariants**: What must be true
 4. **Examples**: Concrete usage
 
-### 5.3 Registry Integration
+### 7.3 Registry Integration
 
 **File:** `skills/registry.yaml`
 
@@ -652,11 +776,157 @@ triggers:
 5. LLM outputs structured JSON
 6. `response_schema.py` validates and parses
 
+### 7.4 Trigger Routing Risks
+
+The registry triggers include broad tokens like `exist` and `count`. This can cause accidental activation:
+
+| Query | Trigger Match | Intended? |
+|-------|---------------|-----------|
+| "What ADRs exist?" | `exist` ✓ | ✅ Yes |
+| "Does ADR-21 exist?" | `exist` ✓ | ❌ No (single-item lookup) |
+| "Count me in" | `count` ✓ | ❌ No (not a count query) |
+| "What exists in memory?" | `exist` ✓ | ❌ No (not about documents) |
+
+**Mitigation strategies:**
+
+1. **False positive is acceptable**: Skill activation only changes output format, not content. If the LLM outputs valid JSON for a single-item query, the transparency message will just say "Showing 1 of 1 items."
+
+2. **Prefer intent-based routing** (future): Use query classification instead of substring matching.
+
+3. **Use constrained patterns** (if needed):
+   ```yaml
+   triggers:
+     - "how many"
+     - "list all"
+     - "what .* exist"  # Regex pattern
+   ```
+
+4. **Document the heuristic**: Trigger-based activation is a heuristic, not a correctness guarantee. The validation engine still enforces schema correctness regardless of how activation happened.
+
 ---
 
-## 6. How Everything Connects
+## 8. SLO Targets and Operational Thresholds
 
-### 6.1 Request Flow
+### 8.1 Default SLO Targets
+
+| Metric | Target | Alert Threshold | Rationale |
+|--------|--------|-----------------|-----------|
+| `direct_parse_ok` rate | ≥ 95% | < 85% | LLM should usually output clean JSON |
+| `extract_ok` rate | ≤ 4% | > 10% | Markdown wrapping should be rare |
+| `repair_ok` rate | ≤ 1% | > 5% | Malformed JSON should be very rare |
+| `final_failed` rate | ≤ 0.1% | > 0.5% | Near-zero failures expected |
+| Overall success rate | ≥ 99.5% | < 95% | SLO for production |
+| Parse latency (P99) | < 1 ms | > 5 ms | Parsing should be fast |
+| Cache hit rate | ≥ 30% | < 10% | Reasonable for query diversity |
+
+### 8.2 Alert Rules
+
+```yaml
+# Alert if final_failed spikes 5x baseline in 15 minutes
+- alert: ResponseParseFailureSpike
+  expr: |
+    rate(response_parse_final_failed[15m])
+    > 5 * avg_over_time(rate(response_parse_final_failed[1h])[24h:1h])
+  for: 5m
+  labels:
+    severity: critical
+  annotations:
+    summary: "Response parsing failure rate spiked 5x"
+
+# Alert if success rate drops below SLO
+- alert: ResponseParseSLOBreach
+  expr: response_parse_success_rate < 0.995
+  for: 10m
+  labels:
+    severity: warning
+  annotations:
+    summary: "Response parsing success rate below 99.5% SLO"
+```
+
+### 8.3 Baseline Establishment
+
+Before setting alerts, establish baselines:
+
+```python
+# Run for 24 hours in production, then:
+stats = get_parse_stats()
+baseline = {
+    "direct_parse_rate": stats["parsing"]["counters"]["direct_parse_ok"] / total,
+    "extract_rate": stats["parsing"]["counters"]["extract_ok"] / total,
+    "repair_rate": stats["parsing"]["counters"]["repair_ok"] / total,
+    "failed_rate": stats["parsing"]["counters"]["final_failed"] / total,
+}
+# Use these as baseline for alert thresholds
+```
+
+---
+
+## 9. Security and Privacy Considerations
+
+### 9.1 Cache Key Security
+
+The cache uses SHA256 hashing for keys:
+
+```python
+cache_key = hashlib.sha256(key_data.encode()).hexdigest()
+```
+
+**What this means:**
+- Raw query text is **hashed, not stored** in the key
+- Cache key is a 64-character hex string, not reversible
+- Collision probability is negligible (2^-256)
+
+### 9.2 Cache Entry Contents
+
+Cache entries **do contain** raw data:
+
+```python
+@dataclass
+class CacheEntry:
+    raw_response: str           # ⚠️ Full LLM response
+    parsed_json: Optional[dict] # ⚠️ Parsed content
+    structured_response: ...    # ⚠️ Validated response
+```
+
+**Implications:**
+- If LLM response contains sensitive data, it's cached
+- Cache entries persist for TTL duration (default 5 min)
+- Memory is not encrypted
+
+### 9.3 Recommendations
+
+| Concern | Mitigation |
+|---------|------------|
+| PII in responses | Set shorter TTL for sensitive workloads |
+| Memory inspection | Use encrypted memory if required by policy |
+| Cache persistence | Cache is in-memory only, no disk writes |
+| Multi-tenant isolation | Each process has separate cache (no cross-tenant leakage) |
+
+### 9.4 Compliance Notes
+
+For GDPR/SOC2 compliance reviews:
+
+- **Data minimization**: Cache only stores what's needed for performance
+- **Retention**: TTL ensures automatic expiration (default 5 min)
+- **Access control**: Cache is internal, no external API exposure
+- **Audit trail**: Metrics track cache hits/misses, not content
+
+If your compliance requires no caching of responses:
+
+```python
+# Disable caching entirely
+ResponseCache.MAX_CACHE_SIZE = 0
+
+# Or skip cache in sensitive contexts
+result, fallback = ResponseParser.parse_with_fallbacks(response, enable_metrics=True)
+# (cache is only used if caller explicitly invokes it)
+```
+
+---
+
+## 10. How Everything Connects
+
+### 10.1 Request Flow
 
 ```
 User Query: "What ADRs exist?"
@@ -694,7 +964,7 @@ User Query: "What ADRs exist?"
 Final Response to User
 ```
 
-### 6.2 Error Flow
+### 10.2 Error Flow
 
 ```
 LLM returns malformed JSON: '{"answer": "test", "items_shown": 5,'
@@ -735,9 +1005,9 @@ Continue with valid StructuredResponse
 
 ---
 
-## 7. Files Changed
+## 11. Files Changed
 
-### 7.1 New Files
+### 11.1 New Files
 
 | File | Lines | Purpose |
 |------|-------|---------|
@@ -746,7 +1016,7 @@ Continue with valid StructuredResponse
 | `docs/STRUCTURED_RESPONSE_IMPLEMENTATION.md` | ~1100 | Technical docs |
 | `docs/STRUCTURED_RESPONSE_DEEP_DIVE.md` | (this file) | Detailed rationale |
 
-### 7.2 Modified Files
+### 11.2 Modified Files
 
 | File | Changes | Purpose |
 |------|---------|---------|
@@ -754,7 +1024,7 @@ Continue with valid StructuredResponse
 | `skills/registry.yaml` | +15 lines | Register new skill |
 | `tests/test_implementation_quality.py` | +40 lines | Structured validation tests |
 
-### 7.3 Commit History
+### 11.3 Commit History
 
 | Commit | Description |
 |--------|-------------|
