@@ -2,12 +2,39 @@
 
 Uses Weaviate's Elysia framework for decision tree-based tool selection
 and agentic query processing.
+
+Concurrency:
+    Elysia Tree calls are blocking. To prevent event loop starvation under load,
+    all Tree invocations are wrapped with asyncio.to_thread() and guarded by a
+    semaphore to limit concurrent calls.
 """
 
+import asyncio
 import logging
 from typing import Optional, Any
 
 import re
+
+# =============================================================================
+# Concurrency Control
+# =============================================================================
+
+# Maximum concurrent Elysia Tree calls to prevent thread explosion under load.
+MAX_CONCURRENT_ELYSIA_CALLS = 4
+
+# Module-level semaphore for Elysia call concurrency control
+_elysia_semaphore: asyncio.Semaphore | None = None
+
+
+def _get_elysia_semaphore() -> asyncio.Semaphore:
+    """Get or create the Elysia concurrency semaphore.
+
+    Lazily initialized to work with any event loop.
+    """
+    global _elysia_semaphore
+    if _elysia_semaphore is None:
+        _elysia_semaphore = asyncio.Semaphore(MAX_CONCURRENT_ELYSIA_CALLS)
+    return _elysia_semaphore
 from weaviate import WeaviateClient
 from weaviate.classes.query import Filter, MetadataQuery
 
@@ -912,11 +939,18 @@ IMPORTANT GUIDELINES:
             self.tree.change_agent_description(self._base_agent_description)
 
         try:
-            response, objects = self.tree(question, collection_names=our_collections)
+            # Use semaphore to limit concurrent Elysia calls (prevents thread explosion)
+            # Use asyncio.to_thread to offload blocking Tree call (prevents event loop blocking)
+            semaphore = _get_elysia_semaphore()
+            async with semaphore:
+                response, objects = await asyncio.to_thread(
+                    self.tree, question, collection_names=our_collections
+                )
 
-            # Log tree completion stats for debugging
-            iterations = self.tree.tree_data.num_trees_completed
-            limit = self.tree.tree_data.recursion_limit
+                # Log tree completion stats for debugging (must be done after call completes)
+                iterations = self.tree.tree_data.num_trees_completed
+                limit = self.tree.tree_data.recursion_limit
+
             if iterations >= limit:
                 logger.warning(f"Elysia tree hit recursion limit ({iterations}/{limit})")
             else:

@@ -15,14 +15,42 @@ Architecture:
     │               │               │
     ElysiaClient  DirectLLMClient  FutureClient
     (Elysia Tree)  (OpenAI/Ollama)  (...)
+
+Concurrency:
+    Elysia Tree calls are blocking. To prevent event loop starvation under load,
+    all Tree invocations are wrapped with asyncio.to_thread() and guarded by a
+    semaphore to limit concurrent calls.
 """
 
+import asyncio
 import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Any, Optional, Protocol, runtime_checkable
 
 from weaviate import WeaviateClient
+
+# =============================================================================
+# Concurrency Control
+# =============================================================================
+
+# Maximum concurrent Elysia Tree calls to prevent thread explosion under load.
+# Adjust based on available resources and expected concurrency.
+MAX_CONCURRENT_ELYSIA_CALLS = 4
+
+# Module-level semaphore for Elysia call concurrency control
+_elysia_semaphore: asyncio.Semaphore | None = None
+
+
+def _get_elysia_semaphore() -> asyncio.Semaphore:
+    """Get or create the Elysia concurrency semaphore.
+
+    Lazily initialized to work with any event loop.
+    """
+    global _elysia_semaphore
+    if _elysia_semaphore is None:
+        _elysia_semaphore = asyncio.Semaphore(MAX_CONCURRENT_ELYSIA_CALLS)
+    return _elysia_semaphore
 
 logger = logging.getLogger(__name__)
 
@@ -347,12 +375,18 @@ IMPORTANT GUIDELINES:
         retry_func = create_retry_func(request_tree, collections) if structured_mode else None
 
         try:
-            response, objects = request_tree(question, collection_names=collections)
+            # Use semaphore to limit concurrent Elysia calls (prevents thread explosion)
+            # Use asyncio.to_thread to offload blocking Tree call (prevents event loop blocking)
+            semaphore = _get_elysia_semaphore()
+            async with semaphore:
+                response, objects = await asyncio.to_thread(
+                    request_tree, question, collection_names=collections
+                )
 
-            # Capture iteration stats
-            iterations = request_tree.tree_data.num_trees_completed
-            metadata.iterations = iterations
-            metadata.hit_limit = iterations >= metadata.recursion_limit
+                # Capture iteration stats (must be done after call completes)
+                iterations = request_tree.tree_data.num_trees_completed
+                metadata.iterations = iterations
+                metadata.hit_limit = iterations >= metadata.recursion_limit
 
             if metadata.hit_limit:
                 logger.warning(
