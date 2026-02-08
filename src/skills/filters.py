@@ -2,6 +2,18 @@
 
 This module provides dynamic filtering based on skill configuration,
 replacing hardcoded filtering logic with externalized rules.
+
+Canonical doc_type taxonomy (from Phase 2):
+- adr: Actual Architectural Decision Records
+- adr_approval: Decision Approval Records (NNNND-*.md)
+- principle: Actual principles
+- template: Template files
+- index: Index/list files
+- unknown: Unclassified
+
+Legacy values (backward compatible):
+- content: Maps to adr or principle (pre-migration data)
+- decision_approval_record: Maps to adr_approval
 """
 
 import logging
@@ -12,102 +24,142 @@ from weaviate.classes.query import Filter
 logger = logging.getLogger(__name__)
 
 
+# =============================================================================
+# Canonical Doc Type Constants
+# =============================================================================
+
+# Content types to include in list queries (allow-list approach)
+ADR_CONTENT_TYPES = ["adr", "content"]  # Include 'content' for backward compat
+PRINCIPLE_CONTENT_TYPES = ["principle", "content"]
+
+# Types to exclude (for reference, not used in allow-list approach)
+EXCLUDED_TYPES = ["adr_approval", "decision_approval_record", "template", "index"]
+
+
 def build_document_filter(
     question: str,
     skill_registry,
     skill_name: str = "rag-quality-assurance",
-    use_positive_filter: bool = True
+    collection_type: str = "adr",
 ) -> Optional[Filter]:
-    """Build Weaviate filter based on skill configuration and query intent.
+    """Build Weaviate filter using allow-list approach with canonical doc_types.
 
-    This implements the skills-based approach to DAR filtering:
-    - By default: Include only 'content' doc_type (actual ADRs, principles, etc.)
-    - For approval queries: Also include 'decision_approval_record' to answer "who approved X?"
+    Uses positive filtering (doc_type == allowed_type) which:
+    - Is more reliable than NOT_EQUAL (excludes null/missing values)
+    - Works with both canonical (adr) and legacy (content) doc_type values
+    - Supports approval/governance queries that need adr_approval data
 
     Args:
         question: User's question
         skill_registry: SkillRegistry instance
         skill_name: Skill to load filter config from
-        use_positive_filter: If True, use EQUAL filter for allowed types (more reliable).
-                            If False, use NOT_EQUAL for excluded types (legacy behavior).
+        collection_type: "adr" or "principle" (determines which types to include)
 
     Returns:
-        Weaviate Filter object, or None if no filtering needed
+        Weaviate Filter object for allow-list filtering
     """
-    # Load filter configuration from skill
-    skill = skill_registry.loader.load_skill(skill_name)
-    if skill is None:
-        logger.warning(f"Skill '{skill_name}' not found, using default filters")
-        filter_config = {}
+    # Determine base allowed types based on collection
+    if collection_type.lower() in ("adr", "architecturaldecision"):
+        allowed_types = list(ADR_CONTENT_TYPES)
+    elif collection_type.lower() in ("principle", "principles"):
+        allowed_types = list(PRINCIPLE_CONTENT_TYPES)
     else:
+        # Generic: allow both
+        allowed_types = list(set(ADR_CONTENT_TYPES + PRINCIPLE_CONTENT_TYPES))
+
+    # Load filter configuration from skill for approval query detection
+    skill = skill_registry.loader.load_skill(skill_name)
+    if skill is not None:
         filter_config = skill.thresholds.get("filters", {})
+        include_dar_patterns = filter_config.get("include_dar_patterns", [])
+        include_dar_keywords = filter_config.get("include_dar_keywords", [])
 
-    exclude_types = filter_config.get("exclude_doc_types", [
-        "decision_approval_record",
-        "index",
-        "template"
-    ])
+        question_lower = question.lower()
 
-    # Check if this query needs DAR data (approval/governance questions)
-    include_dar_patterns = filter_config.get("include_dar_patterns", [])
-    include_dar_keywords = filter_config.get("include_dar_keywords", [])
+        # Check if query is about approvals/governance
+        needs_dar = any(pattern.lower() in question_lower for pattern in include_dar_patterns)
+        needs_dar = needs_dar or any(keyword.lower() in question_lower for keyword in include_dar_keywords)
 
-    question_lower = question.lower()
+        if needs_dar:
+            # Include approval records for approval/governance queries
+            allowed_types.extend(["adr_approval", "decision_approval_record"])
+            logger.info("Query detected as approval/governance - including approval records")
 
-    # Check if query is about approvals/governance
-    needs_dar = any(pattern.lower() in question_lower for pattern in include_dar_patterns)
-    needs_dar = needs_dar or any(keyword.lower() in question_lower for keyword in include_dar_keywords)
+    # Build allow-list filter: doc_type IN [allowed_types]
+    logger.debug(f"Building allow-list filter for doc_types: {allowed_types}")
 
-    if needs_dar:
-        # Include DARs for approval queries, but still exclude index/template
-        exclude_types = [t for t in exclude_types if t != "decision_approval_record"]
-        logger.info(f"Query detected as approval/governance - including DARs in retrieval")
-
-    # Use positive filter approach: EQUAL for allowed types
-    # This is more reliable because documents with null/missing doc_type are excluded
-    if use_positive_filter:
-        # Determine which doc_types to include
-        all_types = ["content", "decision_approval_record", "index", "template"]
-        include_types = [t for t in all_types if t not in exclude_types]
-
-        if not include_types:
-            # No types to include - shouldn't happen normally
-            logger.warning("No doc_types to include after filtering - returning None")
-            return None
-
-        if len(include_types) == len(all_types):
-            # All types included - no filtering needed
-            return None
-
-        # Build positive filter: doc_type IN [allowed types]
-        # Using OR of EQUAL conditions
-        logger.debug(f"Building positive filter for doc_types: {include_types}")
-        filters = [Filter.by_property("doc_type").equal(t) for t in include_types]
-
-        if len(filters) == 1:
-            return filters[0]
-        else:
-            # Combine with OR logic (include if matches ANY allowed type)
-            combined = filters[0]
-            for f in filters[1:]:
-                combined = combined | f
-            return combined
-
-    # Legacy behavior: NOT_EQUAL for excluded types
-    # This has issues with null/missing doc_type values
-    if not exclude_types:
-        # No filtering - return all content
-        return None
-
-    # Build combined filter with NOT conditions
-    logger.debug(f"Building negative filter excluding doc_types: {exclude_types}")
-    filters = [Filter.by_property("doc_type").not_equal(t) for t in exclude_types]
+    filters = [Filter.by_property("doc_type").equal(t) for t in allowed_types]
 
     if len(filters) == 1:
         return filters[0]
-    else:
-        # Combine with AND logic
-        combined = filters[0]
-        for f in filters[1:]:
-            combined = combined & f
-        return combined
+
+    # Combine with OR logic (include if matches ANY allowed type)
+    combined = filters[0]
+    for f in filters[1:]:
+        combined = combined | f
+
+    return combined
+
+
+def build_adr_filter(
+    question: str = "",
+    skill_registry = None,
+    skill_name: str = "rag-quality-assurance",
+) -> Filter:
+    """Build filter specifically for ADR queries.
+
+    Convenience function for ADR listing that uses allow-list filtering.
+
+    Args:
+        question: Optional question for approval query detection
+        skill_registry: Optional skill registry for config
+        skill_name: Skill to load config from
+
+    Returns:
+        Filter for doc_type == "adr" OR doc_type == "content"
+    """
+    if skill_registry:
+        return build_document_filter(
+            question=question,
+            skill_registry=skill_registry,
+            skill_name=skill_name,
+            collection_type="adr",
+        )
+
+    # Fallback: simple allow-list without skill config
+    return (
+        Filter.by_property("doc_type").equal("adr") |
+        Filter.by_property("doc_type").equal("content")
+    )
+
+
+def build_principle_filter(
+    question: str = "",
+    skill_registry = None,
+    skill_name: str = "rag-quality-assurance",
+) -> Filter:
+    """Build filter specifically for Principle queries.
+
+    Convenience function for principle listing that uses allow-list filtering.
+
+    Args:
+        question: Optional question for approval query detection
+        skill_registry: Optional skill registry for config
+        skill_name: Skill to load config from
+
+    Returns:
+        Filter for doc_type == "principle" OR doc_type == "content"
+    """
+    if skill_registry:
+        return build_document_filter(
+            question=question,
+            skill_registry=skill_registry,
+            skill_name=skill_name,
+            collection_type="principle",
+        )
+
+    # Fallback: simple allow-list without skill config
+    return (
+        Filter.by_property("doc_type").equal("principle") |
+        Filter.by_property("doc_type").equal("content")
+    )

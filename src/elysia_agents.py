@@ -779,9 +779,14 @@ IMPORTANT GUIDELINES:
             request_id = generate_request_id()
             collection = client.collections.get("ArchitecturalDecision")
 
-            # Use positive filter (doc_type == "content") for reliable filtering
-            # The old NOT_EQUAL approach failed with null/missing doc_type values
-            content_filter = build_document_filter("list all ADRs", _skill_registry, DEFAULT_SKILL)
+            # Use allow-list filter (doc_type IN ["adr", "content"]) for server-side filtering
+            # This approach excludes null/missing doc_type values and uses canonical taxonomy
+            content_filter = build_document_filter(
+                question="list all ADRs",
+                skill_registry=_skill_registry,
+                skill_name=DEFAULT_SKILL,
+                collection_type="adr",
+            )
 
             # Debug: Get unfiltered count to compare
             unfiltered_count = get_collection_count(collection, None)
@@ -882,7 +887,13 @@ IMPORTANT GUIDELINES:
             """
             request_id = generate_request_id()
             collection = client.collections.get("Principle")
-            content_filter = build_document_filter("list all principles", _skill_registry, DEFAULT_SKILL)
+            # Use allow-list filter for server-side filtering with canonical taxonomy
+            content_filter = build_document_filter(
+                question="list all principles",
+                skill_registry=_skill_registry,
+                skill_name=DEFAULT_SKILL,
+                collection_type="principle",
+            )
 
             # Get counts for fallback logic
             unfiltered_count = get_collection_count(collection, None)
