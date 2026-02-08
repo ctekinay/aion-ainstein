@@ -2,7 +2,7 @@
 name: response-formatter
 description: Ensures list-based responses use rich formatting with statistics, follow-up
   questions, and visualization suggestions.
-auto_activate: true
+auto_activate: false
 triggers:
 - list
 - what
