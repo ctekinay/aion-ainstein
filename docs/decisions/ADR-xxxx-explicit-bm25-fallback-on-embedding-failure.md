@@ -29,6 +29,8 @@ When the Ollama embedding service fails (network timeout, service unavailable, m
 
 This violates the principle of **explicit degradation** - the system should clearly and predictably fall back to a known-good mode, not rely on undefined behavior.
 
+> **Scope note:** This issue specifically affects the Ollama provider path, where collections use `vectorizer: none` and embeddings are computed client-side (workaround for Weaviate bug #8406). OpenAI collections use server-side vectorization and would handle missing client vectors differently. This ADR addresses the Ollama path only.
+
 ## Decision Drivers
 
 * **Explicit over implicit:** Code should clearly express intent, not rely on library quirks
@@ -126,7 +128,7 @@ else:
 
 2. **Warning, not error:** Changed log level from `error` to `warning` because we're handling the failure gracefully. Errors imply something is broken; warnings indicate degraded operation.
 
-3. **No retry in this path:** The `embed_text()` function already has retry logic. If it throws, retries are exhausted. Adding more retries here would just delay the inevitable.
+3. **No retry in this path:** The `embed_text()` function does not have retry logic (only `embed_batch()` does). Adding retries here is a P1 improvement; for P0, immediate fallback to BM25 is the safest approach.
 
 4. **Filters still applied:** BM25 queries still use the same `content_filter` as hybrid queries. Filtering logic is unchanged.
 
