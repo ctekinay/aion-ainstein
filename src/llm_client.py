@@ -34,22 +34,25 @@ from weaviate import WeaviateClient
 # Concurrency Control
 # =============================================================================
 
-# Maximum concurrent Elysia Tree calls to prevent thread explosion under load.
-# Adjust based on available resources and expected concurrency.
-MAX_CONCURRENT_ELYSIA_CALLS = 4
-
 # Module-level semaphore for Elysia call concurrency control
 _elysia_semaphore: asyncio.Semaphore | None = None
+_elysia_semaphore_size: int | None = None
 
 
 def _get_elysia_semaphore() -> asyncio.Semaphore:
     """Get or create the Elysia concurrency semaphore.
 
     Lazily initialized to work with any event loop.
+    Uses settings.max_concurrent_elysia_calls for the limit.
     """
-    global _elysia_semaphore
-    if _elysia_semaphore is None:
-        _elysia_semaphore = asyncio.Semaphore(MAX_CONCURRENT_ELYSIA_CALLS)
+    global _elysia_semaphore, _elysia_semaphore_size
+    from .config import settings
+
+    # Reinitialize if settings changed (for testing/reconfiguration)
+    if (_elysia_semaphore is None or
+            _elysia_semaphore_size != settings.max_concurrent_elysia_calls):
+        _elysia_semaphore = asyncio.Semaphore(settings.max_concurrent_elysia_calls)
+        _elysia_semaphore_size = settings.max_concurrent_elysia_calls
     return _elysia_semaphore
 
 logger = logging.getLogger(__name__)
@@ -377,10 +380,16 @@ IMPORTANT GUIDELINES:
         try:
             # Use semaphore to limit concurrent Elysia calls (prevents thread explosion)
             # Use asyncio.to_thread to offload blocking Tree call (prevents event loop blocking)
+            # Use wait_for to add timeout and enable cancellation
+            from .config import settings
+
             semaphore = _get_elysia_semaphore()
             async with semaphore:
-                response, objects = await asyncio.to_thread(
-                    request_tree, question, collection_names=collections
+                response, objects = await asyncio.wait_for(
+                    asyncio.to_thread(
+                        request_tree, question, collection_names=collections
+                    ),
+                    timeout=settings.elysia_query_timeout_seconds
                 )
 
                 # Capture iteration stats (must be done after call completes)
@@ -393,6 +402,19 @@ IMPORTANT GUIDELINES:
                     f"Elysia tree hit recursion limit "
                     f"({iterations}/{metadata.recursion_limit})"
                 )
+
+        except asyncio.TimeoutError:
+            logger.warning(
+                f"Elysia tree timed out after {settings.elysia_query_timeout_seconds}s"
+            )
+            metadata.error = "Query timed out"
+            metadata.fallback_used = True
+
+            return QueryResult(
+                response="",
+                objects=[],
+                metadata=metadata,
+            )
 
         except Exception as e:
             logger.warning(f"Elysia tree failed: {e}")

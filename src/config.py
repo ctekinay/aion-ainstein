@@ -71,6 +71,17 @@ class Settings(BaseSettings):
     alpha_exact_match: float = Field(default=0.3, description="Alpha for exact term matching (favor keyword)")
     alpha_semantic: float = Field(default=0.7, description="Alpha for semantic/conceptual queries (favor vector)")
 
+    # Elysia Concurrency Configuration
+    # Controls thread pool usage for blocking Elysia Tree calls
+    max_concurrent_elysia_calls: int = Field(
+        default=4,
+        description="Maximum concurrent Elysia Tree calls (prevents thread explosion under load)"
+    )
+    elysia_query_timeout_seconds: float = Field(
+        default=120.0,
+        description="Timeout for Elysia Tree queries in seconds"
+    )
+
     @property
     def project_root(self) -> Path:
         """Get the project root directory."""

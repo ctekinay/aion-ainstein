@@ -19,21 +19,25 @@ import re
 # Concurrency Control
 # =============================================================================
 
-# Maximum concurrent Elysia Tree calls to prevent thread explosion under load.
-MAX_CONCURRENT_ELYSIA_CALLS = 4
-
 # Module-level semaphore for Elysia call concurrency control
 _elysia_semaphore: asyncio.Semaphore | None = None
+_elysia_semaphore_size: int | None = None
 
 
 def _get_elysia_semaphore() -> asyncio.Semaphore:
     """Get or create the Elysia concurrency semaphore.
 
     Lazily initialized to work with any event loop.
+    Uses settings.max_concurrent_elysia_calls for the limit.
     """
-    global _elysia_semaphore
-    if _elysia_semaphore is None:
-        _elysia_semaphore = asyncio.Semaphore(MAX_CONCURRENT_ELYSIA_CALLS)
+    global _elysia_semaphore, _elysia_semaphore_size
+    from .config import settings
+
+    # Reinitialize if settings changed (for testing/reconfiguration)
+    if (_elysia_semaphore is None or
+            _elysia_semaphore_size != settings.max_concurrent_elysia_calls):
+        _elysia_semaphore = asyncio.Semaphore(settings.max_concurrent_elysia_calls)
+        _elysia_semaphore_size = settings.max_concurrent_elysia_calls
     return _elysia_semaphore
 from weaviate import WeaviateClient
 from weaviate.classes.query import Filter, MetadataQuery
@@ -382,7 +386,13 @@ except Exception as e:
 
 
 class ElysiaRAGSystem:
-    """Elysia-based agentic RAG system with custom tools for energy domain."""
+    """Elysia-based agentic RAG system with custom tools for energy domain.
+
+    Thread Safety:
+        This class creates a new Tree instance per request to avoid race conditions
+        when modifying agent descriptions in concurrent scenarios. The tool functions
+        are stored in a registry and registered on each per-request Tree.
+    """
 
     def __init__(self, client: WeaviateClient):
         """Initialize the Elysia RAG system.
@@ -394,6 +404,7 @@ class ElysiaRAGSystem:
             raise ImportError("elysia-ai package is required. Run: pip install elysia-ai")
 
         self.client = client
+        self._recursion_limit = 2
 
         # Base agent description for AInstein - skills will be injected dynamically per query
         self._base_agent_description = """You are AInstein, the Energy System Architecture AI Assistant at Alliander.
@@ -410,21 +421,47 @@ IMPORTANT GUIDELINES:
 - Be transparent about the data: always indicate how many items exist vs. how many are shown
 - Never hallucinate - if you're not confident, say so"""
 
-        self.tree = Tree(
-            agent_description=self._base_agent_description,
+        # Build tool registry (functions to register on per-request trees)
+        self._tool_registry = self._build_tool_registry()
+
+    def _create_tree(self, agent_description: str) -> Tree:
+        """Create and configure a new Elysia Tree instance.
+
+        Creates a fresh tree per request to avoid race conditions
+        when modifying agent descriptions in concurrent scenarios.
+
+        Args:
+            agent_description: Full agent description including skill content
+
+        Returns:
+            Configured Tree instance with all tools registered
+        """
+        tree = Tree(
+            agent_description=agent_description,
             style="Professional, concise, and informative. Use structured formatting for lists.",
             end_goal="Provide accurate, well-sourced answers based on the knowledge base."
         )
 
         # Limit recursion to prevent infinite loops in decision tree
-        # Default is 5, which can cause repeated responses when the
-        # cited_summarize action doesn't signal termination properly
-        self.tree.tree_data.recursion_limit = 2
+        tree.tree_data.recursion_limit = self._recursion_limit
 
-        self._register_tools()
+        # Register all tools on this tree instance
+        for name, func in self._tool_registry.items():
+            tool(tree=tree)(func)
+            logger.debug(f"Registered tool on tree: {name}")
 
-    def _register_tools(self) -> None:
-        """Register custom tools for each knowledge domain."""
+        return tree
+
+    def _build_tool_registry(self) -> dict[str, callable]:
+        """Build registry of tool functions for Elysia trees.
+
+        Returns tool functions that can be registered on any Tree instance.
+        Tools are not decorated here - they get decorated when registered on a tree.
+
+        Returns:
+            Dict mapping tool names to their async functions
+        """
+        registry = {}
 
         # Load truncation limits from skill configuration for tool responses
         truncation = _skill_registry.loader.get_truncation(DEFAULT_SKILL)
@@ -432,8 +469,10 @@ IMPORTANT GUIDELINES:
         content_chars = truncation.get("elysia_content_chars", 500)
         summary_chars = truncation.get("elysia_summary_chars", 300)
 
+        # Capture self.client for closures
+        client = self.client
+
         # Vocabulary/SKOS search tool
-        @tool(tree=self.tree)
         async def search_vocabulary(query: str, limit: int = 5) -> list[dict]:
             """Search SKOS vocabulary concepts from IEC standards (CIM, 61970, 61968, 62325).
 
@@ -451,8 +490,7 @@ IMPORTANT GUIDELINES:
             Returns:
                 List of matching vocabulary concepts with definitions
             """
-            collection = self.client.collections.get("Vocabulary")
-            # Compute embedding for hybrid search (collections use Vectorizers.NONE)
+            collection = client.collections.get("Vocabulary")
             query_vector = embed_text(query)
             results = collection.query.hybrid(
                 query=query,
@@ -470,8 +508,9 @@ IMPORTANT GUIDELINES:
                 for obj in results.objects
             ]
 
+        registry["search_vocabulary"] = search_vocabulary
+
         # ADR search tool
-        @tool(tree=self.tree)
         async def search_architecture_decisions(query: str, limit: int = 5) -> list[dict]:
             """Search Architectural Decision Records (ADRs) for design decisions.
 
@@ -489,8 +528,7 @@ IMPORTANT GUIDELINES:
             Returns:
                 List of matching ADRs with context and decisions
             """
-            collection = self.client.collections.get("ArchitecturalDecision")
-            # Compute embedding for hybrid search (collections use Vectorizers.NONE)
+            collection = client.collections.get("ArchitecturalDecision")
             query_vector = embed_text(query)
             results = collection.query.hybrid(
                 query=query,
@@ -511,8 +549,9 @@ IMPORTANT GUIDELINES:
                 for obj in results.objects
             ]
 
+        registry["search_architecture_decisions"] = search_architecture_decisions
+
         # Principles search tool
-        @tool(tree=self.tree)
         async def search_principles(query: str, limit: int = 5) -> list[dict]:
             """Search architecture and governance principles.
 
@@ -529,8 +568,7 @@ IMPORTANT GUIDELINES:
             Returns:
                 List of matching principles
             """
-            collection = self.client.collections.get("Principle")
-            # Compute embedding for hybrid search (collections use Vectorizers.NONE)
+            collection = client.collections.get("Principle")
             query_vector = embed_text(query)
             results = collection.query.hybrid(
                 query=query,
@@ -549,8 +587,9 @@ IMPORTANT GUIDELINES:
                 for obj in results.objects
             ]
 
+        registry["search_principles"] = search_principles
+
         # Policy document search tool
-        @tool(tree=self.tree)
         async def search_policies(query: str, limit: int = 5) -> list[dict]:
             """Search data governance and policy documents.
 
@@ -568,8 +607,7 @@ IMPORTANT GUIDELINES:
             Returns:
                 List of matching policy documents
             """
-            collection = self.client.collections.get("PolicyDocument")
-            # Compute embedding for hybrid search (collections use Vectorizers.NONE)
+            collection = client.collections.get("PolicyDocument")
             query_vector = embed_text(query)
             results = collection.query.hybrid(
                 query=query,
@@ -587,8 +625,9 @@ IMPORTANT GUIDELINES:
                 for obj in results.objects
             ]
 
+        registry["search_policies"] = search_policies
+
         # List all ADRs tool
-        @tool(tree=self.tree)
         async def list_all_adrs() -> list[dict]:
             """List all Architectural Decision Records in the system.
 
@@ -601,9 +640,7 @@ IMPORTANT GUIDELINES:
             Returns:
                 Complete list of all ADRs with titles and status
             """
-            collection = self.client.collections.get("ArchitecturalDecision")
-
-            # Build filter to exclude DARs, index, and template files
+            collection = client.collections.get("ArchitecturalDecision")
             content_filter = build_document_filter("list all ADRs", _skill_registry, DEFAULT_SKILL)
 
             results = collection.query.fetch_objects(
@@ -612,7 +649,6 @@ IMPORTANT GUIDELINES:
                 return_properties=["title", "status", "file_path", "adr_number", "doc_type"],
             )
 
-            # Get total count for transparency
             total_count = get_collection_count(collection, content_filter)
 
             adrs = []
@@ -620,7 +656,6 @@ IMPORTANT GUIDELINES:
                 title = obj.properties.get("title", "")
                 file_path = obj.properties.get("file_path", "")
                 doc_type = obj.properties.get("doc_type", "")
-                # Skip templates (backup check - filter should handle this)
                 if "template" in title.lower() or "template" in file_path.lower():
                     continue
                 adrs.append({
@@ -631,13 +666,12 @@ IMPORTANT GUIDELINES:
                     "doc_type": doc_type,
                 })
 
-            # Log transparency info
             logger.info(f"list_all_adrs: Returning {len(adrs)} of {total_count} total ADRs (filtered)")
-
             return sorted(adrs, key=lambda x: x.get("adr_number", "") or x.get("file_path", ""))
 
+        registry["list_all_adrs"] = list_all_adrs
+
         # List all principles tool
-        @tool(tree=self.tree)
         async def list_all_principles() -> list[dict]:
             """List all architecture and governance principles.
 
@@ -649,9 +683,7 @@ IMPORTANT GUIDELINES:
             Returns:
                 Complete list of all principles
             """
-            collection = self.client.collections.get("Principle")
-
-            # Build filter to exclude DARs, index, and template files
+            collection = client.collections.get("Principle")
             content_filter = build_document_filter("list all principles", _skill_registry, DEFAULT_SKILL)
 
             results = collection.query.fetch_objects(
@@ -660,14 +692,12 @@ IMPORTANT GUIDELINES:
                 return_properties=["title", "doc_type", "file_path", "principle_number"],
             )
 
-            # Get total count for transparency
             total_count = get_collection_count(collection, content_filter)
 
             principles = []
             for obj in results.objects:
                 title = obj.properties.get("title", "")
                 doc_type = obj.properties.get("doc_type", "")
-                # Skip templates (backup check)
                 if "template" in title.lower():
                     continue
                 principles.append({
@@ -677,13 +707,12 @@ IMPORTANT GUIDELINES:
                     "type": doc_type,
                 })
 
-            # Log transparency info
             logger.info(f"list_all_principles: Returning {len(principles)} of {total_count} total principles (filtered)")
-
             return sorted(principles, key=lambda x: x.get("principle_number", "") or x.get("file_path", ""))
 
+        registry["list_all_principles"] = list_all_principles
+
         # Search documents by team/owner
-        @tool(tree=self.tree)
         async def search_by_team(team_name: str, query: str = "", limit: int = 10) -> list[dict]:
             """Search all documents owned by a specific team or workgroup.
 
@@ -693,12 +722,9 @@ IMPORTANT GUIDELINES:
             - What are the ESA principles and ADRs?
             - Documents from System Operations team
 
-            This searches across ALL collection types (ADRs, Principles, Policies)
-            filtered by the owning team.
-
             Args:
-                team_name: Team name or abbreviation (e.g., "ESA", "Energy System Architecture", "Data Office")
-                query: Optional search query to filter results within the team's documents
+                team_name: Team name or abbreviation
+                query: Optional search query to filter results
                 limit: Maximum number of results per collection
 
             Returns:
@@ -708,9 +734,8 @@ IMPORTANT GUIDELINES:
 
             # Search ADRs
             try:
-                adr_collection = self.client.collections.get("ArchitecturalDecision")
+                adr_collection = client.collections.get("ArchitecturalDecision")
                 if query:
-                    # Compute embedding for hybrid search (collections use Vectorizers.NONE)
                     search_query = f"{team_name} {query}"
                     query_vector = embed_text(search_query)
                     adr_results = adr_collection.query.hybrid(
@@ -740,9 +765,8 @@ IMPORTANT GUIDELINES:
 
             # Search Principles
             try:
-                principle_collection = self.client.collections.get("Principle")
+                principle_collection = client.collections.get("Principle")
                 if query:
-                    # Compute embedding for hybrid search (collections use Vectorizers.NONE)
                     search_query = f"{team_name} {query}"
                     query_vector = embed_text(search_query)
                     principle_results = principle_collection.query.hybrid(
@@ -772,9 +796,8 @@ IMPORTANT GUIDELINES:
 
             # Search Policies
             try:
-                policy_collection = self.client.collections.get("PolicyDocument")
+                policy_collection = client.collections.get("PolicyDocument")
                 if query:
-                    # Compute embedding for hybrid search (collections use Vectorizers.NONE)
                     search_query = f"{team_name} {query}"
                     query_vector = embed_text(search_query)
                     policy_results = policy_collection.query.hybrid(
@@ -804,8 +827,9 @@ IMPORTANT GUIDELINES:
 
             return results
 
+        registry["search_by_team"] = search_by_team
+
         # Collection statistics tool
-        @tool(tree=self.tree)
         async def get_collection_stats() -> dict:
             """Get statistics about all collections in the knowledge base.
 
@@ -821,18 +845,19 @@ IMPORTANT GUIDELINES:
             collections = ["Vocabulary", "ArchitecturalDecision", "Principle", "PolicyDocument"]
             stats = {}
             for name in collections:
-                if self.client.collections.exists(name):
-                    collection = self.client.collections.get(name)
+                if client.collections.exists(name):
+                    collection = client.collections.get(name)
                     aggregate = collection.aggregate.over_all(total_count=True)
                     stats[name] = aggregate.total_count
                 else:
                     stats[name] = 0
             return stats
 
+        registry["get_collection_stats"] = get_collection_stats
+
         # Dedicated counting tool for accurate document counts
-        @tool(tree=self.tree)
         async def count_documents(collection_type: str = "all") -> dict:
-            """Get accurate document counts with proper filtering (excludes DARs, templates, index files).
+            """Get accurate document counts with proper filtering.
 
             Use this tool when the user asks:
             - How many ADRs are there?
@@ -844,11 +869,10 @@ IMPORTANT GUIDELINES:
                 collection_type: Type to count - "adr", "principle", "policy", "vocabulary", or "all"
 
             Returns:
-                Dictionary with accurate counts (filtered to exclude DARs/templates)
+                Dictionary with accurate counts
             """
             counts = {}
 
-            # Map user-friendly names to collection names
             type_mapping = {
                 "adr": "ArchitecturalDecision",
                 "adrs": "ArchitecturalDecision",
@@ -872,9 +896,8 @@ IMPORTANT GUIDELINES:
 
             for name in collections_to_check:
                 try:
-                    collection = self.client.collections.get(name)
+                    collection = client.collections.get(name)
 
-                    # Apply content filter to exclude DARs, templates, index files
                     if name != "Vocabulary":
                         content_filter = build_document_filter(f"count {name}", _skill_registry, DEFAULT_SKILL)
                         aggregate = collection.aggregate.over_all(
@@ -884,7 +907,6 @@ IMPORTANT GUIDELINES:
                     else:
                         aggregate = collection.aggregate.over_all(total_count=True)
 
-                    # Use friendly names in output
                     friendly_names = {
                         "ArchitecturalDecision": "ADRs",
                         "Principle": "Principles",
@@ -898,10 +920,16 @@ IMPORTANT GUIDELINES:
 
             return counts
 
-        logger.info("Registered Elysia tools: vocabulary, ADR, principles, policies, search_by_team, count_documents")
+        registry["count_documents"] = count_documents
+
+        logger.info(f"Built tool registry with {len(registry)} tools: {list(registry.keys())}")
+        return registry
 
     async def query(self, question: str, collection_names: Optional[list[str]] = None) -> tuple[str, list[dict]]:
         """Process a query using Elysia's decision tree.
+
+        Creates a fresh Tree instance per request to ensure thread safety
+        when processing concurrent requests.
 
         Args:
             question: The user's question
@@ -927,34 +955,47 @@ IMPORTANT GUIDELINES:
             "PolicyDocument",
         ]
 
-        # Inject skills dynamically based on the question
-        # This ensures response-formatter and other skills are applied to Elysia's LLM calls
+        # Build agent description with injected skills
         skill_content = _skill_registry.get_all_skill_content(question)
         if skill_content:
-            enriched_description = f"{self._base_agent_description}\n\n{skill_content}"
-            self.tree.change_agent_description(enriched_description)
-            logger.debug(f"Injected skills into Elysia agent description")
+            agent_description = f"{self._base_agent_description}\n\n{skill_content}"
+            logger.debug("Injected skills into agent description")
         else:
-            # Reset to base description if no skills apply
-            self.tree.change_agent_description(self._base_agent_description)
+            agent_description = self._base_agent_description
+
+        # Create per-request tree instance (thread-safe: no shared mutable state)
+        request_tree = self._create_tree(agent_description)
 
         try:
             # Use semaphore to limit concurrent Elysia calls (prevents thread explosion)
             # Use asyncio.to_thread to offload blocking Tree call (prevents event loop blocking)
+            # Use wait_for to add timeout and enable cancellation
             semaphore = _get_elysia_semaphore()
             async with semaphore:
-                response, objects = await asyncio.to_thread(
-                    self.tree, question, collection_names=our_collections
+                response, objects = await asyncio.wait_for(
+                    asyncio.to_thread(
+                        request_tree, question, collection_names=our_collections
+                    ),
+                    timeout=settings.elysia_query_timeout_seconds
                 )
 
                 # Log tree completion stats for debugging (must be done after call completes)
-                iterations = self.tree.tree_data.num_trees_completed
-                limit = self.tree.tree_data.recursion_limit
+                iterations = request_tree.tree_data.num_trees_completed
+                limit = request_tree.tree_data.recursion_limit
 
             if iterations >= limit:
                 logger.warning(f"Elysia tree hit recursion limit ({iterations}/{limit})")
             else:
                 logger.debug(f"Elysia tree completed in {iterations} iteration(s)")
+
+        except asyncio.TimeoutError:
+            # Query exceeded timeout - log and fallback
+            logger.warning(
+                f"Elysia tree timed out after {settings.elysia_query_timeout_seconds}s, "
+                "using direct tool execution"
+            )
+            response, objects = await self._direct_query(question, structured_mode=structured_mode)
+            return response, objects
 
         except Exception as e:
             # If Elysia's tree fails, fall back to direct tool execution
