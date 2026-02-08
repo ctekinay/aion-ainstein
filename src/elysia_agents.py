@@ -654,9 +654,19 @@ IMPORTANT GUIDELINES:
                 f"filtered={filtered_count}, filter_applied={content_filter is not None}"
             )
 
+            # Fallback: if filter returns 0 but collection has documents,
+            # documents likely don't have doc_type set - skip filter with warning
+            use_filter = content_filter
+            if filtered_count == 0 and unfiltered_count > 0:
+                logger.warning(
+                    f"list_all_adrs: Filter returned 0 results but collection has {unfiltered_count} docs. "
+                    "Documents may not have doc_type set. Falling back to no filter with in-memory filtering."
+                )
+                use_filter = None
+
             results = collection.query.fetch_objects(
                 limit=100,
-                filters=content_filter,
+                filters=use_filter,
                 return_properties=["title", "status", "file_path", "adr_number", "doc_type"],
             )
 
@@ -673,8 +683,18 @@ IMPORTANT GUIDELINES:
                 title = obj.properties.get("title", "")
                 file_path = obj.properties.get("file_path", "")
                 doc_type = obj.properties.get("doc_type", "")
-                if "template" in title.lower() or "template" in file_path.lower():
+                file_name = file_path.lower() if file_path else ""
+
+                # In-memory filtering when Weaviate filter couldn't be used
+                # Skip: templates, index files, and decision approval records (DARs)
+                if "template" in title.lower() or "template" in file_name:
                     continue
+                if file_name.endswith("index.md") or file_name.endswith("readme.md"):
+                    continue
+                # DAR files match pattern: NNNND-*.md (e.g., 0021D-approval.md)
+                if re.match(r".*\d{4}d-.*\.md$", file_name):
+                    continue
+
                 adrs.append({
                     "title": title,
                     "adr_number": obj.properties.get("adr_number", ""),
@@ -706,28 +726,50 @@ IMPORTANT GUIDELINES:
             collection = client.collections.get("Principle")
             content_filter = build_document_filter("list all principles", _skill_registry, DEFAULT_SKILL)
 
+            # Get counts for fallback logic
+            unfiltered_count = get_collection_count(collection, None)
+            filtered_count = get_collection_count(collection, content_filter)
+
+            # Fallback: if filter returns 0 but collection has documents,
+            # documents likely don't have doc_type set - skip filter with warning
+            use_filter = content_filter
+            if filtered_count == 0 and unfiltered_count > 0:
+                logger.warning(
+                    f"list_all_principles: Filter returned 0 results but collection has {unfiltered_count} docs. "
+                    "Documents may not have doc_type set. Falling back to no filter with in-memory filtering."
+                )
+                use_filter = None
+
             results = collection.query.fetch_objects(
                 limit=100,
-                filters=content_filter,
+                filters=use_filter,
                 return_properties=["title", "doc_type", "file_path", "principle_number"],
             )
-
-            total_count = get_collection_count(collection, content_filter)
 
             principles = []
             for obj in results.objects:
                 title = obj.properties.get("title", "")
                 doc_type = obj.properties.get("doc_type", "")
-                if "template" in title.lower():
+                file_path = obj.properties.get("file_path", "")
+                file_name = file_path.lower() if file_path else ""
+
+                # In-memory filtering when Weaviate filter couldn't be used
+                if "template" in title.lower() or "template" in file_name:
                     continue
+                if file_name.endswith("index.md") or file_name.endswith("readme.md"):
+                    continue
+
                 principles.append({
                     "title": title,
                     "principle_number": obj.properties.get("principle_number", ""),
-                    "file_path": obj.properties.get("file_path", ""),
+                    "file_path": file_path,
                     "type": doc_type,
                 })
 
-            logger.info(f"list_all_principles: Returning {len(principles)} of {total_count} total principles (filtered)")
+            logger.info(
+                f"list_all_principles: Returning {len(principles)} principles "
+                f"(collection total: {unfiltered_count}, after filter: {filtered_count})"
+            )
             return sorted(principles, key=lambda x: x.get("principle_number", "") or x.get("file_path", ""))
 
         registry["list_all_principles"] = list_all_principles
