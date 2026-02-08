@@ -423,6 +423,186 @@ class TestResponseGatewayStrictMode:
         assert result.structured_response.count_qualifier == "exact"
 
 
+class TestRetryMechanism:
+    """Test the retry mechanism for strict mode failures."""
+
+    @pytest.fixture
+    def mock_context(self):
+        """Create a mock StructuredModeContext for testing."""
+        from src.response_gateway import StructuredModeContext
+        return StructuredModeContext(
+            structured_mode=True,
+            active_skill_names=["response-contract"],
+            matched_triggers=["response-contract:list"],
+        )
+
+    def test_retry_success_on_extraction_failure(self, mock_context):
+        """When extraction fails, retry_func is called and can succeed."""
+        from src.response_gateway import (
+            normalize_and_validate_response,
+            POLICY_STRICT,
+            JSON_START_MARKER,
+            JSON_END_MARKER,
+        )
+
+        def mock_retry_success(prompt):
+            return f'''{JSON_START_MARKER}
+{{
+    "schema_version": "1.0",
+    "answer": "Retry succeeded!",
+    "items_shown": 1,
+    "items_total": 1
+}}
+{JSON_END_MARKER}'''
+
+        result = normalize_and_validate_response(
+            raw_response="Invalid prose without JSON",
+            context=mock_context,
+            policy=POLICY_STRICT,
+            retry_func=mock_retry_success,
+        )
+
+        assert result.is_structured is True
+        assert mock_context.retry_attempted is True
+        assert mock_context.retry_ok is True
+        assert mock_context.retry_failed is False
+        assert "Retry succeeded" in result.response
+
+    def test_retry_failure_tracked_in_metrics(self, mock_context):
+        """When retry also fails, metrics track the failure."""
+        from src.response_gateway import (
+            normalize_and_validate_response,
+            POLICY_STRICT,
+        )
+
+        def mock_retry_fail(prompt):
+            return "Still invalid prose"
+
+        result = normalize_and_validate_response(
+            raw_response="Invalid prose without JSON",
+            context=mock_context,
+            policy=POLICY_STRICT,
+            retry_func=mock_retry_fail,
+        )
+
+        assert result.is_structured is False
+        assert mock_context.retry_attempted is True
+        assert mock_context.retry_ok is False
+        assert mock_context.retry_failed is True
+
+    def test_no_retry_when_retry_func_is_none(self, mock_context):
+        """When retry_func is None, no retry is attempted."""
+        from src.response_gateway import (
+            normalize_and_validate_response,
+            POLICY_STRICT,
+        )
+
+        result = normalize_and_validate_response(
+            raw_response="Invalid prose without JSON",
+            context=mock_context,
+            policy=POLICY_STRICT,
+            retry_func=None,
+        )
+
+        assert result.is_structured is False
+        assert mock_context.retry_attempted is False
+
+    def test_context_includes_retry_metrics_in_log_dict(self, mock_context):
+        """StructuredModeContext.to_log_dict includes retry metrics."""
+        mock_context.retry_attempted = True
+        mock_context.retry_ok = True
+        mock_context.retry_failed = False
+
+        log_dict = mock_context.to_log_dict()
+
+        assert "retry_attempted" in log_dict
+        assert "retry_ok" in log_dict
+        assert "retry_failed" in log_dict
+        assert log_dict["retry_attempted"] is True
+        assert log_dict["retry_ok"] is True
+
+
+class TestPopulateItemsTotalEnhancements:
+    """Test the enhanced populate_items_total_from_weaviate function."""
+
+    def test_direct_items_total_parameter(self):
+        """items_total parameter is preferred over collection_counts."""
+        from src.response_gateway import populate_items_total_from_weaviate
+        from src.response_schema import StructuredResponse
+
+        response = StructuredResponse(
+            schema_version="1.0",
+            answer="Test",
+            items_shown=5,
+            items_total=5,
+        )
+
+        updated = populate_items_total_from_weaviate(response, items_total=42)
+
+        assert updated.items_total == 42
+        assert updated.count_qualifier == "exact"
+
+    def test_items_total_overrides_collection_counts(self):
+        """When both are provided, items_total takes precedence."""
+        from src.response_gateway import populate_items_total_from_weaviate
+        from src.response_schema import StructuredResponse
+
+        response = StructuredResponse(
+            schema_version="1.0",
+            answer="Test",
+            items_shown=5,
+            items_total=5,
+        )
+
+        updated = populate_items_total_from_weaviate(
+            response,
+            collection_counts={"ADR": 100},
+            items_total=42,
+        )
+
+        # items_total should win
+        assert updated.items_total == 42
+
+
+class TestSkillRegistryPublicAPI:
+    """Test the public API for skill registry trigger matching."""
+
+    @pytest.fixture
+    def registry(self):
+        """Get a fresh skill registry for testing."""
+        registry = SkillRegistry()
+        registry.load_registry()
+        return registry
+
+    def test_get_matched_triggers_returns_list(self, registry):
+        """get_matched_triggers returns a list of matched triggers."""
+        query = "What ADRs exist in the system?"
+        triggers = registry.get_matched_triggers("response-contract", query)
+
+        assert isinstance(triggers, list)
+        # Should have at least one trigger match
+        assert len(triggers) > 0
+        # Each trigger should be formatted as skill_name:trigger
+        for trigger in triggers:
+            assert ":" in trigger
+
+    def test_get_matched_triggers_empty_for_no_match(self, registry):
+        """get_matched_triggers returns empty list when no triggers match."""
+        query = "Random question with no triggers"
+        triggers = registry.get_matched_triggers("response-contract", query)
+
+        assert isinstance(triggers, list)
+        assert len(triggers) == 0
+
+    def test_get_matched_triggers_auto_activate(self, registry):
+        """Auto-activate skills return special trigger format."""
+        query = "Any query"
+        triggers = registry.get_matched_triggers("rag-quality-assurance", query)
+
+        assert len(triggers) == 1
+        assert "auto_activate" in triggers[0]
+
+
 def run_tests():
     """Run tests and print results."""
     import subprocess

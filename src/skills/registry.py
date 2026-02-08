@@ -190,6 +190,38 @@ class SkillRegistry:
 
         return False
 
+    def get_matched_triggers(self, skill_name: str, query: str) -> list[str]:
+        """Get the list of triggers that matched for a skill on a given query.
+
+        This is a public API for getting match info without accessing internals.
+
+        Args:
+            skill_name: Name of the skill to check
+            query: The user's query
+
+        Returns:
+            List of trigger strings that matched (e.g., ["skill-name:trigger1"])
+            Empty list if skill not found, not enabled, or no triggers matched
+        """
+        if not self._loaded:
+            self.load_registry()
+
+        entry = self._entries.get(skill_name)
+        if not entry or not entry.enabled:
+            return []
+
+        # Auto-activate skills don't have "matched triggers" in the traditional sense
+        if entry.auto_activate:
+            return [f"{skill_name}:auto_activate"]
+
+        matched = []
+        query_lower = query.lower()
+        for trigger in entry.triggers:
+            if trigger.lower() in query_lower:
+                matched.append(f"{skill_name}:{trigger}")
+
+        return matched
+
     def get_all_skill_content(self, query: str = "") -> str:
         """Get combined content from all active skills.
 
