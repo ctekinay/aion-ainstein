@@ -85,6 +85,8 @@ The system integrates with [Weaviate's Elysia](https://weaviate.io/blog/elysia-a
     └─────────────────────────────────────────────────────────┘
 ```
 
+> **📖 For detailed architecture documentation** including the 3-layer separation (Domain Knowledge, Behavior Rules, Project Decisions), DAR handling, and ingestion logic, see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+
 ## Prerequisites
 
 ### ⚠️ **Python Version Requirement (IMPORTANT)**
