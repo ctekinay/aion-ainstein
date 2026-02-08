@@ -684,6 +684,10 @@ async def perform_retrieval(question: str, provider: str = "ollama") -> tuple[li
     Uses Weaviate native filters to exclude index and template documents.
     Relies on semantic search via embeddings rather than keyword-based routing.
 
+    Fallback behavior: If embedding generation fails (e.g., Ollama unavailable),
+    falls back to keyword-only BM25 search instead of hybrid search. This ensures
+    retrieval continues to work even when the embedding service is down.
+
     Args:
         question: The user's question
         provider: "ollama" for Nomic embeddings, "openai" for OpenAI embeddings
@@ -713,11 +717,13 @@ async def perform_retrieval(question: str, provider: str = "ollama") -> tuple[li
     # For Ollama provider, compute query embedding client-side
     # WORKAROUND for Weaviate text2vec-ollama bug (#8406)
     query_vector = None
+    use_keyword_only = False
     if provider == "ollama":
         try:
             query_vector = embed_text(question)
         except Exception as e:
-            logger.error(f"Failed to compute query embedding: {e}")
+            logger.warning(f"Embedding failed, using keyword-only search: {e}")
+            use_keyword_only = True
 
     # Build filter dynamically based on skill configuration and query intent
     # This replaces hardcoded filtering with skills-based configuration
@@ -729,13 +735,20 @@ async def perform_retrieval(question: str, provider: str = "ollama") -> tuple[li
     # Search ADRs
     try:
         collection = _weaviate_client.collections.get(collections["adr"])
-        results = collection.query.hybrid(
-            query=question,
-            vector=query_vector,
-            limit=adr_limit,
-            alpha=settings.alpha_default,  # Configurable in config.py
-            filters=content_filter,
-        )
+        if use_keyword_only:
+            results = collection.query.bm25(
+                query=question,
+                limit=adr_limit,
+                filters=content_filter,
+            )
+        else:
+            results = collection.query.hybrid(
+                query=question,
+                vector=query_vector,
+                limit=adr_limit,
+                alpha=settings.alpha_default,  # Configurable in config.py
+                filters=content_filter,
+            )
         for obj in results.objects:
             content = obj.properties.get("full_text", "") or obj.properties.get("decision", "")
             all_results.append({
@@ -750,13 +763,20 @@ async def perform_retrieval(question: str, provider: str = "ollama") -> tuple[li
     # Search Principles
     try:
         collection = _weaviate_client.collections.get(collections["principle"])
-        results = collection.query.hybrid(
-            query=question,
-            vector=query_vector,
-            limit=principle_limit,
-            alpha=settings.alpha_default,
-            filters=content_filter,
-        )
+        if use_keyword_only:
+            results = collection.query.bm25(
+                query=question,
+                limit=principle_limit,
+                filters=content_filter,
+            )
+        else:
+            results = collection.query.hybrid(
+                query=question,
+                vector=query_vector,
+                limit=principle_limit,
+                alpha=settings.alpha_default,
+                filters=content_filter,
+            )
         for obj in results.objects:
             content = obj.properties.get("full_text", "") or obj.properties.get("content", "")
             all_results.append({
@@ -771,12 +791,18 @@ async def perform_retrieval(question: str, provider: str = "ollama") -> tuple[li
     # Search Policies
     try:
         collection = _weaviate_client.collections.get(collections["policy"])
-        results = collection.query.hybrid(
-            query=question,
-            vector=query_vector,
-            limit=policy_limit,
-            alpha=settings.alpha_default,
-        )
+        if use_keyword_only:
+            results = collection.query.bm25(
+                query=question,
+                limit=policy_limit,
+            )
+        else:
+            results = collection.query.hybrid(
+                query=question,
+                vector=query_vector,
+                limit=policy_limit,
+                alpha=settings.alpha_default,
+            )
         for obj in results.objects:
             content = obj.properties.get("full_text", "") or obj.properties.get("content", "")
             all_results.append({
@@ -790,12 +816,18 @@ async def perform_retrieval(question: str, provider: str = "ollama") -> tuple[li
     # Search Vocabulary
     try:
         collection = _weaviate_client.collections.get(collections["vocabulary"])
-        results = collection.query.hybrid(
-            query=question,
-            vector=query_vector,
-            limit=vocab_limit,
-            alpha=settings.alpha_vocabulary,  # Configurable in config.py
-        )
+        if use_keyword_only:
+            results = collection.query.bm25(
+                query=question,
+                limit=vocab_limit,
+            )
+        else:
+            results = collection.query.hybrid(
+                query=question,
+                vector=query_vector,
+                limit=vocab_limit,
+                alpha=settings.alpha_vocabulary,  # Configurable in config.py
+            )
         for obj in results.objects:
             all_results.append({
                 "type": "Vocabulary",
