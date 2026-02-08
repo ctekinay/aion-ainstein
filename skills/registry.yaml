@@ -33,6 +33,23 @@ skills:
       - "enumerate"
       - "summarize"
 
+  - name: response-contract
+    path: response-contract/SKILL.md
+    description: "Enforce structured JSON output for RAG responses with count transparency"
+    enabled: true
+    auto_activate: false  # Only activate for list/count queries via triggers
+    triggers:
+      - "list"
+      - "how many"
+      - "what adrs"
+      - "what principles"
+      - "what policies"
+      - "show all"
+      - "enumerate"
+      - "count"
+      - "total"
+      - "exist"
+
 # Future skills can be added here:
 #
 #  - name: alliander-domain-expert
