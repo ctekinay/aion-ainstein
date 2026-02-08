@@ -345,10 +345,10 @@ Backend & Python + FastAPI & Web UI, API \\
 \toprule
 \textbf{Property} & \textbf{Value} \\
 \midrule
-Version & 1.1 \\
+Version & 1.2 \\
 Date & 2026-02-08 \\
 Status & Production Ready \\
-Module & \texttt{src/response\_schema.py} \\
+Modules & \texttt{src/response\_schema.py}, \texttt{src/response\_gateway.py}, \texttt{src/llm\_client.py} \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -628,6 +628,227 @@ Both versions supported & Transition period & Parse both 1.x and 2.x \\
 \end{tabular}
 \caption{Schema versioning rules}
 \end{table}
+
+\section{Response Gateway}
+
+\textbf{Module:} \texttt{src/response\_gateway.py}
+
+The response gateway is the unified API contract layer---\textbf{all UI API responses must pass through this}. It sits at the UI boundary and enforces the structured response contract.
+
+\subsection{Architecture Position}
+
+\begin{lstlisting}[language={},frame=single,basicstyle=\ttfamily\small]
+User UI -> Backend -> Elysia CLI (LLM + retrieval) -> raw text ->
+    normalize_and_validate_response() -> UI
+\end{lstlisting}
+
+\subsection{CLI Delimiter Protocol}
+
+To enable deterministic JSON extraction from LLM output (even when CLI adds metadata/banners), we use explicit delimiters:
+
+\begin{lstlisting}[language=Python]
+JSON_START_MARKER = "<<<JSON>>>"
+JSON_END_MARKER = "<<<END_JSON>>>"
+\end{lstlisting}
+
+\textbf{Extraction Priority Order:}
+
+\begin{enumerate}
+    \item \textbf{Explicit markers} (highest confidence): \texttt{<<<JSON>>>...<<<END\_JSON>>>}
+    \item \textbf{Raw JSON}: Entire response is valid JSON
+    \item \textbf{Fenced JSON block}: \texttt{```json...```}
+    \item \textbf{Embedded JSON}: Regex extraction of \texttt{\{...\}} blocks
+\end{enumerate}
+
+\textbf{System Prompt Injection:}
+
+\begin{lstlisting}[language={}]
+OUTPUT FORMAT REQUIREMENT:
+You MUST output ONLY valid JSON. No prose, no explanations outside the JSON.
+
+Use this exact format:
+<<<JSON>>>
+{
+    "schema_version": "1.0",
+    "answer": "Your response text here",
+    "items_shown": <integer>,
+    "items_total": <integer or null>,
+    "count_qualifier": "exact" | "at_least" | "approx" | null,
+    "sources": [{"title": "...", "type": "ADR|Principle|Policy|Vocabulary"}]
+}
+<<<END_JSON>>>
+\end{lstlisting}
+
+\subsection{Gateway Enforcement Policies}
+
+\begin{table}[h]
+\centering
+\begin{tabular}{@{}lll@{}}
+\toprule
+\textbf{Policy} & \textbf{Behavior} & \textbf{Use Case} \\
+\midrule
+\texttt{strict} & Fail with controlled error if JSON invalid & Production UI (default) \\
+\texttt{soft} & Log and degrade to raw text & Development/debugging \\
+\texttt{lenient} & Allow embedded JSON extraction & Legacy compatibility \\
+\bottomrule
+\end{tabular}
+\caption{Gateway enforcement policies}
+\end{table}
+
+\subsection{Failure UX}
+
+When structured mode fails in strict policy, users receive controlled error messages:
+
+\begin{lstlisting}[language=Python]
+@dataclass
+class FailureResponse:
+    message: str        # User-friendly error
+    request_id: str     # For debugging (e.g., "fc1bc2ef")
+    error_code: str     # ReasonCode value
+    can_retry: bool     # Suggest retry?
+\end{lstlisting}
+
+\textbf{Example user-facing error:}
+
+\begin{lstlisting}[language={}]
+I couldn't format the result reliably. Please try again.
+
+Reference: fc1bc2ef
+\end{lstlisting}
+
+\subsection{Structured Mode Context}
+
+The gateway tracks all metadata needed to diagnose regressions:
+
+\begin{lstlisting}[language=Python]
+@dataclass
+class StructuredModeContext:
+    structured_mode: bool
+    active_skill_names: list[str]     # ["response-contract", "rag-quality"]
+    matched_triggers: list[str]       # ["response-contract:list"]
+    prompt_version: str               # "1.0.0"
+    schema_version: str               # "1.0"
+    model_id: Optional[str]
+    request_id: str                   # Short UUID for tracing
+    extraction_method: Optional[str]  # "marker_delimited", "raw_json", etc.
+    parse_stage: Optional[str]        # "validated", "repaired", etc.
+    reason_code: Optional[ReasonCode]
+    latency_ms: Optional[int]
+\end{lstlisting}
+
+\subsection{Weaviate Count Population}
+
+The gateway overwrites LLM-guessed \texttt{items\_total} with authoritative Weaviate counts:
+
+\begin{lstlisting}[language=Python]
+def populate_items_total_from_weaviate(
+    response: StructuredResponse,
+    collection_counts: dict[str, int],  # {"ArchitecturalDecision": 42}
+) -> StructuredResponse:
+    # Weaviate counts are authoritative
+    response.items_total = sum(collection_counts.values())
+    response.count_qualifier = "exact"
+    return response
+\end{lstlisting}
+
+\section{LLM Client Abstraction}
+
+\textbf{Module:} \texttt{src/llm\_client.py}
+
+The LLM client abstraction provides vendor insulation---allowing the system to swap LLM backends without changing consuming code.
+
+\subsection{Vendor Insulation}
+
+\begin{lstlisting}[language={},frame=single,basicstyle=\ttfamily\small]
+UI/CLI -> LLMClientProtocol.query() -> (response, objects, metadata)
+                    |
+    +---------------+---------------+
+    |               |               |
+    ElysiaClient  DirectLLMClient  FutureClient
+    (Elysia Tree)  (OpenAI/Ollama)  (...)
+\end{lstlisting}
+
+\subsection{Client Types}
+
+\begin{table}[h]
+\centering
+\begin{tabular}{@{}lll@{}}
+\toprule
+\textbf{Client} & \textbf{Backend} & \textbf{Use Case} \\
+\midrule
+\texttt{ElysiaClient} & Elysia Tree & Primary production client with agentic tool selection \\
+\texttt{DirectLLMClient} & Direct Weaviate + LLM & Fallback when Elysia fails \\
+\texttt{ResilientLLMClient} & Wrapper & Automatic fallback between clients \\
+\bottomrule
+\end{tabular}
+\caption{LLM client types}
+\end{table}
+
+\subsection{Protocol Interface}
+
+\begin{lstlisting}[language=Python]
+@runtime_checkable
+class LLMClientProtocol(Protocol):
+    async def query(
+        self,
+        question: str,
+        collection_names: Optional[list[str]] = None,
+    ) -> QueryResult: ...
+
+    def get_client_type(self) -> str: ...
+    def is_available(self) -> bool: ...
+\end{lstlisting}
+
+\subsection{QueryResult Structure}
+
+\begin{lstlisting}[language=Python]
+@dataclass
+class QueryResult:
+    response: str           # Processed response text
+    objects: list[dict]     # Retrieved objects
+    metadata: QueryMetadata # Execution metadata
+
+@dataclass
+class QueryMetadata:
+    client_type: str        # "elysia" or "direct"
+    iterations: int         # Elysia tree iterations
+    recursion_limit: int
+    hit_limit: bool         # Did we hit the limit?
+    fallback_used: bool     # Was fallback client used?
+    structured_mode: bool
+    skills_applied: list[str]
+    error: Optional[str]
+\end{lstlisting}
+
+\subsection{Factory Function}
+
+\begin{lstlisting}[language=Python]
+from src.llm_client import create_llm_client
+
+# Creates ElysiaClient if available, otherwise DirectLLMClient
+client = create_llm_client(weaviate_client, prefer_elysia=True)
+
+# Query with unified interface
+result = await client.query("What ADRs exist?")
+print(f"Response: {result.response}")
+print(f"Client used: {result.metadata.client_type}")
+\end{lstlisting}
+
+\subsection{Resilient Client with Automatic Fallback}
+
+\begin{lstlisting}[language=Python]
+from src.llm_client import ElysiaClient, DirectLLMClient, ResilientLLMClient
+
+primary = ElysiaClient(weaviate_client)
+fallback = DirectLLMClient(weaviate_client)
+
+resilient = ResilientLLMClient(primary, fallback)
+
+# Automatically falls back if primary fails
+result = await resilient.query("What ADRs exist?")
+if result.metadata.fallback_used:
+    print("Fallback was used due to primary client failure")
+\end{lstlisting}
 
 \section{Deep Dive: Algorithms \& Internals}
 
@@ -1587,6 +1808,7 @@ This is the highest priority planned feature. When implemented, it will:
 \textbf{Version} & \textbf{Date} & \textbf{Changes} \\
 \midrule
 1.0 & February 2026 & Initial consolidated document \\
+1.1 & February 2026 & Added Response Gateway and LLM Client Abstraction sections \\
 \bottomrule
 \end{tabular}
 \caption{Version history}
@@ -1600,6 +1822,16 @@ This document consolidates the following markdown files:
     \item \texttt{docs/STRUCTURED\_RESPONSE.md} --- Structured Response System
     \item \texttt{docs/SKILLS\_USER\_GUIDE.md} --- Skills Framework User Guide
     \item \texttt{docs/SKILLS\_UI\_STATUS.md} --- Skills UI Implementation Status
+\end{itemize}
+
+\section{Key Source Modules}
+
+\begin{itemize}
+    \item \texttt{src/response\_schema.py} --- Core schema, parser, validator, metrics, cache
+    \item \texttt{src/response\_gateway.py} --- Unified API contract layer with CLI delimiter protocol
+    \item \texttt{src/llm\_client.py} --- Vendor-agnostic LLM client abstraction
+    \item \texttt{src/elysia\_agents.py} --- Integration with RAG system
+    \item \texttt{tests/test\_structured\_response\_contract.py} --- Contract enforcement tests
 \end{itemize}
 
 \section{Related Documentation}
