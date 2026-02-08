@@ -17,7 +17,7 @@ informed: AInstein Development Team
 
 The AInstein RAG system (Retrieval-Augmented Generation) is designed to help architects, engineers, and stakeholders navigate Alliander's energy system architecture knowledge base. During testing, we identified a critical issue: **the system hallucinates information when asked about non-existent content**.
 
-For example, when asked "What does ADR-0050 decide?" (an ADR that doesn't exist), the system confidently generated fake content about a fictional "DACI framework" decision. This is unacceptable for a system supporting EUR 165M procurement decisions, where hallucination tolerance must be <0.1%.
+For example, when asked "What does ADR-0050 decide?" (a fictional Alliander ESA ADR used as a test case), the system confidently generated fake content about a fictional "DACI framework" decision. This is unacceptable for a system supporting EUR 165M procurement decisions, where hallucination tolerance must be <0.1%.
 
 **Key Question:** How do we prevent the LLM from generating confident-sounding but fabricated responses when the knowledge base contains no relevant information?
 
