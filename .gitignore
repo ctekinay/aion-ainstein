@@ -69,6 +69,9 @@ Thumbs.db
 *.temp
 *.bak*
 
+# Documentation archives
+docs/archive/
+
 # Resource or info files
 resources.txt
 other/
