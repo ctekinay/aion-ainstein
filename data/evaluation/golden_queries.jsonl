@@ -1,0 +1,10 @@
+{"query": "What does ADR-0010 decide?", "expected_doc_ids": ["adr-0010"], "expected_doc_types": ["adr"], "collection": "ADR_Ollama", "category": "specific_entity"}
+{"query": "What does ADR-0050 decide?", "expected_doc_ids": [], "expected_doc_types": [], "collection": "ADR_Ollama", "category": "nonexistent_entity", "expected_behavior": "abstain"}
+{"query": "What is CIMXML?", "expected_doc_ids": [], "expected_doc_types": ["vocabulary"], "collection": "Vocabulary_Ollama", "category": "terminology", "skosmos_required": true}
+{"query": "List all ADRs", "expected_doc_ids": [], "expected_doc_types": ["adr"], "collection": "ADR_Ollama", "category": "list_query", "expected_behavior": "list_response"}
+{"query": "What are the ESA principles?", "expected_doc_ids": [], "expected_doc_types": ["principle"], "collection": "Principle_Ollama", "category": "list_query"}
+{"query": "Who approved ADR-0010?", "expected_doc_ids": ["adr-0010d"], "expected_doc_types": ["dar"], "collection": "ADR_Ollama", "category": "approval_query"}
+{"query": "What is the data retention policy?", "expected_doc_ids": [], "expected_doc_types": ["policy"], "collection": "Policy_Ollama", "category": "policy_query"}
+{"query": "What is FooBarBaz?", "expected_doc_ids": [], "expected_doc_types": [], "collection": "Vocabulary_Ollama", "category": "nonexistent_term", "expected_behavior": "abstain"}
+{"query": "Explain the CIM standard", "expected_doc_ids": [], "expected_doc_types": ["vocabulary", "adr"], "collection": "Vocabulary_Ollama", "category": "terminology"}
+{"query": "What decisions relate to OAuth?", "expected_doc_ids": [], "expected_doc_types": ["adr"], "collection": "ADR_Ollama", "category": "topic_search"}
