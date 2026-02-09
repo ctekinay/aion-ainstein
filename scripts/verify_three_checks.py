@@ -3,7 +3,11 @@
 Verification script for three critical checks:
 
 1. Are index.md files ingested into Weaviate?
+   - index.md inside decisions/ and principles/ should NOT be ingested
+   - esa_doc_registry.md (top-level registry) MAY be ingested with doc_type="registry"
+
 2. Is documents: field from index.md used anywhere at runtime?
+
 3. Is there deterministic record_type separation between content and approval records?
 
 Usage:
@@ -29,12 +33,18 @@ console = Console()
 
 
 def check_1_index_ingestion(client) -> dict:
-    """Check if index.md files are ingested into Weaviate."""
+    """Check if index.md files are ingested into Weaviate.
+
+    Expected behavior:
+    - index.md inside decisions/ and principles/: Should NOT be ingested
+    - esa_doc_registry.md (top-level registry): MAY be ingested with doc_type="registry"
+    """
     console.print(Panel("[bold cyan]CHECK 1: Are index.md files ingested into Weaviate?[/bold cyan]"))
 
     results = {
         "decisions_index": {"count": 0, "objects": []},
         "principles_index": {"count": 0, "objects": []},
+        "registry_files": {"count": 0, "objects": []},
         "all_index_files": {"count": 0, "objects": []},
     }
 
@@ -56,27 +66,35 @@ def check_1_index_ingestion(client) -> dict:
             all_objects.extend(batch.objects)
             offset += limit
 
-        # Find index.md files
+        # Find index.md and registry files
         for obj in all_objects:
             fp = obj.properties.get("file_path", "")
-            if "index.md" in fp.lower() or fp.lower().endswith("readme.md"):
-                obj_data = {
-                    "file_path": fp,
-                    "title": obj.properties.get("title", ""),
-                    "doc_type": obj.properties.get("doc_type", ""),
-                    "adr_number": obj.properties.get("adr_number", ""),
-                    "uuid": str(obj.uuid)[:8],
-                }
+            fp_lower = fp.lower()
+            obj_data = {
+                "file_path": fp,
+                "title": obj.properties.get("title", ""),
+                "doc_type": obj.properties.get("doc_type", ""),
+                "adr_number": obj.properties.get("adr_number", ""),
+                "uuid": str(obj.uuid)[:8],
+            }
+
+            # Check for registry files (esa_doc_registry.md)
+            if "esa_doc_registry.md" in fp_lower or "esa-doc-registry.md" in fp_lower:
+                results["registry_files"]["objects"].append(obj_data)
+                results["registry_files"]["count"] += 1
+            # Check for index.md files
+            elif "index.md" in fp_lower or fp_lower.endswith("readme.md"):
                 results["all_index_files"]["objects"].append(obj_data)
                 if "/decisions/index.md" in fp:
                     results["decisions_index"]["objects"].append(obj_data)
                     results["decisions_index"]["count"] += 1
 
         results["all_index_files"]["count"] = len(results["all_index_files"]["objects"])
-        console.print(f"\n[bold]ADR Collection - Index File Search:[/bold]")
+        console.print(f"\n[bold]ADR Collection - Index/Registry File Search:[/bold]")
         console.print(f"  Total objects in collection: {len(all_objects)}")
         console.print(f"  Objects with 'index.md' in file_path: {results['all_index_files']['count']}")
         console.print(f"  Objects from decisions/index.md: {results['decisions_index']['count']}")
+        console.print(f"  Objects from esa_doc_registry.md: {results['registry_files']['count']}")
 
     except Exception as e:
         console.print(f"[red]Error checking ADR collection: {e}[/red]")
@@ -122,17 +140,33 @@ def check_1_index_ingestion(client) -> dict:
 
     # Summary
     total_index = results["decisions_index"]["count"] + results["principles_index"]["count"]
+    registry_count = results["registry_files"]["count"]
+
     console.print(f"\n[bold]RESULT:[/bold]")
+
+    # Check directory-level index.md files (should NOT be ingested)
     if total_index == 0:
-        console.print(f"  [green]✓ index.md files are NOT ingested[/green]")
-        console.print(f"  count=0 for decisions/index.md and principles/index.md")
+        console.print(f"  [green]✓ Directory index.md files are NOT ingested[/green]")
+        console.print(f"    count=0 for decisions/index.md and principles/index.md")
     else:
-        console.print(f"  [yellow]⚠ {total_index} index.md files ARE ingested[/yellow]")
+        console.print(f"  [yellow]⚠ {total_index} directory index.md files ARE ingested[/yellow]")
         for idx_type, data in [("decisions", results["decisions_index"]), ("principles", results["principles_index"])]:
             if data["objects"]:
                 console.print(f"\n  [yellow]{idx_type}/index.md objects:[/yellow]")
                 for obj in data["objects"]:
                     console.print(f"    - doc_type={obj['doc_type']}, title={obj['title'][:50]}...")
+
+    # Check registry file (MAY be ingested with doc_type="registry")
+    if registry_count > 0:
+        console.print(f"\n  [cyan]ℹ esa_doc_registry.md IS ingested ({registry_count} object(s))[/cyan]")
+        for obj in results["registry_files"]["objects"]:
+            doc_type = obj.get("doc_type", "")
+            if doc_type == "registry":
+                console.print(f"    [green]✓ doc_type='registry' (correct)[/green]")
+            else:
+                console.print(f"    [yellow]⚠ doc_type='{doc_type}' (expected 'registry')[/yellow]")
+    else:
+        console.print(f"\n  [dim]ℹ esa_doc_registry.md is not ingested (optional)[/dim]")
 
     return results
 
@@ -519,10 +553,15 @@ def main():
 
         console.print("\n[bold]CHECK 1: index.md ingestion[/bold]")
         idx_count = check1_results["decisions_index"]["count"] + check1_results["principles_index"]["count"]
+        registry_count = check1_results.get("registry_files", {}).get("count", 0)
         if idx_count == 0:
-            console.print("  [green]✓ PASS: index.md NOT ingested into Weaviate[/green]")
+            console.print("  [green]✓ PASS: Directory index.md files NOT ingested[/green]")
         else:
-            console.print(f"  [yellow]⚠ WARNING: {idx_count} index.md file(s) found in Weaviate[/yellow]")
+            console.print(f"  [yellow]⚠ WARNING: {idx_count} directory index.md file(s) found in Weaviate[/yellow]")
+
+        if registry_count > 0:
+            console.print(f"  [cyan]ℹ INFO: esa_doc_registry.md is ingested ({registry_count} object(s))[/cyan]")
+            console.print("    This is intentional - the registry is the canonical doc catalog")
 
         console.print("\n[bold]CHECK 2: documents: usage[/bold]")
         console.print("  [yellow]⚠ PARTIAL: Code exists but field is empty[/yellow]")
@@ -552,6 +591,7 @@ def main():
                 "passed": idx_count == 0,
                 "decisions_index_count": check1_results["decisions_index"]["count"],
                 "principles_index_count": check1_results["principles_index"]["count"],
+                "registry_files_count": check1_results.get("registry_files", {}).get("count", 0),
             },
             "check2_documents_usage": {
                 "code_exists": True,

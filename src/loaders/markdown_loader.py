@@ -31,9 +31,23 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 # Document types to skip at ingestion time (not embedded, saves tokens/storage)
-# Note: index.md is still parsed for ownership metadata via index_metadata_loader
+# =============================================================================
+# SKIP RULES:
+#   - template: Files with placeholders (adr-template.md, etc.)
+#   - index: Directory-level indexes inside decisions/ and principles/
+#
+# NOT SKIPPED (intentionally ingested):
+#   - registry: The top-level doc registry (esa_doc_registry.md)
+#     This is the renamed /doc/index.md - human-authored, canonical documentation
+#     Classified as "registry" not "index" to avoid accidental skipping
+#
+# Note: index.md files are still parsed for ownership metadata via index_metadata_loader
 # Note: DARs (decision_approval_record) ARE embedded - they're excluded at query time
+# =============================================================================
 SKIP_DOC_TYPES_AT_INGESTION = {'template', 'index'}
+
+# Registry filenames - these are NOT skipped (canonical doc registry)
+REGISTRY_FILENAMES = {'esa_doc_registry.md', 'esa-doc-registry.md'}
 
 
 @dataclass
@@ -280,7 +294,14 @@ class MarkdownLoader:
         )
 
     def _classify_adr_document(self, file_path: Path, title: str, content: str) -> str:
-        """Classify an ADR document as content, index, template, or decision_approval_record.
+        """Classify an ADR document as content, index, template, registry, or decision_approval_record.
+
+        Classification priority (most reliable first):
+        1. Filename pattern for DARs (NNNND-*.md)
+        2. Filename pattern for registry (esa_doc_registry.md) - NOT skipped
+        3. Filename pattern for index files (index.md, readme.md) - SKIPPED
+        4. Filename/title for templates - SKIPPED
+        5. Default: content
 
         Args:
             file_path: Path to the ADR file
@@ -288,7 +309,7 @@ class MarkdownLoader:
             content: Document content
 
         Returns:
-            Classification: 'content', 'index', 'template', or 'decision_approval_record'
+            Classification: 'content', 'index', 'template', 'registry', or 'decision_approval_record'
         """
         file_name = file_path.name.lower()
         title_lower = title.lower()
@@ -298,12 +319,16 @@ class MarkdownLoader:
         if re.match(r"^\d{4}d-", file_name):
             return 'decision_approval_record'
 
-        # Index files: contain lists of documents, no actual decisions
+        # Registry files: esa_doc_registry.md (NOT skipped - canonical doc registry)
+        if file_name in REGISTRY_FILENAMES:
+            return 'registry'
+
+        # Index files: contain lists of documents, no actual decisions (SKIPPED)
         index_patterns = ['index.md', 'readme.md', 'overview.md', '_index.md']
         if file_name in index_patterns:
             return 'index'
 
-        # Template files: contain placeholders, not actual content
+        # Template files: contain placeholders, not actual content (SKIPPED)
         template_indicators = [
             '{short title',
             '{problem statement}',
@@ -423,7 +448,14 @@ class MarkdownLoader:
         return doc
 
     def _classify_principle_document(self, file_path: Path, title: str, content: str) -> str:
-        """Classify a principle document as content, index, template, or decision_approval_record.
+        """Classify a principle document as content, index, template, registry, or decision_approval_record.
+
+        Classification priority (most reliable first):
+        1. Filename pattern for DARs (NNNND-*.md)
+        2. Filename pattern for registry (esa_doc_registry.md) - NOT skipped
+        3. Filename pattern for index files (index.md, readme.md) - SKIPPED
+        4. Filename/title for templates - SKIPPED
+        5. Default: content
 
         Args:
             file_path: Path to the principle file
@@ -431,7 +463,7 @@ class MarkdownLoader:
             content: Document content
 
         Returns:
-            Classification: 'content', 'index', 'template', or 'decision_approval_record'
+            Classification: 'content', 'index', 'template', 'registry', or 'decision_approval_record'
         """
         file_name = file_path.name.lower()
         title_lower = title.lower()
@@ -441,12 +473,16 @@ class MarkdownLoader:
         if re.match(r"^\d{4}d-", file_name):
             return 'decision_approval_record'
 
-        # Index files
+        # Registry files: esa_doc_registry.md (NOT skipped - canonical doc registry)
+        if file_name in REGISTRY_FILENAMES:
+            return 'registry'
+
+        # Index files (SKIPPED)
         index_patterns = ['index.md', 'readme.md', 'overview.md', '_index.md']
         if file_name in index_patterns:
             return 'index'
 
-        # Template files
+        # Template files (SKIPPED)
         template_indicators = [
             'template',
             '{title}',
