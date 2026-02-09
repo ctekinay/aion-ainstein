@@ -95,6 +95,20 @@ class RAGDiagnostics:
             "PolicyDocument"
         ]
 
+    def close(self):
+        """Close the Weaviate client connection."""
+        if self.client:
+            self.client.close()
+
+    def __enter__(self):
+        """Context manager entry."""
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """Context manager exit - ensures client is closed."""
+        self.close()
+        return False
+
     def analyze_chunks(self) -> dict:
         """Analyze document/chunk sizes across all collections.
 
@@ -473,26 +487,25 @@ def main():
 
     args = parser.parse_args()
 
-    diag = RAGDiagnostics(verbose=args.verbose)
-
-    if args.analyze_chunks:
-        diag.analyze_chunks()
-    elif args.test_retrieval:
-        diag.test_retrieval()
-    elif args.tune_alpha:
-        diag.tune_alpha(
-            test_question=args.question,
-            collection=args.collection
-        )
-    elif args.full_diagnostic:
-        asyncio.run(diag.run_full_diagnostic(save_report=not args.no_save))
-    else:
-        parser.print_help()
-        print("\nExamples:")
-        print("  python -m src.diagnostics.rag_diagnostics --analyze-chunks")
-        print("  python -m src.diagnostics.rag_diagnostics --test-retrieval")
-        print('  python -m src.diagnostics.rag_diagnostics --tune-alpha -q "What is CIM?"')
-        print("  python -m src.diagnostics.rag_diagnostics --full-diagnostic")
+    with RAGDiagnostics(verbose=args.verbose) as diag:
+        if args.analyze_chunks:
+            diag.analyze_chunks()
+        elif args.test_retrieval:
+            diag.test_retrieval()
+        elif args.tune_alpha:
+            diag.tune_alpha(
+                test_question=args.question,
+                collection=args.collection
+            )
+        elif args.full_diagnostic:
+            asyncio.run(diag.run_full_diagnostic(save_report=not args.no_save))
+        else:
+            parser.print_help()
+            print("\nExamples:")
+            print("  python -m src.diagnostics.rag_diagnostics --analyze-chunks")
+            print("  python -m src.diagnostics.rag_diagnostics --test-retrieval")
+            print('  python -m src.diagnostics.rag_diagnostics --tune-alpha -q "What is CIM?"')
+            print("  python -m src.diagnostics.rag_diagnostics --full-diagnostic")
 
 
 if __name__ == "__main__":

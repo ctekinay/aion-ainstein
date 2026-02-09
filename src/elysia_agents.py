@@ -181,6 +181,12 @@ def check_fallback_allowed(
     return True, None
 from .skills import SkillRegistry, get_skill_registry, DEFAULT_SKILL
 from .skills.filters import build_document_filter
+from .approval_extractor import (
+    is_specific_approval_query,
+    extract_document_number,
+    get_approval_record_from_weaviate,
+    build_approval_response,
+)
 from .weaviate.embeddings import embed_text
 from .weaviate.skosmos_client import get_skosmos_client, TermLookupResult
 from .observability import metrics as obs_metrics
@@ -1767,6 +1773,31 @@ IMPORTANT GUIDELINES:
 
         # Create structured mode context for gateway integration
         context = create_context_from_skills(question, _skill_registry)
+
+        # =============================================================================
+        # DETERMINISTIC SPECIFIC APPROVAL HANDLING
+        # For queries like "Who approved ADR.0025?", parse DAR tables directly
+        # This bypasses LLM interpretation for reliable approver extraction
+        # =============================================================================
+        if is_specific_approval_query(question):
+            doc_type, doc_number = extract_document_number(question)
+            if doc_type and doc_number:
+                logger.info(f"Specific approval query detected: {doc_type}.{doc_number}")
+                approval_record = get_approval_record_from_weaviate(
+                    self.client, doc_type, doc_number
+                )
+                if approval_record and approval_record.get_all_approvers():
+                    logger.info(
+                        f"Deterministic approval extraction: found {len(approval_record.get_all_approvers())} approvers"
+                    )
+                    import json
+                    response_dict = build_approval_response(approval_record)
+                    if structured_mode:
+                        return json.dumps(response_dict, indent=2), []
+                    else:
+                        return response_dict["answer"], []
+                else:
+                    logger.warning(f"No approvers found for {doc_type}.{doc_number}, falling back to LLM path")
 
         # DETERMINISTIC LIST HANDLING
         # For list queries, call list tools directly and use deterministic serialization

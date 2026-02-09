@@ -7,7 +7,7 @@ enabling gradual transition between vector stores.
 import hashlib
 import uuid
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Optional
 
@@ -224,7 +224,7 @@ class Chunk:
             "document_type": self.metadata.document_type,
             "section_type": self.metadata.section_type,
             "parent_chunk_id": self.metadata.parent_chunk_id,
-            "created_at": self.metadata.created_at or datetime.utcnow().isoformat(),
+            "created_at": self.metadata.created_at or datetime.now(timezone.utc).isoformat(),
         }
 
     def to_dict(self, format: str = "weaviate") -> dict[str, Any]:

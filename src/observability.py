@@ -24,7 +24,7 @@ import logging
 import threading
 import time
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Optional
 
 
@@ -189,7 +189,7 @@ class MetricsRegistry:
     def to_json(self) -> dict[str, Any]:
         """Export all metrics as JSON."""
         result = {
-            "timestamp": datetime.utcnow().isoformat() + "Z",
+            "timestamp": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
             "counters": {},
             "histograms": {},
         }
@@ -266,7 +266,7 @@ class StructuredLogger:
     def _format(self, level: str, event: str, **kwargs) -> str:
         """Format a log entry as JSON."""
         entry = {
-            "timestamp": datetime.utcnow().isoformat() + "Z",
+            "timestamp": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
             "level": level,
             "component": self.component,
             "event": event,

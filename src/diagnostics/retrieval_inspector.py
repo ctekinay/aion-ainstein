@@ -36,7 +36,7 @@ TEST_QUESTIONS = [
 ]
 
 
-def inspect_retrieval(question: str, collection_name: str, limit: int = 10, alpha: float = None):
+def inspect_retrieval(question: str, collection_name: str, limit: int = 10, alpha: float = None, client=None):
     """
     Inspect what documents are retrieved for a given question.
 
@@ -47,68 +47,76 @@ def inspect_retrieval(question: str, collection_name: str, limit: int = 10, alph
     if alpha is None:
         alpha = settings.alpha_default
 
-    client = get_client()
+    # Use provided client or create one (caller should close if created here)
+    close_client = False
+    if client is None:
+        client = get_client()
+        close_client = True
 
-    # Get embedding for the question
-    query_vector = embed_text(question)
+    try:
+        # Get embedding for the question
+        query_vector = embed_text(question)
 
-    # Check if collection exists
-    if not client.collections.exists(collection_name):
-        return {"error": f"Collection {collection_name} does not exist"}
+        # Check if collection exists
+        if not client.collections.exists(collection_name):
+            return {"error": f"Collection {collection_name} does not exist"}
 
-    collection = client.collections.get(collection_name)
+        collection = client.collections.get(collection_name)
 
-    # Perform hybrid search
-    results = collection.query.hybrid(
-        query=question,
-        vector=query_vector,
-        alpha=alpha,
-        limit=limit,
-        fusion_type=HybridFusion.RELATIVE_SCORE,
-        return_metadata=MetadataQuery(score=True, explain_score=True, distance=True),
-    )
+        # Perform hybrid search
+        results = collection.query.hybrid(
+            query=question,
+            vector=query_vector,
+            alpha=alpha,
+            limit=limit,
+            fusion_type=HybridFusion.RELATIVE_SCORE,
+            return_metadata=MetadataQuery(score=True, explain_score=True, distance=True),
+        )
 
-    retrieved_docs = []
-    for i, obj in enumerate(results.objects):
-        doc_info = {
-            "rank": i + 1,
-            "uuid": str(obj.uuid),
-            "score": obj.metadata.score,
-            "distance": obj.metadata.distance,
-            "explain_score": obj.metadata.explain_score,
-            "properties": {}
+        retrieved_docs = []
+        for i, obj in enumerate(results.objects):
+            doc_info = {
+                "rank": i + 1,
+                "uuid": str(obj.uuid),
+                "score": obj.metadata.score,
+                "distance": obj.metadata.distance,
+                "explain_score": obj.metadata.explain_score,
+                "properties": {}
+            }
+
+            # Get key properties based on collection type
+            props = obj.properties
+            if "title" in props:
+                doc_info["properties"]["title"] = props.get("title", "")[:100]
+            if "name" in props:
+                doc_info["properties"]["name"] = props.get("name", "")[:100]
+            if "content" in props:
+                doc_info["properties"]["content_preview"] = props.get("content", "")[:300]
+            if "definition" in props:
+                doc_info["properties"]["definition_preview"] = props.get("definition", "")[:300]
+            if "decision" in props:
+                doc_info["properties"]["decision_preview"] = props.get("decision", "")[:300]
+            if "doc_type" in props:
+                doc_info["properties"]["doc_type"] = props.get("doc_type", "")
+            if "status" in props:
+                doc_info["properties"]["status"] = props.get("status", "")
+
+            retrieved_docs.append(doc_info)
+
+        return {
+            "question": question,
+            "collection": collection_name,
+            "alpha": alpha,
+            "limit": limit,
+            "num_results": len(retrieved_docs),
+            "results": retrieved_docs
         }
-
-        # Get key properties based on collection type
-        props = obj.properties
-        if "title" in props:
-            doc_info["properties"]["title"] = props.get("title", "")[:100]
-        if "name" in props:
-            doc_info["properties"]["name"] = props.get("name", "")[:100]
-        if "content" in props:
-            doc_info["properties"]["content_preview"] = props.get("content", "")[:300]
-        if "definition" in props:
-            doc_info["properties"]["definition_preview"] = props.get("definition", "")[:300]
-        if "decision" in props:
-            doc_info["properties"]["decision_preview"] = props.get("decision", "")[:300]
-        if "doc_type" in props:
-            doc_info["properties"]["doc_type"] = props.get("doc_type", "")
-        if "status" in props:
-            doc_info["properties"]["status"] = props.get("status", "")
-
-        retrieved_docs.append(doc_info)
-
-    return {
-        "question": question,
-        "collection": collection_name,
-        "alpha": alpha,
-        "limit": limit,
-        "num_results": len(retrieved_docs),
-        "results": retrieved_docs
-    }
+    finally:
+        if close_client and client:
+            client.close()
 
 
-def inspect_all_collections(question: str, alpha: float = None, limit: int = 5):
+def inspect_all_collections(question: str, alpha: float = None, limit: int = 5, client=None):
     """Inspect retrieval across all collections for a question."""
     collections = [
         "Vocabulary",
@@ -117,43 +125,63 @@ def inspect_all_collections(question: str, alpha: float = None, limit: int = 5):
         "PolicyDocument"
     ]
 
-    all_results = {
-        "question": question,
-        "alpha": alpha,
-        "collections": {}
-    }
+    # Use provided client or create one
+    close_client = False
+    if client is None:
+        client = get_client()
+        close_client = True
 
-    for coll in collections:
-        try:
-            result = inspect_retrieval(question, coll, limit=limit, alpha=alpha)
-            all_results["collections"][coll] = result
-        except Exception as e:
-            all_results["collections"][coll] = {"error": str(e)}
+    try:
+        all_results = {
+            "question": question,
+            "alpha": alpha,
+            "collections": {}
+        }
 
-    return all_results
+        for coll in collections:
+            try:
+                result = inspect_retrieval(question, coll, limit=limit, alpha=alpha, client=client)
+                all_results["collections"][coll] = result
+            except Exception as e:
+                all_results["collections"][coll] = {"error": str(e)}
+
+        return all_results
+    finally:
+        if close_client and client:
+            client.close()
 
 
-def compare_alpha_values(question: str, collection_name: str, alphas: list = None):
+def compare_alpha_values(question: str, collection_name: str, alphas: list = None, client=None):
     """Compare retrieval results with different alpha values."""
     if alphas is None:
         alphas = [0.0, 0.3, 0.5, 0.7, 1.0]
 
-    comparison = {
-        "question": question,
-        "collection": collection_name,
-        "alpha_comparison": {}
-    }
+    # Use provided client or create one
+    close_client = False
+    if client is None:
+        client = get_client()
+        close_client = True
 
-    for alpha in alphas:
-        result = inspect_retrieval(question, collection_name, limit=5, alpha=alpha)
-        # Extract just titles/names for comparison
-        doc_ids = []
-        for doc in result.get("results", []):
-            title = doc["properties"].get("title") or doc["properties"].get("name") or str(doc["uuid"])[:8]
-            doc_ids.append(f"{doc['rank']}. {title} (score: {doc['score']:.3f})")
-        comparison["alpha_comparison"][f"alpha_{alpha}"] = doc_ids
+    try:
+        comparison = {
+            "question": question,
+            "collection": collection_name,
+            "alpha_comparison": {}
+        }
 
-    return comparison
+        for alpha in alphas:
+            result = inspect_retrieval(question, collection_name, limit=5, alpha=alpha, client=client)
+            # Extract just titles/names for comparison
+            doc_ids = []
+            for doc in result.get("results", []):
+                title = doc["properties"].get("title") or doc["properties"].get("name") or str(doc["uuid"])[:8]
+                doc_ids.append(f"{doc['rank']}. {title} (score: {doc['score']:.3f})")
+            comparison["alpha_comparison"][f"alpha_{alpha}"] = doc_ids
+
+        return comparison
+    finally:
+        if close_client and client:
+            client.close()
 
 
 def print_inspection_report(results: dict, verbose: bool = False):
@@ -223,25 +251,30 @@ def run_all_tests(verbose: bool = False):
     print("RUNNING ALL DIAGNOSTIC TESTS")
     print("=" * 70)
 
-    for category, question in TEST_QUESTIONS:
-        print(f"\n[{category}] {question}")
-        print("-" * 50)
+    # Use a single shared client for all tests
+    client = get_client()
+    try:
+        for category, question in TEST_QUESTIONS:
+            print(f"\n[{category}] {question}")
+            print("-" * 50)
 
-        results = inspect_all_collections(question, limit=3)
+            results = inspect_all_collections(question, limit=3, client=client)
 
-        for coll_name, coll_results in results["collections"].items():
-            if "error" in coll_results:
-                print(f"  {coll_name}: ERROR - {coll_results['error']}")
-                continue
+            for coll_name, coll_results in results["collections"].items():
+                if "error" in coll_results:
+                    print(f"  {coll_name}: ERROR - {coll_results['error']}")
+                    continue
 
-            num = coll_results.get("num_results", 0)
-            if num > 0:
-                top_doc = coll_results["results"][0]
-                title = top_doc["properties"].get("title") or top_doc["properties"].get("name") or "?"
-                score = top_doc.get("score", 0)
-                print(f"  {coll_name}: {num} docs, top: [{score:.3f}] {title[:40]}")
-            else:
-                print(f"  {coll_name}: 0 docs")
+                num = coll_results.get("num_results", 0)
+                if num > 0:
+                    top_doc = coll_results["results"][0]
+                    title = top_doc["properties"].get("title") or top_doc["properties"].get("name") or "?"
+                    score = top_doc.get("score", 0)
+                    print(f"  {coll_name}: {num} docs, top: [{score:.3f}] {title[:40]}")
+                else:
+                    print(f"  {coll_name}: 0 docs")
+    finally:
+        client.close()
 
 
 def main():
