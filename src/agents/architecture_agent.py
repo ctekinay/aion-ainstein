@@ -13,6 +13,41 @@ from ..config import settings
 logger = logging.getLogger(__name__)
 
 
+def _fetch_all_objects(collection, return_properties: list[str] = None, page_size: int = 100) -> list:
+    """Fetch ALL objects from a collection with pagination.
+
+    Args:
+        collection: Weaviate collection object
+        return_properties: Properties to return
+        page_size: Number of objects per page
+
+    Returns:
+        List of all Weaviate objects
+    """
+    all_objects = []
+    offset = 0
+
+    while True:
+        results = collection.query.fetch_objects(
+            limit=page_size,
+            offset=offset,
+            return_properties=return_properties,
+        )
+
+        if not results.objects:
+            break
+
+        all_objects.extend(results.objects)
+        offset += page_size
+
+        # Safety limit
+        if offset >= 10000:
+            logger.warning(f"_fetch_all_objects hit safety limit at {offset} objects")
+            break
+
+    return all_objects
+
+
 class QueryIntent(str, Enum):
     """Types of query intents for the architecture agent."""
     LIST = "list"           # User wants to see all items (e.g., "What ADRs exist?")
@@ -350,13 +385,14 @@ class ArchitectureAgent(BaseAgent):
         """
         collection = self.client.collections.get(self.collection_name)
 
-        results = collection.query.fetch_objects(
-            limit=100,
+        # Fetch ALL objects with pagination for complete results
+        all_objects = _fetch_all_objects(
+            collection,
             return_properties=["title", "status", "file_path", "context", "decision"],
         )
 
         adrs = []
-        for obj in results.objects:
+        for obj in all_objects:
             props = dict(obj.properties)
             # Skip template files
             title = props.get("title", "")
@@ -375,12 +411,13 @@ class ArchitectureAgent(BaseAgent):
         """
         collection = self.client.collections.get(CollectionManager.PRINCIPLE_COLLECTION)
 
-        results = collection.query.fetch_objects(
-            limit=100,
+        # Fetch ALL objects with pagination for complete results
+        all_objects = _fetch_all_objects(
+            collection,
             return_properties=["title", "file_path", "doc_type"],
         )
 
-        return [dict(obj.properties) for obj in results.objects]
+        return [dict(obj.properties) for obj in all_objects]
 
     async def _handle_listing_query(self, question: str, include_principles: bool) -> AgentResponse:
         """Handle queries that ask for a list of ADRs or principles.
