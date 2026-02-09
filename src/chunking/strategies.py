@@ -218,7 +218,7 @@ class ADRChunkingStrategy(ChunkingStrategy):
         (r"^##?\s*Status\s*$", "status", "Status"),
         (r"^##?\s*Context(?:\s+and\s+Problem\s+Statement)?\s*$", "context", "Context"),
         (r"^##?\s*Decision(?:\s+Outcome)?\s*$", "decision", "Decision"),
-        (r"^##?\s*Consequences\s*$", "consequences", "Consequences"),
+        (r"^#{2,4}\s*Consequences(?:\s+and\s+Trade-offs|\s*&\s*Trade-offs)?\s*$", "consequences", "Consequences"),
         (r"^##?\s*Considered\s+Options?\s*$", "options", "Considered Options"),
         (r"^##?\s*Pros?\s+and\s+Cons?\s*$", "proscons", "Pros and Cons"),
         (r"^##?\s*Links?\s*$", "links", "Links"),

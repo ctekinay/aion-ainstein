@@ -150,7 +150,8 @@ class MarkdownLoader:
         re.MULTILINE | re.DOTALL,
     )
     ADR_CONSEQUENCES_PATTERN = re.compile(
-        r"^##?\s*Consequences\s*\n+(.+?)(?=\n##|\Z)", re.MULTILINE | re.DOTALL
+        r"^#{2,4}\s*Consequences(?:\s+and\s+Trade-offs|\s*&\s*Trade-offs)?\s*\n+(.+?)(?=\n#{2,3}\s|\Z)",
+        re.MULTILINE | re.DOTALL,
     )
 
     def __init__(self, base_path: Path):
