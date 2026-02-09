@@ -986,6 +986,7 @@ IMPORTANT GUIDELINES:
         content_max_chars = truncation.get("content_max_chars", 800)
         content_chars = truncation.get("elysia_content_chars", 500)
         summary_chars = truncation.get("elysia_summary_chars", 300)
+        consequences_max_chars = truncation.get("consequences_max_chars", 4000)
 
         # Capture self.client for closures
         client = self.client
@@ -1103,7 +1104,7 @@ IMPORTANT GUIDELINES:
                     "status": obj.properties.get("status", ""),
                     "context": obj.properties.get("context", "")[:content_chars],
                     "decision": obj.properties.get("decision", "")[:content_chars],
-                    "consequences": obj.properties.get("consequences", "")[:summary_chars],
+                    "consequences": obj.properties.get("consequences", "")[:consequences_max_chars],
                 }
                 for obj in results.objects
             ]
@@ -1781,6 +1782,10 @@ IMPORTANT GUIDELINES:
         # Create structured mode context for gateway integration
         context = create_context_from_skills(question, _skill_registry)
 
+        # Load direct-doc threshold for deterministic single-document routes
+        _truncation = _skill_registry.loader.get_truncation(DEFAULT_SKILL)
+        direct_doc_max_chars = _truncation.get("direct_doc_max_chars", 12000)
+
         # =============================================================================
         # DETERMINISTIC SPECIFIC APPROVAL HANDLING
         # For queries like "Who approved ADR.0025?", parse DAR tables directly
@@ -1821,7 +1826,7 @@ IMPORTANT GUIDELINES:
                 if dar_record:
                     logger.info(f"Deterministic DAR content retrieval: found {doc_type}.{doc_number}D")
                     import json
-                    response_dict = build_dar_content_response(dar_record)
+                    response_dict = build_dar_content_response(dar_record, max_chars=direct_doc_max_chars)
                     if structured_mode:
                         return json.dumps(response_dict, indent=2), []
                     else:
@@ -1844,7 +1849,7 @@ IMPORTANT GUIDELINES:
                 if content_record:
                     logger.info(f"Deterministic content retrieval: found {doc_type}.{doc_number}")
                     import json
-                    response_dict = build_content_response(content_record)
+                    response_dict = build_content_response(content_record, max_chars=direct_doc_max_chars)
                     if structured_mode:
                         return json.dumps(response_dict, indent=2), []
                     else:

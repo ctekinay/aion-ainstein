@@ -38,6 +38,8 @@ DEFAULT_LIMIT_VOCABULARY = 4
 DEFAULT_CONTENT_MAX_CHARS = 800
 DEFAULT_ELYSIA_CONTENT_CHARS = 500
 DEFAULT_ELYSIA_SUMMARY_CHARS = 300
+DEFAULT_CONSEQUENCES_MAX_CHARS = 4000
+DEFAULT_DIRECT_DOC_MAX_CHARS = 12000
 DEFAULT_MAX_CONTEXT_RESULTS = 10
 
 # Backup management
@@ -87,6 +89,8 @@ def get_defaults() -> dict[str, Any]:
             "content_max_chars": DEFAULT_CONTENT_MAX_CHARS,
             "elysia_content_chars": DEFAULT_ELYSIA_CONTENT_CHARS,
             "elysia_summary_chars": DEFAULT_ELYSIA_SUMMARY_CHARS,
+            "consequences_max_chars": DEFAULT_CONSEQUENCES_MAX_CHARS,
+            "direct_doc_max_chars": DEFAULT_DIRECT_DOC_MAX_CHARS,
             "max_context_results": DEFAULT_MAX_CONTEXT_RESULTS,
         },
         "backup": {
@@ -265,7 +269,7 @@ def validate_thresholds(thresholds: dict[str, Any]) -> tuple[bool, list[str]]:
 
     # Validate truncation section
     truncation = thresholds.get("truncation", {})
-    for key in ["content_max_chars", "elysia_content_chars", "elysia_summary_chars", "max_context_results"]:
+    for key in ["content_max_chars", "elysia_content_chars", "elysia_summary_chars", "consequences_max_chars", "direct_doc_max_chars", "max_context_results"]:
         val = truncation.get(key)
         if val is not None:
             if not isinstance(val, int):
@@ -917,6 +921,8 @@ truncation:
   content_max_chars: {content_max_chars}
   elysia_content_chars: {elysia_content_chars}
   elysia_summary_chars: {elysia_summary_chars}
+  consequences_max_chars: {consequences_max_chars}
+  direct_doc_max_chars: {direct_doc_max_chars}
   max_context_results: {max_context_results}
 """
 
@@ -1166,6 +1172,8 @@ def _create_thresholds_content(
         "content_max_chars": DEFAULT_CONTENT_MAX_CHARS,
         "elysia_content_chars": DEFAULT_ELYSIA_CONTENT_CHARS,
         "elysia_summary_chars": DEFAULT_ELYSIA_SUMMARY_CHARS,
+        "consequences_max_chars": DEFAULT_CONSEQUENCES_MAX_CHARS,
+        "direct_doc_max_chars": DEFAULT_DIRECT_DOC_MAX_CHARS,
         "max_context_results": DEFAULT_MAX_CONTEXT_RESULTS,
     }
 
@@ -1184,7 +1192,8 @@ def _create_thresholds_content(
 
         truncation = custom_thresholds.get("truncation", {})
         for key in ["content_max_chars", "elysia_content_chars",
-                    "elysia_summary_chars", "max_context_results"]:
+                    "elysia_summary_chars", "consequences_max_chars",
+                    "direct_doc_max_chars", "max_context_results"]:
             if key in truncation:
                 values[key] = truncation[key]
 

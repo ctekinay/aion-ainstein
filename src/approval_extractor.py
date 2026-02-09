@@ -675,7 +675,9 @@ def parse_adr_content(content: str) -> dict:
 
     lines = content.split('\n')
     current_section = None
+    current_heading_level = 0
     section_content = []
+    in_code_fence = False
 
     # Section header patterns
     section_patterns = {
@@ -685,29 +687,52 @@ def parse_adr_content(content: str) -> dict:
         "status": re.compile(r'^#+\s*status', re.IGNORECASE),
     }
 
-    for line in lines:
-        # Check if this is a new section header
-        new_section = None
-        for section_name, pattern in section_patterns.items():
-            if pattern.match(line):
-                new_section = section_name
-                break
+    heading_pattern = re.compile(r'^(#+)\s+')
 
-        if new_section:
-            # Save previous section content
+    for line in lines:
+        # Track code fences to avoid treating # inside code as headings
+        if line.strip().startswith('```'):
+            in_code_fence = not in_code_fence
             if current_section:
-                sections[current_section] = '\n'.join(section_content).strip()
-            current_section = new_section
-            section_content = []
-        elif current_section:
-            # Check for next header (any level)
-            if line.startswith('#'):
-                # End of current section
-                sections[current_section] = '\n'.join(section_content).strip()
-                current_section = None
-                section_content = []
-            else:
                 section_content.append(line)
+            continue
+
+        if in_code_fence:
+            if current_section:
+                section_content.append(line)
+            continue
+
+        # Check if this line is a heading
+        heading_match = heading_pattern.match(line)
+
+        if heading_match:
+            new_level = len(heading_match.group(1))
+
+            # Check if this heading starts a known section
+            new_section = None
+            for section_name, pattern in section_patterns.items():
+                if pattern.match(line):
+                    new_section = section_name
+                    break
+
+            if new_section:
+                # Save previous section content
+                if current_section:
+                    sections[current_section] = '\n'.join(section_content).strip()
+                current_section = new_section
+                current_heading_level = new_level
+                section_content = []
+            elif current_section:
+                # Only end the section if this heading is at the same or higher level
+                if new_level <= current_heading_level:
+                    sections[current_section] = '\n'.join(section_content).strip()
+                    current_section = None
+                    section_content = []
+                else:
+                    # Subsection — keep capturing
+                    section_content.append(line)
+        elif current_section:
+            section_content.append(line)
 
     # Save last section
     if current_section:
@@ -899,18 +924,24 @@ def get_dar_record_from_weaviate(
         return None
 
 
-def build_content_response(record: ContentRecord) -> dict:
+def build_content_response(record: ContentRecord, max_chars: int = 12000) -> dict:
     """Build a structured response for a content query.
 
     Args:
         record: Parsed ContentRecord
+        max_chars: Maximum characters for full_text field (direct_doc_max_chars)
 
     Returns:
-        Dictionary with schema-compliant response
+        Dictionary with schema-compliant response including summary and full_text
     """
+    full_text = record.content[:max_chars]
+    if len(record.content) > max_chars:
+        full_text += "..."
+
     return {
         "schema_version": "1.0",
         "answer": record.format_summary(),
+        "full_text": full_text,
         "items_shown": 1,
         "items_total": 1,
         "count_qualifier": "exact",
@@ -926,11 +957,12 @@ def build_content_response(record: ContentRecord) -> dict:
     }
 
 
-def build_dar_content_response(record: ContentRecord) -> dict:
+def build_dar_content_response(record: ContentRecord, max_chars: int = 12000) -> dict:
     """Build a structured response for a DAR content query.
 
     Args:
         record: ContentRecord for the DAR
+        max_chars: Maximum characters for full_text field (direct_doc_max_chars)
 
     Returns:
         Dictionary with schema-compliant response
@@ -961,9 +993,14 @@ def build_dar_content_response(record: ContentRecord) -> dict:
             content_preview += "..."
         answer_parts.append(f"\n\n**Content Preview:**\n{content_preview}")
 
+    full_text = record.content[:max_chars]
+    if len(record.content) > max_chars:
+        full_text += "..."
+
     return {
         "schema_version": "1.0",
         "answer": "\n".join(answer_parts),
+        "full_text": full_text,
         "items_shown": 1,
         "items_total": 1,
         "count_qualifier": "exact",

@@ -258,6 +258,8 @@ class SkillLoader:
             "content_max_chars": 800,
             "elysia_content_chars": 500,
             "elysia_summary_chars": 300,
+            "consequences_max_chars": 4000,
+            "direct_doc_max_chars": 12000,
         })
 
     def get_list_query_config(self, skill_name: str) -> dict[str, Any]:
