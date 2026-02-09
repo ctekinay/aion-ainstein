@@ -124,24 +124,6 @@ class MetricsRegistry:
             "SKOSMOS lookups served from cache"
         )
 
-        # SKOSMOS local-first metrics (Phase 5 Gap A)
-        self.register_counter(
-            "skosmos_local_hit_total",
-            "SKOSMOS lookups found in local vocabulary index"
-        )
-        self.register_counter(
-            "skosmos_api_hit_total",
-            "SKOSMOS lookups found via API (local miss)"
-        )
-        self.register_counter(
-            "skosmos_api_timeout_total",
-            "SKOSMOS API calls that timed out"
-        )
-        self.register_counter(
-            "skosmos_abstain_due_to_verification_failure_total",
-            "Times abstention was triggered due to SKOSMOS verification failure"
-        )
-
         # Embedding metrics
         self.register_counter(
             "embedding_request_total",
