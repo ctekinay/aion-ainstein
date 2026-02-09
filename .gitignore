@@ -47,6 +47,8 @@ ENV/
 .pytest_cache/
 .coverage
 htmlcov/
+test_results/
+tests/
 
 # Logs
 *.log
@@ -75,3 +77,6 @@ docs/archive/
 # Resource or info files
 resources.txt
 other/
+
+# Archive
+project_archive/
