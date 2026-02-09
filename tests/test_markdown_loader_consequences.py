@@ -115,6 +115,16 @@ References here.
         consequences = match.group(1).strip()
         assert "References here" not in consequences
 
+    def test_no_unrelated_headings_captured(self):
+        """Must NOT capture unrelated section content (negative control)."""
+        pattern = _get_pattern()
+        match = pattern.search(self.FIXTURE)
+        consequences = match.group(1).strip()
+        assert "Decision Outcome" not in consequences
+        assert "Context and Problem Statement" not in consequences
+        assert "Some context here" not in consequences
+        assert "The decision was made" not in consequences
+
 
 # =============================================================================
 # Level 2 heading: ## Consequences
@@ -205,8 +215,9 @@ Refs.
 # Integration: real ADR.0025
 # =============================================================================
 
+@pytest.mark.repo_data
 class TestRealAdr0025:
-    """Integration test with actual ADR.0025 file."""
+    """Integration test with actual ADR.0025 file (requires repo data)."""
 
     def test_consequences_from_real_file(self, project_root):
         from pathlib import Path
@@ -224,6 +235,7 @@ class TestRealAdr0025:
         assert match is not None, "No consequences match in ADR.0025"
         consequences = match.group(1).strip()
 
+        # Positive: full subsection content captured
         assert len(consequences) > 300, (
             f"Consequences too short ({len(consequences)} chars)"
         )
@@ -232,3 +244,8 @@ class TestRealAdr0025:
         assert "System Operator" in consequences
         assert "Testing" in consequences
         assert "MFFBAS" in consequences
+
+        # Negative: no content from unrelated sections
+        assert "Decision Approval Record List" not in consequences
+        assert "Context and Problem Statement" not in consequences
+        assert "More Information" not in consequences
