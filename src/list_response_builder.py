@@ -140,6 +140,7 @@ def build_list_result_marker(
     collection: str,
     rows: list[dict],
     total_unique: int,
+    fallback_triggered: bool = False,
 ) -> dict:
     """Build a marked list result for detection in response processing.
 
@@ -150,6 +151,9 @@ def build_list_result_marker(
         collection: Collection type ("adr", "principle", etc.)
         rows: Raw document rows from tool
         total_unique: Total unique document count (not chunk count)
+        fallback_triggered: If True, indicates in-memory filtering was used
+            because doc_type metadata was missing. Response will use
+            count_qualifier="at_least" to indicate uncertainty.
 
     Returns:
         Dict with __list_result__ marker for detection
@@ -159,6 +163,7 @@ def build_list_result_marker(
         "collection": collection,
         "rows": rows,
         "total_unique": total_unique,
+        "fallback_triggered": fallback_triggered,
     }
 
 
@@ -180,6 +185,8 @@ def finalize_list_result(result: dict) -> str:
     """Finalize a marked list result into contract-compliant JSON.
 
     Routes list results to appropriate builder based on collection type.
+    When fallback was triggered (doc_type missing), uses count_qualifier="at_least"
+    to indicate that the count may not be complete.
 
     Args:
         result: Marked list result dict
@@ -190,9 +197,14 @@ def finalize_list_result(result: dict) -> str:
     collection = result.get("collection", "").lower()
     rows = result.get("rows", [])
     total_unique = result.get("total_unique", len(rows))
+    fallback_triggered = result.get("fallback_triggered", False)
+
+    # When fallback is triggered, use "at_least" qualifier to indicate uncertainty
+    # Also add a transparency note about the fallback
+    count_qualifier = "at_least" if fallback_triggered else "exact"
 
     if collection == "adr":
-        return build_list_structured_json(
+        json_str = build_list_structured_json(
             item_type_label="ADR",
             items=rows,
             identity_key="adr_number",
@@ -200,11 +212,11 @@ def finalize_list_result(result: dict) -> str:
             number_key="adr_number",
             status_key="status",
             items_total=total_unique,
-            count_qualifier="exact",
+            count_qualifier=count_qualifier,
             source_type="ADR",
         )
     elif collection == "principle":
-        return build_list_structured_json(
+        json_str = build_list_structured_json(
             item_type_label="PCP",
             items=rows,
             identity_key="principle_number",
@@ -212,20 +224,33 @@ def finalize_list_result(result: dict) -> str:
             number_key="principle_number",
             status_key=None,  # Principles don't have status
             items_total=total_unique,
-            count_qualifier="exact",
+            count_qualifier=count_qualifier,
             source_type="Principle",
         )
     else:
         # Generic fallback
-        return build_list_structured_json(
+        json_str = build_list_structured_json(
             item_type_label=collection.upper(),
             items=rows,
             identity_key="file_path",
             title_key="title",
             items_total=total_unique,
-            count_qualifier="exact",
+            count_qualifier=count_qualifier,
             source_type=collection.title(),
         )
+
+    # Add fallback transparency if needed
+    if fallback_triggered:
+        data = json.loads(json_str)
+        existing_statement = data.get("transparency_statement", "")
+        fallback_note = "Note: Document metadata may be incomplete. Please run migration for accurate counts."
+        if existing_statement:
+            data["transparency_statement"] = f"{existing_statement}. {fallback_note}"
+        else:
+            data["transparency_statement"] = fallback_note
+        json_str = json.dumps(data, ensure_ascii=False)
+
+    return json_str
 
 
 def dedupe_by_identity(

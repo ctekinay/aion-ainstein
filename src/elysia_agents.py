@@ -255,6 +255,153 @@ def _get_compiled_list_patterns() -> list:
     return _compiled_list_patterns
 
 
+# =============================================================================
+# Ambiguity-Safe Query Routing (Phase 4 Gap C)
+# =============================================================================
+
+# Patterns that indicate a SPECIFIC document reference (detail query, NOT list)
+# These take priority over list indicators
+_SPECIFIC_DOC_PATTERNS = [
+    r"adr[.\s-]?\d{3,4}",           # ADR.0031, ADR-0031, ADR 31, ADR.31
+    r"pcp[.\s-]?\d{3,4}",           # PCP.0010, PCP-10
+    r"principle[.\s-]?\d{2,4}",     # Principle 10, Principle.0010
+    r"adr\s+number\s+\d+",          # ADR number 31
+    r"decision\s+\d+",              # Decision 31
+    r"about\s+(adr|decision)",      # "about ADR" suggests semantic query
+    r"details?\s+(of|for|about)",   # "details of" suggests specific query
+    r"explain\s+(adr|decision)",    # "explain ADR" is semantic
+    r"what\s+does\s+adr",           # "what does ADR..." is semantic
+    r"tell\s+me\s+about",           # "tell me about..." is semantic
+]
+
+# Compiled patterns cache
+_compiled_specific_patterns: list | None = None
+
+
+def _get_compiled_specific_patterns() -> list:
+    """Get cached compiled patterns for specific document detection."""
+    global _compiled_specific_patterns
+    if _compiled_specific_patterns is None:
+        _compiled_specific_patterns = [re.compile(p, re.IGNORECASE) for p in _SPECIFIC_DOC_PATTERNS]
+    return _compiled_specific_patterns
+
+
+def _is_specific_document_query(question: str) -> bool:
+    """Check if query references a specific document (not a list request).
+
+    Args:
+        question: The user's question
+
+    Returns:
+        True if query references a specific document (ADR.0031, etc.)
+    """
+    for pattern in _get_compiled_specific_patterns():
+        if pattern.search(question):
+            return True
+    return False
+
+
+class ListQueryResult:
+    """Result of list query detection with confidence level."""
+
+    def __init__(self, is_list: bool, confidence: str, reason: str):
+        """
+        Args:
+            is_list: Whether this is a list query
+            confidence: "high", "medium", or "low"
+            reason: Human-readable explanation
+        """
+        self.is_list = is_list
+        self.confidence = confidence
+        self.reason = reason
+
+    def __bool__(self):
+        """Allow using result directly in boolean context for backward compat."""
+        return self.is_list
+
+    def __repr__(self):
+        return f"ListQueryResult(is_list={self.is_list}, confidence='{self.confidence}', reason='{self.reason}')"
+
+
+def detect_list_query(question: str) -> ListQueryResult:
+    """Detect if the query is asking for a comprehensive listing/catalog.
+
+    This is the advanced version with confidence levels and ambiguity handling.
+
+    Decision logic:
+    1. If specific document pattern found -> NOT a list (high confidence)
+    2. If list keyword + no specific doc -> IS a list (high confidence)
+    3. If list pattern matches + no specific doc -> IS a list (medium confidence)
+    4. Otherwise -> NOT a list (high confidence)
+
+    Args:
+        question: The user's question
+
+    Returns:
+        ListQueryResult with is_list, confidence, and reason
+    """
+    question_lower = question.lower()
+
+    # Priority 1: Check for specific document references (takes precedence)
+    if _is_specific_document_query(question):
+        return ListQueryResult(
+            is_list=False,
+            confidence="high",
+            reason="specific_document_reference"
+        )
+
+    list_config = _get_list_query_config()
+    list_indicators = set(list_config.get("list_indicators", []))
+
+    query_words = set(question_lower.split())
+
+    # Priority 2: Check for strong list indicators
+    # "list", "enumerate", "all" are strong indicators
+    strong_list_words = {"list", "enumerate", "all"}
+    if query_words & strong_list_words:
+        # But also check we're not asking about a specific topic
+        # "list ADR details" or "list decisions about TLS" are semantic queries
+        topic_indicators = ["about", "details", "regarding", "concerning", "for"]
+        has_topic = any(indicator in question_lower for indicator in topic_indicators)
+
+        if has_topic:
+            return ListQueryResult(
+                is_list=False,
+                confidence="medium",
+                reason="list_with_topic_filter"
+            )
+
+        return ListQueryResult(
+            is_list=True,
+            confidence="high",
+            reason="strong_list_indicator"
+        )
+
+    # Priority 3: Check other list indicators
+    if query_words & list_indicators:
+        return ListQueryResult(
+            is_list=True,
+            confidence="medium",
+            reason="list_indicator_keyword"
+        )
+
+    # Priority 4: Check regex patterns
+    for pattern in _get_compiled_list_patterns():
+        if pattern.search(question_lower):
+            return ListQueryResult(
+                is_list=True,
+                confidence="medium",
+                reason="list_pattern_match"
+            )
+
+    # Default: Not a list query
+    return ListQueryResult(
+        is_list=False,
+        confidence="high",
+        reason="no_list_indicators"
+    )
+
+
 def is_list_query(question: str) -> bool:
     """Detect if the query is asking for a comprehensive listing/catalog.
 
@@ -262,29 +409,24 @@ def is_list_query(question: str) -> bool:
     For these queries, we should fetch all matching documents and be transparent
     about the total count.
 
+    This function provides backward compatibility while using the enhanced
+    detect_list_query() internally. For new code, prefer detect_list_query()
+    which provides confidence levels.
+
     Args:
         question: The user's question
 
     Returns:
         True if this is a list/catalog query, False for semantic/specific queries
     """
-    list_config = _get_list_query_config()
-    list_indicators = set(list_config.get("list_indicators", []))
+    result = detect_list_query(question)
 
-    question_lower = question.lower()
-    query_words = set(question_lower.split())
+    # Only route to list path for high/medium confidence list queries
+    # Low confidence should go to semantic path for LLM interpretation
+    if result.confidence == "low":
+        return False
 
-    # Check keyword indicators
-    if query_words & list_indicators:
-        return True
-
-    # Check regex patterns like "What ADRs..." or "What principles..."
-    # Uses cached compiled patterns for performance
-    for pattern in _get_compiled_list_patterns():
-        if pattern.search(question_lower):
-            return True
-
-    return False
+    return result.is_list
 
 
 # =============================================================================
@@ -889,10 +1031,12 @@ IMPORTANT GUIDELINES:
             )
 
             # Return marker-based result for deterministic serialization
+            # Pass fallback_triggered to enable transparency in response
             return build_list_result_marker(
                 collection="adr",
                 rows=unique_adrs_sorted,
                 total_unique=len(unique_adrs_sorted),
+                fallback_triggered=fallback_triggered,
             )
 
         registry["list_all_adrs"] = list_all_adrs
@@ -991,10 +1135,12 @@ IMPORTANT GUIDELINES:
             )
 
             # Return marker-based result for deterministic serialization
+            # Pass fallback_triggered to enable transparency in response
             return build_list_result_marker(
                 collection="principle",
                 rows=unique_principles_sorted,
                 total_unique=len(unique_principles_sorted),
+                fallback_triggered=fallback_triggered,
             )
 
         registry["list_all_principles"] = list_all_principles

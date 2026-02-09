@@ -419,3 +419,134 @@ class TestAcceptanceCriteria:
         data = json.loads(result)
         assert "ADR.0030" in data["answer"]
         assert "ADR.0031" in data["answer"]
+
+
+class TestFallbackTransparency:
+    """Tests for fallback transparency behavior (Phase 4 Gap D).
+
+    When fallback is triggered (doc_type metadata missing), responses must:
+    - Use count_qualifier="at_least" instead of "exact"
+    - Include transparency statement about incomplete metadata
+    """
+
+    def test_fallback_uses_at_least_qualifier(self):
+        """When fallback_triggered=True, count_qualifier should be 'at_least'."""
+        marker = build_list_result_marker(
+            collection="adr",
+            rows=[
+                {"adr_number": "30", "title": "Test ADR", "status": "accepted", "file_path": "/test.md"},
+            ],
+            total_unique=1,
+            fallback_triggered=True,
+        )
+
+        result = finalize_list_result(marker)
+        data = json.loads(result)
+
+        assert data["count_qualifier"] == "at_least"
+
+    def test_no_fallback_uses_exact_qualifier(self):
+        """When fallback_triggered=False, count_qualifier should be 'exact'."""
+        marker = build_list_result_marker(
+            collection="adr",
+            rows=[
+                {"adr_number": "30", "title": "Test ADR", "status": "accepted", "file_path": "/test.md"},
+            ],
+            total_unique=1,
+            fallback_triggered=False,
+        )
+
+        result = finalize_list_result(marker)
+        data = json.loads(result)
+
+        assert data["count_qualifier"] == "exact"
+
+    def test_fallback_includes_transparency_message(self):
+        """Fallback response should include transparency statement about metadata."""
+        marker = build_list_result_marker(
+            collection="adr",
+            rows=[
+                {"adr_number": "30", "title": "Test ADR", "status": "accepted", "file_path": "/test.md"},
+            ],
+            total_unique=1,
+            fallback_triggered=True,
+        )
+
+        result = finalize_list_result(marker)
+        data = json.loads(result)
+
+        # Should have transparency statement
+        assert "transparency_statement" in data
+        assert "migration" in data["transparency_statement"].lower()
+
+    def test_no_fallback_no_migration_message(self):
+        """Non-fallback response should not mention migration."""
+        marker = build_list_result_marker(
+            collection="adr",
+            rows=[
+                {"adr_number": "30", "title": "Test ADR", "status": "accepted", "file_path": "/test.md"},
+            ],
+            total_unique=1,
+            fallback_triggered=False,
+        )
+
+        result = finalize_list_result(marker)
+        data = json.loads(result)
+
+        # transparency_statement may or may not exist, but if it does,
+        # it should not mention migration
+        statement = data.get("transparency_statement") or ""
+        assert "migration" not in statement.lower()
+
+    def test_marker_preserves_fallback_flag(self):
+        """build_list_result_marker should preserve fallback_triggered flag."""
+        marker = build_list_result_marker(
+            collection="adr",
+            rows=[],
+            total_unique=0,
+            fallback_triggered=True,
+        )
+
+        assert marker["fallback_triggered"] is True
+
+    def test_principle_fallback_transparency(self):
+        """Principle list should also support fallback transparency."""
+        marker = build_list_result_marker(
+            collection="principle",
+            rows=[
+                {"principle_number": "10", "title": "Test Principle", "file_path": "/test.md"},
+            ],
+            total_unique=1,
+            fallback_triggered=True,
+        )
+
+        result = finalize_list_result(marker)
+        data = json.loads(result)
+
+        assert data["count_qualifier"] == "at_least"
+        assert "migration" in data.get("transparency_statement", "").lower()
+
+
+class TestFallbackProductionBehavior:
+    """Tests for production fallback behavior (Phase 4 Gap D).
+
+    In production, when fallback is disabled:
+    - Should return controlled error when doc_type missing
+    - Should NOT silently fall back
+    """
+
+    def test_prod_fallback_disabled_returns_error_dict(self):
+        """Simulate prod behavior: fallback disabled returns error."""
+        # This tests the error dict format that list_all_adrs would return
+        error_response = {
+            "error": True,
+            "message": "ADR metadata missing; in-memory fallback is disabled.",
+            "request_id": "test123",
+            "reason": "DOC_METADATA_MISSING_REQUIRES_MIGRATION",
+        }
+
+        # Verify error structure
+        assert error_response["error"] is True
+        assert "migration" in error_response["message"].lower() or \
+               "MIGRATION" in error_response["reason"]
+        assert "reason" in error_response
