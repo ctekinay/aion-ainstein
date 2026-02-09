@@ -28,42 +28,12 @@ abstention:
   - me
   - give
 retrieval_limits:
-  adr: 20
+  adr: 50
   principle: 12
   policy: 8
   vocabulary: 8
-  catalog_fetch_limit: 100
 truncation:
   content_max_chars: 800
   elysia_content_chars: 500
   elysia_summary_chars: 300
   max_context_results: 10
-confidence:
-  min_source_confidence: 0.3
-  distance_weight: 0.6
-  keyword_weight: 0.4
-filters:
-  # Document type filtering - controls which doc_types to include/exclude
-  # This is the PROPER way to handle DARs vs actual ADRs/Principles
-  exclude_doc_types:
-    - decision_approval_record  # Exclude DARs by default for "list all" queries
-    - index  # Exclude index files
-    - template  # Exclude template files
-  # Query patterns that SHOULD include DARs (approval/governance queries)
-  include_dar_patterns:
-    - who approved
-    - approval
-    - daci
-    - governance
-    - decision maker
-    - accountability
-    - sign off
-    - signed off
-    - reviewed by
-    - stakeholders
-  # For these queries, DARs should be included in results
-  include_dar_keywords:
-    - approved
-    - approver
-    - governance
-    - decision-maker
