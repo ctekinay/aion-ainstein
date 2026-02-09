@@ -107,6 +107,43 @@ class Settings(BaseSettings):
         description="Deployment environment for conditional behavior"
     )
 
+    # ==========================================================================
+    # SKOSMOS Terminology Verification Configuration
+    # ==========================================================================
+    # Local-first approach: vocabulary is loaded from TTL files at startup.
+    # API is optional, only called when local lookup misses.
+    # ABSTAIN applies only when term cannot be verified (local miss + API miss/fail).
+
+    skosmos_mode: Literal["local", "api", "hybrid"] = Field(
+        default="hybrid",
+        description=(
+            "SKOSMOS verification mode: "
+            "'local' = only use local TTL files, "
+            "'api' = only use SKOSMOS API, "
+            "'hybrid' = local-first with API fallback (recommended)"
+        )
+    )
+    skosmos_data_path: Path = Field(
+        default=Path("./data/esa-skosmos"),
+        description="Path to directory containing SKOSMOS TTL vocabulary files"
+    )
+    skosmos_api_url: Optional[str] = Field(
+        default=None,
+        description="Optional SKOSMOS API URL for hybrid/api mode (e.g., https://skosmos.example.com/rest/v1)"
+    )
+    skosmos_api_timeout_seconds: float = Field(
+        default=5.0,
+        description="Timeout for SKOSMOS API calls in seconds"
+    )
+    skosmos_cache_ttl_seconds: int = Field(
+        default=3600,
+        description="TTL for SKOSMOS API response cache in seconds (1 hour default)"
+    )
+    skosmos_lazy_load: bool = Field(
+        default=False,
+        description="If True, load vocabularies lazily on first lookup. If False, load at startup."
+    )
+
     @property
     def project_root(self) -> Path:
         """Get the project root directory."""

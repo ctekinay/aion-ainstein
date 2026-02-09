@@ -182,6 +182,8 @@ def check_fallback_allowed(
 from .skills import SkillRegistry, get_skill_registry, DEFAULT_SKILL
 from .skills.filters import build_document_filter
 from .weaviate.embeddings import embed_text
+from .weaviate.skosmos_client import get_skosmos_client, TermLookupResult
+from .observability import metrics as obs_metrics
 from .response_schema import (
     ResponseParser,
     ResponseValidator,
@@ -299,6 +301,88 @@ def _is_specific_document_query(question: str) -> bool:
         if pattern.search(question):
             return True
     return False
+
+
+# =============================================================================
+# Terminology Query Detection (Phase 5 Gap A)
+# =============================================================================
+
+# Patterns that indicate a terminology/definition query
+_TERMINOLOGY_PATTERNS = [
+    r"what\s+is\s+(a\s+|an\s+)?(\w+)",          # "what is ACLineSegment"
+    r"define\s+(\w+)",                           # "define CIM"
+    r"definition\s+of\s+(\w+)",                  # "definition of PowerTransformer"
+    r"what\s+does\s+(\w+)\s+mean",               # "what does CIMXML mean"
+    r"explain\s+(the\s+)?term\s+(\w+)",          # "explain the term CIM"
+    r"meaning\s+of\s+(\w+)",                     # "meaning of ACLineSegment"
+]
+
+# Compiled patterns cache
+_compiled_terminology_patterns: list | None = None
+
+
+def _get_compiled_terminology_patterns() -> list:
+    """Get cached compiled patterns for terminology query detection."""
+    global _compiled_terminology_patterns
+    if _compiled_terminology_patterns is None:
+        _compiled_terminology_patterns = [re.compile(p, re.IGNORECASE) for p in _TERMINOLOGY_PATTERNS]
+    return _compiled_terminology_patterns
+
+
+def is_terminology_query(question: str) -> bool:
+    """Check if query is asking about terminology/definitions.
+
+    Args:
+        question: The user's question
+
+    Returns:
+        True if query is asking about technical terms or definitions
+    """
+    question_lower = question.lower()
+
+    # Check explicit terminology patterns
+    for pattern in _get_compiled_terminology_patterns():
+        if pattern.search(question):
+            return True
+
+    # Check for vocabulary keywords
+    vocab_indicators = ["vocab", "vocabulary", "definition", "term", "concept", "meaning", "cim", "iec", "skos"]
+    if any(indicator in question_lower for indicator in vocab_indicators):
+        return True
+
+    return False
+
+
+def verify_terminology_in_query(question: str, request_id: str | None = None) -> tuple[bool, str, list[TermLookupResult]]:
+    """Verify technical terms in a query using SKOSMOS.
+
+    This function extracts technical terms from the query and verifies them
+    against the SKOSMOS vocabulary. If any term cannot be verified and the
+    query is specifically about that term, the system should abstain.
+
+    Args:
+        question: The user's question
+        request_id: Optional request ID for logging
+
+    Returns:
+        Tuple of (should_abstain, abstain_reason, verification_results)
+    """
+    skosmos = get_skosmos_client()
+
+    # Verify all technical terms in the query
+    results = skosmos.verify_query_terms(question, request_id)
+
+    # If this is a terminology query and the main term wasn't found, abstain
+    if is_terminology_query(question):
+        # Find unverified terms that should trigger abstention
+        unverified = [r for r in results if r.should_abstain]
+        if unverified:
+            # Take the first unverified term's reason
+            reason = unverified[0].abstain_reason
+            obs_metrics.increment("rag_abstention_total", labels={"reason": "terminology_not_verified"})
+            return True, reason, results
+
+    return False, "", results
 
 
 class ListQueryResult:
@@ -798,6 +882,47 @@ IMPORTANT GUIDELINES:
             ]
 
         registry["search_vocabulary"] = search_vocabulary
+
+        # SKOSMOS terminology verification tool
+        async def verify_terminology(term: str) -> dict:
+            """Verify a technical term using SKOSMOS vocabulary lookup.
+
+            Use this tool when the user asks:
+            - What is ACLineSegment?
+            - Define CIM
+            - What does PowerTransformer mean?
+            - Explain the term CIMXML
+
+            This tool verifies terms against the local SKOSMOS vocabulary index
+            loaded from IEC/CIM standards (61970, 61968, 62325).
+
+            Args:
+                term: The technical term to verify (e.g., "ACLineSegment", "CIM")
+
+            Returns:
+                Dictionary with verification status and definition if found
+            """
+            skosmos = get_skosmos_client()
+            result = skosmos.lookup_term(term)
+
+            if result.found:
+                return {
+                    "verified": True,
+                    "term": result.term,
+                    "label": result.label,
+                    "definition": result.definition_text,
+                    "vocabulary": result.definition.vocabulary_name if result.definition else "",
+                    "source": result.source,
+                }
+            else:
+                return {
+                    "verified": False,
+                    "term": result.term,
+                    "should_abstain": result.should_abstain,
+                    "reason": result.abstain_reason,
+                }
+
+        registry["verify_terminology"] = verify_terminology
 
         # ADR search tool
         async def search_architecture_decisions(query: str, limit: int = 5) -> list[dict]:
@@ -1424,6 +1549,28 @@ IMPORTANT GUIDELINES:
             if list_result and isinstance(list_result, dict) and list_result.get("error"):
                 error_msg = list_result.get("message", "An error occurred")
                 return error_msg, []
+
+        # TERMINOLOGY VERIFICATION (Phase 5 Gap A)
+        # For terminology queries, verify terms against SKOSMOS before proceeding
+        # This prevents hallucination about undefined technical terms
+        if is_terminology_query(question):
+            request_id = generate_request_id()
+            should_abstain_term, abstain_reason_term, term_results = verify_terminology_in_query(
+                question, request_id
+            )
+
+            if should_abstain_term:
+                logger.info(f"Terminology verification failed, abstaining: {abstain_reason_term}")
+                obs_metrics.increment("skosmos_abstain_due_to_verification_failure_total")
+                return get_abstention_response(abstain_reason_term), []
+
+            # Log successful verifications for observability
+            verified_terms = [r for r in term_results if r.found]
+            if verified_terms:
+                logger.info(
+                    f"Terminology verified: {', '.join(r.term for r in verified_terms)} "
+                    f"(request_id={request_id})"
+                )
 
         # Always specify our collection names to bypass Elysia's metadata collection discovery
         # This avoids gRPC errors from Elysia's internal collections
