@@ -424,8 +424,8 @@ class TestWeaviateIntegration:
     def weaviate_client(self):
         """Get Weaviate client if available."""
         try:
-            from src.weaviate.client import get_client
-            client = get_client()
+            from src.weaviate.client import get_weaviate_client
+            client = get_weaviate_client()
             yield client
             client.close()
         except Exception:
@@ -685,8 +685,8 @@ class TestContentRetrievalIntegration:
     def weaviate_client(self):
         """Get Weaviate client if available."""
         try:
-            from src.weaviate.client import get_client
-            client = get_client()
+            from src.weaviate.client import get_weaviate_client
+            client = get_weaviate_client()
             yield client
             client.close()
         except Exception:
