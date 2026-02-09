@@ -5,6 +5,8 @@ Ensures the ADR_CONSEQUENCES_PATTERN correctly handles:
 - ## Consequences (level 2 headings)
 - #### subsections inside Consequences (must NOT stop at them)
 - Heading variant aliases (e.g., "Consequences and Trade-offs")
+- Heading-level boundary behaviour (stop at ##/###, pass through ####)
+- Real ADR files: ADR.0025 (### with #### subsections), ADR.0028 (## with Pros/Cons)
 """
 
 import re
@@ -249,3 +251,111 @@ class TestRealAdr0025:
         assert "Decision Approval Record List" not in consequences
         assert "Context and Problem Statement" not in consequences
         assert "More Information" not in consequences
+
+
+# =============================================================================
+# Heading-level boundary behaviour (parametrized)
+# =============================================================================
+
+class TestHeadingLevelBoundary:
+    """Pattern must stop at ##/### but pass through #### subsections."""
+
+    @pytest.mark.parametrize(
+        "heading_level, stopper, should_capture_subsection",
+        [
+            # ## Consequences stops at next ## — subsection NOT present
+            ("##", "## Next Section", False),
+            # ### Consequences stops at next ## — subsection NOT present
+            ("###", "## Next Section", False),
+            # ### Consequences stops at next ### — subsection NOT present
+            ("###", "### Next Section", False),
+            # ### Consequences with #### subsection, stops at ## — subsection IS captured
+            ("###", "#### Sub\n\nSub content.\n\n## Next Section", True),
+            # ## Consequences with #### subsection, stops at ## — subsection IS captured
+            ("##", "#### Sub\n\nSub content.\n\n## Next Section", True),
+        ],
+        ids=[
+            "L2-stops-at-L2",
+            "L3-stops-at-L2",
+            "L3-stops-at-L3",
+            "L3-passes-L4-stops-at-L2",
+            "L2-passes-L4-stops-at-L2",
+        ],
+    )
+    def test_boundary(self, heading_level, stopper, should_capture_subsection):
+        content = f"""\
+## Context
+
+Context.
+
+{heading_level} Consequences
+
+Main consequence text.
+
+{stopper}
+
+Leaked content that must not appear.
+"""
+        pattern = _get_pattern()
+        match = pattern.search(content)
+
+        assert match is not None, f"Pattern did not match {heading_level} Consequences"
+        consequences = match.group(1).strip()
+
+        # Always captured: the main body
+        assert "Main consequence text" in consequences
+
+        # Subsection content captured only when #### is involved
+        if should_capture_subsection:
+            assert "Sub content" in consequences
+        else:
+            assert "Sub content" not in consequences
+
+        # Negative: content after the stopper heading must never leak
+        assert "Leaked content" not in consequences
+
+
+# =============================================================================
+# Integration: real ADR.0028 (## Consequences with Pros/Cons)
+# =============================================================================
+
+@pytest.mark.repo_data
+class TestRealAdr0028:
+    """Integration test with actual ADR.0028 file (## Consequences, Pros/Cons)."""
+
+    def test_consequences_from_real_file(self, project_root):
+        adr_path = (
+            project_root / "data" / "esa-main-artifacts" / "doc" / "decisions"
+            / "0028-support-participant-initiated-invalidation-of-operating-constraints.md"
+        )
+        if not adr_path.exists():
+            pytest.skip("ADR.0028 file not found")
+
+        content = adr_path.read_text()
+        pattern = _get_pattern()
+        match = pattern.search(content)
+
+        assert match is not None, "No consequences match in ADR.0028"
+        consequences = match.group(1).strip()
+
+        # Positive: Pros section content
+        assert "Improved error handling" in consequences
+        assert "system safety" in consequences
+        assert "Transparent records" in consequences
+        assert "constraint rejections" in consequences
+
+        # Positive: Cons section content
+        assert "messaging complexity" in consequences
+        assert "rate limiting" in consequences
+
+        # Negative: content from ## Implementation impact (next section)
+        assert "unique identifier" not in consequences
+        assert "idempotent" not in consequences
+
+        # Negative: content from ## More Information
+        assert "ENTSO-R Role Model" not in consequences
+
+        # Negative: content from preceding sections
+        assert "Context and Problem Statement" not in consequences
+        assert "Decision Drivers" not in consequences
+        assert "FSPs submit formal" not in consequences

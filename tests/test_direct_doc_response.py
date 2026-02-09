@@ -6,6 +6,8 @@ Acceptance criteria:
 3. Normal RAG semantic search still uses the smaller truncation values.
 4. parse_adr_content captures subsections (#### headings) within a section.
 5. build_content_response returns both summary and full_text fields.
+6. parse_adr_content handles ## Implications (principle documents) via the
+   consequences key.
 """
 
 from pathlib import Path
@@ -64,11 +66,17 @@ References here.
 """
         result = parse_adr_content(content)
 
+        # Positive: all subsection content captured
         assert "Governance" in result["consequences"]
         assert "Transparency" in result["consequences"]
         assert "Testing" in result["consequences"]
         assert "* System Operator" in result["consequences"]
         assert "* Provide non-production" in result["consequences"]
+
+        # Negative: no content from unrelated sections
+        assert "Some context here" not in result["consequences"]
+        assert "unified interface" not in result["consequences"]
+        assert "References here" not in result["consequences"]
 
     def test_stops_at_same_level_heading(self):
         """Parser should stop capturing when it hits a heading at the same level."""
@@ -97,6 +105,11 @@ Accepted.
         assert result["decision"] == "Decision content here."
         assert result["consequences"] == "Consequence content here."
         assert "Accepted" in result["status"]
+
+        # Negative: no cross-section leakage
+        assert "Decision content" not in result["context"]
+        assert "Context content" not in result["consequences"]
+        assert "Accepted" not in result["consequences"]
 
     def test_ignores_headings_in_code_fences(self):
         """Headings inside code fences should not break section capture."""
@@ -134,7 +147,7 @@ The decision.
         content = adr_path.read_text()
         result = parse_adr_content(content)
 
-        # Must contain subsection titles and bullet content
+        # Positive: subsection titles and bullet content
         assert "Governance" in result["consequences"], "Missing Governance subsection"
         assert "* System Operator" in result["consequences"], "Missing bullet after Governance"
         assert "Testing" in result["consequences"], "Missing Testing subsection"
@@ -142,6 +155,46 @@ The decision.
             f"Consequences too short ({len(result['consequences'])} chars), "
             "subsections likely not captured"
         )
+
+        # Negative: no content from unrelated sections
+        assert "Context and Problem Statement" not in result["consequences"]
+        assert "More Information" not in result["consequences"]
+        assert "Decision Approval Record List" not in result["consequences"]
+
+    def test_real_pcp_0010(self, project_root):
+        """Integration test with PCP.0010 (## Implications → consequences key)."""
+        from src.approval_extractor import parse_adr_content
+
+        pcp_path = (
+            project_root / "data" / "esa-main-artifacts" / "doc" / "principles"
+            / "0010-eventual-consistency-by-design.md"
+        )
+        if not pcp_path.exists():
+            pytest.skip("PCP.0010 file not found")
+
+        content = pcp_path.read_text()
+        result = parse_adr_content(content)
+
+        consequences = result["consequences"]
+
+        # Positive: rich bullet content from ## Implications
+        assert len(consequences) > 500, (
+            f"Implications too short ({len(consequences)} chars)"
+        )
+        assert "context-aware" in consequences
+        assert "Business processes must tolerate" in consequences
+        assert "CQRS" in consequences
+        assert "convergence behavior" in consequences
+        assert "stale or partial data" in consequences
+
+        # Negative: no content from ## Statement
+        assert "a single centralized system" not in consequences
+
+        # Negative: no content from ## Rationale
+        assert "CAP theorem" not in consequences
+
+        # Negative: no content from ## More Information
+        assert "learn.microsoft.com" not in consequences
 
 
 # =============================================================================
