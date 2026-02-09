@@ -184,8 +184,15 @@ from .skills.filters import build_document_filter
 from .approval_extractor import (
     is_specific_approval_query,
     extract_document_number,
+    extract_document_reference,
     get_approval_record_from_weaviate,
     build_approval_response,
+    is_specific_content_query,
+    is_specific_dar_query,
+    get_content_record_from_weaviate,
+    get_dar_record_from_weaviate,
+    build_content_response,
+    build_dar_content_response,
 )
 from .weaviate.embeddings import embed_text
 from .weaviate.skosmos_client import get_skosmos_client, TermLookupResult
@@ -1798,6 +1805,52 @@ IMPORTANT GUIDELINES:
                         return response_dict["answer"], []
                 else:
                     logger.warning(f"No approvers found for {doc_type}.{doc_number}, falling back to LLM path")
+
+        # =============================================================================
+        # DETERMINISTIC SPECIFIC DAR CONTENT HANDLING
+        # For queries like "Tell me about ADR.0025D" - explicit DAR content request
+        # This fetches the DAR document itself (not approval extraction)
+        # =============================================================================
+        if is_specific_dar_query(question):
+            doc_type, doc_number, is_dar = extract_document_reference(question)
+            if doc_type and doc_number:
+                logger.info(f"Specific DAR content query detected: {doc_type}.{doc_number}D")
+                dar_record = get_dar_record_from_weaviate(
+                    self.client, doc_type, doc_number
+                )
+                if dar_record:
+                    logger.info(f"Deterministic DAR content retrieval: found {doc_type}.{doc_number}D")
+                    import json
+                    response_dict = build_dar_content_response(dar_record)
+                    if structured_mode:
+                        return json.dumps(response_dict, indent=2), []
+                    else:
+                        return response_dict["answer"], []
+                else:
+                    logger.warning(f"DAR not found for {doc_type}.{doc_number}D, falling back to LLM path")
+
+        # =============================================================================
+        # DETERMINISTIC SPECIFIC CONTENT HANDLING (NON-APPROVAL)
+        # For queries like "Tell me about ADR.0025" - fetch content doc, NOT DAR
+        # This prevents DAR from outranking the actual decision record in semantic search
+        # =============================================================================
+        if is_specific_content_query(question):
+            doc_type, doc_number, is_dar = extract_document_reference(question)
+            if doc_type and doc_number and not is_dar:
+                logger.info(f"Specific content query detected: {doc_type}.{doc_number}")
+                content_record = get_content_record_from_weaviate(
+                    self.client, doc_type, doc_number
+                )
+                if content_record:
+                    logger.info(f"Deterministic content retrieval: found {doc_type}.{doc_number}")
+                    import json
+                    response_dict = build_content_response(content_record)
+                    if structured_mode:
+                        return json.dumps(response_dict, indent=2), []
+                    else:
+                        return response_dict["answer"], []
+                else:
+                    logger.warning(f"Content not found for {doc_type}.{doc_number}, falling back to LLM path")
 
         # DETERMINISTIC LIST HANDLING
         # For list queries, call list tools directly and use deterministic serialization

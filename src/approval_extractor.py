@@ -495,3 +495,484 @@ def build_approval_response(record: ApprovalRecord) -> dict:
         ],
         "approval_record": record.to_dict(),
     }
+
+
+# =============================================================================
+# Specific Document Content Retrieval (Non-Approval)
+# =============================================================================
+
+# Pattern to detect DAR-specific references (ADR.0025D or PCP.0010D)
+DAR_REFERENCE_PATTERN = re.compile(r'(adr|pcp|principle)[.\s-]?(\d{1,4})[dD]', re.IGNORECASE)
+
+
+@dataclass
+class ContentRecord:
+    """Content record for a document (ADR or Principle content, not DAR)."""
+    document_id: str  # e.g., "ADR.0025" or "PCP.0010"
+    document_title: str
+    file_path: str
+    content: str
+    context: str = ""
+    decision: str = ""
+    consequences: str = ""
+    status: str = ""
+
+    def to_dict(self) -> dict:
+        return {
+            "document_id": self.document_id,
+            "document_title": self.document_title,
+            "file_path": self.file_path,
+            "content": self.content,
+            "context": self.context,
+            "decision": self.decision,
+            "consequences": self.consequences,
+            "status": self.status,
+        }
+
+    def format_summary(self) -> str:
+        """Format content as a human-readable summary."""
+        lines = [f"**{self.document_id}**: {self.document_title}"]
+
+        if self.status:
+            lines.append(f"\n**Status:** {self.status}")
+
+        if self.context:
+            lines.append(f"\n**Context:**\n{self.context}")
+
+        if self.decision:
+            lines.append(f"\n**Decision:**\n{self.decision}")
+
+        if self.consequences:
+            lines.append(f"\n**Consequences:**\n{self.consequences}")
+
+        # If no structured sections, use content as summary
+        if not (self.context or self.decision or self.consequences):
+            # Truncate content for summary (first 1000 chars)
+            summary = self.content[:1000]
+            if len(self.content) > 1000:
+                summary += "..."
+            lines.append(f"\n{summary}")
+
+        return "\n".join(lines)
+
+
+def extract_document_reference(question: str) -> tuple[Optional[str], Optional[str], bool]:
+    """Extract document type, number, and whether it's a DAR reference.
+
+    Args:
+        question: User's question (e.g., "Tell me about ADR.0025D")
+
+    Returns:
+        Tuple of (doc_type, doc_number, is_dar_reference) or (None, None, False) if not found
+        doc_type is "adr" or "principle"
+        is_dar_reference is True if query explicitly asks for DAR (e.g., ADR.0025D)
+    """
+    question_lower = question.lower()
+
+    # Check for explicit DAR reference first (ADR.0025D, PCP.0010D)
+    dar_match = DAR_REFERENCE_PATTERN.search(question_lower)
+    if dar_match:
+        doc_prefix = dar_match.group(1).lower()
+        number = dar_match.group(2).zfill(4)
+        if doc_prefix == 'adr':
+            return ('adr', number, True)
+        else:  # pcp or principle
+            return ('principle', number, True)
+
+    # Otherwise check for regular document reference
+    doc_type, doc_number = extract_document_number(question)
+    return (doc_type, doc_number, False)
+
+
+def is_specific_content_query(question: str) -> bool:
+    """Check if this is a content query for a specific document (not approval).
+
+    This detects queries like:
+    - "Tell me about ADR.0025"
+    - "What does ADR 25 say?"
+    - "Explain ADR.0025"
+    - "Details of PCP.0010"
+
+    But NOT:
+    - "Who approved ADR.0025?" (approval query)
+    - "List all ADRs" (list query)
+    - "Tell me about ADR.0025D" (explicit DAR query)
+
+    Args:
+        question: User's question
+
+    Returns:
+        True if this is a content query for a specific document
+    """
+    question_lower = question.lower()
+
+    # Exclude approval queries
+    if is_specific_approval_query(question):
+        return False
+
+    # Check for explicit DAR reference (e.g., ADR.0025D) - those go to DAR path
+    dar_match = DAR_REFERENCE_PATTERN.search(question_lower)
+    if dar_match:
+        return False
+
+    # Must reference a specific document
+    doc_type, doc_number = extract_document_number(question)
+    if doc_type is None or doc_number is None:
+        return False
+
+    # Must have content/detail intent (not just listing)
+    content_indicators = [
+        'about', 'tell me', 'explain', 'what is', 'what does',
+        'details', 'describe', 'show me', 'what are the',
+        'context', 'decision', 'consequences', 'summary',
+    ]
+    has_content_intent = any(ind in question_lower for ind in content_indicators)
+
+    # Also match patterns like "ADR.0025?" or just "ADR 25" as detail queries
+    # (simple reference without list keywords)
+    list_keywords = ['list', 'all', 'how many', 'enumerate', 'exist']
+    has_list_intent = any(kw in question_lower for kw in list_keywords)
+
+    return has_content_intent or not has_list_intent
+
+
+def is_specific_dar_query(question: str) -> bool:
+    """Check if this is an explicit DAR (Decision Approval Record) query.
+
+    This detects queries that explicitly reference the DAR document:
+    - "Tell me about ADR.0025D"
+    - "What's in PCP.0010D?"
+    - "Show me ADR 25D"
+
+    Args:
+        question: User's question
+
+    Returns:
+        True if this explicitly asks for a DAR document
+    """
+    question_lower = question.lower()
+
+    # Check for explicit DAR reference (e.g., ADR.0025D)
+    dar_match = DAR_REFERENCE_PATTERN.search(question_lower)
+    return dar_match is not None
+
+
+def parse_adr_content(content: str) -> dict:
+    """Parse ADR content to extract structured sections.
+
+    Args:
+        content: Full markdown content of the ADR file
+
+    Returns:
+        Dictionary with context, decision, consequences, status
+    """
+    sections = {
+        "context": "",
+        "decision": "",
+        "consequences": "",
+        "status": "",
+    }
+
+    lines = content.split('\n')
+    current_section = None
+    section_content = []
+
+    # Section header patterns
+    section_patterns = {
+        "context": re.compile(r'^#+\s*(context|background)', re.IGNORECASE),
+        "decision": re.compile(r'^#+\s*(decision|the decision)', re.IGNORECASE),
+        "consequences": re.compile(r'^#+\s*(consequences|implications)', re.IGNORECASE),
+        "status": re.compile(r'^#+\s*status', re.IGNORECASE),
+    }
+
+    for line in lines:
+        # Check if this is a new section header
+        new_section = None
+        for section_name, pattern in section_patterns.items():
+            if pattern.match(line):
+                new_section = section_name
+                break
+
+        if new_section:
+            # Save previous section content
+            if current_section:
+                sections[current_section] = '\n'.join(section_content).strip()
+            current_section = new_section
+            section_content = []
+        elif current_section:
+            # Check for next header (any level)
+            if line.startswith('#'):
+                # End of current section
+                sections[current_section] = '\n'.join(section_content).strip()
+                current_section = None
+                section_content = []
+            else:
+                section_content.append(line)
+
+    # Save last section
+    if current_section:
+        sections[current_section] = '\n'.join(section_content).strip()
+
+    return sections
+
+
+def get_content_record_from_weaviate(
+    client,
+    doc_type: str,
+    doc_number: str,
+) -> Optional[ContentRecord]:
+    """Fetch a document's content (not DAR) from Weaviate.
+
+    This explicitly excludes decision_approval_record documents to ensure
+    we get the actual content document.
+
+    Args:
+        client: Weaviate client
+        doc_type: "adr" or "principle"
+        doc_number: 4-digit document number
+
+    Returns:
+        ContentRecord or None if not found
+    """
+    from weaviate.classes.query import Filter
+
+    # Determine collection
+    if doc_type == "adr":
+        collection_name = "ArchitecturalDecision"
+        id_field = "adr_number"
+        doc_id = f"ADR.{doc_number}"
+    else:
+        collection_name = "Principle"
+        id_field = "principle_number"
+        doc_id = f"PCP.{doc_number}"
+
+    try:
+        collection = client.collections.get(collection_name)
+
+        # Build filter: number matches AND doc_type is content (not DAR)
+        # Explicitly exclude decision_approval_record
+        number_filter = Filter.by_property(id_field).equal(doc_number)
+        content_type_filter = (
+            Filter.by_property("doc_type").equal("content") |
+            Filter.by_property("doc_type").equal("adr")  # Legacy type
+        )
+        exclude_dar_filter = Filter.by_property("doc_type").not_equal("decision_approval_record")
+        exclude_dar_approval = Filter.by_property("doc_type").not_equal("adr_approval")
+
+        combined_filter = number_filter & exclude_dar_filter & exclude_dar_approval
+
+        # Fetch the content document
+        results = collection.query.fetch_objects(
+            filters=combined_filter,
+            limit=10,  # Get a few to find the right one
+            return_properties=["title", "content", "full_text", "file_path", "doc_type", id_field, "status"],
+        )
+
+        if not results.objects:
+            logger.warning(f"No content document found for {doc_id}")
+            return None
+
+        # Find the best match - prefer content doc over DAR
+        best_obj = None
+        for obj in results.objects:
+            file_path = obj.properties.get("file_path", "").lower()
+            doc_type_prop = obj.properties.get("doc_type", "")
+
+            # Skip DAR files (pattern NNND-*.md)
+            if re.search(r'/\d{4}[dD]-', file_path):
+                continue
+
+            # Skip if doc_type is approval-related
+            if doc_type_prop in ["decision_approval_record", "adr_approval"]:
+                continue
+
+            # Prefer files matching NNNN-*.md pattern (content files)
+            if re.search(rf'/{doc_number}-', file_path):
+                best_obj = obj
+                break
+
+            # Keep as fallback
+            if best_obj is None:
+                best_obj = obj
+
+        if not best_obj:
+            logger.warning(f"Content document found for {doc_id} but all are DARs")
+            return None
+
+        content = best_obj.properties.get("content") or best_obj.properties.get("full_text") or ""
+        title = best_obj.properties.get("title", "")
+        file_path = best_obj.properties.get("file_path", "")
+        status = best_obj.properties.get("status", "")
+
+        if not content:
+            logger.warning(f"Content document found for {doc_id} but no content")
+            return None
+
+        # Parse structured sections
+        parsed = parse_adr_content(content)
+
+        return ContentRecord(
+            document_id=doc_id,
+            document_title=title,
+            file_path=file_path,
+            content=content,
+            context=parsed.get("context", ""),
+            decision=parsed.get("decision", ""),
+            consequences=parsed.get("consequences", ""),
+            status=status or parsed.get("status", ""),
+        )
+
+    except Exception as e:
+        logger.error(f"Error fetching content for {doc_id}: {e}")
+        return None
+
+
+def get_dar_record_from_weaviate(
+    client,
+    doc_type: str,
+    doc_number: str,
+) -> Optional[ContentRecord]:
+    """Fetch a DAR document explicitly from Weaviate.
+
+    This is for queries that explicitly ask for the DAR (e.g., ADR.0025D).
+
+    Args:
+        client: Weaviate client
+        doc_type: "adr" or "principle"
+        doc_number: 4-digit document number
+
+    Returns:
+        ContentRecord for the DAR or None if not found
+    """
+    from weaviate.classes.query import Filter
+
+    # Determine collection
+    if doc_type == "adr":
+        collection_name = "ArchitecturalDecision"
+        id_field = "adr_number"
+        doc_id = f"ADR.{doc_number}D"
+    else:
+        collection_name = "Principle"
+        id_field = "principle_number"
+        doc_id = f"PCP.{doc_number}D"
+
+    try:
+        collection = client.collections.get(collection_name)
+
+        # Build filter: number matches AND doc_type is approval
+        number_filter = Filter.by_property(id_field).equal(doc_number)
+        dar_type_filter = (
+            Filter.by_property("doc_type").equal("decision_approval_record") |
+            Filter.by_property("doc_type").equal("adr_approval")
+        )
+        combined_filter = number_filter & dar_type_filter
+
+        # Fetch the DAR
+        results = collection.query.fetch_objects(
+            filters=combined_filter,
+            limit=1,
+            return_properties=["title", "content", "full_text", "file_path", "doc_type", id_field],
+        )
+
+        if not results.objects:
+            logger.warning(f"No DAR found for {doc_id}")
+            return None
+
+        obj = results.objects[0]
+        content = obj.properties.get("content") or obj.properties.get("full_text") or ""
+        title = obj.properties.get("title", "")
+        file_path = obj.properties.get("file_path", "")
+
+        if not content:
+            logger.warning(f"DAR found for {doc_id} but no content")
+            return None
+
+        return ContentRecord(
+            document_id=doc_id,
+            document_title=title,
+            file_path=file_path,
+            content=content,
+        )
+
+    except Exception as e:
+        logger.error(f"Error fetching DAR for {doc_id}: {e}")
+        return None
+
+
+def build_content_response(record: ContentRecord) -> dict:
+    """Build a structured response for a content query.
+
+    Args:
+        record: Parsed ContentRecord
+
+    Returns:
+        Dictionary with schema-compliant response
+    """
+    return {
+        "schema_version": "1.0",
+        "answer": record.format_summary(),
+        "items_shown": 1,
+        "items_total": 1,
+        "count_qualifier": "exact",
+        "transparency_statement": f"Retrieved from {record.file_path}",
+        "sources": [
+            {
+                "title": record.document_title or record.document_id,
+                "type": "Architectural Decision Record" if "ADR" in record.document_id else "Principle",
+                "path": record.file_path,
+            }
+        ],
+        "content_record": record.to_dict(),
+    }
+
+
+def build_dar_content_response(record: ContentRecord) -> dict:
+    """Build a structured response for a DAR content query.
+
+    Args:
+        record: ContentRecord for the DAR
+
+    Returns:
+        Dictionary with schema-compliant response
+    """
+    # Parse DAR to get approval info
+    dar_record = parse_dar_content(record.content, record.document_id, record.document_title, record.file_path)
+
+    answer_parts = [f"**{record.document_id}** (Decision Approval Record)"]
+
+    if record.document_title:
+        answer_parts[0] = f"**{record.document_id}**: {record.document_title}"
+
+    # Add approval summary if available
+    if dar_record.sections:
+        for section in dar_record.sections:
+            if section.decision_date:
+                answer_parts.append(f"\n**Decision Date:** {section.decision_date}")
+            if section.decision:
+                answer_parts.append(f"\n**Decision:** {section.decision}")
+            if section.approvers:
+                approver_names = [a.name for a in section.approvers]
+                answer_parts.append(f"\n**Approvers:** {', '.join(approver_names)}")
+
+    # Add content summary
+    if record.content:
+        content_preview = record.content[:500]
+        if len(record.content) > 500:
+            content_preview += "..."
+        answer_parts.append(f"\n\n**Content Preview:**\n{content_preview}")
+
+    return {
+        "schema_version": "1.0",
+        "answer": "\n".join(answer_parts),
+        "items_shown": 1,
+        "items_total": 1,
+        "count_qualifier": "exact",
+        "transparency_statement": f"Retrieved from {record.file_path}",
+        "sources": [
+            {
+                "title": record.document_title or record.document_id,
+                "type": "Decision Approval Record",
+                "path": record.file_path,
+            }
+        ],
+    }
