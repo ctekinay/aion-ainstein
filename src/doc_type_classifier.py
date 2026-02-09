@@ -1,11 +1,36 @@
 """Document type classification for ADRs and principles.
 
 Canonical taxonomy for doc_type:
-- adr: Actual Architectural Decision Records
+- adr: Actual Architectural Decision Records (NNNN-*.md)
 - adr_approval: Decision Approval Records (DACI approval tracking, NNNND-*.md)
+- principle: Actual Architecture Principles (NNNN-*.md)
+- principle_approval: Principle Approval Records (NNNND-*.md)
 - template: Template files with placeholders
-- index: Index/list files (index.md, readme.md, overview.md)
+- index: Index/list files INSIDE decisions/ and principles/ directories (index.md, readme.md)
+- registry: Top-level doc registry (esa_doc_registry.md) - human-authored, canonical
 - unknown: Unclassified documents
+
+=============================================================================
+DETERMINISTIC INGESTION RULES
+=============================================================================
+
+ALWAYS SKIP at ingestion (doc_type in SKIP_DOC_TYPES_AT_INGESTION):
+  - template: adr-template.md, adr-decision-template.md, principle-template.md, etc.
+  - index: any index.md inside .../decisions/ or .../principles/
+
+ALWAYS INGEST (embedded in vector store):
+  - adr: Content files matching NNNN-*.md (e.g., 0025-use-oauth.md)
+  - adr_approval: DAR files matching NNNND-*.md (e.g., 0025D-approval.md)
+  - principle: Content files matching NNNN-*.md (e.g., 0010-eventual-consistency.md)
+  - principle_approval: Principle DAR files matching NNNND-*.md
+  - registry: esa_doc_registry.md (doc_type="registry", intentionally ingested for
+    reference but can be excluded at query time)
+
+REGISTRY HANDLING:
+  - The file esa_doc_registry.md is the renamed /doc/index.md
+  - It is NOT matched as "index" (to avoid skip logic)
+  - It CAN be ingested (doc_type="registry") for system reference
+  - Query-time filtering can exclude it if not relevant to user queries
 
 This module provides deterministic classification based on:
 1. Filename patterns (most reliable)
@@ -29,6 +54,7 @@ class DocType:
     ADR_APPROVAL = "adr_approval"
     TEMPLATE = "template"
     INDEX = "index"
+    REGISTRY = "registry"  # Top-level doc registry (esa_doc_registry.md)
     UNKNOWN = "unknown"
 
     # For principles (using same taxonomy pattern)
@@ -38,7 +64,7 @@ class DocType:
     @classmethod
     def all_types(cls) -> list[str]:
         """Return all valid document types."""
-        return [cls.ADR, cls.ADR_APPROVAL, cls.TEMPLATE, cls.INDEX, cls.UNKNOWN]
+        return [cls.ADR, cls.ADR_APPROVAL, cls.TEMPLATE, cls.INDEX, cls.REGISTRY, cls.UNKNOWN]
 
     @classmethod
     def content_types(cls) -> list[str]:
@@ -46,9 +72,29 @@ class DocType:
         return [cls.ADR, cls.PRINCIPLE]
 
     @classmethod
+    def skip_at_ingestion_types(cls) -> list[str]:
+        """Return types that should be skipped at ingestion time.
+
+        These are NOT embedded in the vector store:
+        - template: Placeholder files, not actual content
+        - index: Directory indexes inside decisions/ and principles/
+
+        Note: registry (esa_doc_registry.md) is NOT skipped - it's the canonical
+        doc registry and may be intentionally ingested for reference.
+        """
+        return [cls.TEMPLATE, cls.INDEX]
+
+    @classmethod
     def excluded_types(cls) -> list[str]:
-        """Return types typically excluded from list queries."""
-        return [cls.ADR_APPROVAL, cls.TEMPLATE, cls.INDEX]
+        """Return types typically excluded from list queries at query time.
+
+        These may be ingested but excluded from most user queries:
+        - adr_approval: DARs are only shown for approval-related queries
+        - template: Should not be in store, but filter as fallback
+        - index: Should not be in store, but filter as fallback
+        - registry: May be excluded from content queries
+        """
+        return [cls.ADR_APPROVAL, cls.TEMPLATE, cls.INDEX, cls.REGISTRY]
 
 
 # =============================================================================
@@ -58,8 +104,14 @@ class DocType:
 # Decision Approval Record pattern: NNNND-*.md (e.g., 0021D-approval.md)
 DAR_FILENAME_PATTERN = re.compile(r"^\d{4}[dD]-", re.IGNORECASE)
 
-# Index file patterns
+# Index file patterns (SKIPPED at ingestion - these are directory-level indexes)
+# Note: These are index.md files INSIDE decisions/ and principles/ directories
 INDEX_FILENAMES = frozenset(["index.md", "readme.md", "overview.md", "_index.md"])
+
+# Registry file patterns (NOT skipped - this is the canonical doc registry)
+# The esa_doc_registry.md is the renamed top-level /doc/index.md
+# It's classified as "registry" not "index" to avoid skip logic
+REGISTRY_FILENAMES = frozenset(["esa_doc_registry.md", "esa-doc-registry.md"])
 
 # Template indicators in content
 TEMPLATE_CONTENT_INDICATORS = [
@@ -135,7 +187,15 @@ def classify_adr_document(
             reason=f"Filename matches DAR pattern: {file_name}"
         )
 
-    # 2. Check for index files
+    # 2. Check for registry files (NOT skipped - canonical doc registry)
+    if file_name in REGISTRY_FILENAMES:
+        return ClassificationResult(
+            doc_type=DocType.REGISTRY,
+            confidence="filename",
+            reason=f"Filename is registry file: {file_name}"
+        )
+
+    # 3. Check for index files (SKIPPED at ingestion)
     if file_name in INDEX_FILENAMES:
         return ClassificationResult(
             doc_type=DocType.INDEX,
@@ -143,7 +203,7 @@ def classify_adr_document(
             reason=f"Filename is index file: {file_name}"
         )
 
-    # 3. Check for template files (filename)
+    # 4. Check for template files (filename)
     if any(ind in file_name for ind in TEMPLATE_FILENAME_INDICATORS):
         return ClassificationResult(
             doc_type=DocType.TEMPLATE,
@@ -151,7 +211,7 @@ def classify_adr_document(
             reason=f"Filename contains template indicator: {file_name}"
         )
 
-    # 4. Check for template in title
+    # 5. Check for template in title
     if "template" in title_lower:
         return ClassificationResult(
             doc_type=DocType.TEMPLATE,
@@ -159,7 +219,7 @@ def classify_adr_document(
             reason=f"Title contains 'template': {title}"
         )
 
-    # 5. Check for index-like titles
+    # 6. Check for index-like titles
     if any(ind in title_lower for ind in INDEX_TITLE_INDICATORS):
         return ClassificationResult(
             doc_type=DocType.INDEX,
@@ -167,7 +227,7 @@ def classify_adr_document(
             reason=f"Title indicates index document: {title}"
         )
 
-    # 6. Check for template content indicators
+    # 7. Check for template content indicators
     if content_lower:
         for indicator in TEMPLATE_CONTENT_INDICATORS:
             if indicator in content_lower:
@@ -177,7 +237,7 @@ def classify_adr_document(
                     reason=f"Content contains template indicator: {indicator}"
                 )
 
-    # 7. Default: actual ADR content
+    # 8. Default: actual ADR content
     return ClassificationResult(
         doc_type=DocType.ADR,
         confidence="default",
@@ -218,7 +278,15 @@ def classify_principle_document(
             reason=f"Filename matches DAR pattern: {file_name}"
         )
 
-    # 2. Check for index files
+    # 2. Check for registry files (NOT skipped - canonical doc registry)
+    if file_name in REGISTRY_FILENAMES:
+        return ClassificationResult(
+            doc_type=DocType.REGISTRY,
+            confidence="filename",
+            reason=f"Filename is registry file: {file_name}"
+        )
+
+    # 3. Check for index files (SKIPPED at ingestion)
     if file_name in INDEX_FILENAMES:
         return ClassificationResult(
             doc_type=DocType.INDEX,
@@ -226,7 +294,7 @@ def classify_principle_document(
             reason=f"Filename is index file: {file_name}"
         )
 
-    # 3. Check for template files (filename)
+    # 4. Check for template files (filename)
     if any(ind in file_name for ind in TEMPLATE_FILENAME_INDICATORS):
         return ClassificationResult(
             doc_type=DocType.TEMPLATE,
@@ -234,7 +302,7 @@ def classify_principle_document(
             reason=f"Filename contains template indicator: {file_name}"
         )
 
-    # 4. Check for template in title
+    # 5. Check for template in title
     if "template" in title_lower:
         return ClassificationResult(
             doc_type=DocType.TEMPLATE,
@@ -242,7 +310,7 @@ def classify_principle_document(
             reason=f"Title contains 'template': {title}"
         )
 
-    # 5. Check for template content indicators
+    # 6. Check for template content indicators
     if content_lower:
         for indicator in TEMPLATE_CONTENT_INDICATORS:
             if indicator in content_lower:
@@ -252,7 +320,7 @@ def classify_principle_document(
                     reason=f"Content contains template indicator: {indicator}"
                 )
 
-    # 6. Default: actual principle content
+    # 7. Default: actual principle content
     return ClassificationResult(
         doc_type=DocType.PRINCIPLE,
         confidence="default",
@@ -313,6 +381,7 @@ def doc_type_from_legacy(legacy_type: str) -> str:
         "decision_approval_record": DocType.ADR_APPROVAL,
         "template": DocType.TEMPLATE,
         "index": DocType.INDEX,
+        "registry": DocType.REGISTRY,
         # Pass-through for already canonical values
         "adr": DocType.ADR,
         "adr_approval": DocType.ADR_APPROVAL,

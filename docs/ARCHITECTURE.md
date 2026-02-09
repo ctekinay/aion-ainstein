@@ -28,18 +28,32 @@ This layer contains **Alliander's organizational knowledge** that users query th
 
 ### Document Types
 
-Within the decisions folder, files are classified by type:
+Within the doc folder, files are classified by type:
 
 | File Pattern | Document Type | Embedded? | Purpose |
 |--------------|---------------|-----------|---------|
-| `0010-name.md` | ADR (Architecture Decision Record) | Yes | Technical decisions |
-| `0010D-name.md` | DAR (Decision Approval Record) | Yes | DACI approval history |
+| `NNNN-name.md` | ADR/Principle Content | Yes | Technical decisions and principles |
+| `NNNND-name.md` | DAR (Decision Approval Record) | Yes | DACI approval history |
 | `adr-template.md` | Template | **No** (skipped) | Document templates |
-| `index.md` | Index | **No** (skipped) | Registry/metadata |
+| `index.md` | Index | **No** (skipped) | Directory-level metadata (in decisions/, principles/) |
+| `esa_doc_registry.md` | Registry | Yes (optional) | Top-level canonical doc registry |
 
-**Note:** Templates and index files are skipped at ingestion time to save embedding tokens and storage. They were previously embedded and filtered at query time, but skipping at ingestion is more efficient.
+#### Deterministic Ingestion Rules
 
-**Note:** The `index.md` file is still **parsed** for ownership metadata (team, department, organization) even though it's not embedded. This enrichment happens via a separate code path in `index_metadata_loader.py`.
+**Always SKIP** at ingestion (not embedded):
+- `index.md` files inside `.../decisions/` and `.../principles/`
+- Template files: `adr-template.md`, `principle-template.md`, etc.
+
+**Always INGEST** (embedded in vector store):
+- ADR content: `NNNN-*.md` (e.g., `0025-use-oauth.md`)
+- ADR DAR: `NNNND-*.md` (e.g., `0025D-approval.md`)
+- Principle content: `NNNN-*.md` (e.g., `0010-eventual-consistency.md`)
+- Principle DAR: `NNNND-*.md`
+- Registry: `esa_doc_registry.md` (doc_type="registry", can be excluded at query time)
+
+**Note:** The `esa_doc_registry.md` file (formerly `/doc/index.md`) is the canonical, human-authored documentation registry. It was renamed to avoid accidental treatment as a directory index artifact and to prevent collisions with skip logic.
+
+**Note:** Directory-level `index.md` files are still **parsed** for ownership metadata (team, department, organization) even though they're not embedded. This enrichment happens via `index_metadata_loader.py`.
 
 ### DAR Handling
 

@@ -1222,11 +1222,15 @@ IMPORTANT GUIDELINES:
                 file_name = file_path.lower() if file_path else ""
 
                 # In-memory filtering when Weaviate filter couldn't be used
-                # Skip: templates, index files, and decision approval records (DARs)
+                # Skip: templates, index files, registry files, and decision approval records (DARs)
                 if fallback_triggered or not doc_type:
                     if "template" in title.lower() or "template" in file_name:
                         continue
+                    # Skip index.md (directory indexes) and esa_doc_registry.md (top-level registry)
+                    # These are metadata/catalog files, not individual ADRs
                     if file_name.endswith("index.md") or file_name.endswith("readme.md"):
+                        continue
+                    if file_name.endswith("esa_doc_registry.md") or file_name.endswith("esa-doc-registry.md"):
                         continue
                     # DAR files match pattern: NNNND-*.md (e.g., 0021D-approval.md)
                     if re.match(r".*\d{4}d-.*\.md$", file_name):
@@ -1332,10 +1336,15 @@ IMPORTANT GUIDELINES:
                 file_name = file_path.lower() if file_path else ""
 
                 # In-memory filtering when Weaviate filter couldn't be used
+                # Skip: templates, index files, and registry files
                 if fallback_triggered or not doc_type:
                     if "template" in title.lower() or "template" in file_name:
                         continue
+                    # Skip index.md (directory indexes) and esa_doc_registry.md (top-level registry)
+                    # These are metadata/catalog files, not individual principles
                     if file_name.endswith("index.md") or file_name.endswith("readme.md"):
+                        continue
+                    if file_name.endswith("esa_doc_registry.md") or file_name.endswith("esa-doc-registry.md"):
                         continue
 
                 principles.append({
@@ -1669,11 +1678,14 @@ IMPORTANT GUIDELINES:
                     for obj in all_objects:
                         file_path = obj.properties.get("file_path", "")
                         if file_path:
-                            # Apply same filtering as list functions (skip templates, index files)
+                            # Apply same filtering as list functions (skip templates, index files, registry)
                             file_name = file_path.lower()
                             if "template" in file_name:
                                 continue
+                            # Skip index.md (directory indexes) and esa_doc_registry.md (top-level registry)
                             if file_name.endswith("index.md") or file_name.endswith("readme.md"):
+                                continue
+                            if file_name.endswith("esa_doc_registry.md") or file_name.endswith("esa-doc-registry.md"):
                                 continue
                             # For ADRs: skip DARs
                             if name == "ArchitecturalDecision" and re.match(r".*\d{4}d-.*\.md$", file_name):
