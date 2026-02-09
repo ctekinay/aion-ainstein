@@ -264,9 +264,9 @@ def _get_compiled_list_patterns() -> list:
 # Patterns that indicate a SPECIFIC document reference (detail query, NOT list)
 # These take priority over list indicators
 _SPECIFIC_DOC_PATTERNS = [
-    r"adr[.\s-]?\d{3,4}",           # ADR.0031, ADR-0031, ADR 31, ADR.31
-    r"pcp[.\s-]?\d{3,4}",           # PCP.0010, PCP-10
-    r"principle[.\s-]?\d{2,4}",     # Principle 10, Principle.0010
+    r"adr[.\s-]?\d{1,4}",           # ADR.0031, ADR-0031, ADR 31, ADR.31, ADR.1
+    r"pcp[.\s-]?\d{1,4}",           # PCP.0010, PCP-10, PCP.1
+    r"principle[.\s-]?\d{1,4}",     # Principle 10, Principle.0010
     r"adr\s+number\s+\d+",          # ADR number 31
     r"decision\s+\d+",              # Decision 31
     r"about\s+(adr|decision)",      # "about ADR" suggests semantic query
@@ -425,11 +425,12 @@ def detect_list_query(question: str) -> ListQueryResult:
 
     This is the advanced version with confidence levels and ambiguity handling.
 
-    Decision logic:
+    Decision logic (from ESA_DOCUMENT_TAXONOMY.md):
     1. If specific document pattern found -> NOT a list (high confidence)
-    2. If list keyword + no specific doc -> IS a list (high confidence)
-    3. If list pattern matches + no specific doc -> IS a list (medium confidence)
-    4. Otherwise -> NOT a list (high confidence)
+    2. If topical/semantic markers found -> NOT a list (semantic route)
+    3. If list keyword + no specific doc + no topic -> IS a list (high confidence)
+    4. If list pattern matches + no specific doc -> IS a list (medium confidence)
+    5. Otherwise -> NOT a list (high confidence)
 
     Args:
         question: The user's question
@@ -447,21 +448,34 @@ def detect_list_query(question: str) -> ListQueryResult:
             reason="specific_document_reference"
         )
 
+    # Priority 2: Check for topical/semantic markers (from taxonomy section 4.3)
+    # These indicate semantic content queries, not "what exists" queries
+    topical_markers = [
+        "about",           # "decisions about TLS"
+        "status",          # "ADR status"
+        "consequences",    # "ADR consequences"
+        "decision drivers", # ADR content section
+        "context",         # ADR content section
+        "what does it say", # semantic content query
+        "explain",         # semantic content query
+        "details",         # "list ADR details"
+        "regarding",       # topic filter
+        "concerning",      # topic filter
+        "for",             # "decisions for caching"
+    ]
+    has_topical_marker = any(marker in question_lower for marker in topical_markers)
+
     list_config = _get_list_query_config()
     list_indicators = set(list_config.get("list_indicators", []))
 
     query_words = set(question_lower.split())
 
-    # Priority 2: Check for strong list indicators
+    # Priority 3: Check for strong list indicators
     # "list", "enumerate", "all" are strong indicators
     strong_list_words = {"list", "enumerate", "all"}
     if query_words & strong_list_words:
-        # But also check we're not asking about a specific topic
-        # "list ADR details" or "list decisions about TLS" are semantic queries
-        topic_indicators = ["about", "details", "regarding", "concerning", "for"]
-        has_topic = any(indicator in question_lower for indicator in topic_indicators)
-
-        if has_topic:
+        # If topical marker is present, this is a semantic query not a list
+        if has_topical_marker:
             return ListQueryResult(
                 is_list=False,
                 confidence="medium",
@@ -474,17 +488,33 @@ def detect_list_query(question: str) -> ListQueryResult:
             reason="strong_list_indicator"
         )
 
-    # Priority 3: Check other list indicators
+    # Priority 4: Check other list indicators (show, exist, etc.)
     if query_words & list_indicators:
+        # If topical marker is present, this is a semantic query not a list
+        if has_topical_marker:
+            return ListQueryResult(
+                is_list=False,
+                confidence="medium",
+                reason="list_with_topic_filter"
+            )
+
         return ListQueryResult(
             is_list=True,
             confidence="medium",
             reason="list_indicator_keyword"
         )
 
-    # Priority 4: Check regex patterns
+    # Priority 5: Check regex patterns
     for pattern in _get_compiled_list_patterns():
         if pattern.search(question_lower):
+            # If topical marker is present, this is a semantic query not a list
+            if has_topical_marker:
+                return ListQueryResult(
+                    is_list=False,
+                    confidence="medium",
+                    reason="list_with_topic_filter"
+                )
+
             return ListQueryResult(
                 is_list=True,
                 confidence="medium",
@@ -663,14 +693,18 @@ def postprocess_llm_output(
         except Exception as e:
             logger.error(f"Retry function raised exception: {e}")
 
-    # Strict mode without successful retry: return raw response as graceful degradation
-    # Better than returning an error message - user at least sees the actual LLM response
-    # Note: This IS a contract violation, but it's better UX than showing "unable to format"
+    # Strict mode without successful retry: fail closed with controlled error message
+    # This ensures contract compliance - non-JSON never reaches UI in strict mode
     logger.warning(
-        f"Strict enforcement failed, degrading to raw response. "
+        f"Strict enforcement failed: unable to parse structured response. "
         f"Consider routing this query type deterministically. (fallback: {fallback_used})"
     )
-    return raw_response, False, f"strict_degraded:{fallback_used}"
+    error_message = (
+        "I was unable to format this response properly. "
+        "Please try rephrasing your question, or ask for specific information "
+        "rather than a list or count."
+    )
+    return error_message, False, f"strict_failed:{fallback_used}"
 
 
 def get_collection_count(collection, content_filter=None) -> int:

@@ -244,5 +244,95 @@ class TestAcceptanceCriteria:
         assert is_list_query("Show ADR decisions about TLS") is False
 
 
+class TestTaxonomyAcceptanceCriteria:
+    """Tests verifying acceptance criteria from ESA_DOCUMENT_TAXONOMY.md Section 7.
+
+    These tests ensure routing conforms to the taxonomy contract.
+    """
+
+    # --- Routing tests from taxonomy section 7 ---
+
+    def test_list_adr_31_not_list_route(self):
+        """'List ADR 31' => NOT list route (specific doc reference)"""
+        result = detect_list_query("List ADR 31")
+        assert result.is_list is False
+        assert result.reason == "specific_document_reference"
+
+    def test_adr_31_specific_doc_reference(self):
+        """'ADR.31' => specific doc reference"""
+        result = detect_list_query("ADR.31")
+        assert result.is_list is False
+        assert result.reason == "specific_document_reference"
+
+    def test_show_adr_decisions_about_tls_semantic_route(self):
+        """'Show ADR decisions about TLS' => semantic route"""
+        result = detect_list_query("Show ADR decisions about TLS")
+        assert result.is_list is False
+        assert result.reason == "list_with_topic_filter"
+
+    def test_list_adr_status_and_consequences_semantic_route(self):
+        """'List ADR status and consequences' => semantic route"""
+        result = detect_list_query("List ADR status and consequences")
+        assert result.is_list is False
+        assert result.reason == "list_with_topic_filter"
+
+    def test_what_adrs_exist_list_route(self):
+        """'What ADRs exist in the system?' => list route"""
+        result = detect_list_query("What ADRs exist in the system?")
+        assert result.is_list is True
+
+    def test_list_all_principles_list_route(self):
+        """'List all principles' => list route"""
+        result = detect_list_query("List all principles")
+        assert result.is_list is True
+        assert result.reason == "strong_list_indicator"
+
+    # --- Edge cases for number normalization ---
+
+    @pytest.mark.parametrize("query", [
+        "ADR.31",
+        "ADR.0031",
+        "ADR-31",
+        "ADR 31",
+        "adr.31",
+        "adr 0031",
+    ])
+    def test_all_adr_number_formats_detect_as_specific(self, query):
+        """All ADR number formats should be detected as specific document references."""
+        result = detect_list_query(query)
+        assert result.is_list is False
+        assert result.reason == "specific_document_reference"
+
+    @pytest.mark.parametrize("query", [
+        "PCP.10",
+        "PCP.0010",
+        "PCP-10",
+        "PCP 10",
+        "pcp.10",
+        "pcp 0010",
+    ])
+    def test_all_pcp_number_formats_detect_as_specific(self, query):
+        """All PCP number formats should be detected as specific document references."""
+        result = detect_list_query(query)
+        assert result.is_list is False
+        assert result.reason == "specific_document_reference"
+
+    # --- Topical markers must NOT route to list ---
+
+    @pytest.mark.parametrize("query", [
+        "Show ADR decisions about TLS",
+        "List ADR status and consequences",
+        "What does the ADR about caching say?",
+        "Show decisions about security",
+        "List ADR context for authentication",
+        "Explain the ADR decisions",
+        "Show me the details of ADR decisions",
+    ])
+    def test_topical_markers_route_to_semantic(self, query):
+        """Queries with topical markers should NOT route to list."""
+        result = detect_list_query(query)
+        assert result.is_list is False, f"'{query}' should NOT be list, got: {result}"
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
