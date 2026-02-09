@@ -360,6 +360,10 @@ def verify_terminology_in_query(question: str, request_id: str | None = None) ->
     against the SKOSMOS vocabulary. If any term cannot be verified and the
     query is specifically about that term, the system should abstain.
 
+    Enterprise-grade behavior for terminology queries:
+    - If extracted terms exist and none verify: abstain (per IR0003)
+    - If no terms extracted from terminology query: abstain (suspicious)
+
     Args:
         question: The user's question
         request_id: Optional request ID for logging
@@ -372,15 +376,24 @@ def verify_terminology_in_query(question: str, request_id: str | None = None) ->
     # Verify all technical terms in the query
     results = skosmos.verify_query_terms(question, request_id)
 
-    # If this is a terminology query and the main term wasn't found, abstain
+    # If this is a terminology query, apply strict verification
     if is_terminology_query(question):
-        # Find unverified terms that should trigger abstention
+        # Case 1: No terms extracted - terminology query but we couldn't identify the term
+        # This is suspicious; abstain rather than guessing
+        if not results:
+            obs_metrics.increment("rag_abstention_total", labels={"reason": "terminology_extraction_empty"})
+            return True, "Could not identify the technical term in this terminology query.", results
+
+        # Case 2: Terms extracted but unverified - abstain with specific reason
         unverified = [r for r in results if r.should_abstain]
         if unverified:
             # Take the first unverified term's reason
             reason = unverified[0].abstain_reason
             obs_metrics.increment("rag_abstention_total", labels={"reason": "terminology_not_verified"})
             return True, reason, results
+
+        # Case 3: All extracted terms are verified - proceed
+        # (At least one term found and verified)
 
     return False, "", results
 

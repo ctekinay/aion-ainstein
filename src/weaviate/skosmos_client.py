@@ -589,30 +589,60 @@ class SKOSMOSClient:
         """Extract potential technical terms from a query.
 
         Looks for:
-        - CamelCase words (ACLineSegment, PowerTransformer)
+        - CamelCase words (ACLineSegment, PowerTransformer, CompletelyFakeTermXYZ123)
         - Acronyms (CIM, CIMXML, IEC)
         - Domain-specific patterns (IEC61970, CIM100)
+
+        Technical term patterns:
+        1. Acronym-leading CamelCase: ACLineSegment, CGMESMarketDocument
+        2. Standard CamelCase: PowerTransformer, IdentifiedObject
+        3. CamelCase with trailing acronym/digits: CompletelyFakeTermXYZ123
+        4. Technical identifiers with digits: IEC61970, CIM100
         """
         terms = []
 
-        # CamelCase pattern (e.g., ACLineSegment, PowerTransformer)
-        camel_pattern = re.compile(r'\b[A-Z][a-z]+(?:[A-Z][a-z]+)+\b')
-        terms.extend(camel_pattern.findall(query))
+        # Pattern 1: Acronym-leading CamelCase (ACLineSegment, CGMESMarketDocument)
+        # Matches: 2+ uppercase, then uppercase, then lowercase, then rest
+        acronym_camel = re.compile(r'\b[A-Z]{2,}[A-Z][a-z][A-Za-z0-9]*\b')
+        terms.extend(acronym_camel.findall(query))
 
-        # Acronyms and technical identifiers (e.g., CIM, CIMXML, IEC61970)
-        tech_pattern = re.compile(r'\b[A-Z]{2,}(?:\d+)?(?:-[A-Z0-9]+)?\b')
-        terms.extend(tech_pattern.findall(query))
+        # Pattern 2: Standard CamelCase with permissive segments
+        # PowerTransformer, CompletelyFakeTermXYZ123
+        # Allows uppercase/digits after internal capitals for trailing acronyms
+        standard_camel = re.compile(r'\b[A-Z][a-z]+(?:[A-Z][A-Za-z0-9]*)+\b')
+        terms.extend(standard_camel.findall(query))
 
-        # Domain-specific patterns (IEC standards)
-        iec_pattern = re.compile(r'\bIEC\s*\d+(?:-\d+)?\b', re.IGNORECASE)
+        # Pattern 3: CamelCase/identifiers with embedded digits (IEC61970, CIM100)
+        digit_ident = re.compile(r'\b[A-Z][A-Za-z]*\d+[A-Za-z0-9]*\b')
+        terms.extend(digit_ident.findall(query))
+
+        # Pattern 4: Pure acronyms with optional suffix (CIM, CIMXML, CGMES)
+        # Only 2-6 char pure uppercase to avoid matching common words
+        acronym_pattern = re.compile(r'\b[A-Z]{2,6}(?:-[A-Z0-9]+)?\b')
+        terms.extend(acronym_pattern.findall(query))
+
+        # Pattern 5: IEC standards (IEC 61970, IEC61970-301)
+        iec_pattern = re.compile(r'\bIEC\s*\d+(?:-\d+)*\b', re.IGNORECASE)
         terms.extend(iec_pattern.findall(query))
 
-        # Deduplicate while preserving order
+        # Stopwords: common English words that match patterns but aren't technical terms
+        stopwords = {
+            'what', 'how', 'why', 'when', 'where', 'which', 'who',
+            'the', 'and', 'for', 'with', 'that', 'this', 'from',
+            'are', 'was', 'were', 'been', 'being', 'have', 'has',
+            'does', 'did', 'will', 'would', 'could', 'should',
+            'can', 'may', 'might', 'must', 'shall',
+            'is', 'it', 'its', 'be', 'to', 'of', 'in', 'on', 'at',
+            'an', 'as', 'or', 'if', 'so', 'no', 'not', 'but', 'by',
+        }
+
+        # Deduplicate while preserving order and filtering stopwords
         seen = set()
         unique_terms = []
         for term in terms:
-            if term.lower() not in seen:
-                seen.add(term.lower())
+            term_lower = term.lower()
+            if term_lower not in seen and term_lower not in stopwords:
+                seen.add(term_lower)
                 unique_terms.append(term)
 
         return unique_terms
