@@ -1,10 +1,6 @@
 ---
 name: rag-quality-assurance
-description: >
-  Ensures RAG responses meet strict quality standards for critical decision support.
-  Use when answering questions about architecture decisions (ADRs), principles (PCPs),
-  policies, or technical vocabulary. Activates confidence-based abstention and
-  citation requirements to prevent hallucination.
+description: "Ensures RAG responses meet strict quality standards for critical decision support. Use when answering questions about architecture decisions (ADRs), principles (PCPs), policies, or technical vocabulary. Activates confidence-based abstention and citation requirements to prevent hallucination."
 ---
 
 # RAG Quality Assurance
