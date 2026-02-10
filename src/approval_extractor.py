@@ -438,11 +438,18 @@ def get_approval_record_from_weaviate(
         collection = client.collections.get(collection_name)
 
         # Build filter: doc_type is approval AND number matches
+        # Use the correct approval type for each document kind (PCP30 fix)
         number_filter = Filter.by_property(id_field).equal(doc_number)
-        type_filter = (
-            Filter.by_property("doc_type").equal("adr_approval") |
-            Filter.by_property("doc_type").equal("decision_approval_record")
-        )
+        if doc_type == "adr":
+            type_filter = (
+                Filter.by_property("doc_type").equal("adr_approval") |
+                Filter.by_property("doc_type").equal("decision_approval_record")
+            )
+        else:
+            type_filter = (
+                Filter.by_property("doc_type").equal("principle_approval") |
+                Filter.by_property("doc_type").equal("decision_approval_record")
+            )
         combined_filter = number_filter & type_filter
 
         # Fetch the DAR
@@ -897,11 +904,18 @@ def get_dar_record_from_weaviate(
         collection = client.collections.get(collection_name)
 
         # Build filter: number matches AND doc_type is approval
+        # Use the correct approval type for each document kind (PCP30 fix)
         number_filter = Filter.by_property(id_field).equal(doc_number)
-        dar_type_filter = (
-            Filter.by_property("doc_type").equal("decision_approval_record") |
-            Filter.by_property("doc_type").equal("adr_approval")
-        )
+        if doc_type == "adr":
+            dar_type_filter = (
+                Filter.by_property("doc_type").equal("decision_approval_record") |
+                Filter.by_property("doc_type").equal("adr_approval")
+            )
+        else:
+            dar_type_filter = (
+                Filter.by_property("doc_type").equal("decision_approval_record") |
+                Filter.by_property("doc_type").equal("principle_approval")
+            )
         combined_filter = number_filter & dar_type_filter
 
         # Fetch the DAR

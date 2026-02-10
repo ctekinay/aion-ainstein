@@ -1,7 +1,7 @@
 # Gold Standard Test Questions for RAG Evaluation
 
-**Version:** 3.0 (Added route expectations, fullness tests, tightened list queries)
-**Total Questions:** 49 → Select 25 for final test set
+**Version:** 4.0 (Added meta route, confident-wrong-answer guards, batch approval tests)
+**Total Questions:** 60 → Select 29 for final test set
 
 **Scoring Guide:**
 - ✅ Correct: Answer matches expected content
@@ -17,6 +17,8 @@
 - `list` — Deterministic listing of all matching documents
 - `count` — Deterministic count query
 - `multi_hop` — Cross-collection semantic search
+- `meta` — System self-description (no ESA retrieval, deterministic response)
+- `batch_approval` — Multi-document approval extraction with pagination
 
 ---
 
@@ -415,13 +417,113 @@ These detect truncation and missing-subsection regressions in the direct-doc rou
 
 ---
 
+## Category 12: Meta / System Questions (5 questions)
+
+These test the meta route: questions about AInstein itself must NOT trigger ESA corpus retrieval.
+
+### M1. Skills Used
+**Question:** Which skills did you use to format this output?
+**Expected:** Deterministic explanation of skill injection (per-query, into agent description). No ADR/PCP references. No fabricated process steps.
+**Expected route:** `meta`
+**Allowed doc_types:** none (no ESA retrieval)
+**Difficulty:** Test
+**Regression:** Catches the Session A spiral where meta questions get routed to ADR search
+
+### M2. Skill Activation Timing
+**Question:** Show me the sequential steps how you applied formatting, including when the skill kicked in.
+**Expected:** Pipeline explanation (classify -> route -> retrieve -> generate -> format). Must mention skill injection happens before tree execution, formatting at response stage.
+**Expected route:** `meta`
+**Allowed doc_types:** none (no ESA retrieval)
+**Difficulty:** Test
+
+### M3. Skill Loading
+**Question:** Do you load the whole skill at server startup?
+**Expected:** No — skills are loaded per query, not at startup. Must NOT search ADRs or return "I don't have specific info."
+**Expected route:** `meta`
+**Allowed doc_types:** none (no ESA retrieval)
+**Difficulty:** Test
+
+### M4. System Architecture (Self)
+**Question:** Explain your own architecture
+**Expected:** Description of AInstein/Elysia pipeline (intent classification, deterministic routing, hybrid search, skill injection). Must NOT return ESA energy system architecture (IEC 61968, market participants, DACI, etc.).
+**Expected route:** `meta`
+**Allowed doc_types:** none (no ESA retrieval)
+**Difficulty:** Test
+**Regression:** Catches the "confident wrong answer" where system describes ESA architecture instead of itself
+
+### M5. Functional Description (Self)
+**Question:** Give me a functional description of your architecture
+**Expected:** Same as M4. Must describe AInstein, NOT the ESA energy system architecture.
+**Expected route:** `meta`
+**Allowed doc_types:** none (no ESA retrieval)
+**Difficulty:** Test
+**Regression:** Catches the second "confident wrong answer" variant from Session A
+
+---
+
+## Category 13: Confident-Wrong-Answer Guards (3 questions)
+
+These detect the most dangerous failure: the system answers a *different* question fluently and with confidence. The user must independently know the answer to notice the error.
+
+### CW1. "Your" Response Time
+**Question:** What is your response time?
+**Expected:** Meta response about AInstein's processing, OR honest "I don't have latency benchmarks." Must NOT return ESA system latency documentation or network response time ADRs.
+**Expected route:** `meta` (should not route to ESA)
+**Allowed doc_types:** none
+**Difficulty:** Test
+
+### CW2. "Your" Error Handling
+**Question:** How do you handle errors?
+**Expected:** Meta response about AInstein's error handling (abstention, fallback, graceful degradation). Must NOT return ESA error handling ADRs or principles.
+**Expected route:** `meta` (should not route to ESA)
+**Allowed doc_types:** none
+**Difficulty:** Test
+
+### CW3. "Your" Tools
+**Question:** What tools do you have?
+**Expected:** List of AInstein's tools (search_vocabulary, search_architecture_decisions, search_principles, search_policies, list tools, count tools). Must NOT return ESA tooling documentation.
+**Expected route:** `meta` (should not route to ESA)
+**Allowed doc_types:** none
+**Difficulty:** Test
+
+---
+
+## Category 14: Batch Approval Queries (3 questions)
+
+These test batch/multi-document approval extraction, which currently fails inconsistently.
+
+### BA1. Batch ADR Approvers
+**Question:** List the approvers for ADR.0029 and ADR.0025
+**Expected:** Deterministic extraction of approver names for both ADRs. ADR.0029: Robert-Jan Peters, Laurent van Groningen. ADR.0025: Robert-Jan Peters, Laurent van Groningen.
+**Expected route:** `batch_approval` or multiple `approval` calls
+**Allowed doc_types:** [adr_approval]
+**Difficulty:** Medium
+
+### BA2. Principle Approvers
+**Question:** Who approved PCP.0020?
+**Expected:** Deterministic extraction of PCP.0020 approver names with roles and emails. Must work consistently (PCP30 fix validates principle_approval filter).
+**Expected route:** `approval`
+**Allowed doc_types:** [principle_approval]
+**Difficulty:** Medium
+**Regression:** Catches the PCP30 filter bug (principle_approval not matched)
+
+### BA3. Principle Approvers (PCP30)
+**Question:** Who approved PCP.0030?
+**Expected:** Deterministic extraction of PCP.0030 approver names (if PCP.0030 DAR exists and is ingested). Must NOT return "I couldn't find approver names" if the DAR is present.
+**Expected route:** `approval`
+**Allowed doc_types:** [principle_approval]
+**Difficulty:** Medium
+**Regression:** Catches the PCP30 inconsistency from Session B
+
+---
+
 ## Summary Table
 
 | Category | Count | Easy | Medium | Hard | Test |
 |----------|-------|------|--------|------|------|
 | Vocabulary | 8 | 4 | 3 | 1 | - |
 | ADR | 10 | 3 | 6 | 1 | - |
-| Fullness (NEW) | 3 | - | 3 | - | - |
+| Fullness | 3 | - | 3 | - | - |
 | Principles | 6 | 1 | 5 | - | - |
 | Policies | 5 | 2 | 3 | - | - |
 | Cross-Domain | 5 | - | - | 5 | - |
@@ -430,7 +532,10 @@ These detect truncation and missing-subsection regressions in the direct-doc rou
 | Temporal | 1 | - | 1 | - | - |
 | Disambiguation | 2 | - | 2 | - | - |
 | Negative/Edge | 3 | - | - | - | 3 |
-| **TOTAL** | **49** | **11** | **26** | **9** | **3** |
+| Meta/System (NEW) | 5 | - | - | - | 5 |
+| Confident-Wrong (NEW) | 3 | - | - | - | 3 |
+| Batch Approvals (NEW) | 3 | - | 3 | - | - |
+| **TOTAL** | **60** | **11** | **29** | **9** | **11** |
 
 ---
 
@@ -455,7 +560,7 @@ These detect truncation and missing-subsection regressions in the direct-doc rou
 | L2 | List governance principles | Listing query |
 | N1 | GraphQL (non-existent) | Hallucination test |
 
-### Recommended Additions (10)
+### Recommended Additions (10 + 4 NEW)
 | ID | Question Topic | Why |
 |----|---------------|-----|
 | V6 | ArchiMate term | New vocabulary |
@@ -468,8 +573,12 @@ These detect truncation and missing-subsection regressions in the direct-doc rou
 | C1 | TLS vs OAuth | Comparative |
 | D1 | ESA disambiguation | Disambiguation |
 | N3 | ADR.0050 (non-existent) | Hallucination test |
+| M1 | Skills used (meta) | Meta route regression |
+| M4 | System architecture (self) | Confident-wrong-answer guard |
+| BA2 | PCP.0020 approvers | Principle approval filter |
+| BA3 | PCP.0030 approvers | PCP30 regression |
 
-### Total: 25 questions covering all categories and routes
+### Total: 29 questions covering all categories and routes
 
 ---
 
@@ -505,6 +614,10 @@ Score Doc IDs OK = Y if the correct document was retrieved regardless of ID form
 | D1 | ESA disambiguation | `vocab` | | Y/N | | Y/N | ✅/⚠️/❌/🚫 | |
 | N1 | GraphQL (non-existent) | `semantic` | | Y/N | — | Y/N | ✅/⚠️/❌/🚫 | Expect abstention |
 | N3 | ADR.0050 (non-existent) | `direct_doc` | | Y/N | — | Y/N | ✅/⚠️/❌/🚫 | Expect abstention |
+| M1 | Skills used | `meta` | | Y/N | — | N/A | ✅/⚠️/❌/🚫 | No ESA docs retrieved |
+| M4 | System architecture (self) | `meta` | | Y/N | — | N/A | ✅/⚠️/❌/🚫 | Must describe AInstein, NOT ESA |
+| BA2 | PCP.0020 approvers | `approval` | | Y/N | PCP.0020D | Y/N | ✅/⚠️/❌/🚫 | Approver names present |
+| BA3 | PCP.0030 approvers | `approval` | | Y/N | PCP.0030D | Y/N | ✅/⚠️/❌/🚫 | Approver names present (if ingested) |
 
 ---
 
@@ -518,7 +631,10 @@ After running all tests:
 4. **Difficulty Accuracy:** Easy vs Medium vs Hard
 5. **Route Accuracy:** Route OK count / Total — identifies routing bugs
 6. **Retrieval Accuracy:** Doc IDs OK count / Total — identifies retrieval bugs
-7. **Failure Triage:** For each failure, categorize as:
+7. **Meta Route Accuracy:** M1-M5 + CW1-CW3 all route to `meta`, zero ESA doc retrieval
+8. **Formatter Leak Rate:** Count of responses containing "unable to format" or internal error messages (must be 0)
+9. **Failure Triage:** For each failure, categorize as:
    - **Routing bug:** Route OK = N (fix routing logic)
    - **Retrieval bug:** Route OK = Y, Doc IDs OK = N (fix filters/search)
    - **Formatter bug:** Route OK = Y, Doc IDs OK = Y, Score != ✅ (fix response builder)
+   - **Confident-wrong-answer:** Route OK = N, Score = ✅ on *wrong* question (most dangerous)

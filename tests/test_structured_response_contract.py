@@ -118,8 +118,8 @@ class TestPostProcessingEnforcement:
         # Should include transparency message
         assert "5" in processed or "10" in processed
 
-    def test_invalid_json_strict_mode_fails(self):
-        """In strict mode, invalid JSON should not reach UI as raw text."""
+    def test_invalid_json_strict_mode_degrades_gracefully(self):
+        """In strict mode, invalid JSON degrades to raw text (P0: never leak errors)."""
         raw = "This is not JSON at all. Just prose about ADRs."
         processed, was_structured, reason = postprocess_llm_output(
             raw_response=raw,
@@ -127,11 +127,11 @@ class TestPostProcessingEnforcement:
             enforcement_policy=ENFORCEMENT_STRICT,
         )
         assert was_structured is False
-        assert "strict_failed" in reason
-        # In strict mode without retry, should return controlled error
-        assert "unable to format" in processed.lower() or "rephras" in processed.lower()
-        # Raw prose should NOT be in the output
-        assert raw != processed
+        assert "strict_fallback" in reason
+        # P0 fix: user gets the raw response, NOT an internal error message
+        assert processed == raw
+        # Must never show "unable to format" to user
+        assert "unable to format" not in processed.lower()
 
     def test_invalid_json_soft_mode_degrades(self):
         """In soft mode, invalid JSON falls back to raw text with logging."""
@@ -222,8 +222,8 @@ class TestResponseGatewayStrictMode:
             matched_triggers=["response-contract:list"],
         )
 
-    def test_strict_mode_rejects_plain_prose(self, mock_context):
-        """Strict mode must reject plain prose - never emit raw text to UI."""
+    def test_strict_mode_degrades_gracefully_on_plain_prose(self, mock_context):
+        """Strict mode degrades to raw text on parse failure (P0: never leak errors)."""
         from src.response_gateway import (
             normalize_and_validate_response,
             POLICY_STRICT,
@@ -237,13 +237,14 @@ class TestResponseGatewayStrictMode:
             policy=POLICY_STRICT,
         )
 
-        # Must NOT return the raw prose
-        assert result.response != raw_prose
-        # Must indicate failure
+        # P0 fix: user gets the raw response, NOT an internal error message
+        assert result.response == raw_prose
+        # Must indicate failure internally (for metrics/logging)
         assert result.is_structured is False
         assert result.failure is not None
-        # Failure response must include request ID for debugging
-        assert mock_context.request_id in result.response
+        # Must never show "unable to format" or error messages to user
+        assert "unable to format" not in result.response.lower()
+        assert "Reference:" not in result.response
 
     def test_strict_mode_accepts_valid_json(self, mock_context):
         """Strict mode accepts valid JSON wrapped in delimiters."""

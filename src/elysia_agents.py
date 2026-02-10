@@ -198,6 +198,7 @@ from .weaviate.embeddings import embed_text
 from .weaviate.collections import get_collection_name, get_all_collection_names
 from .weaviate.skosmos_client import get_skosmos_client, TermLookupResult
 from .observability import metrics as obs_metrics
+from .meta_route import is_meta_query, build_meta_response
 from .response_schema import (
     ResponseParser,
     ResponseValidator,
@@ -766,18 +767,13 @@ def postprocess_llm_output(
         except Exception as e:
             logger.error(f"Retry function raised exception: {e}")
 
-    # Strict mode without successful retry: fail closed with controlled error message
-    # This ensures contract compliance - non-JSON never reaches UI in strict mode
+    # Strict mode without successful retry: degrade gracefully to raw text
+    # Never leak internal formatting failures to the user (P0 fix)
     logger.warning(
         f"Strict enforcement failed: unable to parse structured response. "
-        f"Consider routing this query type deterministically. (fallback: {fallback_used})"
+        f"Degrading to raw text. (fallback: {fallback_used})"
     )
-    error_message = (
-        "I was unable to format this response properly. "
-        "Please try rephrasing your question, or ask for specific information "
-        "rather than a list or count."
-    )
-    return error_message, False, f"strict_failed:{fallback_used}"
+    return raw_response, False, f"strict_fallback:{fallback_used}"
 
 
 def get_collection_count(collection, content_filter=None) -> int:
@@ -1844,6 +1840,17 @@ IMPORTANT GUIDELINES:
 
         # Create structured mode context for gateway integration
         context = create_context_from_skills(question, _skill_registry)
+
+        # =============================================================================
+        # META ROUTE SHORT-CIRCUIT (P1)
+        # Questions about AInstein itself (skills, architecture, formatting, pipeline)
+        # are answered deterministically without querying the ESA knowledge base.
+        # This prevents the "spiral" where meta questions get routed to ADR search.
+        # =============================================================================
+        if is_meta_query(question):
+            logger.info(f"Meta route: short-circuiting for system question: {question[:80]}...")
+            obs_metrics.increment("meta_route_total")
+            return build_meta_response(question, structured_mode=structured_mode), []
 
         # Load direct-doc threshold for deterministic single-document routes
         _truncation = _skill_registry.loader.get_truncation(DEFAULT_SKILL)

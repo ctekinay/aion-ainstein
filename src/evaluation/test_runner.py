@@ -68,6 +68,7 @@ class RouteCapture(logging.Handler):
     """Captures log messages from elysia_agents to detect the actual route taken."""
 
     ROUTE_PATTERNS = [
+        (re.compile(r"Meta route: short-circuiting"), "meta"),
         (re.compile(r"Specific approval query detected"), "approval"),
         (re.compile(r"Specific DAR content query detected"), "direct_doc"),
         (re.compile(r"Specific content query detected"), "direct_doc"),
@@ -280,6 +281,33 @@ TEST_QUESTIONS = [
      "expect_no_answer": True,
      "expected_route": "direct_doc",
      "expected_doc_ids": []},
+
+    # --- Meta / System Questions (2 from recommended selection) ---
+    {"id": "M1", "category": "Meta", "difficulty": "Test",
+     "question": "Which skills did you use to format this output?",
+     "expected_keywords": ["skill", "injection", "format", "response"],
+     "expected_route": "meta",
+     "expected_doc_ids": []},
+
+    {"id": "M4", "category": "Meta", "difficulty": "Test",
+     "question": "Explain your own architecture",
+     "expected_keywords": ["AInstein", "pipeline", "retrieval", "routing"],
+     "expected_route": "meta",
+     "expected_doc_ids": [],
+     "must_not_contain": ["IEC 61968", "market participant", "DACI"]},
+
+    # --- Batch / Principle Approvals (2 from recommended selection) ---
+    {"id": "BA2", "category": "BatchApproval", "difficulty": "Medium",
+     "question": "Who approved PCP.0020?",
+     "expected_keywords": [],
+     "expected_route": "approval",
+     "expected_doc_ids": ["PCP.0020D"]},
+
+    {"id": "BA3", "category": "BatchApproval", "difficulty": "Medium",
+     "question": "Who approved PCP.0030?",
+     "expected_keywords": [],
+     "expected_route": "approval",
+     "expected_doc_ids": ["PCP.0030D"]},
 ]
 
 # Quick test subset (10 questions)
@@ -754,6 +782,16 @@ async def run_single_test(test: dict, debug: bool = False, verbose: bool = False
     else:
         keyword_score = calculate_keyword_score(response, test["expected_keywords"])
 
+        # Check must_not_contain (confident-wrong-answer guard)
+        must_not_contain_ok = True
+        if test.get("must_not_contain"):
+            response_lower = response.lower()
+            for forbidden in test["must_not_contain"]:
+                if forbidden.lower() in response_lower:
+                    must_not_contain_ok = False
+                    if debug:
+                        print(f"    [MUST_NOT_CONTAIN] Found forbidden: '{forbidden}'")
+
         # For fullness tests, incorporate fullness results
         if fullness:
             fullness_ok = all([
@@ -761,17 +799,19 @@ async def run_single_test(test: dict, debug: bool = False, verbose: bool = False
                 fullness["must_not_contain_ok"],
                 fullness["check_keywords_ok"],
             ])
-            if keyword_score >= 0.8 and fullness_ok:
+            if keyword_score >= 0.8 and fullness_ok and must_not_contain_ok:
                 score = "PASS"
             elif keyword_score >= 0.5 or (keyword_score >= 0.3 and fullness_ok):
                 score = "PARTIAL"
             else:
                 score = "WRONG"
         else:
-            if keyword_score >= 0.8:
+            if keyword_score >= 0.8 and must_not_contain_ok:
                 score = "PASS"
-            elif keyword_score >= 0.5:
+            elif keyword_score >= 0.5 and must_not_contain_ok:
                 score = "PARTIAL"
+            elif not must_not_contain_ok:
+                score = "WRONG"  # Confident wrong answer
             else:
                 score = "WRONG"
 

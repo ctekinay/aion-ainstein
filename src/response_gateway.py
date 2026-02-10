@@ -535,8 +535,9 @@ def normalize_and_validate_response(
         )
         logger.debug(f"Raw response (sanitized): {raw_response[:500]}")
 
+        # Degrade gracefully to raw text instead of leaking error to user (P0 fix)
         return GatewayResult(
-            response=failure.to_user_message(),
+            response=raw_response,
             is_structured=False,
             context=context,
             failure=failure,
@@ -641,8 +642,9 @@ def normalize_and_validate_response(
 
         if policy == POLICY_STRICT:
             failure = create_failure_response(reason_code, context.request_id)
+            # Degrade gracefully to raw text instead of leaking error to user (P0 fix)
             return GatewayResult(
-                response=failure.to_user_message(),
+                response=raw_response,
                 is_structured=False,
                 context=context,
                 failure=failure,
@@ -781,8 +783,9 @@ def handle_list_result(
             context.latency_ms = int((time.time() - start_time) * 1000)
 
             failure = create_failure_response(reason_code, context.request_id)
+            # Degrade gracefully: return raw JSON string instead of error (P0 fix)
             return GatewayResult(
-                response=failure.to_user_message(),
+                response=json_str,
                 is_structured=False,
                 context=context,
                 failure=failure,
@@ -826,8 +829,10 @@ def handle_list_result(
             ReasonCode.EXTRACTION_FAILED,
             context.request_id,
         )
+        # Degrade gracefully: return string representation instead of error (P0 fix)
+        fallback_text = str(tool_output) if tool_output else "Results could not be displayed."
         return GatewayResult(
-            response=failure.to_user_message(),
+            response=fallback_text,
             is_structured=False,
             context=context,
             failure=failure,
