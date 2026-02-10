@@ -17,6 +17,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
 
+from .weaviate.collections import get_collection_name
+
 logger = logging.getLogger(__name__)
 
 
@@ -353,11 +355,13 @@ def is_specific_approval_query(question: str) -> bool:
     """
     question_lower = question.lower()
 
-    # Must have approval intent
-    approval_indicators = [
+    # Must have approval intent (from config routing.markers.approval_intent)
+    from .config import settings
+    routing = settings.get_taxonomy_config().get("routing", {})
+    approval_indicators = routing.get("markers", {}).get("approval_intent", [
         'who approved', 'approved by', 'approvers', 'approval',
         'who signed', 'signed off', 'reviewed by',
-    ]
+    ])
     has_approval_intent = any(ind in question_lower for ind in approval_indicators)
 
     if not has_approval_intent:
@@ -422,11 +426,11 @@ def get_approval_record_from_weaviate(
 
     # Determine collection
     if doc_type == "adr":
-        collection_name = "ArchitecturalDecision"
+        collection_name = get_collection_name("adr")
         id_field = "adr_number"
         doc_id = f"ADR.{doc_number}"
     else:
-        collection_name = "Principle"
+        collection_name = get_collection_name("principle")
         id_field = "principle_number"
         doc_id = f"PCP.{doc_number}"
 
@@ -620,17 +624,25 @@ def is_specific_content_query(question: str) -> bool:
     if doc_type is None or doc_number is None:
         return False
 
-    # Must have content/detail intent (not just listing)
-    content_indicators = [
-        'about', 'tell me', 'explain', 'what is', 'what does',
-        'details', 'describe', 'show me', 'what are the',
-        'context', 'decision', 'consequences', 'summary',
+    # Must have content/detail intent (not just listing) - from config routing.markers.topical_intent
+    from .config import settings
+    routing = settings.get_taxonomy_config().get("routing", {})
+    content_indicators = routing.get("markers", {}).get("topical_intent", [
+        'about', 'status', 'consequences', 'decision drivers', 'context',
+        'what does it say', 'explain', 'details', 'regarding', 'concerning',
+    ])
+    # Add additional content-specific indicators not in topical_intent
+    content_indicators = list(content_indicators) + [
+        'tell me', 'what is', 'what does', 'describe', 'show me',
+        'what are the', 'decision', 'summary',
     ]
     has_content_intent = any(ind in question_lower for ind in content_indicators)
 
     # Also match patterns like "ADR.0025?" or just "ADR 25" as detail queries
-    # (simple reference without list keywords)
-    list_keywords = ['list', 'all', 'how many', 'enumerate', 'exist']
+    # (simple reference without list keywords) - from config routing.markers.list_intent
+    list_keywords = routing.get("markers", {}).get("list_intent", [
+        'list', 'all', 'how many', 'enumerate', 'exist',
+    ])
     has_list_intent = any(kw in question_lower for kw in list_keywords)
 
     return has_content_intent or not has_list_intent
@@ -763,11 +775,11 @@ def get_content_record_from_weaviate(
 
     # Determine collection
     if doc_type == "adr":
-        collection_name = "ArchitecturalDecision"
+        collection_name = get_collection_name("adr")
         id_field = "adr_number"
         doc_id = f"ADR.{doc_number}"
     else:
-        collection_name = "Principle"
+        collection_name = get_collection_name("principle")
         id_field = "principle_number"
         doc_id = f"PCP.{doc_number}"
 
@@ -873,11 +885,11 @@ def get_dar_record_from_weaviate(
 
     # Determine collection
     if doc_type == "adr":
-        collection_name = "ArchitecturalDecision"
+        collection_name = get_collection_name("adr")
         id_field = "adr_number"
         doc_id = f"ADR.{doc_number}D"
     else:
-        collection_name = "Principle"
+        collection_name = get_collection_name("principle")
         id_field = "principle_number"
         doc_id = f"PCP.{doc_number}D"
 

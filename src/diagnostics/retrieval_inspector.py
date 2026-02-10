@@ -20,6 +20,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from src.weaviate.client import get_client
 from src.weaviate.embeddings import embed_text
 from src.config import settings
+from src.weaviate.collections import get_collection_name, get_all_collection_names
 from weaviate.classes.query import MetadataQuery, HybridFusion
 
 
@@ -118,12 +119,7 @@ def inspect_retrieval(question: str, collection_name: str, limit: int = 10, alph
 
 def inspect_all_collections(question: str, alpha: float = None, limit: int = 5, client=None):
     """Inspect retrieval across all collections for a question."""
-    collections = [
-        "Vocabulary",
-        "ArchitecturalDecision",
-        "Principle",
-        "PolicyDocument"
-    ]
+    collections = get_all_collection_names()
 
     # Use provided client or create one
     close_client = False
@@ -304,7 +300,7 @@ def main():
         return
 
     if args.compare_alpha:
-        collection = args.collection or "ArchitecturalDecision"
+        collection = args.collection or get_collection_name("adr")
         results = compare_alpha_values(args.question, collection)
     elif args.collection:
         results = inspect_retrieval(args.question, args.collection, args.limit, args.alpha)

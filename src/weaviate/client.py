@@ -9,6 +9,7 @@ from weaviate import WeaviateClient
 from weaviate.classes.init import Auth, AdditionalConfig, Timeout
 
 from ..config import settings
+from .collections import get_all_collection_names
 
 logger = logging.getLogger(__name__)
 
@@ -71,3 +72,22 @@ def weaviate_client() -> Generator[WeaviateClient, None, None]:
     finally:
         client.close()
         logger.info("Weaviate connection closed")
+
+
+def verify_collections_exist(client: WeaviateClient) -> dict:
+    """Verify that all configured collections exist in Weaviate.
+
+    Returns:
+        Dict with 'ok' bool and 'missing' list of missing collection names.
+    """
+    missing = []
+    for name in get_all_collection_names():
+        if not client.collections.exists(name):
+            missing.append(name)
+
+    if missing:
+        logger.warning("Missing Weaviate collections: %s", missing)
+    else:
+        logger.info("All configured collections verified")
+
+    return {"ok": len(missing) == 0, "missing": missing}

@@ -38,10 +38,13 @@ This module provides deterministic classification based on:
 3. Content indicators (fallback)
 """
 
+import logging
 import re
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
+from typing import Dict, List, Optional
+
+logger = logging.getLogger(__name__)
 
 
 # =============================================================================
@@ -98,45 +101,77 @@ class DocType:
 
 
 # =============================================================================
-# Classification Patterns
+# Classification Patterns (loaded from config with hardcoded fallbacks)
 # =============================================================================
 
-# Decision Approval Record pattern: NNNND-*.md (e.g., 0021D-approval.md)
-DAR_FILENAME_PATTERN = re.compile(r"^\d{4}[dD]-", re.IGNORECASE)
+def _get_identity_config() -> dict:
+    """Load identity configuration from taxonomy config."""
+    try:
+        from .config import settings
+        return settings.get_taxonomy_config().get("identity", {})
+    except Exception:
+        return {}
 
-# Index file patterns (SKIPPED at ingestion - these are directory-level indexes)
-# Note: These are index.md files INSIDE decisions/ and principles/ directories
-INDEX_FILENAMES = frozenset(["index.md", "readme.md", "overview.md", "_index.md"])
 
-# Registry file patterns (NOT skipped - this is the canonical doc registry)
-# The esa_doc_registry.md is the renamed top-level /doc/index.md
-# It's classified as "registry" not "index" to avoid skip logic
-REGISTRY_FILENAMES = frozenset(["esa_doc_registry.md", "esa-doc-registry.md"])
+def _get_dar_filename_pattern() -> re.Pattern:
+    """Get DAR filename pattern from config."""
+    identity = _get_identity_config()
+    pattern = identity.get("patterns", {}).get("dar_filename", r"^\d{4}[dD]-")
+    return re.compile(pattern, re.IGNORECASE)
 
-# Template indicators in content
-TEMPLATE_CONTENT_INDICATORS = [
-    "{short title",
-    "{problem statement}",
-    "{context}",
-    "{decision outcome}",
-    "[insert ",
-    "{insert ",
-    "{title}",
-    "{description}",
-    "{{",  # Jinja/mustache template
-]
 
-# Template indicators in filename
-TEMPLATE_FILENAME_INDICATORS = ["template", "-template", "_template"]
+def _get_index_filenames() -> frozenset:
+    """Get index filenames from config."""
+    identity = _get_identity_config()
+    defaults = ["index.md", "_index.md", "readme.md", "overview.md"]
+    return frozenset(identity.get("index_filenames", defaults))
 
-# Index-like content indicators (titles that suggest index/list documents)
-INDEX_TITLE_INDICATORS = [
-    "decision approval record list",
-    "energy system architecture - decision records",
-    "list of decisions",
-    "decision record list",
-    "table of contents",
-]
+
+def _get_registry_filenames() -> frozenset:
+    """Get registry filenames from config."""
+    identity = _get_identity_config()
+    defaults = ["esa_doc_registry.md", "esa-doc-registry.md"]
+    return frozenset(identity.get("registry_filenames", defaults))
+
+
+def _get_template_filename_indicators() -> list:
+    """Get template filename indicators from config."""
+    identity = _get_identity_config()
+    defaults = ["template", "-template", "_template"]
+    return identity.get("template_filename_indicators", defaults)
+
+
+def _get_template_content_indicators() -> list:
+    """Get template content indicators from config."""
+    identity = _get_identity_config()
+    defaults = [
+        "{short title", "{problem statement}", "{context}",
+        "{decision outcome}", "[insert ", "{insert ",
+        "{title}", "{description}", "{{",
+    ]
+    return identity.get("template_content_indicators", defaults)
+
+
+def _get_index_title_indicators() -> list:
+    """Get index title indicators from config."""
+    identity = _get_identity_config()
+    defaults = [
+        "decision approval record list",
+        "energy system architecture - decision records",
+        "list of decisions",
+        "decision record list",
+        "table of contents",
+    ]
+    return identity.get("index_title_indicators", defaults)
+
+
+# Module-level constants (initialized from config, importable by other modules)
+DAR_FILENAME_PATTERN = _get_dar_filename_pattern()
+INDEX_FILENAMES = _get_index_filenames()
+REGISTRY_FILENAMES = _get_registry_filenames()
+TEMPLATE_CONTENT_INDICATORS = _get_template_content_indicators()
+TEMPLATE_FILENAME_INDICATORS = _get_template_filename_indicators()
+INDEX_TITLE_INDICATORS = _get_index_title_indicators()
 
 
 # =============================================================================
@@ -388,3 +423,105 @@ def doc_type_from_legacy(legacy_type: str) -> str:
         "principle": DocType.PRINCIPLE,
     }
     return mapping.get(legacy_type, DocType.UNKNOWN)
+
+
+def resolve_legacy_doc_type(legacy_type: str, collection_type: str) -> str:
+    """Context-aware resolution of legacy doc_type values.
+
+    Handles `decision_approval_record` differently based on collection_type:
+    - In ADR collection → `adr_approval`
+    - In Principle collection → `principle_approval`
+
+    All resolutions are logged for observability. In `esa_strict` mode,
+    unknown types raise ValueError; in `portable` mode, they resolve to `unknown`.
+
+    Args:
+        legacy_type: The raw doc_type value from data.
+        collection_type: Explicit collection context ('adr' or 'principle').
+
+    Returns:
+        Canonical doc_type string.
+    """
+    from .config import settings
+
+    # Canonical values pass through
+    canonical = {
+        "adr", "adr_approval", "principle", "principle_approval",
+        "content", "template", "index", "registry", "unknown",
+    }
+    if legacy_type in canonical:
+        return legacy_type
+
+    # Context-aware alias resolution
+    if legacy_type == "decision_approval_record":
+        if collection_type.lower() in ("adr", "architecturaldecision"):
+            resolved = "adr_approval"
+        elif collection_type.lower() in ("principle", "principles"):
+            resolved = "principle_approval"
+        else:
+            resolved = "adr_approval"  # default context
+        logger.info(
+            "Legacy doc_type '%s' resolved to '%s' (collection: %s)",
+            legacy_type, resolved, collection_type,
+        )
+        return resolved
+
+    # Load aliases from config for extensibility
+    taxonomy = settings.get_taxonomy_config()
+    aliases = taxonomy.get("doc_types", {}).get("aliases", {})
+    if legacy_type in aliases:
+        alias_map = aliases[legacy_type]
+        if isinstance(alias_map, dict):
+            resolved = alias_map.get(collection_type.lower(), list(alias_map.values())[0])
+        else:
+            resolved = alias_map
+        logger.info(
+            "Legacy doc_type '%s' resolved to '%s' (collection: %s)",
+            legacy_type, resolved, collection_type,
+        )
+        return resolved
+
+    # Unknown type handling
+    if settings.mode == "esa_strict":
+        raise ValueError(
+            f"Unknown doc_type '{legacy_type}' in esa_strict mode "
+            f"(collection: {collection_type})"
+        )
+
+    logger.warning(
+        "Unknown doc_type '%s' resolved to 'unknown' in portable mode (collection: %s)",
+        legacy_type, collection_type,
+    )
+    return DocType.UNKNOWN
+
+
+def get_allowed_types_by_route(route_name: str) -> List[str]:
+    """Get allowed doc_types for a route from config.
+
+    Falls back to hardcoded defaults if config is unavailable.
+
+    Args:
+        route_name: Route key (e.g., 'adr_content', 'principle_content',
+                    'excluded_from_list').
+
+    Returns:
+        List of canonical doc_type strings.
+    """
+    from .config import settings
+
+    # Hardcoded defaults matching current behavior
+    defaults: Dict[str, List[str]] = {
+        "adr_content": ["adr", "content"],
+        "principle_content": ["principle", "content"],
+        "adr_approval": ["adr_approval"],
+        "principle_approval": ["principle_approval"],
+        "excluded_from_list": [
+            "adr_approval", "principle_approval", "template",
+            "index", "registry", "unknown",
+        ],
+    }
+
+    taxonomy = settings.get_taxonomy_config()
+    config_routes = taxonomy.get("doc_types", {}).get("allowed_types_by_route", {})
+
+    return config_routes.get(route_name, defaults.get(route_name, []))

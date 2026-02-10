@@ -1,0 +1,121 @@
+mode: esa_strict  # esa_strict | portable
+
+collections:
+  vocabulary: Vocabulary
+  adr: ArchitecturalDecision
+  principle: Principle
+  policy: PolicyDocument
+
+embedding:
+  profile: local  # cloud | local
+  profiles:
+    cloud:
+      llm:
+        provider: openai
+        model: gpt-4.1-mini
+        temperature: 0.2
+      embeddings:
+        provider: openai
+        model: text-embedding-3-large
+      vector_store:
+        provider: weaviate
+    local:
+      llm:
+        provider: ollama
+        model: alibayram/smollm3:latest
+        temperature: 0.2
+      embeddings:
+        provider: local
+        model: nomic-embed-text-v2-moe
+      vector_store:
+        provider: weaviate
+
+doc_types:
+  # Canonical types (including 'content' as legacy-canonical)
+  canonical:
+    - adr
+    - adr_approval
+    - principle
+    - principle_approval
+    - content          # legacy-canonical: kept in both ADR and Principle allow-lists
+    - template
+    - index
+    - registry
+    - unknown
+
+  # Aliases: legacy terms normalized to canonical at ingestion/query time.
+  # 'decision_approval_record' resolved context-aware (see code).
+  aliases:
+    decision_approval_record:
+      adr: adr_approval
+      principle: principle_approval
+
+  # Allow-lists per route (canonical types + content as legacy-canonical)
+  allowed_types_by_route:
+    adr_content: [adr, content]
+    principle_content: [principle, content]
+    adr_approval: [adr_approval]
+    principle_approval: [principle_approval]
+    excluded_from_list: [adr_approval, principle_approval, template, index, registry, unknown]
+
+  skip_at_ingestion: [index, template]
+
+routing:
+  locale: en
+
+  # Strong signals: must contain a document reference (ADR/PCP/Principle + number)
+  # Word-boundary safe to avoid matching inside other tokens (e.g. "radR.25")
+  doc_reference_patterns:
+    - '\badr[.\s-]?\d{1,4}\b'
+    - '\bpcp[.\s-]?\d{1,4}\b'
+    - '\bprinciple[.\s-]?\d{1,4}\b'
+    - '\badr\s+number\s+\d+\b'
+    - '\bdecision\s+\d+\b'
+
+  # Weak signals: request phrases (NOT sufficient alone for specific-doc routing)
+  doc_request_phrases:
+    - 'about\s+(adr|decision)'
+    - 'details?\s+(of|for|about)'
+    - 'explain\s+(adr|decision)'
+    - 'what\s+does\s+adr'
+    - 'tell\s+me\s+about'
+
+  terminology_patterns:
+    - 'what\s+is\s+(a\s+|an\s+)?(\w+)'
+    - 'define\s+(\w+)'
+    - 'definition\s+of\s+(\w+)'
+    - 'what\s+does\s+(\w+)\s+mean'
+    - 'explain\s+(the\s+)?term\s+(\w+)'
+    - 'meaning\s+of\s+(\w+)'
+
+  vocab_keywords: [vocab, vocabulary, definition, term, concept, meaning, cim, iec, skos]
+
+  markers:
+    list_intent: [list, show, all, exist, exists, available, have, many, which, enumerate]
+    count_intent: ["how many", "total number of", "count", "number of"]
+    approval_intent: [who approved, approved by, approvers, approval, who signed, signed off, reviewed by]
+    topical_intent: [about, status, consequences, decision drivers, context, what does it say, explain, details, regarding, concerning]
+
+identity:
+  patterns:
+    dar_filename: "^\\d{4}[dD]-"
+    content_filename: "^\\d{4}-"
+  index_filenames: [index.md, _index.md, readme.md, overview.md]
+  registry_filenames: [esa_doc_registry.md, esa-doc-registry.md]
+  template_filename_indicators: [template, "-template", "_template"]
+  template_content_indicators:
+    - "{short title"
+    - "{problem statement}"
+    - "{context}"
+    - "{decision outcome}"
+    - "[insert "
+    - "{insert "
+    - "{title}"
+    - "{description}"
+    - "{{"
+  index_title_indicators:
+    - decision approval record list
+    - energy system architecture - decision records
+    - list of decisions
+    - decision record list
+    - table of contents

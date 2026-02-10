@@ -11,7 +11,7 @@ from weaviate.classes.data import DataObject
 
 from ..config import settings
 from ..loaders import RDFLoader, MarkdownLoader, DocumentLoader
-from .collections import CollectionManager
+from .collections import CollectionManager, get_collection_name
 from .embeddings import embed_texts
 
 # Import chunking module (optional)
@@ -244,7 +244,7 @@ class DataIngestionPipeline:
 
         loader = RDFLoader(rdf_path)
         collection_local = self.client.collections.get(
-            CollectionManager.VOCABULARY_COLLECTION
+            get_collection_name("vocabulary")
         )
         collection_openai = None
         if include_openai:
@@ -321,7 +321,7 @@ class DataIngestionPipeline:
             return 0, 0
 
         loader = MarkdownLoader(adr_path)
-        collection_local = self.client.collections.get(CollectionManager.ADR_COLLECTION)
+        collection_local = self.client.collections.get(get_collection_name("adr"))
         collection_openai = None
         if include_openai:
             collection_openai = self.client.collections.get(
@@ -428,7 +428,7 @@ class DataIngestionPipeline:
             settings.resolve_path(settings.principles_path),
         ]
 
-        collection_local = self.client.collections.get(CollectionManager.PRINCIPLE_COLLECTION)
+        collection_local = self.client.collections.get(get_collection_name("principle"))
         collection_openai = None
         if include_openai:
             collection_openai = self.client.collections.get(
@@ -537,7 +537,7 @@ class DataIngestionPipeline:
             settings.resolve_path(settings.general_policy_path),
         ]
 
-        collection_local = self.client.collections.get(CollectionManager.POLICY_COLLECTION)
+        collection_local = self.client.collections.get(get_collection_name("policy"))
         collection_openai = None
         if include_openai:
             collection_openai = self.client.collections.get(

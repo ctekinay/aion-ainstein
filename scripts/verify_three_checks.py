@@ -28,6 +28,7 @@ from rich.panel import Panel
 from rich.table import Table
 
 from src.weaviate.client import get_weaviate_client
+from src.weaviate.collections import get_collection_name
 
 console = Console()
 
@@ -50,7 +51,7 @@ def check_1_index_ingestion(client) -> dict:
 
     # Check ArchitecturalDecision collection for decisions/index.md
     try:
-        adr_collection = client.collections.get("ArchitecturalDecision")
+        adr_collection = client.collections.get(get_collection_name("adr"))
         offset = 0
         limit = 100
         all_objects = []
@@ -101,7 +102,7 @@ def check_1_index_ingestion(client) -> dict:
 
     # Check Principle collection for principles/index.md
     try:
-        principle_collection = client.collections.get("Principle")
+        principle_collection = client.collections.get(get_collection_name("principle"))
         offset = 0
         all_principle_objects = []
 
@@ -279,7 +280,7 @@ def check_3_record_type_separation(client) -> dict:
     console.print(f"\n[bold]ADR Collection - doc_type Analysis:[/bold]")
 
     try:
-        adr_collection = client.collections.get("ArchitecturalDecision")
+        adr_collection = client.collections.get(get_collection_name("adr"))
         offset = 0
         limit = 100
         all_adr_objects = []
@@ -384,7 +385,7 @@ def check_3_record_type_separation(client) -> dict:
     console.print(f"\n[bold]Principle Collection - doc_type Analysis:[/bold]")
 
     try:
-        principle_collection = client.collections.get("Principle")
+        principle_collection = client.collections.get(get_collection_name("principle"))
         offset = 0
         all_principle_objects = []
 

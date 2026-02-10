@@ -30,6 +30,8 @@ from typing import Any, Optional, Protocol, runtime_checkable
 
 from weaviate import WeaviateClient
 
+from .weaviate.collections import get_all_collection_names
+
 # =============================================================================
 # Concurrency Control
 # =============================================================================
@@ -168,12 +170,7 @@ class BaseLLMClient(ABC):
 
     def get_default_collections(self) -> list[str]:
         """Return default collection names for queries."""
-        return [
-            "Vocabulary",
-            "ArchitecturalDecision",
-            "Principle",
-            "PolicyDocument",
-        ]
+        return get_all_collection_names()
 
     def is_structured_mode(self, question: str) -> bool:
         """Check if structured response mode is active for this question."""

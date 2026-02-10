@@ -14,6 +14,7 @@ from typing import Iterator, Optional
 import frontmatter
 
 from .index_metadata_loader import get_document_metadata
+from ..doc_type_classifier import DocType, REGISTRY_FILENAMES as _CLASSIFIER_REGISTRY_FILENAMES
 
 # Import chunking module (optional, for enhanced chunking)
 try:
@@ -44,10 +45,10 @@ logger = logging.getLogger(__name__)
 # Note: index.md files are still parsed for ownership metadata via index_metadata_loader
 # Note: DARs (decision_approval_record) ARE embedded - they're excluded at query time
 # =============================================================================
-SKIP_DOC_TYPES_AT_INGESTION = {'template', 'index'}
+SKIP_DOC_TYPES_AT_INGESTION = set(DocType.skip_at_ingestion_types())
 
-# Registry filenames - these are NOT skipped (canonical doc registry)
-REGISTRY_FILENAMES = {'esa_doc_registry.md', 'esa-doc-registry.md'}
+# Registry filenames - imported from doc_type_classifier (single source of truth)
+REGISTRY_FILENAMES = _CLASSIFIER_REGISTRY_FILENAMES
 
 
 @dataclass

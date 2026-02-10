@@ -29,6 +29,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from src.weaviate.client import get_weaviate_client
 from src.weaviate.embeddings import embed_text
 from src.config import settings
+from src.weaviate.collections import get_collection_name, get_all_collection_names
 from weaviate.classes.query import MetadataQuery, HybridFusion
 
 
@@ -38,14 +39,14 @@ DIAGNOSTIC_QUESTIONS = [
     {
         "id": "R1",
         "question": "What does ADR-0012 decide?",
-        "expected_collection": "ArchitecturalDecision",
+        "expected_collection": get_collection_name("adr"),
         "expected_title_contains": "ADR-0012",
         "difficulty": "easy",
     },
     {
         "id": "R2",
         "question": "What is the status of ADR-0027?",
-        "expected_collection": "ArchitecturalDecision",
+        "expected_collection": get_collection_name("adr"),
         "expected_title_contains": "ADR-0027",
         "difficulty": "easy",
     },
@@ -53,14 +54,14 @@ DIAGNOSTIC_QUESTIONS = [
     {
         "id": "R3",
         "question": "What is Demandable Capacity?",
-        "expected_collection": "Vocabulary",
+        "expected_collection": get_collection_name("vocabulary"),
         "expected_label_contains": "Demandable Capacity",
         "difficulty": "easy",
     },
     {
         "id": "R4",
         "question": "What decision was made about the domain language standard?",
-        "expected_collection": "ArchitecturalDecision",
+        "expected_collection": get_collection_name("adr"),
         "expected_title_contains": "CIM",  # ADR-0012
         "difficulty": "medium",
     },
@@ -88,12 +89,7 @@ class RAGDiagnostics:
     def __init__(self, verbose: bool = False):
         self.client = get_weaviate_client()
         self.verbose = verbose
-        self.collections = [
-            "Vocabulary",
-            "ArchitecturalDecision",
-            "Principle",
-            "PolicyDocument"
-        ]
+        self.collections = get_all_collection_names()
 
     def close(self):
         """Close the Weaviate client connection."""
@@ -129,10 +125,10 @@ class RAGDiagnostics:
 
             # Determine text field based on collection
             text_field = {
-                "Vocabulary": "content",
-                "ArchitecturalDecision": "full_text",
-                "Principle": "full_text",
-                "PolicyDocument": "full_text",
+                get_collection_name("vocabulary"): "content",
+                get_collection_name("adr"): "full_text",
+                get_collection_name("principle"): "full_text",
+                get_collection_name("policy"): "full_text",
             }.get(coll_name, "content")
 
             # Fetch all documents
@@ -269,7 +265,7 @@ class RAGDiagnostics:
 
         return results
 
-    def tune_alpha(self, test_question: str = None, collection: str = "ArchitecturalDecision") -> dict:
+    def tune_alpha(self, test_question: str = None, collection: str = None) -> dict:
         """Test different alpha values to find optimal hybrid search balance.
 
         Alpha controls keyword (BM25) vs vector balance:
@@ -281,6 +277,7 @@ class RAGDiagnostics:
         print("ALPHA TUNING EXPERIMENT")
         print("="*70)
 
+        collection = collection or get_collection_name("adr")
         test_question = test_question or "What decision was made about domain language?"
         alphas = [0.0, 0.3, 0.5, 0.7, 0.8, 1.0]
 
@@ -478,7 +475,7 @@ def main():
                         help="Run complete diagnostic suite")
     parser.add_argument("--question", "-q", type=str,
                         help="Custom question for testing")
-    parser.add_argument("--collection", "-c", type=str, default="ArchitecturalDecision",
+    parser.add_argument("--collection", "-c", type=str, default=get_collection_name("adr"),
                         help="Collection to test")
     parser.add_argument("--verbose", "-v", action="store_true",
                         help="Verbose output")

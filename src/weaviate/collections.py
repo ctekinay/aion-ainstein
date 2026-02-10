@@ -1,7 +1,7 @@
 """Weaviate collection schema definitions and management."""
 
 import logging
-from typing import Optional
+from typing import List, Optional
 
 from weaviate import WeaviateClient
 from weaviate.classes.config import Configure, Property, DataType, Tokenization, VectorDistances
@@ -13,16 +13,41 @@ from ..config import settings
 logger = logging.getLogger(__name__)
 
 
+def get_collection_name(logical_name: str) -> str:
+    """Resolve a logical collection name to its Weaviate collection name.
+
+    Precedence: env vars > ESA override YAML > platform default YAML > hardcoded defaults.
+
+    Args:
+        logical_name: One of 'vocabulary', 'adr', 'principle', 'policy'.
+
+    Returns:
+        The Weaviate collection name (e.g. 'ArchitecturalDecision').
+    """
+    return settings.get_collection_names().get(logical_name, logical_name)
+
+
+def get_all_collection_names() -> List[str]:
+    """Get all configured collection names in standard order."""
+    return [
+        get_collection_name("vocabulary"),
+        get_collection_name("adr"),
+        get_collection_name("principle"),
+        get_collection_name("policy"),
+    ]
+
+
 class CollectionManager:
     """Manager for Weaviate collection schemas."""
 
     # Collection names - Local (Nomic/Ollama)
+    # Kept as documentation/fallback; prefer get_collection_name() for runtime resolution.
     VOCABULARY_COLLECTION = "Vocabulary"
     ADR_COLLECTION = "ArchitecturalDecision"
     PRINCIPLE_COLLECTION = "Principle"
     POLICY_COLLECTION = "PolicyDocument"
 
-    # Collection names - OpenAI
+    # Legacy OpenAI variants (deprecated — use embedding profiles instead)
     VOCABULARY_COLLECTION_OPENAI = "Vocabulary_OpenAI"
     ADR_COLLECTION_OPENAI = "ArchitecturalDecision_OpenAI"
     PRINCIPLE_COLLECTION_OPENAI = "Principle_OpenAI"

@@ -17,22 +17,37 @@ Legacy values (backward compatible):
 """
 
 import logging
-from typing import Optional
+from typing import List, Optional
 
 from weaviate.classes.query import Filter
+
+from ..doc_type_classifier import get_allowed_types_by_route
 
 logger = logging.getLogger(__name__)
 
 
 # =============================================================================
-# Canonical Doc Type Constants
+# Config-Driven Doc Type Constants
 # =============================================================================
 
-# Content types to include in list queries (allow-list approach)
-ADR_CONTENT_TYPES = ["adr", "content"]  # Include 'content' for backward compat
+def _get_content_types(collection_type: str) -> List[str]:
+    """Get allowed content types for a collection from config.
+
+    Args:
+        collection_type: 'adr' or 'principle'.
+
+    Returns:
+        List of allowed doc_type strings.
+    """
+    route = f"{collection_type}_content"
+    return get_allowed_types_by_route(route)
+
+
+# Backward-compatible module-level constants (resolved from config)
+ADR_CONTENT_TYPES = ["adr", "content"]  # Fallback; prefer _get_content_types("adr")
 PRINCIPLE_CONTENT_TYPES = ["principle", "content"]
 
-# Types to exclude (for reference, not used in allow-list approach)
+# Types to exclude (for reference, loaded from config when available)
 EXCLUDED_TYPES = ["adr_approval", "decision_approval_record", "template", "index"]
 
 
@@ -58,14 +73,14 @@ def build_document_filter(
     Returns:
         Weaviate Filter object for allow-list filtering
     """
-    # Determine base allowed types based on collection
+    # Determine base allowed types based on collection (loaded from config)
     if collection_type.lower() in ("adr", "architecturaldecision"):
-        allowed_types = list(ADR_CONTENT_TYPES)
+        allowed_types = list(_get_content_types("adr"))
     elif collection_type.lower() in ("principle", "principles"):
-        allowed_types = list(PRINCIPLE_CONTENT_TYPES)
+        allowed_types = list(_get_content_types("principle"))
     else:
         # Generic: allow both
-        allowed_types = list(set(ADR_CONTENT_TYPES + PRINCIPLE_CONTENT_TYPES))
+        allowed_types = list(set(_get_content_types("adr") + _get_content_types("principle")))
 
     # Load filter configuration from skill for approval query detection
     skill = skill_registry.loader.load_skill(skill_name)

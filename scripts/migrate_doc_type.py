@@ -39,6 +39,7 @@ from rich.progress import Progress, SpinnerColumn, TextColumn
 
 from src.config import settings
 from src.weaviate.client import get_weaviate_client
+from src.weaviate.collections import get_collection_name
 from src.doc_type_classifier import (
     DocType,
     classify_adr_document,
@@ -79,9 +80,9 @@ class MigrationStats:
 def get_collection_type(collection_name: str) -> str:
     """Map collection name to collection type for classifier."""
     mapping = {
-        "ArchitecturalDecision": "adr",
+        get_collection_name("adr"): "adr",
         "ArchitecturalDecision_OpenAI": "adr",
-        "Principle": "principle",
+        get_collection_name("principle"): "principle",
         "Principle_OpenAI": "principle",
     }
     return mapping.get(collection_name, "unknown")
@@ -410,7 +411,7 @@ def print_summary(stats_list: list[MigrationStats], dry_run: bool) -> None:
     console.print("\n[bold]Validation Checks:[/bold]")
 
     for stats in stats_list:
-        if "ArchitecturalDecision" in stats.collection:
+        if get_collection_name("adr") in stats.collection:
             adr_count = stats.type_counts.get(DocType.ADR, 0)
 
             # Check for expected ADR count (should be ~18)
@@ -475,7 +476,7 @@ def main():
         # Determine which collections to migrate
         collections = []
         if args.all:
-            collections = ["ArchitecturalDecision", "Principle"]
+            collections = [get_collection_name("adr"), get_collection_name("principle")]
             if args.include_openai:
                 collections.extend([
                     "ArchitecturalDecision_OpenAI",

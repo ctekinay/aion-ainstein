@@ -6,7 +6,7 @@ from typing import Optional, Any
 from weaviate import WeaviateClient
 
 from .base import BaseAgent, AgentResponse
-from ..weaviate.collections import CollectionManager
+from ..weaviate.collections import get_collection_name
 from ..config import settings
 
 logger = logging.getLogger(__name__)
@@ -21,7 +21,7 @@ class PolicyAgent(BaseAgent):
         "Can answer questions about data management, data quality, "
         "metadata governance, classification, and compliance requirements."
     )
-    collection_name = CollectionManager.POLICY_COLLECTION
+    collection_name = get_collection_name("policy")
 
     def __init__(self, client: WeaviateClient, llm_client: Optional[Any] = None):
         """Initialize the policy agent.
@@ -104,7 +104,7 @@ class PolicyAgent(BaseAgent):
             List of matching principles
         """
         try:
-            collection = self.client.collections.get(CollectionManager.PRINCIPLE_COLLECTION)
+            collection = self.client.collections.get(get_collection_name("principle"))
             results = collection.query.hybrid(
                 query=query,
                 limit=limit,

@@ -7,7 +7,7 @@ from typing import Optional, Any
 from weaviate import WeaviateClient
 
 from .base import BaseAgent, AgentResponse
-from ..weaviate.collections import CollectionManager
+from ..weaviate.collections import get_collection_name
 from ..config import settings
 
 logger = logging.getLogger(__name__)
@@ -172,7 +172,7 @@ class ArchitectureAgent(BaseAgent):
         "Can answer questions about architectural patterns, design decisions, "
         "standards adoption, and system design rationale documented in ADRs."
     )
-    collection_name = CollectionManager.ADR_COLLECTION
+    collection_name = get_collection_name("adr")
 
     def __init__(self, client: WeaviateClient, llm_client: Optional[Any] = None):
         """Initialize the architecture agent.
@@ -276,7 +276,7 @@ class ArchitectureAgent(BaseAgent):
             List of matching principles
         """
         try:
-            collection = self.client.collections.get(CollectionManager.PRINCIPLE_COLLECTION)
+            collection = self.client.collections.get(get_collection_name("principle"))
             results = collection.query.hybrid(
                 query=query,
                 limit=limit,
@@ -409,7 +409,7 @@ class ArchitectureAgent(BaseAgent):
         Returns:
             List of all principle documents
         """
-        collection = self.client.collections.get(CollectionManager.PRINCIPLE_COLLECTION)
+        collection = self.client.collections.get(get_collection_name("principle"))
 
         # Fetch ALL objects with pagination for complete results
         all_objects = _fetch_all_objects(

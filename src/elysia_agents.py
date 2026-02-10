@@ -195,6 +195,7 @@ from .approval_extractor import (
     build_dar_content_response,
 )
 from .weaviate.embeddings import embed_text
+from .weaviate.collections import get_collection_name, get_all_collection_names
 from .weaviate.skosmos_client import get_skosmos_client, TermLookupResult
 from .observability import metrics as obs_metrics
 from .response_schema import (
@@ -274,31 +275,111 @@ def _get_compiled_list_patterns() -> list:
 # Ambiguity-Safe Query Routing (Phase 4 Gap C)
 # =============================================================================
 
+# =============================================================================
+# Config-driven routing pattern loading
+# =============================================================================
+
+def _get_routing_config() -> dict:
+    """Load routing configuration from taxonomy config with hardcoded fallbacks."""
+    try:
+        return settings.get_taxonomy_config().get("routing", {})
+    except Exception:
+        return {}
+
+
+def _get_doc_reference_patterns() -> list[str]:
+    """Get strong document reference patterns from config."""
+    defaults = [
+        r"\badr[.\s-]?\d{1,4}\b",
+        r"\bpcp[.\s-]?\d{1,4}\b",
+        r"\bprinciple[.\s-]?\d{1,4}\b",
+        r"\badr\s+number\s+\d+\b",
+        r"\bdecision\s+\d+\b",
+    ]
+    return _get_routing_config().get("doc_reference_patterns", defaults)
+
+
+def _get_doc_request_phrases() -> list[str]:
+    """Get weak document request phrases from config."""
+    defaults = [
+        r"about\s+(adr|decision)",
+        r"details?\s+(of|for|about)",
+        r"explain\s+(adr|decision)",
+        r"what\s+does\s+adr",
+        r"tell\s+me\s+about",
+    ]
+    return _get_routing_config().get("doc_request_phrases", defaults)
+
+
+def _get_terminology_pattern_list() -> list[str]:
+    """Get terminology patterns from config."""
+    defaults = [
+        r"what\s+is\s+(a\s+|an\s+)?(\w+)",
+        r"define\s+(\w+)",
+        r"definition\s+of\s+(\w+)",
+        r"what\s+does\s+(\w+)\s+mean",
+        r"explain\s+(the\s+)?term\s+(\w+)",
+        r"meaning\s+of\s+(\w+)",
+    ]
+    return _get_routing_config().get("terminology_patterns", defaults)
+
+
+def _get_vocab_keywords() -> list[str]:
+    """Get vocabulary keywords from config."""
+    defaults = ["vocab", "vocabulary", "definition", "term", "concept", "meaning", "cim", "iec", "skos"]
+    return _get_routing_config().get("vocab_keywords", defaults)
+
+
+def _get_markers(marker_name: str) -> list[str]:
+    """Get marker list from config."""
+    defaults = {
+        "list_intent": ["list", "show", "all", "exist", "exists", "available", "have", "many", "which", "enumerate"],
+        "count_intent": ["how many", "total number of", "count", "number of"],
+        "approval_intent": ["who approved", "approved by", "approvers", "approval", "who signed", "signed off", "reviewed by"],
+        "topical_intent": ["about", "status", "consequences", "decision drivers", "context", "what does it say", "explain", "details", "regarding", "concerning"],
+    }
+    markers = _get_routing_config().get("markers", {})
+    return markers.get(marker_name, defaults.get(marker_name, []))
+
+
 # Patterns that indicate a SPECIFIC document reference (detail query, NOT list)
-# These take priority over list indicators
-_SPECIFIC_DOC_PATTERNS = [
-    r"adr[.\s-]?\d{1,4}",           # ADR.0031, ADR-0031, ADR 31, ADR.31, ADR.1
-    r"pcp[.\s-]?\d{1,4}",           # PCP.0010, PCP-10, PCP.1
-    r"principle[.\s-]?\d{1,4}",     # Principle 10, Principle.0010
-    r"adr\s+number\s+\d+",          # ADR number 31
-    r"decision\s+\d+",              # Decision 31
-    r"about\s+(adr|decision)",      # "about ADR" suggests semantic query
-    r"details?\s+(of|for|about)",   # "details of" suggests specific query
-    r"explain\s+(adr|decision)",    # "explain ADR" is semantic
-    r"what\s+does\s+adr",           # "what does ADR..." is semantic
-    r"tell\s+me\s+about",           # "tell me about..." is semantic
-]
+# Loaded from config: strong references + weak phrases combined for backward compat
+_SPECIFIC_DOC_PATTERNS = None  # Lazy-loaded
+
+def _load_specific_doc_patterns() -> list[str]:
+    """Load and combine doc reference patterns and request phrases."""
+    return _get_doc_reference_patterns() + _get_doc_request_phrases()
+
 
 # Compiled patterns cache
 _compiled_specific_patterns: list | None = None
+_compiled_reference_patterns: list | None = None
 
 
 def _get_compiled_specific_patterns() -> list:
     """Get cached compiled patterns for specific document detection."""
     global _compiled_specific_patterns
     if _compiled_specific_patterns is None:
-        _compiled_specific_patterns = [re.compile(p, re.IGNORECASE) for p in _SPECIFIC_DOC_PATTERNS]
+        patterns = _load_specific_doc_patterns()
+        _compiled_specific_patterns = [re.compile(p, re.IGNORECASE) for p in patterns]
     return _compiled_specific_patterns
+
+
+def invalidate_pattern_caches():
+    """Invalidate all compiled pattern caches.
+
+    Call this after config changes to force patterns to be reloaded.
+    Also invalidates the config-level caches via invalidate_config_caches().
+    """
+    global _compiled_specific_patterns, _compiled_reference_patterns
+    global _compiled_list_patterns, _compiled_terminology_patterns
+    _compiled_specific_patterns = None
+    _compiled_reference_patterns = None
+    _compiled_list_patterns = None
+    _compiled_terminology_patterns = None
+
+    from .config import invalidate_config_caches
+    invalidate_config_caches()
 
 
 def _is_specific_document_query(question: str) -> bool:
@@ -320,17 +401,7 @@ def _is_specific_document_query(question: str) -> bool:
 # Terminology Query Detection (Phase 5 Gap A)
 # =============================================================================
 
-# Patterns that indicate a terminology/definition query
-_TERMINOLOGY_PATTERNS = [
-    r"what\s+is\s+(a\s+|an\s+)?(\w+)",          # "what is ACLineSegment"
-    r"define\s+(\w+)",                           # "define CIM"
-    r"definition\s+of\s+(\w+)",                  # "definition of PowerTransformer"
-    r"what\s+does\s+(\w+)\s+mean",               # "what does CIMXML mean"
-    r"explain\s+(the\s+)?term\s+(\w+)",          # "explain the term CIM"
-    r"meaning\s+of\s+(\w+)",                     # "meaning of ACLineSegment"
-]
-
-# Compiled patterns cache
+# Compiled terminology patterns cache (loaded from config)
 _compiled_terminology_patterns: list | None = None
 
 
@@ -338,7 +409,9 @@ def _get_compiled_terminology_patterns() -> list:
     """Get cached compiled patterns for terminology query detection."""
     global _compiled_terminology_patterns
     if _compiled_terminology_patterns is None:
-        _compiled_terminology_patterns = [re.compile(p, re.IGNORECASE) for p in _TERMINOLOGY_PATTERNS]
+        _compiled_terminology_patterns = [
+            re.compile(p, re.IGNORECASE) for p in _get_terminology_pattern_list()
+        ]
     return _compiled_terminology_patterns
 
 
@@ -358,9 +431,8 @@ def is_terminology_query(question: str) -> bool:
         if pattern.search(question):
             return True
 
-    # Check for vocabulary keywords
-    vocab_indicators = ["vocab", "vocabulary", "definition", "term", "concept", "meaning", "cim", "iec", "skos"]
-    if any(indicator in question_lower for indicator in vocab_indicators):
+    # Check for vocabulary keywords (from config)
+    if any(indicator in question_lower for indicator in _get_vocab_keywords()):
         return True
 
     return False
@@ -461,21 +533,9 @@ def detect_list_query(question: str) -> ListQueryResult:
             reason="specific_document_reference"
         )
 
-    # Priority 2: Check for topical/semantic markers (from taxonomy section 4.3)
+    # Priority 2: Check for topical/semantic markers (from config routing.markers.topical_intent)
     # These indicate semantic content queries, not "what exists" queries
-    topical_markers = [
-        "about",           # "decisions about TLS"
-        "status",          # "ADR status"
-        "consequences",    # "ADR consequences"
-        "decision drivers", # ADR content section
-        "context",         # ADR content section
-        "what does it say", # semantic content query
-        "explain",         # semantic content query
-        "details",         # "list ADR details"
-        "regarding",       # topic filter
-        "concerning",      # topic filter
-        "for",             # "decisions for caching"
-    ]
+    topical_markers = _get_markers("topical_intent")
     has_topical_marker = any(marker in question_lower for marker in topical_markers)
 
     list_config = _get_list_query_config()
@@ -1009,7 +1069,7 @@ IMPORTANT GUIDELINES:
             Returns:
                 List of matching vocabulary concepts with definitions
             """
-            collection = client.collections.get("Vocabulary")
+            collection = client.collections.get(get_collection_name("vocabulary"))
             query_vector = embed_text(query)
             results = collection.query.hybrid(
                 query=query,
@@ -1088,7 +1148,7 @@ IMPORTANT GUIDELINES:
             Returns:
                 List of matching ADRs with context and decisions
             """
-            collection = client.collections.get("ArchitecturalDecision")
+            collection = client.collections.get(get_collection_name("adr"))
             query_vector = embed_text(query)
             results = collection.query.hybrid(
                 query=query,
@@ -1128,7 +1188,7 @@ IMPORTANT GUIDELINES:
             Returns:
                 List of matching principles
             """
-            collection = client.collections.get("Principle")
+            collection = client.collections.get(get_collection_name("principle"))
             query_vector = embed_text(query)
             results = collection.query.hybrid(
                 query=query,
@@ -1167,7 +1227,7 @@ IMPORTANT GUIDELINES:
             Returns:
                 List of matching policy documents
             """
-            collection = client.collections.get("PolicyDocument")
+            collection = client.collections.get(get_collection_name("policy"))
             query_vector = embed_text(query)
             results = collection.query.hybrid(
                 query=query,
@@ -1201,7 +1261,7 @@ IMPORTANT GUIDELINES:
                 Marked list result with deduplicated ADRs (document-identity based)
             """
             request_id = generate_request_id()
-            collection = client.collections.get("ArchitecturalDecision")
+            collection = client.collections.get(get_collection_name("adr"))
 
             # Use allow-list filter (doc_type IN ["adr", "content"]) for server-side filtering
             # This approach excludes null/missing doc_type values and uses canonical taxonomy
@@ -1330,7 +1390,7 @@ IMPORTANT GUIDELINES:
                 Marked list result with deduplicated principles (document-identity based)
             """
             request_id = generate_request_id()
-            collection = client.collections.get("Principle")
+            collection = client.collections.get(get_collection_name("principle"))
             # Use allow-list filter for server-side filtering with canonical taxonomy
             content_filter = build_document_filter(
                 question="list all principles",
@@ -1449,14 +1509,17 @@ IMPORTANT GUIDELINES:
 
             # Map collection type to Weaviate collection
             type_mapping = {
-                "adr": ["ArchitecturalDecision"],
-                "adrs": ["ArchitecturalDecision"],
-                "principle": ["Principle"],
-                "principles": ["Principle"],
-                "all": ["ArchitecturalDecision", "Principle"],
+                "adr": [get_collection_name("adr")],
+                "adrs": [get_collection_name("adr")],
+                "principle": [get_collection_name("principle")],
+                "principles": [get_collection_name("principle")],
+                "all": [get_collection_name("adr"), get_collection_name("principle")],
             }
 
-            collections_to_search = type_mapping.get(collection_type.lower(), ["ArchitecturalDecision", "Principle"])
+            collections_to_search = type_mapping.get(
+                collection_type.lower(),
+                [get_collection_name("adr"), get_collection_name("principle")],
+            )
 
             for coll_name in collections_to_search:
                 try:
@@ -1483,7 +1546,7 @@ IMPORTANT GUIDELINES:
                             "collection": coll_name,
                         }
                         # Add identifier based on collection
-                        if coll_name == "ArchitecturalDecision":
+                        if coll_name == get_collection_name("adr"):
                             record["adr_number"] = obj.properties.get("adr_number", "")
                         else:
                             record["principle_number"] = obj.properties.get("principle_number", "")
@@ -1535,7 +1598,7 @@ IMPORTANT GUIDELINES:
 
             # Search ADRs
             try:
-                adr_collection = client.collections.get("ArchitecturalDecision")
+                adr_collection = client.collections.get(get_collection_name("adr"))
                 if query:
                     search_query = f"{team_name} {query}"
                     query_vector = embed_text(search_query)
@@ -1566,7 +1629,7 @@ IMPORTANT GUIDELINES:
 
             # Search Principles
             try:
-                principle_collection = client.collections.get("Principle")
+                principle_collection = client.collections.get(get_collection_name("principle"))
                 if query:
                     search_query = f"{team_name} {query}"
                     query_vector = embed_text(search_query)
@@ -1597,7 +1660,7 @@ IMPORTANT GUIDELINES:
 
             # Search Policies
             try:
-                policy_collection = client.collections.get("PolicyDocument")
+                policy_collection = client.collections.get(get_collection_name("policy"))
                 if query:
                     search_query = f"{team_name} {query}"
                     query_vector = embed_text(search_query)
@@ -1643,7 +1706,7 @@ IMPORTANT GUIDELINES:
             Returns:
                 Dictionary with collection names and document counts
             """
-            collections = ["Vocabulary", "ArchitecturalDecision", "Principle", "PolicyDocument"]
+            collections = get_all_collection_names()
             stats = {}
             for name in collections:
                 if client.collections.exists(name):
@@ -1678,19 +1741,19 @@ IMPORTANT GUIDELINES:
             counts = {}
 
             type_mapping = {
-                "adr": "ArchitecturalDecision",
-                "adrs": "ArchitecturalDecision",
-                "principle": "Principle",
-                "principles": "Principle",
-                "policy": "PolicyDocument",
-                "policies": "PolicyDocument",
-                "vocabulary": "Vocabulary",
-                "vocab": "Vocabulary",
+                "adr": get_collection_name("adr"),
+                "adrs": get_collection_name("adr"),
+                "principle": get_collection_name("principle"),
+                "principles": get_collection_name("principle"),
+                "policy": get_collection_name("policy"),
+                "policies": get_collection_name("policy"),
+                "vocabulary": get_collection_name("vocabulary"),
+                "vocab": get_collection_name("vocabulary"),
             }
 
             collections_to_check = []
             if collection_type.lower() == "all":
-                collections_to_check = ["ArchitecturalDecision", "Principle", "PolicyDocument", "Vocabulary"]
+                collections_to_check = get_all_collection_names()
             else:
                 coll_name = type_mapping.get(collection_type.lower())
                 if coll_name:
@@ -1699,10 +1762,10 @@ IMPORTANT GUIDELINES:
                     return {"error": f"Unknown collection type: {collection_type}"}
 
             friendly_names = {
-                "ArchitecturalDecision": "ADRs",
-                "Principle": "Principles",
-                "PolicyDocument": "Policies",
-                "Vocabulary": "Vocabulary Terms"
+                get_collection_name("adr"): "ADRs",
+                get_collection_name("principle"): "Principles",
+                get_collection_name("policy"): "Policies",
+                get_collection_name("vocabulary"): "Vocabulary Terms",
             }
 
             for name in collections_to_check:
@@ -1711,7 +1774,7 @@ IMPORTANT GUIDELINES:
 
                     # Get filter for non-vocab collections
                     content_filter = None
-                    if name != "Vocabulary":
+                    if name != get_collection_name("vocabulary"):
                         content_filter = build_document_filter(f"count {name}", _skill_registry, DEFAULT_SKILL)
 
                     # Fetch ALL objects with pagination to get accurate unique count
@@ -1736,7 +1799,7 @@ IMPORTANT GUIDELINES:
                             if file_name.endswith("esa_doc_registry.md") or file_name.endswith("esa-doc-registry.md"):
                                 continue
                             # For ADRs: skip DARs
-                            if name == "ArchitecturalDecision" and re.match(r".*\d{4}d-.*\.md$", file_name):
+                            if name == get_collection_name("adr") and re.match(r".*\d{4}d-.*\.md$", file_name):
                                 continue
                             unique_paths.add(file_path)
 
@@ -1869,8 +1932,8 @@ IMPORTANT GUIDELINES:
 
             # Priority 1: Check for approval/governance record queries FIRST
             # Patterns: "approval records", "decision approval", "who approved", "daci"
-            approval_patterns = ["approval record", "decision approval", "who approved", "daci record", "governance record"]
-            is_approval_query = any(pattern in question_lower for pattern in approval_patterns)
+            approval_markers = _get_markers("approval_intent")
+            is_approval_query = any(marker in question_lower for marker in approval_markers)
 
             if is_approval_query:
                 logger.info("Approval records query detected - using deterministic path")
@@ -1971,12 +2034,7 @@ IMPORTANT GUIDELINES:
 
         # Always specify our collection names to bypass Elysia's metadata collection discovery
         # This avoids gRPC errors from Elysia's internal collections
-        our_collections = collection_names or [
-            "Vocabulary",
-            "ArchitecturalDecision",
-            "Principle",
-            "PolicyDocument",
-        ]
+        our_collections = collection_names or get_all_collection_names()
 
         # Build agent description with injected skills
         skill_content = _skill_registry.get_all_skill_content(question)
@@ -2105,7 +2163,7 @@ IMPORTANT GUIDELINES:
         # Search relevant collections
         if any(term in question_lower for term in ["adr", "decision", "architecture"]):
             try:
-                collection = self.client.collections.get(f"ArchitecturalDecision{suffix}")
+                collection = self.client.collections.get(f"{get_collection_name('adr')}{suffix}")
 
                 # Always get total count first for transparency
                 total_count = get_collection_count(collection, content_filter)
@@ -2135,11 +2193,11 @@ IMPORTANT GUIDELINES:
                         "score": getattr(obj.metadata, 'score', None),
                     })
             except Exception as e:
-                logger.warning(f"Error searching ArchitecturalDecision{suffix}: {e}")
+                logger.warning(f"Error searching {get_collection_name('adr')}{suffix}: {e}")
 
         if any(term in question_lower for term in ["principle", "governance", "esa"]):
             try:
-                collection = self.client.collections.get(f"Principle{suffix}")
+                collection = self.client.collections.get(f"{get_collection_name('principle')}{suffix}")
 
                 # Always get total count first for transparency
                 total_count = get_collection_count(collection, content_filter)
@@ -2167,11 +2225,11 @@ IMPORTANT GUIDELINES:
                         "score": getattr(obj.metadata, 'score', None),
                     })
             except Exception as e:
-                logger.warning(f"Error searching Principle{suffix}: {e}")
+                logger.warning(f"Error searching {get_collection_name('principle')}{suffix}: {e}")
 
         if any(term in question_lower for term in ["policy", "data governance", "compliance"]):
             try:
-                collection = self.client.collections.get(f"PolicyDocument{suffix}")
+                collection = self.client.collections.get(f"{get_collection_name('policy')}{suffix}")
 
                 # Always get total count first for transparency
                 total_count = get_collection_count(collection, content_filter)
@@ -2199,13 +2257,13 @@ IMPORTANT GUIDELINES:
                         "score": getattr(obj.metadata, 'score', None),
                     })
             except Exception as e:
-                logger.warning(f"Error searching PolicyDocument{suffix}: {e}")
+                logger.warning(f"Error searching {get_collection_name('policy')}{suffix}: {e}")
 
         # Expanded keyword matching for vocabulary - catch "what is X" type questions
         vocab_keywords = ["vocab", "concept", "definition", "cim", "iec", "what is", "what does", "define", "meaning", "term", "standard", "archimate"]
         if any(term in question_lower for term in vocab_keywords):
             try:
-                collection = self.client.collections.get(f"Vocabulary{suffix}")
+                collection = self.client.collections.get(f"{get_collection_name('vocabulary')}{suffix}")
 
                 # Always get total count first for transparency
                 # Note: Vocabulary doesn't use content_filter (no doc_type field)
@@ -2233,23 +2291,23 @@ IMPORTANT GUIDELINES:
                         "score": getattr(obj.metadata, 'score', None),
                     })
             except Exception as e:
-                logger.warning(f"Error searching Vocabulary{suffix}: {e}")
+                logger.warning(f"Error searching {get_collection_name('vocabulary')}{suffix}: {e}")
 
         # If no specific collection matched, search all including Vocabulary
         if not all_results:
             # Map collection base names to display types
             type_map = {
-                "ArchitecturalDecision": "ADR",
-                "Principle": "Principle",
-                "PolicyDocument": "Policy",
-                "Vocabulary": "Vocabulary"
+                get_collection_name("adr"): "ADR",
+                get_collection_name("principle"): "Principle",
+                get_collection_name("policy"): "Policy",
+                get_collection_name("vocabulary"): "Vocabulary",
             }
-            for coll_base in ["ArchitecturalDecision", "Principle", "PolicyDocument", "Vocabulary"]:
+            for coll_base in get_all_collection_names():
                 try:
                     collection = self.client.collections.get(f"{coll_base}{suffix}")
 
                     # Get total count for transparency (even in fallback)
-                    total_count = get_collection_count(collection, content_filter if coll_base != "Vocabulary" else None)
+                    total_count = get_collection_count(collection, content_filter if coll_base != get_collection_name("vocabulary") else None)
                     display_type = type_map.get(coll_base, coll_base)
                     if total_count > 0 and display_type not in collection_counts:
                         collection_counts[display_type] = total_count
@@ -2259,7 +2317,7 @@ IMPORTANT GUIDELINES:
                         return_metadata=metadata_request
                     )
                     for obj in results.objects:
-                        if coll_base == "Vocabulary":
+                        if coll_base == get_collection_name("vocabulary"):
                             all_results.append({
                                 "type": "Vocabulary",
                                 "label": obj.properties.get("pref_label", ""),

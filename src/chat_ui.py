@@ -30,6 +30,7 @@ from weaviate.classes.query import Filter
 
 from .config import settings
 from .weaviate.client import get_weaviate_client
+from .weaviate.collections import get_collection_name
 from .weaviate.embeddings import embed_text
 from .elysia_agents import ElysiaRAGSystem, ELYSIA_AVAILABLE
 from .skills import SkillRegistry, get_skill_registry, DEFAULT_SKILL
@@ -686,19 +687,19 @@ async def stream_elysia_response(question: str) -> AsyncGenerator[str, None]:
 
 # ============== Test Mode: LLM Comparison Functions ==============
 
-# Collection name mappings for each provider
+# Collection name mappings resolved from config
 COLLECTION_NAMES = {
     "ollama": {
-        "adr": "ArchitecturalDecision",
-        "principle": "Principle",
-        "policy": "PolicyDocument",
-        "vocabulary": "Vocabulary",
+        "adr": get_collection_name("adr"),
+        "principle": get_collection_name("principle"),
+        "policy": get_collection_name("policy"),
+        "vocabulary": get_collection_name("vocabulary"),
     },
     "openai": {
-        "adr": "ArchitecturalDecision_OpenAI",
-        "principle": "Principle_OpenAI",
-        "policy": "PolicyDocument_OpenAI",
-        "vocabulary": "Vocabulary_OpenAI",
+        "adr": get_collection_name("adr"),
+        "principle": get_collection_name("principle"),
+        "policy": get_collection_name("policy"),
+        "vocabulary": get_collection_name("vocabulary"),
     },
 }
 

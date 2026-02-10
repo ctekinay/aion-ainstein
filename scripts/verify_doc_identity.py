@@ -32,9 +32,24 @@ from rich.table import Table
 from rich.panel import Panel
 
 from src.weaviate.client import get_weaviate_client
+from src.weaviate.collections import get_collection_name
+from src.config import settings
 from weaviate.classes.query import Filter
 
 console = Console()
+
+
+def load_corpus_expectations(collection_type: str) -> dict:
+    """Load corpus expectations from config for a collection type.
+
+    Returns dict with optional checks:
+    - unique_count: {enabled, min, max}
+    - must_include_ids: {enabled, values}
+
+    Disabled checks are skipped, not failed.
+    """
+    expectations = settings.get_corpus_expectations()
+    return expectations.get(collection_type, {})
 
 
 def verify_identity_consistency(chunks_by_identity: dict, file_paths_by_identity: dict) -> dict:
@@ -68,7 +83,7 @@ def verify_adr_collection(client, verbose: bool = True) -> dict:
     if verbose:
         console.print(Panel("[bold]ADR Document Identity Verification[/bold]"))
 
-    collection = client.collections.get("ArchitecturalDecision")
+    collection = client.collections.get(get_collection_name("adr"))
 
     # Get ALL objects with doc_type="adr" using pagination
     adr_filter = Filter.by_property("doc_type").equal("adr")
@@ -182,13 +197,19 @@ def verify_adr_collection(client, verbose: bool = True) -> dict:
             for v in consistency["violations"][:3]:
                 console.print(f"     - {v['identity']}: {v['file_paths']}")
 
-    has_0030 = "0030" in unique_adr_numbers
-    has_0031 = "0031" in unique_adr_numbers
+    # Load corpus expectations for optional checks
+    adr_expectations = load_corpus_expectations("adr")
+    unique_count_cfg = adr_expectations.get("unique_count", {})
+    must_include_cfg = adr_expectations.get("must_include_ids", {})
 
     if verbose:
         console.print(f"\n[bold]5. Presence Check[/bold]")
-        console.print(f"   ADR.0030 present: {'[green]YES[/green]' if has_0030 else '[red]NO[/red]'}")
-        console.print(f"   ADR.0031 present: {'[green]YES[/green]' if has_0031 else '[red]NO[/red]'}")
+        if must_include_cfg.get("enabled", False):
+            for doc_id in must_include_cfg.get("values", []):
+                present = doc_id in unique_adr_numbers
+                console.print(f"   ADR.{doc_id} present: {'[green]YES[/green]' if present else '[red]NO[/red]'}")
+        else:
+            console.print("   [dim]Presence check disabled in corpus_expectations.yaml[/dim]")
 
         console.print(f"\n[bold]6. ADR Numbers Found[/bold]")
         console.print(f"   {unique_adr_numbers}")
@@ -212,16 +233,31 @@ def verify_adr_collection(client, verbose: bool = True) -> dict:
 
         console.print(chunk_table)
 
-    # Validation summary
+    # Validation summary: schema invariants (always checked)
     validations = [
         ("chunk_count_positive", len(all_adr_objects) > 0, f"{len(all_adr_objects)} chunks"),
-        ("unique_adr_count_18", 15 <= len(unique_adr_numbers) <= 25, f"{len(unique_adr_numbers)} unique"),
         ("adr_number_coverage_100", adr_num_coverage == 100, f"{adr_num_coverage:.1f}%"),
         ("file_path_coverage_100", file_path_coverage == 100, f"{file_path_coverage:.1f}%"),
         ("identity_consistent", consistency["consistent"], "1:1 mapping"),
-        ("has_adr_0030", has_0030, ""),
-        ("has_adr_0031", has_0031, ""),
     ]
+
+    # Corpus expectations: optional checks (disabled = skipped, not failed)
+    if unique_count_cfg.get("enabled", False):
+        count_min = unique_count_cfg.get("min", 15)
+        count_max = unique_count_cfg.get("max", 25)
+        validations.append((
+            "unique_adr_count",
+            count_min <= len(unique_adr_numbers) <= count_max,
+            f"{len(unique_adr_numbers)} unique (expected {count_min}-{count_max})",
+        ))
+
+    if must_include_cfg.get("enabled", False):
+        for doc_id in must_include_cfg.get("values", []):
+            validations.append((
+                f"has_adr_{doc_id}",
+                doc_id in unique_adr_numbers,
+                "",
+            ))
 
     all_passed = True
     validation_results = {}
@@ -237,7 +273,7 @@ def verify_adr_collection(client, verbose: bool = True) -> dict:
             console.print(f"   {status} {name} {detail}")
 
     return {
-        "collection": "ArchitecturalDecision",
+        "collection": get_collection_name("adr"),
         "filtered_count": len(all_adr_objects),
         "unfiltered_count": len(unfiltered_results),
         "fallback_triggered": len(all_adr_objects) == 0 and len(unfiltered_results) > 0,
@@ -247,8 +283,6 @@ def verify_adr_collection(client, verbose: bool = True) -> dict:
         "file_path_coverage": file_path_coverage,
         "identity_consistent": consistency["consistent"],
         "consistency_violations": consistency["violations"],
-        "has_0030": has_0030,
-        "has_0031": has_0031,
         "identity_values": unique_adr_numbers,
         "validations": validation_results,
         "all_passed": all_passed,
@@ -263,7 +297,7 @@ def verify_principle_collection(client, verbose: bool = True) -> dict:
     if verbose:
         console.print(Panel("[bold]Principle Document Identity Verification[/bold]"))
 
-    collection = client.collections.get("Principle")
+    collection = client.collections.get(get_collection_name("principle"))
 
     # Get ALL objects with doc_type="principle" using pagination
     principle_filter = Filter.by_property("doc_type").equal("principle")
@@ -376,14 +410,36 @@ def verify_principle_collection(client, verbose: bool = True) -> dict:
         console.print(f"\n[bold]5. Principle Numbers Found[/bold]")
         console.print(f"   {unique_principle_numbers}")
 
-    # For principles, we require file_path but principle_number may be optional
-    # (some principles may not have explicit numbers)
+    # Load corpus expectations for optional checks
+    principle_expectations = load_corpus_expectations("principle")
+    unique_count_cfg = principle_expectations.get("unique_count", {})
+    must_include_cfg = principle_expectations.get("must_include_ids", {})
+
+    # Schema invariants (always checked)
     validations = [
         ("chunk_count_positive", len(all_principle_objects) > 0, f"{len(all_principle_objects)} chunks"),
         ("unique_count_reasonable", len(unique_file_paths) > 0, f"{len(unique_file_paths)} unique"),
         ("file_path_coverage_100", file_path_coverage == 100, f"{file_path_coverage:.1f}%"),
         ("identity_consistent", consistency["consistent"], "1:1 mapping"),
     ]
+
+    # Corpus expectations: optional checks (disabled = skipped, not failed)
+    if unique_count_cfg.get("enabled", False):
+        count_min = unique_count_cfg.get("min", 1)
+        count_max = unique_count_cfg.get("max", 100)
+        validations.append((
+            "unique_principle_count",
+            count_min <= len(unique_file_paths) <= count_max,
+            f"{len(unique_file_paths)} unique (expected {count_min}-{count_max})",
+        ))
+
+    if must_include_cfg.get("enabled", False):
+        for doc_id in must_include_cfg.get("values", []):
+            validations.append((
+                f"has_principle_{doc_id}",
+                doc_id in unique_principle_numbers,
+                "",
+            ))
 
     all_passed = True
     validation_results = {}
@@ -399,7 +455,7 @@ def verify_principle_collection(client, verbose: bool = True) -> dict:
             console.print(f"   {status} {name} {detail}")
 
     return {
-        "collection": "Principle",
+        "collection": get_collection_name("principle"),
         "filtered_count": len(all_principle_objects),
         "unfiltered_count": len(unfiltered_results),
         "fallback_triggered": len(all_principle_objects) == 0 and len(unfiltered_results) > 0,
