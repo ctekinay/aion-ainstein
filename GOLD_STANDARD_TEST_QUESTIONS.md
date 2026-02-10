@@ -160,7 +160,7 @@ These detect truncation and missing-subsection regressions in the direct-doc rou
 
 ### F1. ADR.0025 Full Content
 **Question:** Tell me about ADR.0025
-**Expected:** Answer must include all 4 consequences subsection keywords: **Governance**, **Transparency**, **Testing**, **MFFBAS**. Answer length > 800 chars. Must NOT contain "Decision Approval Record List" (DAR leak).
+**Expected:** Answer must include all 4 consequences subsection keywords: **Governance**, **Transparency**, **Testing**, **MFFBAS**. `answer` OR `full_text` length > 800 chars (formatter may cap `answer`; check `full_text` before failing). Must NOT contain "Decision Approval Record List" (DAR leak).
 **Expected route:** `direct_doc`
 **Allowed doc_types:** [adr, content]
 **Difficulty:** Medium
@@ -168,7 +168,7 @@ These detect truncation and missing-subsection regressions in the direct-doc rou
 
 ### F2. ADR.0028 Full Content
 **Question:** Tell me about ADR.0028
-**Expected:** Answer must include consequences with both **Pros** and **Cons** subsections. Must mention "invalidation", "operating constraints", and "FSP" (Flexibility Service Provider). Answer length > 500 chars.
+**Expected:** Answer must include consequences with both **Pros** and **Cons** subsections. Must mention "invalidation", "operating constraints", and "FSP" (Flexibility Service Provider). `answer` OR `full_text` length > 500 chars (formatter may cap `answer`; check `full_text` before failing).
 **Expected route:** `direct_doc`
 **Allowed doc_types:** [adr, content]
 **Difficulty:** Medium
@@ -474,6 +474,10 @@ These detect truncation and missing-subsection regressions in the direct-doc rou
 ---
 
 ## Scoring Template
+
+**Doc ID matching:** Accept both canonical and display variants as equivalent:
+`ADR.0025` = `ADR.25` = `ADR-0025`; `PCP.0036` = `PCP.36` = `PCP-0036`.
+Score Doc IDs OK = Y if the correct document was retrieved regardless of ID format.
 
 | ID | Question | Expected Route | Actual Route | Route OK? | Retrieved Doc ID(s) | Doc IDs OK? | Score | Notes |
 |----|----------|---------------|-------------|-----------|---------------------|-------------|-------|-------|
