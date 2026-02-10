@@ -604,6 +604,88 @@ class TestSkillRegistryPublicAPI:
         assert "auto_activate" in triggers[0]
 
 
+class TestSanitizeRawFallback:
+    """Tests that raw fallback output is cleaned of protocol artifacts."""
+
+    def test_plain_prose_unchanged(self):
+        """Plain prose passes through unchanged."""
+        from src.response_gateway import sanitize_raw_fallback
+        text = "Here are the ADRs. ADR.21 is about data governance."
+        assert sanitize_raw_fallback(text) == text
+
+    def test_strips_json_delimiters(self):
+        """JSON delimiters are stripped from fallback text."""
+        from src.response_gateway import sanitize_raw_fallback, JSON_START_MARKER, JSON_END_MARKER
+        # Malformed JSON inside delimiters — should strip markers
+        text = f'{JSON_START_MARKER}{{"answer": "Some ADRs exist", "broken_field: }}{JSON_END_MARKER}'
+        result = sanitize_raw_fallback(text)
+        assert JSON_START_MARKER not in result
+        assert JSON_END_MARKER not in result
+
+    def test_extracts_answer_from_valid_json_in_delimiters(self):
+        """If JSON is valid inside delimiters, extracts the answer field."""
+        from src.response_gateway import sanitize_raw_fallback, JSON_START_MARKER, JSON_END_MARKER
+        import json
+        payload = json.dumps({
+            "schema_version": "1.0",
+            "answer": "ADR.0025 uses the D/R product interface approach.",
+            "items_shown": 1,
+            "items_total": 1,
+        })
+        text = f'{JSON_START_MARKER}{payload}{JSON_END_MARKER}'
+        result = sanitize_raw_fallback(text)
+        assert result == "ADR.0025 uses the D/R product interface approach."
+        assert "schema_version" not in result
+
+    def test_extracts_answer_from_raw_json(self):
+        """If entire text is valid JSON with answer field, extracts it."""
+        from src.response_gateway import sanitize_raw_fallback
+        import json
+        text = json.dumps({
+            "schema_version": "1.0",
+            "answer": "TLS is required for transport security.",
+            "sources": [],
+        })
+        result = sanitize_raw_fallback(text)
+        assert result == "TLS is required for transport security."
+
+    def test_extracts_answer_from_fenced_json(self):
+        """Fenced JSON blocks get answer extracted."""
+        from src.response_gateway import sanitize_raw_fallback
+        import json
+        payload = json.dumps({"answer": "OAuth 2.0 handles auth.", "sources": []})
+        text = f'```json\n{payload}\n```'
+        result = sanitize_raw_fallback(text)
+        assert result == "OAuth 2.0 handles auth."
+
+    def test_empty_string(self):
+        """Empty string returns empty string."""
+        from src.response_gateway import sanitize_raw_fallback
+        assert sanitize_raw_fallback("") == ""
+
+    def test_none_passthrough(self):
+        """None returns None (edge case)."""
+        from src.response_gateway import sanitize_raw_fallback
+        assert sanitize_raw_fallback(None) is None
+
+    def test_no_schema_fields_in_output(self):
+        """Output should never contain schema_version, items_shown, etc."""
+        from src.response_gateway import sanitize_raw_fallback, JSON_START_MARKER, JSON_END_MARKER
+        import json
+        payload = json.dumps({
+            "schema_version": "1.0",
+            "answer": "Here are the results.",
+            "items_shown": 5,
+            "items_total": 10,
+            "count_qualifier": "exact",
+        })
+        text = f'{JSON_START_MARKER}{payload}{JSON_END_MARKER}'
+        result = sanitize_raw_fallback(text)
+        assert "schema_version" not in result
+        assert "items_shown" not in result
+        assert "count_qualifier" not in result
+
+
 def run_tests():
     """Run tests and print results."""
     import subprocess

@@ -57,6 +57,76 @@ MARKER_JSON_PATTERN = re.compile(
 )
 
 
+def sanitize_raw_fallback(raw_text: str) -> str:
+    """Strip internal protocol artifacts from raw text for user-facing fallback.
+
+    When structured parsing fails and we fall back to raw text, the response
+    may contain JSON delimiters, schema fields, or fenced code blocks that
+    look like internal debugging output to ESA users.
+
+    This function extracts the most readable content from the raw response.
+
+    Args:
+        raw_text: Raw LLM output that may contain protocol artifacts
+
+    Returns:
+        Cleaned text suitable for user display
+    """
+    if not raw_text:
+        return raw_text
+
+    text = raw_text.strip()
+
+    # Try to extract the "answer" field from embedded JSON (best-effort)
+    # This handles the case where the JSON is almost-valid but failed schema validation
+    try:
+        # Check for marker-delimited JSON
+        marker_match = MARKER_JSON_PATTERN.search(text)
+        if marker_match:
+            parsed = json.loads(marker_match.group(1))
+            if "answer" in parsed:
+                return parsed["answer"]
+
+        # Check for fenced JSON
+        fenced_match = FENCED_JSON_PATTERN.search(text)
+        if fenced_match:
+            parsed = json.loads(fenced_match.group(1))
+            if "answer" in parsed:
+                return parsed["answer"]
+
+        # Check for raw JSON (entire text)
+        if text.startswith('{') and text.endswith('}'):
+            parsed = json.loads(text)
+            if "answer" in parsed:
+                return parsed["answer"]
+    except (json.JSONDecodeError, KeyError, TypeError):
+        pass
+
+    # Strip delimiter markers if present (even if JSON parse failed)
+    cleaned = text
+    cleaned = cleaned.replace(JSON_START_MARKER, "").replace(JSON_END_MARKER, "")
+
+    # Strip fenced code blocks that wrap the entire response
+    fenced_full = re.match(r'^```(?:json)?\s*(.*?)\s*```$', cleaned, re.DOTALL)
+    if fenced_full:
+        cleaned = fenced_full.group(1)
+
+    # If the result looks like raw JSON (starts with {), try to extract answer
+    cleaned = cleaned.strip()
+    if cleaned.startswith('{'):
+        try:
+            parsed = json.loads(cleaned)
+            if "answer" in parsed:
+                return parsed["answer"]
+        except json.JSONDecodeError:
+            # Last resort: try to extract answer field with regex
+            answer_match = re.search(r'"answer"\s*:\s*"((?:[^"\\]|\\.)*)"', cleaned)
+            if answer_match:
+                return answer_match.group(1).replace('\\"', '"').replace('\\n', '\n')
+
+    return cleaned.strip() if cleaned.strip() else raw_text
+
+
 def extract_json_with_delimiters(
     raw_text: str,
     strict: bool = False
@@ -536,8 +606,9 @@ def normalize_and_validate_response(
         logger.debug(f"Raw response (sanitized): {raw_response[:500]}")
 
         # Degrade gracefully to raw text instead of leaking error to user (P0 fix)
+        # Sanitize to strip protocol artifacts (delimiters, schema fields)
         return GatewayResult(
-            response=raw_response,
+            response=sanitize_raw_fallback(raw_response),
             is_structured=False,
             context=context,
             failure=failure,
@@ -643,8 +714,9 @@ def normalize_and_validate_response(
         if policy == POLICY_STRICT:
             failure = create_failure_response(reason_code, context.request_id)
             # Degrade gracefully to raw text instead of leaking error to user (P0 fix)
+            # Sanitize to strip protocol artifacts (delimiters, schema fields)
             return GatewayResult(
-                response=raw_response,
+                response=sanitize_raw_fallback(raw_response),
                 is_structured=False,
                 context=context,
                 failure=failure,

@@ -769,11 +769,13 @@ def postprocess_llm_output(
 
     # Strict mode without successful retry: degrade gracefully to raw text
     # Never leak internal formatting failures to the user (P0 fix)
+    # Sanitize to strip protocol artifacts (delimiters, schema fields)
+    from .response_gateway import sanitize_raw_fallback
     logger.warning(
         f"Strict enforcement failed: unable to parse structured response. "
         f"Degrading to raw text. (fallback: {fallback_used})"
     )
-    return raw_response, False, f"strict_fallback:{fallback_used}"
+    return sanitize_raw_fallback(raw_response), False, f"strict_fallback:{fallback_used}"
 
 
 def get_collection_count(collection, content_filter=None) -> int:

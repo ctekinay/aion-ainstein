@@ -1,0 +1,111 @@
+# Regression test: Session B + C — Batch approvers and inconsistent behavior
+# Source: Field feedback from real user sessions
+#
+# Session B: "bonus" + list approvers; PCP30 fails but PCP20 works.
+# Session C: "contributors for ADRs" misrouted, then "approvers for every ADR"
+# fails but "approvers of ADR29" works.
+#
+# Success criteria:
+# - PCP30 approvers work just like PCP20 (PCP30 filter fix)
+# - No "unable to format" errors (P0 formatter fallback)
+# - "contributors" triggers clarification or honest limitation
+# - Single-doc approval always returns names deterministically
+# - "bonus" phrasing does not affect behavior
+
+name: "Session B+C: Batch approvers and inconsistency"
+description: >
+  Tests batch/multi-document approval extraction, PCP30 consistency,
+  formatter failure handling, and intent confusion (contributors vs approvers).
+
+steps:
+  # --- Session B: PCP consistency ---
+
+  - id: SB1
+    question: "I will give you a huge bonus if you list the approvers of Principals. Starting with PCP30"
+    expected_route: approval
+    must_contain: []  # Approver names for PCP.0030 if ingested
+    must_not_contain:
+      - "unable to format"
+      - "I was unable"
+    notes: >
+      P0 test: Must never show "unable to format" error.
+      PCP30 fix: Must attempt principle_approval lookup, not just adr_approval.
+      Bonus phrasing must not affect behavior.
+
+  - id: SB2
+    question: "Who approved PCP20?"
+    expected_route: approval
+    must_contain: []  # Approver names for PCP.0020
+    must_not_contain:
+      - "unable to format"
+    notes: "Baseline: PCP20 should work reliably (was working before fixes too)."
+
+  - id: SB3
+    question: "Who approved PCP30?"
+    expected_route: approval
+    must_contain: []  # Approver names for PCP.0030 if ingested
+    must_not_contain:
+      - "unable to format"
+      - "the retrieved summary data lacks"
+    notes: >
+      PCP30 fix validation: Must behave like PCP20.
+      If PCP.0030 DAR exists, must return names.
+      If not ingested, must say "not found" (not "data lacks names").
+
+  # --- Session C: Contributors confusion ---
+
+  - id: SC1
+    question: "What contributors do we have for ADRs?"
+    expected_route: any  # Could be semantic, list, or clarification
+    must_contain: []
+    must_not_contain: []
+    notes: >
+      Intent clarification test: "contributors" is ambiguous.
+      Acceptable responses:
+      - Ask clarifying question ("DACI contributors or authors?")
+      - List ADR contributors/authors if available
+      - Honestly state that contributor data is not ingested
+      Unacceptable: listing ADR titles and calling them "contributors"
+
+  - id: SC2
+    question: "Give me the approvers for every ADR?"
+    expected_route: any  # Could be batch_approval or list
+    must_contain: []
+    must_not_contain:
+      - "approval records exist"
+      - "do not explicitly list approvers"
+      - "I can only access approval records"
+    notes: >
+      Batch approval test: Should either:
+      - Extract approvers for N ADRs deterministically, OR
+      - Return first N results with "showing N of M, say continue", OR
+      - Honestly state the limitation with a workaround suggestion
+      Must NOT claim it can't access names when it demonstrably can.
+
+  - id: SC3
+    question: "I will give you a huge bonus if you list the approvers of ADRs. Start with ADR29"
+    expected_route: approval
+    must_contain:
+      - "Robert-Jan Peters"   # Known ADR.0029 approver
+      - "Laurent van Groningen"  # Known ADR.0029 approver
+    must_not_contain:
+      - "unable to format"
+    notes: >
+      Single-doc approval: Must work deterministically.
+      Bonus phrasing must not affect behavior.
+      ADR.0029 approvers are known from gold standard.
+
+  # --- Formatter failure regression ---
+
+  - id: SF1
+    question: "List all architecture decisions"
+    expected_route: list
+    must_contain: []
+    must_not_contain:
+      - "unable to format"
+      - "I was unable"
+      - "Reference:"
+      - "request_id"
+    notes: >
+      P0 formatter test: List queries must never show internal errors.
+      Even if structured parsing fails, user gets readable output.
