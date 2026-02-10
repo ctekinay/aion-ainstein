@@ -8,6 +8,10 @@ Acceptance criteria:
 5. build_content_response returns both summary and full_text fields.
 6. parse_adr_content handles ## Implications (principle documents) via the
    consequences key.
+7. PCP.0011 (nested sub-bullets, trailing ## Scope/Related/More information)
+   proves principles with different structure are handled.
+8. End-to-end: parse → build_content_response reproduces and guards against
+   the original ADR.0025 truncation bug.
 """
 
 from pathlib import Path
@@ -195,6 +199,100 @@ The decision.
 
         # Negative: no content from ## More Information
         assert "learn.microsoft.com" not in consequences
+
+    def test_real_pcp_0011(self, project_root):
+        """Integration test with PCP.0011 (nested sub-bullets, trailing sections)."""
+        from src.approval_extractor import parse_adr_content
+
+        pcp_path = (
+            project_root / "data" / "esa-main-artifacts" / "doc" / "principles"
+            / "0011-data-design-need-to-know.md"
+        )
+        if not pcp_path.exists():
+            pytest.skip("PCP.0011 file not found")
+
+        content = pcp_path.read_text()
+        result = parse_adr_content(content)
+
+        consequences = result["consequences"]
+
+        # Positive: top-level bullets
+        assert "Access control mechanisms" in consequences
+        assert "Information classification" in consequences
+        assert "Retention policies" in consequences
+
+        # Positive: nested sub-bullets (indented implementation patterns)
+        assert "RBAC" in consequences
+        assert "ABAC" in consequences
+        assert "Encryption at rest" in consequences
+
+        # Negative: no content from ## Statement
+        assert "need-to-know principle limits access" not in consequences
+
+        # Negative: no content from ## Rationale
+        assert "GDPR" not in consequences
+
+        # Negative: no content from ## Scope (trailing section)
+        assert "Enterprise-wide" not in consequences
+
+        # Negative: no content from ## More information
+        assert "wikipedia.org" not in consequences
+
+
+# =============================================================================
+# 5. End-to-end regression: ADR.0025 parse → build_content_response
+# =============================================================================
+
+@pytest.mark.repo_data
+class TestEndToEndAdr0025:
+    """Regression guard for the original ADR.0025 truncation bug.
+
+    Simulates the query-time pipeline: read file → parse_adr_content →
+    ContentRecord → build_content_response.  The answer field must include
+    consequence subsection keywords that were previously cut off.
+    """
+
+    def test_answer_includes_consequence_subsections(self, project_root):
+        from src.approval_extractor import (
+            ContentRecord, build_content_response, parse_adr_content,
+        )
+
+        adr_path = (
+            project_root / "data" / "esa-main-artifacts" / "doc" / "decisions"
+            / "0025-unify-demand-response-interfaces-via-open-standards.md"
+        )
+        if not adr_path.exists():
+            pytest.skip("ADR.0025 file not found")
+
+        content = adr_path.read_text()
+        sections = parse_adr_content(content)
+
+        record = ContentRecord(
+            document_id="ADR.0025",
+            document_title="Unify demand/response interfaces via open standards",
+            file_path=str(adr_path),
+            content=content,
+            context=sections["context"],
+            decision=sections["decision"],
+            consequences=sections["consequences"],
+            status=sections["status"],
+        )
+
+        response = build_content_response(record, max_chars=12000)
+        answer = response["answer"]
+
+        # The original bug: answer was cut off at "Supporting guidelines are:"
+        # These keywords MUST appear in the final answer.
+        assert "Governance" in answer
+        assert "Transparency" in answer
+        assert "Testing" in answer
+        assert "MFFBAS" in answer
+
+        # full_text must also be present and non-trivial
+        assert len(response["full_text"]) > 1000
+
+        # Negative: DAR content must NOT leak into a non-DAR query
+        assert "Decision Approval Record List" not in answer
 
 
 # =============================================================================
