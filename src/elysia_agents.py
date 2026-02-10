@@ -968,6 +968,9 @@ except Exception as e:
 _elysia_configured = False
 """Module-level flag tracking whether configure_elysia_from_settings() has run."""
 
+_elysia_config_signature: tuple | None = None
+"""Signature of (provider, model, api_base) used for the last configure call."""
+
 
 def configure_elysia_from_settings() -> None:
     """Wire AInstein model settings into Elysia's config singleton.
@@ -976,23 +979,34 @@ def configure_elysia_from_settings() -> None:
     **before** creating any ``ElysiaRAGSystem`` instance.  Uses
     ``replace=True`` so no ``smart_setup()`` / env-var defaults leak.
 
-    Safe to call multiple times — subsequent calls are no-ops.
+    Idempotent: subsequent calls with the *same* settings are no-ops.
+    Raises ``RuntimeError`` if called again with *different* settings
+    (prevents silent mid-process reconfiguration).
     """
-    global _elysia_configured
-
-    if _elysia_configured:
-        return
+    global _elysia_configured, _elysia_config_signature
 
     from .config import settings as ainstein_settings
+
+    provider = ainstein_settings.llm_provider   # "openai" or "ollama"
+    model = ainstein_settings.chat_model         # resolved per provider
+    api_base = ainstein_settings.ollama_url if provider == "ollama" else None
+    new_signature = (provider, model, api_base)
+
+    # Idempotency: same config → no-op; different config → reject
+    if _elysia_configured:
+        if _elysia_config_signature == new_signature:
+            return
+        raise RuntimeError(
+            f"Elysia already configured with {_elysia_config_signature}, "
+            f"refusing to reconfigure with {new_signature}. "
+            f"This likely indicates a settings mutation mid-process."
+        )
 
     try:
         from elysia.config import settings as elysia_settings
     except ImportError:
         logger.warning("Cannot import elysia.config — skipping model wiring")
         return
-
-    provider = ainstein_settings.llm_provider   # "openai" or "ollama"
-    model = ainstein_settings.chat_model         # resolved per provider
 
     configure_kwargs: dict = {}
 
@@ -1009,12 +1023,13 @@ def configure_elysia_from_settings() -> None:
             "base_provider": "ollama",
             "complex_model": model,
             "complex_provider": "ollama",
-            "model_api_base": ainstein_settings.ollama_url,
+            "model_api_base": api_base,
         }
 
     if configure_kwargs:
         elysia_settings.configure(replace=True, **configure_kwargs)
         _elysia_configured = True
+        _elysia_config_signature = new_signature
         logger.info(
             "Elysia configured: provider=%s, base_model=%s, complex_model=%s",
             provider,
@@ -1042,8 +1057,16 @@ class ElysiaRAGSystem:
             raise ImportError("elysia-ai package is required. Run: pip install elysia-ai")
 
         # Safety net: if the caller forgot to call configure_elysia_from_settings()
-        # at the composition root, do it now — but warn so we can fix the callsite.
+        # at the composition root.
+        #   - prod/staging: fail fast (mis-wiring must be caught before deployment)
+        #   - local/dev:    warn + auto-configure (developer convenience)
         if not _elysia_configured:
+            from .config import settings as _cfg
+            if _cfg.environment in ("prod", "staging"):
+                raise RuntimeError(
+                    "ElysiaRAGSystem created without prior call to "
+                    "configure_elysia_from_settings(). Fix the composition root."
+                )
             logger.warning(
                 "Elysia model config was not applied before ElysiaRAGSystem(). "
                 "Applying now as fallback — call configure_elysia_from_settings() "
