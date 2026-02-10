@@ -491,6 +491,8 @@ class DirectLLMClient(BaseLLMClient):
         try:
             # Use existing direct query implementation
             # This is a temporary bridge until we refactor _direct_query
+            from .elysia_agents import configure_elysia_from_settings
+            configure_elysia_from_settings()
             rag_system = ElysiaRAGSystem(self.weaviate_client)
             response, objects = await rag_system._direct_query(
                 question,

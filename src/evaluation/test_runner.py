@@ -607,7 +607,7 @@ async def init_rag_system(provider: str = "ollama", model: str = None) -> bool:
 
     from ..config import settings
     from ..weaviate.client import get_weaviate_client
-    from ..elysia_agents import ElysiaRAGSystem
+    from ..elysia_agents import ElysiaRAGSystem, configure_elysia_from_settings
 
     default_models = {
         "ollama": "qwen3:4b",
@@ -626,7 +626,18 @@ async def init_rag_system(provider: str = "ollama", model: str = None) -> bool:
         if not _weaviate_client:
             _weaviate_client = get_weaviate_client()
 
+        # Primary path: configure Elysia models before creating the system
+        configure_elysia_from_settings()
         _rag_system = ElysiaRAGSystem(_weaviate_client)
+
+        # Verify Elysia config matches what we set
+        try:
+            from elysia.config import settings as elysia_settings
+            print(f"  Elysia Tree models: base={elysia_settings.BASE_MODEL}, "
+                  f"complex={elysia_settings.COMPLEX_MODEL}, "
+                  f"provider={elysia_settings.BASE_PROVIDER}")
+        except ImportError:
+            pass
 
         # Install route capture on elysia_agents logger
         elysia_logger = logging.getLogger("src.elysia_agents")

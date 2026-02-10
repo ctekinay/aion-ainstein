@@ -32,7 +32,7 @@ from .config import settings
 from .weaviate.client import get_weaviate_client
 from .weaviate.collections import get_collection_name
 from .weaviate.embeddings import embed_text
-from .elysia_agents import ElysiaRAGSystem, ELYSIA_AVAILABLE
+from .elysia_agents import ElysiaRAGSystem, ELYSIA_AVAILABLE, configure_elysia_from_settings
 from .skills import SkillRegistry, get_skill_registry, DEFAULT_SKILL
 from .skills import api as skills_api
 from .skills.filters import build_document_filter
@@ -226,6 +226,7 @@ async def lifespan(app: FastAPI):
         raise
 
     if ELYSIA_AVAILABLE:
+        configure_elysia_from_settings()
         _elysia_system = ElysiaRAGSystem(_weaviate_client)
         logger.info("AInstein initialized with Elysia")
     else:

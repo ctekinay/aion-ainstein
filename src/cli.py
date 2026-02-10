@@ -500,13 +500,14 @@ def elysia():
     ))
 
     try:
-        from .elysia_agents import ElysiaRAGSystem, ELYSIA_AVAILABLE
+        from .elysia_agents import ElysiaRAGSystem, ELYSIA_AVAILABLE, configure_elysia_from_settings
 
         if not ELYSIA_AVAILABLE:
             console.print("[red]Elysia not installed. Run: pip install elysia-ai[/red]")
             raise typer.Exit(1)
 
         with weaviate_client() as client:
+            configure_elysia_from_settings()
             elysia_system = ElysiaRAGSystem(client)
             console.print("[green]Elysia system initialized with custom tools[/green]")
             console.print("[dim]Available tools: search_vocabulary, search_architecture_decisions,[/dim]")

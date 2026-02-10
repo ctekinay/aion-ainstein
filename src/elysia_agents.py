@@ -961,6 +961,68 @@ except Exception as e:
     logger.warning(f"elysia-ai error: {e}")
 
 
+# =============================================================================
+# Elysia Model Configuration
+# =============================================================================
+
+_elysia_configured = False
+"""Module-level flag tracking whether configure_elysia_from_settings() has run."""
+
+
+def configure_elysia_from_settings() -> None:
+    """Wire AInstein model settings into Elysia's config singleton.
+
+    Call this once at the composition root (CLI / API / test startup)
+    **before** creating any ``ElysiaRAGSystem`` instance.  Uses
+    ``replace=True`` so no ``smart_setup()`` / env-var defaults leak.
+
+    Safe to call multiple times — subsequent calls are no-ops.
+    """
+    global _elysia_configured
+
+    if _elysia_configured:
+        return
+
+    from .config import settings as ainstein_settings
+
+    try:
+        from elysia.config import settings as elysia_settings
+    except ImportError:
+        logger.warning("Cannot import elysia.config — skipping model wiring")
+        return
+
+    provider = ainstein_settings.llm_provider   # "openai" or "ollama"
+    model = ainstein_settings.chat_model         # resolved per provider
+
+    configure_kwargs: dict = {}
+
+    if provider == "openai":
+        configure_kwargs = {
+            "base_model": model,
+            "base_provider": "openai",
+            "complex_model": model,
+            "complex_provider": "openai",
+        }
+    elif provider == "ollama":
+        configure_kwargs = {
+            "base_model": model,
+            "base_provider": "ollama",
+            "complex_model": model,
+            "complex_provider": "ollama",
+            "model_api_base": ainstein_settings.ollama_url,
+        }
+
+    if configure_kwargs:
+        elysia_settings.configure(replace=True, **configure_kwargs)
+        _elysia_configured = True
+        logger.info(
+            "Elysia configured: provider=%s, base_model=%s, complex_model=%s",
+            provider,
+            elysia_settings.BASE_MODEL,
+            elysia_settings.COMPLEX_MODEL,
+        )
+
+
 class ElysiaRAGSystem:
     """Elysia-based agentic RAG system with custom tools for energy domain.
 
@@ -978,6 +1040,16 @@ class ElysiaRAGSystem:
         """
         if not ELYSIA_AVAILABLE:
             raise ImportError("elysia-ai package is required. Run: pip install elysia-ai")
+
+        # Safety net: if the caller forgot to call configure_elysia_from_settings()
+        # at the composition root, do it now — but warn so we can fix the callsite.
+        if not _elysia_configured:
+            logger.warning(
+                "Elysia model config was not applied before ElysiaRAGSystem(). "
+                "Applying now as fallback — call configure_elysia_from_settings() "
+                "at your entrypoint to silence this warning."
+            )
+            configure_elysia_from_settings()
 
         self.client = client
         self._recursion_limit = 2
