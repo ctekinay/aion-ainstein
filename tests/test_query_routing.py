@@ -375,9 +375,10 @@ class TestDARIntentDetection:
     list_approval_records() vs list_all_adrs().
     """
 
-    def _get_dar_keywords(self):
-        """Get DAR detection keywords (mirrors the production code)."""
-        return ["dar ", "dars", "decision approval record"]
+    def _get_dar_pattern(self):
+        """Get DAR detection regex (mirrors the production code)."""
+        import re
+        return re.compile(r"\bdars?\b|decision approval record", re.IGNORECASE)
 
     def _get_approval_markers(self):
         """Get approval intent markers from config."""
@@ -394,12 +395,14 @@ class TestDARIntentDetection:
         ("list adrs", False),
         ("list all adrs", False),
         ("what principles exist", False),
+        # Word-boundary safety: substrings must NOT trigger false positives
+        ("use a standard approach", False),   # "dar" inside "standard"
+        ("explain the bladder function", False),  # "dar" inside "bladder"
     ])
     def test_dar_keyword_detection(self, query, should_match_dar):
         """DAR-specific keywords should be detected correctly."""
-        question_lower = query.lower()
-        dar_keywords = self._get_dar_keywords()
-        matched = any(kw in question_lower for kw in dar_keywords)
+        dar_pattern = self._get_dar_pattern()
+        matched = bool(dar_pattern.search(query))
         assert matched == should_match_dar, (
             f"'{query}' DAR keyword match expected={should_match_dar}, got={matched}"
         )

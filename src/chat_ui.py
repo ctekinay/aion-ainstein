@@ -65,27 +65,23 @@ _FOLLOWUP_RE = re.compile(
     re.IGNORECASE,
 )
 
-# Subject keyword → canonical subject name (order: longest first for matching)
-_SUBJECT_KEYWORDS = [
-    ("decision approval record", "dars"),
-    ("approval record", "dars"),
-    ("dars", "dars"),
-    ("dar ", "dars"),
-    ("adrs", "adrs"),
-    ("adr", "adrs"),
-    ("architecture decision", "adrs"),
-    ("principles", "principles"),
-    ("principle", "principles"),
-    ("policies", "policies"),
-    ("policy", "policies"),
+# Subject patterns → canonical subject name (order: longest first for matching)
+# Uses word-boundary regex to avoid false positives (e.g., "adr" inside "quadratic")
+_SUBJECT_PATTERNS: list[tuple[re.Pattern, str]] = [
+    (re.compile(r"decision approval records?", re.IGNORECASE), "dars"),
+    (re.compile(r"approval records?", re.IGNORECASE), "dars"),
+    (re.compile(r"\bdars?\b", re.IGNORECASE), "dars"),
+    (re.compile(r"\badrs?\b", re.IGNORECASE), "adrs"),
+    (re.compile(r"architecture decisions?", re.IGNORECASE), "adrs"),
+    (re.compile(r"\bprinciples?\b", re.IGNORECASE), "principles"),
+    (re.compile(r"\bpolic(?:y|ies)\b", re.IGNORECASE), "policies"),
 ]
 
 
 def _detect_subject(question: str) -> str | None:
     """Detect the document subject from a user query."""
-    q = question.lower()
-    for keyword, subject in _SUBJECT_KEYWORDS:
-        if keyword in q:
+    for pattern, subject in _SUBJECT_PATTERNS:
+        if pattern.search(question):
             return subject
     return None
 

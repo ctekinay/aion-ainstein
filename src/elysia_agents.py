@@ -2181,10 +2181,10 @@ IMPORTANT GUIDELINES:
             # Patterns: "approval records", "decision approval", "who approved", "daci",
             # "dar", "dars", "decision approval record(s)"
             approval_markers = _get_markers("approval_intent")
-            # Extend with DAR-specific keywords (not in default approval_intent)
-            dar_keywords = ["dar ", "dars", "decision approval record"]
+            # DAR-specific patterns with word boundaries to avoid false positives
+            _DAR_RE = re.compile(r"\bdars?\b|decision approval record", re.IGNORECASE)
             is_approval_query = any(marker in question_lower for marker in approval_markers)
-            is_dar_list_query = any(kw in question_lower for kw in dar_keywords)
+            is_dar_list_query = bool(_DAR_RE.search(question_lower))
 
             if is_approval_query or is_dar_list_query:
                 logger.info("Approval/DAR records query detected - using deterministic path")
@@ -2199,28 +2199,35 @@ IMPORTANT GUIDELINES:
                         list_result = await list_tool("all")
                     objects = list_result.get("rows", []) if isinstance(list_result, dict) else []
 
-            elif "adr" in question_lower or ("decision" in question_lower and "approval" not in question_lower) or "architecture" in question_lower:
+            elif re.search(r"\badr\b", question_lower) or ("decision" in question_lower and "approval" not in question_lower) or "architecture" in question_lower:
                 logger.info("List query detected for ADRs - using deterministic path")
                 list_tool = self._tool_registry.get("list_all_adrs")
                 if list_tool:
                     list_result = await list_tool()
                     objects = list_result.get("rows", []) if isinstance(list_result, dict) else []
 
-            elif "principle" in question_lower or "governance" in question_lower:
+            elif re.search(r"\bprinciples?\b", question_lower) or "governance" in question_lower:
                 logger.info("List query detected for Principles - using deterministic path")
                 list_tool = self._tool_registry.get("list_all_principles")
                 if list_tool:
                     list_result = await list_tool()
                     objects = list_result.get("rows", []) if isinstance(list_result, dict) else []
 
+            elif re.search(r"\bpolic(?:y|ies)\b", question_lower):
+                # No deterministic list_policies tool — fall through to semantic/Tree path
+                logger.info("List query detected for Policies - falling through to semantic path")
+
             else:
-                # Catch-all: list query detected but no specific collection matched.
-                # Default to listing all ADRs rather than falling through to the Tree.
-                logger.info("List query detected (no specific collection) - defaulting to ADRs")
-                list_tool = self._tool_registry.get("list_all_adrs")
-                if list_tool:
-                    list_result = await list_tool()
-                    objects = list_result.get("rows", []) if isinstance(list_result, dict) else []
+                # No recognized collection keyword — ask for clarification
+                logger.info("List query detected but no collection keyword matched — asking for clarification")
+                return (
+                    "I can list several types of documents. Which would you like?\n\n"
+                    "- **ADRs** — Architecture Decision Records\n"
+                    "- **DARs** — Decision Approval Records\n"
+                    "- **Principles** — Architecture & governance principles\n"
+                    "- **Policies** — Data governance policies\n\n"
+                    "Please specify, for example: *list ADRs* or *list principles*."
+                ), []
 
             # If we have a list result, use deterministic serialization
             if list_result and is_list_result(list_result):

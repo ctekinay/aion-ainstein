@@ -48,6 +48,10 @@ class TestSubjectDetection:
         "what is TLS?",
         "explain the caching strategy",
         "list them",
+        # Word-boundary safety: substrings must NOT trigger false positives
+        "what is a quadratic equation?",   # contains "adr" in "quadratic"
+        "explain the bladder function",    # contains "dar" in "bladder"
+        "use a standard approach",         # contains "dar" in "standard"
     ])
     def test_no_subject_for_generic_queries(self, query):
         """Generic queries without document type keywords should return None."""
