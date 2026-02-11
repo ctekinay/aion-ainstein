@@ -2037,27 +2037,12 @@
                 case 'complete':
                     removeStatus();
                     removeLoading();
-                    // If no assistant response was shown yet, show the final response
-                    if (!responseShown && data.response) {
+                    // Always show the final response — intermediate assistant
+                    // events are Elysia's thinking, the complete event carries
+                    // the actual answer.
+                    if (data.response) {
                         appendPanel('assistant', 'AInstein', data.response, null, null, data.timing);
                         responseShown = true;
-                    } else if (responseShown && data.timing && data.timing.total_ms) {
-                        // Response was already shown (via Rich parser), add timing badge to last assistant panel header (top right)
-                        const panels = document.querySelectorAll('.panel.assistant');
-                        if (panels.length > 0) {
-                            const lastPanel = panels[panels.length - 1];
-                            const header = lastPanel.querySelector('.panel-header');
-                            if (header && !header.querySelector('.latency-badges')) {
-                                const totalMs = data.timing.total_ms;
-                                const totalClass = totalMs < 5000 ? 'fast' : (totalMs > 15000 ? 'slow' : '');
-                                const timingHtml = `
-                                    <div class="latency-badges">
-                                        <div class="latency-badge ${totalClass}" title="Total response time">T: ${totalMs}ms</div>
-                                    </div>
-                                `;
-                                header.insertAdjacentHTML('beforeend', timingHtml);
-                            }
-                        }
                     }
                     // Add sources if present
                     if (data.sources && data.sources.length > 0) {

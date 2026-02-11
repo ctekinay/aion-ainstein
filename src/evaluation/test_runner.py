@@ -81,6 +81,7 @@ class RouteCapture(logging.Handler):
         (re.compile(r"Count query detected"), "count"),
         (re.compile(r"Terminology verification failed"), "vocab"),
         (re.compile(r"Terminology verified"), "vocab"),
+        (re.compile(r"Cross-domain query detected"), "multi_hop"),
     ]
 
     def __init__(self):

@@ -348,6 +348,42 @@ class TestResponseBuilding:
         assert response["items_shown"] == response["items_total"]
         assert response["items_shown"] >= 2  # At least 2 unique approvers
 
+    def test_approval_response_includes_dar_suffix_in_doc_id(self):
+        """Approval records must use the 'D' suffix (e.g., PCP.0020D, ADR.0025D).
+
+        Regression: BA2/BA3 had 0/2 doc ID accuracy because
+        get_approval_record_from_weaviate set doc_id='PCP.0020' (no D),
+        so format_approvers_answer output '**PCP.0020** was approved by:'
+        instead of '**PCP.0020D** was approved by:'.
+        """
+        # When a DAR is parsed with the correct D-suffixed doc_id
+        record = parse_dar_content(
+            ADR_0025D_CONTENT,
+            doc_id="ADR.0025D",
+            title="Test ADR DAR",
+            file_path="0025D-test.md",
+        )
+
+        # The formatted answer must contain the D suffix
+        answer = record.format_approvers_answer()
+        assert "ADR.0025D" in answer, f"Expected 'ADR.0025D' in answer, got: {answer[:100]}"
+
+        # And the structured response preserves it
+        response = build_approval_response(record)
+        assert "ADR.0025D" in response["answer"]
+
+    def test_principle_approval_doc_id_has_dar_suffix(self):
+        """PCP approval records must also use D suffix (e.g., PCP.0020D)."""
+        record = parse_dar_content(
+            ADR_0025D_CONTENT,  # reuse content, only doc_id matters
+            doc_id="PCP.0020D",
+            title="Test PCP DAR",
+            file_path="0020D-test.md",
+        )
+
+        answer = record.format_approvers_answer()
+        assert "PCP.0020D" in answer
+
 
 # =============================================================================
 # Edge Case Tests

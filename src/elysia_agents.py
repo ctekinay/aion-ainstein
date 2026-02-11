@@ -416,6 +416,33 @@ def _get_compiled_terminology_patterns() -> list:
     return _compiled_terminology_patterns
 
 
+def _is_decision_or_reasoning_query(question: str) -> bool:
+    """Check if the query is asking about an architecture decision or reasoning.
+
+    These queries should NOT be treated as vocabulary/terminology lookups even
+    if they contain vocab keywords (e.g., "CIM", "IEC") or match "what is"
+    patterns.
+    """
+    question_lower = question.lower()
+
+    # Reasoning indicators: "why was X chosen", "how should", "what was decided"
+    reasoning_phrases = [
+        "why was", "why is", "why did", "why does",
+        "how should", "how was", "how is",
+        "chosen", "decided", "selected", "adopted",
+        "architecture decision", "architectural decision",
+        "decision about", "decision on",
+    ]
+    if any(phrase in question_lower for phrase in reasoning_phrases):
+        return True
+
+    # Explicit ADR/principle reference patterns
+    if re.search(r'\b(adr|pcp|principle)[.\s-]?\d', question_lower):
+        return True
+
+    return False
+
+
 def is_terminology_query(question: str) -> bool:
     """Check if query is asking about terminology/definitions.
 
@@ -425,6 +452,10 @@ def is_terminology_query(question: str) -> bool:
     Returns:
         True if query is asking about technical terms or definitions
     """
+    # Early exit: decision/reasoning queries are never terminology queries
+    if _is_decision_or_reasoning_query(question):
+        return False
+
     question_lower = question.lower()
 
     # Check explicit terminology patterns
@@ -437,6 +468,75 @@ def is_terminology_query(question: str) -> bool:
         return True
 
     return False
+
+
+# =============================================================================
+# Cross-Domain Query Detection (Multi-hop retrieval)
+# =============================================================================
+
+# Keyword groups that map to collection types
+_COLLECTION_KEYWORDS: dict[str, list[str]] = {
+    "adr": ["adr", "architecture decision", "architectural decision", "decision record", "decisions"],
+    "principle": ["principle", "principles", "governance", "pcp"],
+    "policy": ["policy", "policies", "compliance", "data governance policy"],
+}
+
+# Phrases that explicitly signal cross-domain intent
+_CROSS_DOMAIN_PHRASES = [
+    "across adrs and principles",
+    "across decisions and principles",
+    "across adrs and policies",
+    "across principles and policies",
+    "across all document types",
+    "defined across",
+    "covered by both",
+    "support the",
+    "relationship between",
+    "how do the",
+]
+
+
+def is_cross_domain_query(question: str) -> tuple[bool, list[str]]:
+    """Detect cross-domain queries requiring multi-collection retrieval.
+
+    Returns:
+        Tuple of (is_cross_domain, list of collection types needed).
+        Collection types are logical names: "adr", "principle", "policy".
+    """
+    question_lower = question.lower()
+
+    # Strategy 1: Explicit cross-domain phrases
+    has_explicit_phrase = any(
+        phrase in question_lower for phrase in _CROSS_DOMAIN_PHRASES
+    )
+
+    # Strategy 2: Query mentions 2+ distinct collection-type keywords
+    matched_types: list[str] = []
+    for coll_type, keywords in _COLLECTION_KEYWORDS.items():
+        if any(kw in question_lower for kw in keywords):
+            matched_types.append(coll_type)
+
+    if has_explicit_phrase and len(matched_types) >= 2:
+        return True, matched_types
+
+    # If explicit phrase but only 1 type detected, infer the likely second type
+    if has_explicit_phrase and len(matched_types) == 1:
+        # "How do decisions support governance principles?" → adr + principle
+        if matched_types[0] == "adr":
+            matched_types.append("principle")
+        elif matched_types[0] == "principle":
+            matched_types.append("adr")
+        return True, matched_types
+
+    # Strategy 3: 2+ collection types without explicit phrase but with
+    # comparative/relational language
+    relational_words = ["support", "relate", "align", "connect", "complement",
+                        "difference", "compare", "measures"]
+    has_relational = any(w in question_lower for w in relational_words)
+    if len(matched_types) >= 2 and has_relational:
+        return True, matched_types
+
+    return False, []
 
 
 def verify_terminology_in_query(question: str, request_id: str | None = None) -> tuple[bool, str, list[TermLookupResult]]:
@@ -959,6 +1059,42 @@ except ImportError as e:
 except Exception as e:
     ELYSIA_AVAILABLE = False
     logger.warning(f"elysia-ai error: {e}")
+
+
+# =============================================================================
+# Semantic Response Cache (TTL-based, model-aware)
+# =============================================================================
+
+import time as _time
+
+_RESPONSE_CACHE: dict[tuple, tuple[str, list, float]] = {}
+"""Cache: (question, provider, model) → (response, objects, timestamp)."""
+
+_CACHE_TTL_SECONDS = 300  # 5 minutes
+_CACHE_MAX_SIZE = 100
+
+
+def _cache_get(question: str) -> tuple[str, list] | None:
+    """Get a cached response if it exists and is within TTL."""
+    key = (question.strip().lower(), settings.llm_provider, settings.chat_model)
+    entry = _RESPONSE_CACHE.get(key)
+    if entry is None:
+        return None
+    response, objects, ts = entry
+    if _time.time() - ts > _CACHE_TTL_SECONDS:
+        del _RESPONSE_CACHE[key]
+        return None
+    return response, objects
+
+
+def _cache_put(question: str, response: str, objects: list) -> None:
+    """Store a response in the cache."""
+    # Evict oldest entries if cache is full
+    if len(_RESPONSE_CACHE) >= _CACHE_MAX_SIZE:
+        oldest_key = min(_RESPONSE_CACHE, key=lambda k: _RESPONSE_CACHE[k][2])
+        del _RESPONSE_CACHE[oldest_key]
+    key = (question.strip().lower(), settings.llm_provider, settings.chat_model)
+    _RESPONSE_CACHE[key] = (response, objects, _time.time())
 
 
 # =============================================================================
@@ -1929,6 +2065,13 @@ IMPORTANT GUIDELINES:
         """
         logger.info(f"Elysia processing: {question}")
 
+        # Check semantic response cache (avoids re-running Tree for identical queries)
+        cached = _cache_get(question)
+        if cached is not None:
+            logger.info("Cache hit — returning cached semantic response")
+            obs_metrics.increment("semantic_cache_hit_total")
+            return cached
+
         # Determine structured mode FIRST - this affects both prompt injection and post-processing
         # response-contract skill enforces JSON output format
         structured_mode = _skill_registry.is_skill_active("response-contract", question)
@@ -2136,6 +2279,22 @@ IMPORTANT GUIDELINES:
                     f"(request_id={request_id})"
                 )
 
+        # =============================================================================
+        # CROSS-DOMAIN MULTI-HOP ROUTE
+        # Queries spanning multiple doc types (ADR + Principle + Policy) are routed
+        # to a dedicated multi-collection retriever that bypasses the Tree for
+        # deterministic coverage and lower latency.
+        # =============================================================================
+        cross_domain, cross_collections = is_cross_domain_query(question)
+        if cross_domain:
+            logger.info(
+                f"Cross-domain query detected: collections={cross_collections}"
+            )
+            obs_metrics.increment("multi_hop_route_total")
+            return await self._multi_hop_query(
+                question, cross_collections, structured_mode=structured_mode
+            )
+
         # Always specify our collection names to bypass Elysia's metadata collection discovery
         # This avoids gRPC errors from Elysia's internal collections
         our_collections = collection_names or get_all_collection_names()
@@ -2190,6 +2349,33 @@ IMPORTANT GUIDELINES:
             # Return directly since _direct_query already post-processed
             return response, objects
 
+        # =================================================================
+        # GROUNDING GATE: reject LLM answers when retrieval is empty
+        # If the Tree generated a substantive response but retrieved zero
+        # documents, the answer is almost certainly hallucinated.
+        # =================================================================
+        _response_text = response if isinstance(response, str) else str(response)
+        _is_substantive = len(_response_text.strip()) > 100
+        _is_abstention = any(
+            phrase in _response_text.lower()
+            for phrase in (
+                "not found in the knowledge base",
+                "don't have sufficient information",
+                "no relevant documents",
+                "i couldn't find",
+            )
+        )
+        if not objects and _is_substantive and not _is_abstention:
+            logger.warning(
+                "Grounding gate: Tree returned substantive response with zero "
+                "retrieved objects — replacing with abstention"
+            )
+            obs_metrics.increment("grounding_gate_abstention_total")
+            grounded = get_abstention_response(
+                "No relevant documents were retrieved from the knowledge base for this query."
+            )
+            return grounded, objects
+
         # POST-PROCESS the Elysia tree response through unified contract enforcement
         # This is the critical fix: main path must also enforce structured response contract
         processed_response, was_structured, reason = postprocess_llm_output(
@@ -2201,7 +2387,151 @@ IMPORTANT GUIDELINES:
         if structured_mode:
             logger.info(f"Main path post-processing: was_structured={was_structured}, reason={reason}")
 
+        # Cache the successful semantic response
+        _cache_put(question, processed_response, objects)
+
         return processed_response, objects
+
+    async def _multi_hop_query(
+        self,
+        question: str,
+        collection_types: list[str],
+        structured_mode: bool = False,
+    ) -> tuple[str, list[dict]]:
+        """Multi-collection retrieval for cross-domain queries.
+
+        Retrieves top-k documents from each requested collection, aggregates
+        them into a single context with per-collection headers, then generates
+        a response via the configured LLM (bypassing the Elysia Tree for speed
+        and deterministic multi-collection coverage).
+
+        Args:
+            question: The user's question
+            collection_types: List of logical collection names ("adr", "principle", "policy")
+            structured_mode: Whether response-contract is active
+
+        Returns:
+            Tuple of (response text, combined retrieved objects)
+        """
+        logger.info(f"Multi-hop query across: {collection_types}")
+
+        # Determine collection suffix based on provider
+        use_openai_collections = settings.llm_provider == "openai"
+        suffix = "_OpenAI" if use_openai_collections else ""
+
+        # For local collections, compute query embedding client-side
+        query_vector = None
+        if not use_openai_collections:
+            try:
+                query_vector = embed_text(question)
+            except Exception as e:
+                logger.error(f"Failed to compute query embedding for multi-hop: {e}")
+
+        content_filter = build_document_filter(question, _skill_registry, DEFAULT_SKILL)
+        metadata_request = MetadataQuery(score=True, distance=True)
+
+        # Retrieve top-5 per collection
+        per_collection_limit = 5
+        all_results: list[dict] = []
+        collection_sections: list[str] = []
+
+        type_display = {"adr": "ADR", "principle": "Principle", "policy": "Policy"}
+        content_field = {"adr": "decision", "principle": "content", "policy": "content"}
+
+        for coll_type in collection_types:
+            coll_name = f"{get_collection_name(coll_type)}{suffix}"
+            display = type_display.get(coll_type, coll_type.upper())
+            try:
+                collection = self.client.collections.get(coll_name)
+                results = collection.query.hybrid(
+                    query=question,
+                    vector=query_vector,
+                    limit=per_collection_limit,
+                    alpha=settings.alpha_semantic,
+                    filters=content_filter,
+                    return_metadata=metadata_request,
+                )
+
+                section_docs = []
+                for obj in results.objects:
+                    title = obj.properties.get("title", "Untitled")
+                    content = obj.properties.get(
+                        content_field.get(coll_type, "content"), ""
+                    )[:800]
+                    distance = getattr(obj.metadata, "distance", None)
+                    score = getattr(obj.metadata, "score", None)
+                    all_results.append({
+                        "type": display,
+                        "title": title,
+                        "content": content,
+                        "distance": distance,
+                        "score": score,
+                    })
+                    section_docs.append(f"  [{display}] {title}: {content}")
+
+                if section_docs:
+                    collection_sections.append(
+                        f"--- {display} COLLECTION ({len(section_docs)} documents) ---\n"
+                        + "\n".join(section_docs)
+                    )
+                else:
+                    collection_sections.append(
+                        f"--- {display} COLLECTION (no documents found) ---"
+                    )
+
+            except Exception as e:
+                logger.warning(f"Multi-hop search error for {coll_name}: {e}")
+                collection_sections.append(
+                    f"--- {display} COLLECTION (search error) ---"
+                )
+
+        # Abstention check on aggregated results
+        abstain, reason = should_abstain(question, all_results)
+        if abstain:
+            logger.info(f"Multi-hop abstaining: {reason}")
+            return get_abstention_response(reason), all_results
+
+        # Build cross-domain context
+        context = "\n\n".join(collection_sections)
+
+        skill_content = _skill_registry.get_all_skill_content(question)
+
+        system_prompt = f"""You are AInstein, the Energy System Architecture AI Assistant at Alliander.
+
+This is a CROSS-DOMAIN query that spans multiple document types. You have been provided with
+documents from {len(collection_types)} collections: {', '.join(type_display.get(t, t) for t in collection_types)}.
+
+Guidelines:
+- Synthesize information ACROSS the collections to give a unified answer
+- Cite specific documents by ID (e.g., ADR.0012, PCP.0038)
+- If a collection returned no results for part of the query, say so explicitly
+- Base your answer strictly on the provided context — do not invent facts
+- Be concise but thorough
+
+{RESPONSE_SCHEMA_INSTRUCTIONS}"""
+
+        if skill_content:
+            system_prompt = f"{system_prompt}\n\n{skill_content}"
+
+        user_prompt = f"Context:\n{context}\n\nQuestion: {question}"
+
+        # Generate response (bypasses Tree for speed + guaranteed multi-collection)
+        if settings.llm_provider == "ollama":
+            raw_response = await self._generate_with_ollama(system_prompt, user_prompt)
+        else:
+            raw_response = await self._generate_with_openai(system_prompt, user_prompt)
+
+        # Post-process through contract enforcement
+        response_text, was_structured, reason = postprocess_llm_output(
+            raw_response=raw_response,
+            structured_mode=structured_mode,
+            enforcement_policy=DEFAULT_ENFORCEMENT_POLICY,
+        )
+
+        if structured_mode:
+            logger.info(f"Multi-hop post-processing: was_structured={was_structured}, reason={reason}")
+
+        return response_text, all_results
 
     async def _direct_query(self, question: str, structured_mode: bool = None) -> tuple[str, list[dict]]:
         """Direct query execution bypassing Elysia tree when it fails.

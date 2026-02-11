@@ -428,11 +428,11 @@ def get_approval_record_from_weaviate(
     if doc_type == "adr":
         collection_name = get_collection_name("adr")
         id_field = "adr_number"
-        doc_id = f"ADR.{doc_number}"
+        doc_id = f"ADR.{doc_number}D"
     else:
         collection_name = get_collection_name("principle")
         id_field = "principle_number"
-        doc_id = f"PCP.{doc_number}"
+        doc_id = f"PCP.{doc_number}D"
 
     try:
         collection = client.collections.get(collection_name)
