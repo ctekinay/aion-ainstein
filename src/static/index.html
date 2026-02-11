@@ -24,13 +24,13 @@
             --bg-message-assistant: #313244;
             --bg-decision: #2d1f3d;
             --bg-status: #2d2d3d;
-            --bg-assistant: rgba(16, 185, 129, 0.1);
+            --bg-assistant: rgba(59, 130, 246, 0.1);
             --text-primary: #cdd6f4;
             --text-secondary: #a6adc8;
             --text-muted: #6c7086;
             --border: #45475a;
             --border-decision: #a855f7;
-            --border-assistant: #10b981;
+            --border-assistant: #3b82f6;
             --border-status: #f59e0b;
             --panel-action-hover: rgba(255,255,255,0.1);
             --sources-bg: rgba(0,0,0,0.2);
@@ -51,13 +51,13 @@
             --bg-message-assistant: #e2e8f0;
             --bg-decision: #f3e8ff;
             --bg-status: #f1f5f9;
-            --bg-assistant: rgba(16, 185, 129, 0.1);
+            --bg-assistant: rgba(37, 99, 235, 0.1);
             --text-primary: #1e293b;
             --text-secondary: #475569;
             --text-muted: #64748b;
             --border: #cbd5e1;
             --border-decision: #9333ea;
-            --border-assistant: #059669;
+            --border-assistant: #2563eb;
             --border-status: #d97706;
             --panel-action-hover: rgba(0,0,0,0.05);
             --sources-bg: rgba(0,0,0,0.05);
@@ -680,7 +680,7 @@
             color: white;
         }
         .panel.assistant .panel-content {
-            background: rgba(16, 185, 129, 0.1);
+            background: var(--bg-assistant);
         }
 
         /* Decision panel */
@@ -703,7 +703,7 @@
             opacity: 0.85;
         }
         .panel.thinking-aloud .panel-header {
-            background: linear-gradient(135deg, var(--bg-assistant) 0%, rgba(16, 185, 129, 0.2) 100%);
+            background: linear-gradient(135deg, var(--bg-assistant) 0%, rgba(59, 130, 246, 0.2) 100%);
             color: var(--border-assistant);
             font-style: italic;
         }

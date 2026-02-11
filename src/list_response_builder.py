@@ -231,23 +231,26 @@ def finalize_list_result(result: dict) -> str:
         )
     elif collection == "approval_records":
         # Decision Approval Records (DARs) — mixed ADR + Principle approvals.
-        # Pre-process rows to add display-friendly dar_label (e.g., "ADR.0025D")
-        # because raw titles are often generic ("Decision Approval Record List").
+        # Derive display-friendly dar_label (e.g., "ADR.0025D") into copies
+        # to avoid mutating the caller's rows.
+        enriched_rows = []
         for row in rows:
-            adr_num = row.get("adr_number")
-            pcp_num = row.get("principle_number")
+            enriched = dict(row)
+            adr_num = enriched.get("adr_number")
+            pcp_num = enriched.get("principle_number")
             if adr_num:
                 num_str = str(adr_num).zfill(4) if str(adr_num).isdigit() else str(adr_num)
-                row["dar_label"] = f"ADR.{num_str}D"
+                enriched["dar_label"] = f"ADR.{num_str}D"
             elif pcp_num:
                 num_str = str(pcp_num).zfill(4) if str(pcp_num).isdigit() else str(pcp_num)
-                row["dar_label"] = f"PCP.{num_str}D"
+                enriched["dar_label"] = f"PCP.{num_str}D"
             else:
-                row["dar_label"] = "DAR"
+                enriched["dar_label"] = "DAR"
+            enriched_rows.append(enriched)
 
         json_str = build_list_structured_json(
             item_type_label="DAR",
-            items=rows,
+            items=enriched_rows,
             identity_key="file_path",
             title_key="dar_label",  # Use computed label instead of generic title
             number_key=None,

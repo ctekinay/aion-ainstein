@@ -2199,7 +2199,7 @@ IMPORTANT GUIDELINES:
                         list_result = await list_tool("all")
                     objects = list_result.get("rows", []) if isinstance(list_result, dict) else []
 
-            elif re.search(r"\badr\b", question_lower) or ("decision" in question_lower and "approval" not in question_lower) or "architecture" in question_lower:
+            elif re.search(r"\badrs?\b", question_lower) or ("decision" in question_lower and "approval" not in question_lower) or "architecture" in question_lower:
                 logger.info("List query detected for ADRs - using deterministic path")
                 list_tool = self._tool_registry.get("list_all_adrs")
                 if list_tool:

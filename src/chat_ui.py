@@ -776,9 +776,9 @@ async def stream_elysia_response(question: str) -> AsyncGenerator[str, None]:
         # Convert to an error event so the frontend can display it gracefully.
         logger.exception(f"Unexpected error in stream_elysia_response: {exc}")
         try:
-            yield f"data: {json.dumps({'type': 'error', 'content': f'Internal error: {exc}'})}\n\n"
+            yield f"data: {json.dumps({'type': 'error', 'content': 'An internal error occurred. Please try again.'})}\n\n"
         except Exception:
-            yield f"data: {json.dumps({'type': 'error', 'content': 'Internal error'})}\n\n"
+            yield f"data: {json.dumps({'type': 'error', 'content': 'An internal error occurred. Please try again.'})}\n\n"
 
 
 # ============== Test Mode: LLM Comparison Functions ==============
@@ -1265,8 +1265,8 @@ async def chat_stream(request: ChatRequest):
                         final_response = data.get("response")
                         final_sources = data.get("sources", [])
                         final_timing = data.get("timing")
-            except Exception:
-                pass
+            except Exception as parse_err:
+                logger.debug(f"Failed to parse SSE event for save: {parse_err}")
 
         # Save assistant response with timing (must not abort the stream)
         if final_response:
