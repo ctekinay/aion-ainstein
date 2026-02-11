@@ -2037,11 +2037,36 @@
                 case 'complete':
                     removeStatus();
                     removeLoading();
-                    // Always show the final response — intermediate assistant
-                    // events are Elysia's thinking, the complete event carries
-                    // the actual answer.
+                    // The complete event carries the authoritative final answer.
+                    // If an assistant event already displayed a panel, replace it
+                    // (it may have been intermediate thinking or the same content).
+                    // If no assistant panel exists yet, append a new one.
                     if (data.response) {
-                        appendPanel('assistant', 'AInstein', data.response, null, null, data.timing);
+                        if (responseShown) {
+                            // Replace the last assistant panel's content
+                            const panels = document.querySelectorAll('#messages .panel.assistant');
+                            const lastPanel = panels[panels.length - 1];
+                            if (lastPanel) {
+                                const contentDiv = lastPanel.querySelector('.panel-content');
+                                if (contentDiv) {
+                                    contentDiv.innerHTML = `<div class="message-text">${formatMessageText(data.response)}</div>`;
+                                }
+                                // Update timing badge if present
+                                if (data.timing && data.timing.total_ms) {
+                                    const totalMs = data.timing.total_ms;
+                                    const totalClass = totalMs < 5000 ? 'fast' : (totalMs > 15000 ? 'slow' : '');
+                                    let badgeContainer = lastPanel.querySelector('.latency-badges');
+                                    if (!badgeContainer) {
+                                        badgeContainer = document.createElement('div');
+                                        badgeContainer.className = 'latency-badges';
+                                        lastPanel.querySelector('.panel-header').appendChild(badgeContainer);
+                                    }
+                                    badgeContainer.innerHTML = `<div class="latency-badge ${totalClass}" title="Total response time">T: ${totalMs}ms</div>`;
+                                }
+                            }
+                        } else {
+                            appendPanel('assistant', 'AInstein', data.response, null, null, data.timing);
+                        }
                         responseShown = true;
                     }
                     // Add sources if present
