@@ -334,5 +334,88 @@ class TestTaxonomyAcceptanceCriteria:
         assert result.is_list is False, f"'{query}' should NOT be list, got: {result}"
 
 
+class TestDARListQueries:
+    """Regression tests: 'list dars' must route to approval records, not ADRs.
+
+    'list dars' was falling through the list route because 'dar'/'dars' wasn't
+    detected as an approval/DAR intent, causing it to hit the Elysia Tree,
+    timeout, and then abstain.
+    """
+
+    @pytest.mark.parametrize("query", [
+        "list dars",
+        "List DARs",
+        "list all dars",
+        "show dars",
+        "What DARs exist?",
+        "list decision approval records",
+        "show decision approval records",
+    ])
+    def test_dar_queries_detected_as_list(self, query):
+        """DAR listing queries should be detected as list queries."""
+        result = detect_list_query(query)
+        assert result.is_list is True, f"'{query}' should be detected as list query, got: {result}"
+
+    @pytest.mark.parametrize("query", [
+        "list dars",
+        "List DARs",
+        "list all dars",
+        "list decision approval records",
+    ])
+    def test_is_list_query_true_for_dars(self, query):
+        """is_list_query should return True for DAR listing queries."""
+        assert is_list_query(query) is True
+
+
+class TestDARIntentDetection:
+    """Test that DAR queries are correctly identified as approval-type queries
+    within the list route, not as ADR content queries.
+
+    These tests verify the routing logic that decides whether to call
+    list_approval_records() vs list_all_adrs().
+    """
+
+    def _get_dar_keywords(self):
+        """Get DAR detection keywords (mirrors the production code)."""
+        return ["dar ", "dars", "decision approval record"]
+
+    def _get_approval_markers(self):
+        """Get approval intent markers from config."""
+        from src.elysia_agents import _get_markers
+        return _get_markers("approval_intent")
+
+    @pytest.mark.parametrize("query,should_match_dar", [
+        ("list dars", True),
+        ("list all dars", True),
+        ("what dars exist", True),
+        ("show decision approval records", True),
+        ("list dar files", True),
+        # These should NOT match DAR keywords
+        ("list adrs", False),
+        ("list all adrs", False),
+        ("what principles exist", False),
+    ])
+    def test_dar_keyword_detection(self, query, should_match_dar):
+        """DAR-specific keywords should be detected correctly."""
+        question_lower = query.lower()
+        dar_keywords = self._get_dar_keywords()
+        matched = any(kw in question_lower for kw in dar_keywords)
+        assert matched == should_match_dar, (
+            f"'{query}' DAR keyword match expected={should_match_dar}, got={matched}"
+        )
+
+    @pytest.mark.parametrize("query", [
+        "list approval records",
+        "show approval records",
+        "what are the approval records",
+    ])
+    def test_approval_markers_match(self, query):
+        """Approval-intent markers should match approval queries."""
+        question_lower = query.lower()
+        markers = self._get_approval_markers()
+        matched = any(m in question_lower for m in markers)
+        assert matched is True, f"'{query}' should match approval markers"
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

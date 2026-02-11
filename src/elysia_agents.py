@@ -2177,13 +2177,17 @@ IMPORTANT GUIDELINES:
             list_result = None
             objects = []
 
-            # Priority 1: Check for approval/governance record queries FIRST
-            # Patterns: "approval records", "decision approval", "who approved", "daci"
+            # Priority 1: Check for approval/governance/DAR record queries FIRST
+            # Patterns: "approval records", "decision approval", "who approved", "daci",
+            # "dar", "dars", "decision approval record(s)"
             approval_markers = _get_markers("approval_intent")
+            # Extend with DAR-specific keywords (not in default approval_intent)
+            dar_keywords = ["dar ", "dars", "decision approval record"]
             is_approval_query = any(marker in question_lower for marker in approval_markers)
+            is_dar_list_query = any(kw in question_lower for kw in dar_keywords)
 
-            if is_approval_query:
-                logger.info("Approval records query detected - using deterministic path")
+            if is_approval_query or is_dar_list_query:
+                logger.info("Approval/DAR records query detected - using deterministic path")
                 list_tool = self._tool_registry.get("list_approval_records")
                 if list_tool:
                     # Determine collection type from query
@@ -2205,6 +2209,15 @@ IMPORTANT GUIDELINES:
             elif "principle" in question_lower or "governance" in question_lower:
                 logger.info("List query detected for Principles - using deterministic path")
                 list_tool = self._tool_registry.get("list_all_principles")
+                if list_tool:
+                    list_result = await list_tool()
+                    objects = list_result.get("rows", []) if isinstance(list_result, dict) else []
+
+            else:
+                # Catch-all: list query detected but no specific collection matched.
+                # Default to listing all ADRs rather than falling through to the Tree.
+                logger.info("List query detected (no specific collection) - defaulting to ADRs")
+                list_tool = self._tool_registry.get("list_all_adrs")
                 if list_tool:
                     list_result = await list_tool()
                     objects = list_result.get("rows", []) if isinstance(list_result, dict) else []
@@ -2665,13 +2678,20 @@ Guidelines:
             try:
                 collection = self.client.collections.get(f"{get_collection_name('policy')}{suffix}")
 
-                # Always get total count first for transparency
-                total_count = get_collection_count(collection, content_filter)
+                # PolicyDocument may not have doc_type property — use content_filter
+                # only if supported, otherwise fall back to unfiltered query.
+                policy_filter = content_filter
+                try:
+                    total_count = get_collection_count(collection, policy_filter)
+                except Exception:
+                    logger.info("PolicyDocument does not support doc_type filter — querying without filter")
+                    policy_filter = None
+                    total_count = get_collection_count(collection)
                 collection_counts["Policy"] = total_count
 
                 if is_catalog_query:
                     results = collection.query.fetch_objects(
-                        filters=content_filter,
+                        filters=policy_filter,
                         limit=catalog_fetch_limit,
                         return_metadata=metadata_request
                     )
@@ -2679,7 +2699,7 @@ Guidelines:
                 else:
                     results = collection.query.hybrid(
                         query=question, vector=query_vector, limit=policy_limit, alpha=settings.alpha_vocabulary,
-                        return_metadata=metadata_request
+                        filters=policy_filter, return_metadata=metadata_request
                     )
 
                 for obj in results.objects:
@@ -2771,10 +2791,17 @@ Guidelines:
                     logger.warning(f"Error searching {coll_base}{suffix}: {e}")
 
         # Check if we should abstain from answering
-        abstain, reason = should_abstain(question, all_results)
-        if abstain:
-            logger.info(f"Abstaining from query: {reason}")
-            return get_abstention_response(reason), all_results
+        # Rule: Abstention applies only to semantic routes. Catalog/list queries
+        # that retrieved results should never be overridden by abstention.
+        if is_catalog_query and all_results:
+            logger.info(
+                f"Catalog query with {len(all_results)} results — skipping abstention check"
+            )
+        else:
+            abstain, reason = should_abstain(question, all_results)
+            if abstain:
+                logger.info(f"Abstaining from query: {reason}")
+                return get_abstention_response(reason), all_results
 
         # Build context from retrieved results with transparency about totals
         max_context_results = truncation.get("max_context_results", 10)
