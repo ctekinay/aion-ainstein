@@ -128,9 +128,11 @@ def build_list_structured_json(
         sources=[{"title": f"{item_type_label} index", "type": source_type}],
     )
 
-    # 5) Add transparency statement if not all items shown
+    # 5) Always set transparency statement with collection-specific label
     if total > items_shown_count:
         sr.transparency_statement = f"Showing {items_shown_count} of {total} total {item_type_label}s"
+    elif total > 0:
+        sr.transparency_statement = f"Showing all {total} {item_type_label}s"
 
     return json.dumps(sr.to_dict(), ensure_ascii=False)
 

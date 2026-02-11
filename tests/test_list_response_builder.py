@@ -550,3 +550,148 @@ class TestFallbackProductionBehavior:
         assert "migration" in error_response["message"].lower() or \
                "MIGRATION" in error_response["reason"]
         assert "reason" in error_response
+
+
+class TestTransparencyLabelCorrectness:
+    """Tests for PR 1.5: transparency message uses collection-specific labels.
+
+    Regression: generate_transparency_message() was returning generic "items"
+    instead of "ADRs" or "PCPs" because it ignored the pre-set
+    transparency_statement from the list builder.
+    """
+
+    def test_all_items_shown_uses_adr_label(self):
+        """When all ADRs shown, transparency should say 'ADRs' not 'items'."""
+        items = [
+            {"adr_number": str(i), "title": f"ADR {i}", "file_path": f"/adr/{i:04d}.md"}
+            for i in range(5)
+        ]
+
+        result = build_list_structured_json(
+            item_type_label="ADR",
+            items=items,
+            identity_key="adr_number",
+            number_key="adr_number",
+            source_type="ADR",
+        )
+
+        data = json.loads(result)
+        assert data["transparency_statement"] == "Showing all 5 ADRs"
+
+    def test_truncated_uses_adr_label(self):
+        """When truncated, transparency should say 'ADRs' not 'items'."""
+        items = [
+            {"adr_number": str(i), "title": f"ADR {i}", "file_path": f"/adr/{i:04d}.md"}
+            for i in range(100)
+        ]
+
+        result = build_list_structured_json(
+            item_type_label="ADR",
+            items=items,
+            identity_key="adr_number",
+            number_key="adr_number",
+            max_items_in_answer=10,
+            source_type="ADR",
+        )
+
+        data = json.loads(result)
+        assert data["transparency_statement"] == "Showing 10 of 100 total ADRs"
+
+    def test_all_principles_shown_uses_pcp_label(self):
+        """When all principles shown, transparency should say 'PCPs'."""
+        items = [
+            {"principle_number": str(i), "title": f"Principle {i}", "file_path": f"/pcp/{i:04d}.md"}
+            for i in range(3)
+        ]
+
+        result = build_list_structured_json(
+            item_type_label="PCP",
+            items=items,
+            identity_key="principle_number",
+            number_key="principle_number",
+            status_key=None,
+            source_type="Principle",
+        )
+
+        data = json.loads(result)
+        assert data["transparency_statement"] == "Showing all 3 PCPs"
+
+    def test_generate_transparency_prefers_preset(self):
+        """generate_transparency_message() should return pre-set statement."""
+        from src.response_schema import StructuredResponse
+
+        sr = StructuredResponse(
+            answer="test",
+            items_shown=5,
+            items_total=5,
+            count_qualifier="exact",
+            transparency_statement="Showing all 5 ADRs",
+        )
+
+        assert sr.generate_transparency_message() == "Showing all 5 ADRs"
+
+    def test_generate_transparency_falls_back_to_generic(self):
+        """Without pre-set statement, generate_transparency_message uses generic."""
+        from src.response_schema import StructuredResponse
+
+        sr = StructuredResponse(
+            answer="test",
+            items_shown=5,
+            items_total=10,
+            count_qualifier="exact",
+        )
+
+        assert sr.generate_transparency_message() == "Showing 5 of 10 total items"
+
+    def test_empty_list_no_transparency(self):
+        """Empty list should not have transparency statement."""
+        result = build_list_structured_json(
+            item_type_label="ADR",
+            items=[],
+            identity_key="adr_number",
+            source_type="ADR",
+        )
+
+        data = json.loads(result)
+        assert data.get("transparency_statement") is None
+
+    def test_end_to_end_handle_list_result_uses_label(self):
+        """End-to-end: handle_list_result should produce collection-specific label."""
+        from src.response_gateway import handle_list_result, StructuredModeContext
+
+        marker = build_list_result_marker(
+            collection="adr",
+            rows=[
+                {"adr_number": "30", "title": "Use Event Sourcing", "status": "accepted", "file_path": "/adr/0030.md"},
+                {"adr_number": "31", "title": "Use CQRS Pattern", "status": "proposed", "file_path": "/adr/0031.md"},
+            ],
+            total_unique=2,
+        )
+
+        ctx = StructuredModeContext(structured_mode=True)
+        gateway_result = handle_list_result(marker, ctx)
+
+        assert gateway_result is not None
+        assert "Showing all 2 ADRs" in gateway_result.response
+        assert "items" not in gateway_result.response.lower() or "items_" in gateway_result.response.lower()
+
+    def test_end_to_end_truncated_handle_list_result(self):
+        """End-to-end: truncated list should show 'Showing N of M total ADRs'."""
+        from src.response_gateway import handle_list_result, StructuredModeContext
+
+        rows = [
+            {"adr_number": str(i), "title": f"ADR {i}", "status": "accepted", "file_path": f"/adr/{i:04d}.md"}
+            for i in range(100)
+        ]
+
+        marker = build_list_result_marker(
+            collection="adr",
+            rows=rows,
+            total_unique=100,
+        )
+
+        ctx = StructuredModeContext(structured_mode=True)
+        gateway_result = handle_list_result(marker, ctx)
+
+        assert gateway_result is not None
+        assert "Showing 50 of 100 total ADRs" in gateway_result.response

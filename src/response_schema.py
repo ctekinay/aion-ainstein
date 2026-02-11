@@ -428,8 +428,14 @@ class StructuredResponse:
     def generate_transparency_message(self) -> str:
         """Generate a consistent transparency message from numeric fields.
 
-        This avoids phrasing drift by generating from structured data.
+        Prefers pre-set transparency_statement (e.g., from the deterministic
+        list builder which uses collection-specific labels like "ADRs").
+        Falls back to generic "items" label for LLM-generated responses.
         """
+        # Prefer pre-set statement with collection-specific label
+        if self.transparency_statement:
+            return self.transparency_statement
+
         if self.items_total is None:
             return ""
 
