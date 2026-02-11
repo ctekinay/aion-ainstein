@@ -629,6 +629,13 @@ async def stream_elysia_response(question: str) -> AsyncGenerator[str, None]:
     intermediate events is disabled to ensure contract enforcement runs
     BEFORE any content reaches the user. Only the validated final response
     is returned.
+
+    Exception safety: The entire streaming flow is wrapped in try/except so
+    that no unhandled exception can abort the SSE connection. Any error is
+    converted to an SSE error event that the frontend can display gracefully.
+
+    Async safety: Uses non-blocking Queue.get_nowait() with asyncio.sleep()
+    instead of blocking Queue.get(timeout=N) to avoid freezing the event loop.
     """
     result_queue = Queue()
     output_queue = Queue()
@@ -650,62 +657,84 @@ async def stream_elysia_response(question: str) -> AsyncGenerator[str, None]:
     thread.start()
 
     event_count = 0
-    last_status_time = asyncio.get_event_loop().time()
-    start_time = asyncio.get_event_loop().time()
+    loop = asyncio.get_event_loop()
+    last_heartbeat_time = loop.time()
+    start_time = loop.time()
+    sentinel_received = False
 
-    # Stream output events with keepalive
-    while thread.is_alive():
-        try:
-            event = output_queue.get(timeout=0.1)
+    try:
+        # Stream output events — non-blocking to keep the event loop responsive
+        while thread.is_alive() and not sentinel_received:
+            try:
+                event = output_queue.get_nowait()
+            except Empty:
+                # Queue empty — yield to event loop, then send heartbeat if due
+                await asyncio.sleep(0.1)
+                now = loop.time()
+                if now - last_heartbeat_time > 3:
+                    elapsed_sec = int(now - start_time)
+                    yield f"data: {json.dumps({'type': 'heartbeat', 'elapsed_sec': elapsed_sec})}\n\n"
+                    last_heartbeat_time = now
+                continue
+
             if event is None:
+                sentinel_received = True
                 break
+
             event_count += 1
 
             # In structured mode, suppress intermediate events (thinking, assistant prose)
             # Only allow status/heartbeat events through
             if structured_mode and event.get('type') in ('thinking', 'assistant', 'thinking_aloud'):
                 logger.debug(f"Suppressing event {event_count} in structured mode: {event['type']}")
+                # Yield to event loop and send heartbeat if needed even when suppressing
+                now = loop.time()
+                if now - last_heartbeat_time > 3:
+                    elapsed_sec = int(now - start_time)
+                    yield f"data: {json.dumps({'type': 'heartbeat', 'elapsed_sec': elapsed_sec})}\n\n"
+                    last_heartbeat_time = now
+                else:
+                    await asyncio.sleep(0)
                 continue
 
             logger.info(f"Streaming event {event_count}: {event['type']}")
             yield f"data: {json.dumps(event)}\n\n"
-            last_status_time = asyncio.get_event_loop().time()
-        except Empty:
-            # Send keepalive status event every 3 seconds to show system is still working
-            now = asyncio.get_event_loop().time()
-            if now - last_status_time > 3:
-                elapsed_sec = int(now - start_time)
-                # Send actual status event so frontend can update UI
-                yield f"data: {json.dumps({'type': 'heartbeat', 'elapsed_sec': elapsed_sec})}\n\n"
-                last_status_time = now
-            await asyncio.sleep(0.05)
-            continue
+            last_heartbeat_time = loop.time()
 
-    # Drain any remaining events
-    while True:
-        try:
-            event = output_queue.get_nowait()
-            if event is None:
+        # Drain any remaining events (non-blocking)
+        while True:
+            try:
+                event = output_queue.get_nowait()
+                if event is None:
+                    sentinel_received = True
+                    break
+                event_count += 1
+
+                # In structured mode, suppress intermediate events
+                if structured_mode and event.get('type') in ('thinking', 'assistant', 'thinking_aloud'):
+                    logger.debug(f"Suppressing drained event {event_count} in structured mode: {event['type']}")
+                    continue
+
+                logger.info(f"Draining event {event_count}: {event['type']}")
+                yield f"data: {json.dumps(event)}\n\n"
+            except Empty:
                 break
-            event_count += 1
 
-            # In structured mode, suppress intermediate events
-            if structured_mode and event.get('type') in ('thinking', 'assistant', 'thinking_aloud'):
-                logger.debug(f"Suppressing drained event {event_count} in structured mode: {event['type']}")
-                continue
+        logger.info(f"Stream complete, sent {event_count} events (structured_mode={structured_mode})")
 
-            logger.info(f"Draining event {event_count}: {event['type']}")
-            yield f"data: {json.dumps(event)}\n\n"
+        # Wait for thread to finish — non-blocking async poll instead of blocking join
+        join_deadline = loop.time() + 60
+        while thread.is_alive() and loop.time() < join_deadline:
+            await asyncio.sleep(0.5)
+
+        # Retrieve result
+        try:
+            result = result_queue.get_nowait()
         except Empty:
-            break
+            logger.error("Query thread finished but no result in queue")
+            yield f"data: {json.dumps({'type': 'error', 'content': 'Query timed out'})}\n\n"
+            return
 
-    logger.info(f"Stream complete, sent {event_count} events (structured_mode={structured_mode})")
-
-    # Wait for result
-    thread.join(timeout=60)
-
-    try:
-        result = result_queue.get_nowait()
         if result["error"]:
             logger.error(f"Query error: {result['error']}")
             yield f"data: {json.dumps({'type': 'error', 'content': result['error']})}\n\n"
@@ -741,9 +770,15 @@ async def stream_elysia_response(question: str) -> AsyncGenerator[str, None]:
                 yield f"data: {json.dumps({'type': 'assistant', 'content': final_response, 'timing': timing})}\n\n"
 
             yield f"data: {json.dumps({'type': 'complete', 'response': final_response, 'sources': sources, 'timing': timing})}\n\n"
-    except Empty:
-        logger.error("Query timed out")
-        yield f"data: {json.dumps({'type': 'error', 'content': 'Query timed out'})}\n\n"
+
+    except Exception as exc:
+        # Catch-all: no exception may abort the SSE connection.
+        # Convert to an error event so the frontend can display it gracefully.
+        logger.exception(f"Unexpected error in stream_elysia_response: {exc}")
+        try:
+            yield f"data: {json.dumps({'type': 'error', 'content': f'Internal error: {exc}'})}\n\n"
+        except Exception:
+            yield f"data: {json.dumps({'type': 'error', 'content': 'Internal error'})}\n\n"
 
 
 # ============== Test Mode: LLM Comparison Functions ==============
@@ -1221,18 +1256,24 @@ async def chat_stream(request: ChatRequest):
             yield event
 
             # Parse event to capture final response for saving
+            # Use slicing (not replace) to strip "data: " prefix without corrupting content
             try:
-                data = json.loads(event.replace("data: ", "").strip())
-                if data.get("type") == "complete":
-                    final_response = data.get("response")
-                    final_sources = data.get("sources", [])
-                    final_timing = data.get("timing")
-            except:
+                event_str = event.strip()
+                if event_str.startswith("data: "):
+                    data = json.loads(event_str[6:])
+                    if data.get("type") == "complete":
+                        final_response = data.get("response")
+                        final_sources = data.get("sources", [])
+                        final_timing = data.get("timing")
+            except Exception:
                 pass
 
-        # Save assistant response with timing
+        # Save assistant response with timing (must not abort the stream)
         if final_response:
-            save_message(conversation_id, "assistant", final_response, final_sources, final_timing)
+            try:
+                save_message(conversation_id, "assistant", final_response, final_sources, final_timing)
+            except Exception as e:
+                logger.error(f"Failed to save assistant message: {e}")
 
     return StreamingResponse(
         event_generator(),

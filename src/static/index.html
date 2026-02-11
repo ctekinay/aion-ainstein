@@ -1716,15 +1716,23 @@
                     })
                 });
 
+                if (!response.ok) {
+                    throw new Error(`Server error: ${response.status}`);
+                }
+
                 const reader = response.body.getReader();
                 const decoder = new TextDecoder();
+                let partialLine = '';
 
                 while (true) {
                     const { done, value } = await reader.read();
                     if (done) break;
 
-                    const chunk = decoder.decode(value);
+                    const chunk = partialLine + decoder.decode(value, { stream: true });
                     const lines = chunk.split('\n');
+
+                    // Last element may be an incomplete line — carry it over
+                    partialLine = lines.pop() || '';
 
                     for (const line of lines) {
                         if (line.startsWith('data: ')) {
@@ -1738,12 +1746,25 @@
                     }
                 }
 
+                // Process any remaining partial line
+                if (partialLine.startsWith('data: ')) {
+                    try {
+                        const data = JSON.parse(partialLine.slice(6));
+                        handleStreamEvent(data);
+                    } catch (e) {
+                        // Ignore parse errors
+                    }
+                }
+
                 // Refresh conversations list
                 loadConversations();
             } catch (error) {
-                console.error('Error:', error);
+                console.error('Stream error:', error);
                 removeStatus();
-                appendPanel('assistant', 'Error', 'Sorry, an error occurred. Please try again.');
+                // Only show error panel if no response was already shown
+                if (!responseShown) {
+                    appendPanel('assistant', 'Error', 'Sorry, an error occurred. Please try again.');
+                }
             } finally {
                 isLoading = false;
                 updateSendButton();

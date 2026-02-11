@@ -695,3 +695,113 @@ class TestTransparencyLabelCorrectness:
 
         assert gateway_result is not None
         assert "Showing 50 of 100 total ADRs" in gateway_result.response
+
+
+class TestApprovalRecordFormatting:
+    """Tests for DAR (Decision Approval Record) list formatting.
+
+    Regression: approval_records collection used to produce ugly labels
+    like "APPROVAL_RECORDS" and double-s in "APPROVAL_RECORDSs".
+    """
+
+    def test_dar_label_used_instead_of_approval_records(self):
+        """DAR list should use 'DAR' label, not 'APPROVAL_RECORDS'."""
+        rows = [
+            {"adr_number": "25", "title": "Decision Approval Record List", "file_path": "/adr/0025D-dar.md"},
+            {"principle_number": "10", "title": "Principle Approval Record List", "file_path": "/pcp/0010D-dar.md"},
+        ]
+        marker = build_list_result_marker(
+            collection="approval_records",
+            rows=rows,
+            total_unique=2,
+        )
+        json_str = finalize_list_result(marker)
+        data = json.loads(json_str)
+
+        assert "APPROVAL_RECORDS" not in data["answer"]
+        assert "DAR" in data["answer"]
+
+    def test_dar_transparency_no_double_s(self):
+        """Transparency should say 'DARs' not 'APPROVAL_RECORDSs'."""
+        rows = [
+            {"adr_number": "25", "title": "DAR", "file_path": "/adr/0025D.md"},
+        ]
+        marker = build_list_result_marker(
+            collection="approval_records",
+            rows=rows,
+            total_unique=1,
+        )
+        json_str = finalize_list_result(marker)
+        data = json.loads(json_str)
+
+        transparency = data.get("transparency_statement", "")
+        assert "DARs" in transparency or "DAR" in transparency
+        assert "APPROVAL_RECORDS" not in transparency
+
+    def test_adr_dar_shows_doc_number(self):
+        """ADR approval records should display as 'ADR.0025D'."""
+        rows = [
+            {"adr_number": "25", "title": "Decision Approval Record List", "file_path": "/adr/0025D.md"},
+        ]
+        marker = build_list_result_marker(
+            collection="approval_records",
+            rows=rows,
+            total_unique=1,
+        )
+        json_str = finalize_list_result(marker)
+        data = json.loads(json_str)
+
+        assert "ADR.0025D" in data["answer"]
+
+    def test_pcp_dar_shows_doc_number(self):
+        """Principle approval records should display as 'PCP.0010D'."""
+        rows = [
+            {"principle_number": "10", "title": "Principle Approval Record List", "file_path": "/pcp/0010D.md"},
+        ]
+        marker = build_list_result_marker(
+            collection="approval_records",
+            rows=rows,
+            total_unique=1,
+        )
+        json_str = finalize_list_result(marker)
+        data = json.loads(json_str)
+
+        assert "PCP.0010D" in data["answer"]
+
+    def test_mixed_dar_list_valid_json(self):
+        """Mixed ADR + PCP DARs should produce valid JSON."""
+        rows = [
+            {"adr_number": str(i), "title": f"ADR DAR {i}", "file_path": f"/adr/{i:04d}D.md"}
+            for i in range(1, 11)
+        ] + [
+            {"principle_number": str(i), "title": f"PCP DAR {i}", "file_path": f"/pcp/{i:04d}D.md"}
+            for i in range(1, 6)
+        ]
+        marker = build_list_result_marker(
+            collection="approval_records",
+            rows=rows,
+            total_unique=15,
+        )
+        json_str = finalize_list_result(marker)
+        data = json.loads(json_str)
+
+        # Valid schema
+        assert data["schema_version"] == CURRENT_SCHEMA_VERSION
+        assert data["items_total"] == 15
+        assert data["count_qualifier"] == "exact"
+
+    def test_dar_source_type(self):
+        """DAR list source type should be 'DAR'."""
+        rows = [
+            {"adr_number": "25", "title": "DAR", "file_path": "/adr/0025D.md"},
+        ]
+        marker = build_list_result_marker(
+            collection="approval_records",
+            rows=rows,
+            total_unique=1,
+        )
+        json_str = finalize_list_result(marker)
+        data = json.loads(json_str)
+
+        assert data["sources"][0]["type"] == "DAR"
+        assert data["sources"][0]["title"] == "DAR index"
