@@ -299,10 +299,10 @@ class MarkdownLoader:
         """Classify an ADR document as content, index, template, registry, or decision_approval_record.
 
         Classification priority (most reliable first):
-        1. Filename pattern for DARs (NNNND-*.md)
-        2. Filename pattern for registry (esa_doc_registry.md) - NOT skipped
-        3. Filename pattern for index files (index.md, readme.md) - SKIPPED
-        4. Filename/title for templates - SKIPPED
+        1. Filename identity: NNNND-*.md → decision_approval_record
+        2. Filename identity: NNNN-*.md → content (authoritative, skips heuristics)
+        3. Filename match for registry/index/template files
+        4. Heuristic: placeholder tokens in content
         5. Default: content
 
         Args:
@@ -316,10 +316,15 @@ class MarkdownLoader:
         file_name = file_path.name.lower()
         title_lower = title.lower()
 
-        # Decision Approval Records: NNNND-*.md files (contain governance/approval history)
-        # These track the DACI approval process, not the actual decision content
+        # Identity rule 1: DARs (NNNND-*.md)
         if re.match(r"^\d{4}d-", file_name):
             return 'decision_approval_record'
+
+        # Identity rule 2: Numbered content files (NNNN-*.md) are ALWAYS content.
+        # This is authoritative — a real ADR may mention "template" in prose
+        # (e.g., ADR.0000 discusses MADR templates) without being a template.
+        if re.match(r"^\d{4}-", file_name):
+            return 'content'
 
         # Registry files: esa_doc_registry.md (NOT skipped - canonical doc registry)
         if file_name in REGISTRY_FILENAMES:
@@ -330,17 +335,22 @@ class MarkdownLoader:
         if file_name in index_patterns:
             return 'index'
 
-        # Template files: contain placeholders, not actual content (SKIPPED)
-        template_indicators = [
+        # Template files: only for non-numbered files (e.g., adr-template.md)
+        # Filename/title indicators
+        template_filename_indicators = ['template']
+        if any(ind in file_name or ind in title_lower for ind in template_filename_indicators):
+            return 'template'
+
+        # Strong placeholder tokens in content (explicit fill-in markers)
+        placeholder_tokens = [
             '{short title',
             '{problem statement}',
             '{context}',
             '{decision outcome}',
-            'template',
             '[insert ',
             '{insert ',
         ]
-        if any(ind in title_lower or ind in content.lower() for ind in template_indicators):
+        if any(token in content.lower() for token in placeholder_tokens):
             return 'template'
 
         # Index-like content: lists of other documents
@@ -453,10 +463,10 @@ class MarkdownLoader:
         """Classify a principle document as content, index, template, registry, or decision_approval_record.
 
         Classification priority (most reliable first):
-        1. Filename pattern for DARs (NNNND-*.md)
-        2. Filename pattern for registry (esa_doc_registry.md) - NOT skipped
-        3. Filename pattern for index files (index.md, readme.md) - SKIPPED
-        4. Filename/title for templates - SKIPPED
+        1. Filename identity: NNNND-*.md → decision_approval_record
+        2. Filename identity: NNNN-*.md → content (authoritative, skips heuristics)
+        3. Filename match for registry/index/template files
+        4. Heuristic: placeholder tokens in content
         5. Default: content
 
         Args:
@@ -470,10 +480,15 @@ class MarkdownLoader:
         file_name = file_path.name.lower()
         title_lower = title.lower()
 
-        # Decision Approval Records: NNNND-*.md files (contain governance/approval history)
-        # These track the DACI approval process, not the actual principle content
+        # Identity rule 1: DARs (NNNND-*.md)
         if re.match(r"^\d{4}d-", file_name):
             return 'decision_approval_record'
+
+        # Identity rule 2: Numbered content files (NNNN-*.md) are ALWAYS content.
+        # This is authoritative — a real principle may mention "template" in prose
+        # without being a template.
+        if re.match(r"^\d{4}-", file_name):
+            return 'content'
 
         # Registry files: esa_doc_registry.md (NOT skipped - canonical doc registry)
         if file_name in REGISTRY_FILENAMES:
@@ -484,17 +499,22 @@ class MarkdownLoader:
         if file_name in index_patterns:
             return 'index'
 
-        # Template files (SKIPPED)
-        template_indicators = [
-            'template',
+        # Template files: only for non-numbered files (e.g., principle-template.md)
+        # Filename/title indicators
+        template_filename_indicators = ['template']
+        if any(ind in file_name or ind in title_lower for ind in template_filename_indicators):
+            return 'template'
+
+        # Strong placeholder tokens in content (explicit fill-in markers)
+        placeholder_tokens = [
             '{title}',
             '{description}',
+            '{short title',
+            '{problem statement}',
             '[insert ',
             '{insert ',
-            'principle-template',
-            'principle-decision-template',
         ]
-        if any(ind in file_name or ind in title_lower for ind in template_indicators):
+        if any(token in content.lower() for token in placeholder_tokens):
             return 'template'
 
         # Default: actual content

@@ -222,7 +222,17 @@ def classify_adr_document(
             reason=f"Filename matches DAR pattern: {file_name}"
         )
 
-    # 2. Check for registry files (NOT skipped - canonical doc registry)
+    # 2. Numbered content files (NNNN-*.md) are ALWAYS ADRs.
+    # This is authoritative — a real ADR may mention "template" in prose
+    # (e.g., ADR.0000 discusses MADR templates) without being a template.
+    if re.match(r"^\d{4}-", file_name):
+        return ClassificationResult(
+            doc_type=DocType.ADR,
+            confidence="filename",
+            reason=f"Filename matches numbered content pattern: {file_name}"
+        )
+
+    # 3. Check for registry files (NOT skipped - canonical doc registry)
     if file_name in REGISTRY_FILENAMES:
         return ClassificationResult(
             doc_type=DocType.REGISTRY,
@@ -230,7 +240,7 @@ def classify_adr_document(
             reason=f"Filename is registry file: {file_name}"
         )
 
-    # 3. Check for index files (SKIPPED at ingestion)
+    # 4. Check for index files (SKIPPED at ingestion)
     if file_name in INDEX_FILENAMES:
         return ClassificationResult(
             doc_type=DocType.INDEX,
@@ -238,7 +248,7 @@ def classify_adr_document(
             reason=f"Filename is index file: {file_name}"
         )
 
-    # 4. Check for template files (filename)
+    # 5. Check for template files (filename — only non-numbered files reach here)
     if any(ind in file_name for ind in TEMPLATE_FILENAME_INDICATORS):
         return ClassificationResult(
             doc_type=DocType.TEMPLATE,
@@ -246,7 +256,7 @@ def classify_adr_document(
             reason=f"Filename contains template indicator: {file_name}"
         )
 
-    # 5. Check for template in title
+    # 6. Check for template in title
     if "template" in title_lower:
         return ClassificationResult(
             doc_type=DocType.TEMPLATE,
@@ -254,7 +264,7 @@ def classify_adr_document(
             reason=f"Title contains 'template': {title}"
         )
 
-    # 6. Check for index-like titles
+    # 7. Check for index-like titles
     if any(ind in title_lower for ind in INDEX_TITLE_INDICATORS):
         return ClassificationResult(
             doc_type=DocType.INDEX,
@@ -262,7 +272,7 @@ def classify_adr_document(
             reason=f"Title indicates index document: {title}"
         )
 
-    # 7. Check for template content indicators
+    # 8. Check for template content indicators
     if content_lower:
         for indicator in TEMPLATE_CONTENT_INDICATORS:
             if indicator in content_lower:
@@ -272,7 +282,7 @@ def classify_adr_document(
                     reason=f"Content contains template indicator: {indicator}"
                 )
 
-    # 8. Default: actual ADR content
+    # 9. Default: actual ADR content
     return ClassificationResult(
         doc_type=DocType.ADR,
         confidence="default",
@@ -313,7 +323,17 @@ def classify_principle_document(
             reason=f"Filename matches DAR pattern: {file_name}"
         )
 
-    # 2. Check for registry files (NOT skipped - canonical doc registry)
+    # 2. Numbered content files (NNNN-*.md) are ALWAYS principles.
+    # This is authoritative — a real principle may mention "template" in prose
+    # without being a template.
+    if re.match(r"^\d{4}-", file_name):
+        return ClassificationResult(
+            doc_type=DocType.PRINCIPLE,
+            confidence="filename",
+            reason=f"Filename matches numbered content pattern: {file_name}"
+        )
+
+    # 3. Check for registry files (NOT skipped - canonical doc registry)
     if file_name in REGISTRY_FILENAMES:
         return ClassificationResult(
             doc_type=DocType.REGISTRY,
@@ -321,7 +341,7 @@ def classify_principle_document(
             reason=f"Filename is registry file: {file_name}"
         )
 
-    # 3. Check for index files (SKIPPED at ingestion)
+    # 4. Check for index files (SKIPPED at ingestion)
     if file_name in INDEX_FILENAMES:
         return ClassificationResult(
             doc_type=DocType.INDEX,
@@ -329,7 +349,7 @@ def classify_principle_document(
             reason=f"Filename is index file: {file_name}"
         )
 
-    # 4. Check for template files (filename)
+    # 5. Check for template files (filename — only non-numbered files reach here)
     if any(ind in file_name for ind in TEMPLATE_FILENAME_INDICATORS):
         return ClassificationResult(
             doc_type=DocType.TEMPLATE,
@@ -337,7 +357,7 @@ def classify_principle_document(
             reason=f"Filename contains template indicator: {file_name}"
         )
 
-    # 5. Check for template in title
+    # 6. Check for template in title
     if "template" in title_lower:
         return ClassificationResult(
             doc_type=DocType.TEMPLATE,
@@ -345,7 +365,7 @@ def classify_principle_document(
             reason=f"Title contains 'template': {title}"
         )
 
-    # 6. Check for template content indicators
+    # 7. Check for template content indicators
     if content_lower:
         for indicator in TEMPLATE_CONTENT_INDICATORS:
             if indicator in content_lower:
@@ -355,7 +375,7 @@ def classify_principle_document(
                     reason=f"Content contains template indicator: {indicator}"
                 )
 
-    # 7. Default: actual principle content
+    # 8. Default: actual principle content
     return ClassificationResult(
         doc_type=DocType.PRINCIPLE,
         confidence="default",

@@ -107,11 +107,12 @@ class TestADRClassification:
         ("overview.md", DocType.INDEX),
         ("_index.md", DocType.INDEX),
 
-        # Template files
+        # Template files (non-numbered only — numbered files are always ADR)
         ("template.md", DocType.TEMPLATE),
         ("adr-template.md", DocType.TEMPLATE),
         ("decision-template.md", DocType.TEMPLATE),
-        ("0000-template.md", DocType.TEMPLATE),
+        # 0000-template.md is numbered → ADR (identity rule overrides template heuristic)
+        ("0000-template.md", DocType.ADR),
     ])
     def test_filename_classification(self, filename, expected_type):
         """Test classification by filename pattern."""
@@ -125,7 +126,7 @@ class TestADRClassification:
         """ADR.0027 (use-tls) must classify as 'adr'."""
         result = classify_adr_document("0027-use-tls.md")
         assert result.doc_type == DocType.ADR
-        assert result.confidence == "default"
+        assert result.confidence == "filename"
 
     def test_0021d_classifies_as_adr_approval(self):
         """0021D-approval.md must classify as 'adr_approval'."""
@@ -137,10 +138,19 @@ class TestADRClassification:
     # Title-based classification
     # =========================================================================
 
-    def test_template_in_title(self):
-        """Title containing 'template' should classify as template."""
+    def test_template_in_title_numbered_file(self):
+        """Numbered file with 'template' in title should still be ADR (identity rule)."""
         result = classify_adr_document(
             "0000-adr.md",
+            title="ADR Template for New Decisions"
+        )
+        assert result.doc_type == DocType.ADR
+        assert result.confidence == "filename"
+
+    def test_template_in_title_non_numbered_file(self):
+        """Non-numbered file with 'template' in title should classify as template."""
+        result = classify_adr_document(
+            "adr-guide.md",
             title="ADR Template for New Decisions"
         )
         assert result.doc_type == DocType.TEMPLATE
@@ -159,8 +169,8 @@ class TestADRClassification:
     # Content-based classification
     # =========================================================================
 
-    def test_template_content_indicators(self):
-        """Content with template placeholders should classify as template."""
+    def test_template_content_indicators_numbered_file(self):
+        """Numbered file with template placeholders should still be ADR (identity rule)."""
         template_content = """
         # {short title}
 
@@ -176,13 +186,38 @@ class TestADRClassification:
             "0000-new-adr.md",
             content=template_content
         )
+        assert result.doc_type == DocType.ADR
+        assert result.confidence == "filename"
+
+    def test_template_content_indicators_non_numbered_file(self):
+        """Non-numbered file with template placeholders should classify as template."""
+        template_content = """
+        # {short title}
+
+        ## Context and Problem Statement
+
+        {problem statement}
+        """
+        result = classify_adr_document(
+            "adr-blank.md",
+            content=template_content
+        )
         assert result.doc_type == DocType.TEMPLATE
         assert result.confidence == "content"
 
-    def test_jinja_template_content(self):
-        """Content with Jinja templates should classify as template."""
+    def test_jinja_template_content_numbered_file(self):
+        """Numbered file with Jinja templates should still be ADR (identity rule)."""
         result = classify_adr_document(
             "0000-test.md",
+            content="Hello {{ name }}, this is a template"
+        )
+        assert result.doc_type == DocType.ADR
+        assert result.confidence == "filename"
+
+    def test_jinja_template_content_non_numbered_file(self):
+        """Non-numbered file with Jinja templates should classify as template."""
+        result = classify_adr_document(
+            "draft-adr.md",
             content="Hello {{ name }}, this is a template"
         )
         assert result.doc_type == DocType.TEMPLATE
@@ -200,7 +235,7 @@ class TestADRClassification:
             content="## Context\n\nWe need to secure our APIs..."
         )
         assert result.doc_type == DocType.ADR
-        assert result.confidence == "default"
+        assert result.confidence == "filename"
 
 
 class TestPrincipleClassification:
@@ -331,6 +366,155 @@ class TestEdgeCases:
 
         result2 = classify_adr_document("/templates/0021D-approval.md")
         assert result2.doc_type == DocType.ADR_APPROVAL
+
+
+class TestNumberedFileIdentityRule:
+    """Regression tests: numbered files (NNNN-*.md) must ALWAYS be content.
+
+    ADR.0000 and ADR.0001 were misclassified as 'template' because their
+    content mentions the word 'template' in prose. The identity rule ensures
+    that the filename pattern (NNNN-*.md) is authoritative and overrides
+    any content-based heuristics.
+    """
+
+    @pytest.mark.parametrize("filename,title,content,expected_type", [
+        # ADR.0000 — discusses MADR templates but is itself a real ADR
+        (
+            "0000-use-markdown-architectural-decision-records.md",
+            "Use Markdown Architectural Decision Records",
+            "We will use the MADR template format for all ADRs. "
+            "The template provides a consistent structure.",
+            DocType.ADR,
+        ),
+        # ADR.0001 — discusses conventions including template usage
+        (
+            "0001-adr-conventions.md",
+            "What conventions to use in writing ADRs?",
+            "Follow the template structure. Each ADR should use the template.",
+            DocType.ADR,
+        ),
+        # A numbered file with placeholder tokens — still ADR by identity rule
+        (
+            "0099-placeholder-adr.md",
+            "Placeholder ADR",
+            "This ADR discusses {short title} patterns",
+            DocType.ADR,
+        ),
+    ])
+    def test_adr_numbered_file_always_content(self, filename, title, content, expected_type):
+        """Numbered ADR files must be classified as ADR regardless of content."""
+        result = classify_adr_document(filename, title=title, content=content)
+        assert result.doc_type == expected_type, (
+            f"Expected {expected_type} for {filename}, got {result.doc_type}. "
+            f"Reason: {result.reason}"
+        )
+        assert result.confidence == "filename"
+
+    @pytest.mark.parametrize("filename,title,content,expected_type", [
+        # A numbered principle mentioning templates in content
+        (
+            "0010-data-quality-principle.md",
+            "Data Quality",
+            "This principle uses the template format for documentation.",
+            DocType.PRINCIPLE,
+        ),
+        # A numbered principle with placeholder-like text
+        (
+            "0020-api-first.md",
+            "API First Principle",
+            "Refer to {title} for details.",
+            DocType.PRINCIPLE,
+        ),
+    ])
+    def test_principle_numbered_file_always_content(self, filename, title, content, expected_type):
+        """Numbered principle files must be classified as PRINCIPLE regardless of content."""
+        result = classify_principle_document(filename, title=title, content=content)
+        assert result.doc_type == expected_type, (
+            f"Expected {expected_type} for {filename}, got {result.doc_type}. "
+            f"Reason: {result.reason}"
+        )
+        assert result.confidence == "filename"
+
+    def test_non_numbered_template_still_detected(self):
+        """Non-numbered files with template indicators should still be TEMPLATE."""
+        result = classify_adr_document("adr-template.md")
+        assert result.doc_type == DocType.TEMPLATE
+
+        result2 = classify_principle_document("principle-template.md")
+        assert result2.doc_type == DocType.TEMPLATE
+
+    def test_dar_pattern_still_takes_priority(self):
+        """DAR pattern (NNNND-*.md) should still take priority over content rule."""
+        result = classify_adr_document("0000D-approval.md")
+        assert result.doc_type == DocType.ADR_APPROVAL
+
+
+class TestMarkdownLoaderClassifiers:
+    """Regression tests for the markdown_loader.py classifiers (used during ingestion).
+
+    These test the MarkdownLoader._classify_adr_document and
+    _classify_principle_document instance methods directly, ensuring the
+    identity rule is enforced in the actual ingestion path.
+    """
+
+    @pytest.fixture
+    def loader(self, tmp_path):
+        from src.loaders.markdown_loader import MarkdownLoader
+        return MarkdownLoader(base_path=tmp_path)
+
+    @pytest.mark.parametrize("filename,content,expected", [
+        # ADR.0000 — discusses MADR templates but is a real ADR
+        ("0000-use-markdown-architectural-decision-records.md",
+         "We use MADR template format. The template provides structure.",
+         "content"),
+        # ADR.0001 — discusses conventions including the word "template"
+        ("0001-adr-conventions.md",
+         "Follow the template structure for each ADR.",
+         "content"),
+        # Regular numbered ADR
+        ("0025-use-oauth.md",
+         "We decided to use OAuth 2.0 for authentication.",
+         "content"),
+        # DAR still classified correctly
+        ("0025D-approval.md",
+         "Approved by DACI committee.",
+         "decision_approval_record"),
+        # Non-numbered template file
+        ("adr-template.md",
+         "Fill in the template fields.",
+         "template"),
+    ])
+    def test_adr_classifier_identity_rule(self, loader, filename, content, expected):
+        """markdown_loader ADR classifier respects numbered file identity rule."""
+        result = loader._classify_adr_document(
+            Path(filename), title="", content=content
+        )
+        assert result == expected, f"Expected '{expected}' for {filename}, got '{result}'"
+
+    @pytest.mark.parametrize("filename,content,expected", [
+        # Numbered principle mentioning "template" in content
+        ("0010-data-quality.md",
+         "This principle follows the template format.",
+         "content"),
+        # Numbered principle with placeholder-like text
+        ("0020-api-first.md",
+         "Refer to {title} for details about API design.",
+         "content"),
+        # DAR still classified correctly
+        ("0010D-approval.md",
+         "Approved by governance board.",
+         "decision_approval_record"),
+        # Non-numbered template file
+        ("principle-template.md",
+         "Fill in the principle fields.",
+         "template"),
+    ])
+    def test_principle_classifier_identity_rule(self, loader, filename, content, expected):
+        """markdown_loader principle classifier respects numbered file identity rule."""
+        result = loader._classify_principle_document(
+            Path(filename), title="", content=content
+        )
+        assert result == expected, f"Expected '{expected}' for {filename}, got '{result}'"
 
 
 if __name__ == "__main__":

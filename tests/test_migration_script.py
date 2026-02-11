@@ -53,9 +53,13 @@ class TestMigrationLogic:
         assert result.doc_type == DocType.INDEX
 
     def test_classify_template_for_migration(self):
-        """Test that templates are classified correctly."""
+        """Test that templates are classified correctly.
+
+        Note: numbered files (NNNN-*.md) are always ADR by identity rule.
+        Use a non-numbered filename for template detection.
+        """
         result = classify_adr_document(
-            file_path="/decisions/0000-template.md",
+            file_path="/decisions/adr-template.md",
             title="ADR Template",
             content="{short title}..."
         )
@@ -132,9 +136,10 @@ class TestExpectedADRClassification:
         ("/decisions/index.md", DocType.INDEX),
         ("/decisions/readme.md", DocType.INDEX),
 
-        # Templates
-        ("/decisions/0000-template.md", DocType.TEMPLATE),
+        # Templates (non-numbered filenames only — numbered files are always ADR)
         ("/decisions/adr-template.md", DocType.TEMPLATE),
+        # Numbered file: identity rule forces ADR regardless of name
+        ("/decisions/0000-template.md", DocType.ADR),
     ])
     def test_expected_classification(self, file_path, expected_type):
         """Test that files are classified as expected for migration."""
