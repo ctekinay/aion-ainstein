@@ -53,6 +53,70 @@ _weaviate_client = None
 _elysia_system = None
 _db_path = Path(__file__).parent.parent / "chat_history.db"
 
+# ── Follow-up binding ──────────────────────────────────────────────
+# Lightweight per-conversation subject tracking for resolving
+# ambiguous follow-ups like "list them" → "list dars".
+_conversation_subjects: dict[str, str] = {}  # conversation_id → last subject
+
+# Ambiguous follow-up patterns (verb + pronoun, nothing else)
+_FOLLOWUP_RE = re.compile(
+    r"^(list|show|display|give me|tell me about|show me)\s+"
+    r"(them|those|these|it|all of them|them all)\s*[.?!]?$",
+    re.IGNORECASE,
+)
+
+# Subject keyword → canonical subject name (order: longest first for matching)
+_SUBJECT_KEYWORDS = [
+    ("decision approval record", "dars"),
+    ("approval record", "dars"),
+    ("dars", "dars"),
+    ("dar ", "dars"),
+    ("adrs", "adrs"),
+    ("adr", "adrs"),
+    ("architecture decision", "adrs"),
+    ("principles", "principles"),
+    ("principle", "principles"),
+    ("policies", "policies"),
+    ("policy", "policies"),
+]
+
+
+def _detect_subject(question: str) -> str | None:
+    """Detect the document subject from a user query."""
+    q = question.lower()
+    for keyword, subject in _SUBJECT_KEYWORDS:
+        if keyword in q:
+            return subject
+    return None
+
+
+def resolve_followup(question: str, conversation_id: str | None) -> str:
+    """Resolve ambiguous follow-up queries using conversation context.
+
+    If the question is "list them" / "show those" and we have a previous
+    subject for this conversation, rewrite the query to include the subject.
+    If no context exists, return the question unchanged (routing will handle it).
+    """
+    if not conversation_id:
+        return question
+
+    # Check if this is an ambiguous follow-up
+    if _FOLLOWUP_RE.match(question.strip()):
+        last_subject = _conversation_subjects.get(conversation_id)
+        if last_subject:
+            rewritten = f"list {last_subject}"
+            logger.info(f"Follow-up resolved: '{question}' → '{rewritten}' (subject: {last_subject})")
+            return rewritten
+        else:
+            logger.info(f"Follow-up detected but no prior subject for {conversation_id[:8]}")
+
+    # Not a follow-up — detect and store subject for future follow-ups
+    subject = _detect_subject(question)
+    if subject and conversation_id:
+        _conversation_subjects[conversation_id] = subject
+
+    return question
+
 
 class OutputCapture:
     """Capture stdout and parse Rich panel output into structured events."""
@@ -1146,6 +1210,9 @@ async def chat_stream(request: ChatRequest):
         title = request.message[:50] + "..." if len(request.message) > 50 else request.message
         update_conversation_title(conversation_id, title)
 
+    # Resolve follow-up queries ("list them" → "list dars")
+    resolved_message = resolve_followup(request.message, conversation_id)
+
     async def event_generator():
         # Send conversation ID first
         yield f"data: {json.dumps({'type': 'init', 'conversation_id': conversation_id})}\n\n"
@@ -1154,7 +1221,7 @@ async def chat_stream(request: ChatRequest):
         final_sources = []
         final_timing = None
 
-        async for event in stream_elysia_response(request.message):
+        async for event in stream_elysia_response(resolved_message):
             yield event
 
             # Parse event to capture final response for saving
