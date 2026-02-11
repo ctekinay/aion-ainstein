@@ -57,6 +57,33 @@ MARKER_JSON_PATTERN = re.compile(
 )
 
 
+# =============================================================================
+# Identity Enforcement (last-mile filter)
+# =============================================================================
+
+# Internal names that must not appear in user-facing output unless debug mode
+_INTERNAL_NAME_REPLACEMENTS = [
+    (re.compile(r"\bElysia(?:'s)?\b"), "AInstein"),
+    (re.compile(r"\bDSPy\b"), "the generation framework"),
+    (re.compile(r"\bWeaviate\b"), "the knowledge base"),
+    (re.compile(r"\bdecision\s+tree\s+framework\b", re.IGNORECASE), "the reasoning pipeline"),
+]
+
+
+def _scrub_internal_names(text: str) -> str:
+    """Replace internal component names with user-facing equivalents.
+
+    Gated by ainstein_disclosure_level: only scrubs at levels 0 and 1.
+    At level 2 (debug), names pass through unmodified.
+    """
+    from .config import settings
+    if settings.ainstein_disclosure_level >= 2:
+        return text
+    for pattern, replacement in _INTERNAL_NAME_REPLACEMENTS:
+        text = pattern.sub(replacement, text)
+    return text
+
+
 def sanitize_raw_fallback(raw_text: str) -> str:
     """Strip internal protocol artifacts from raw text for user-facing fallback.
 
@@ -124,7 +151,8 @@ def sanitize_raw_fallback(raw_text: str) -> str:
             if answer_match:
                 return answer_match.group(1).replace('\\"', '"').replace('\\n', '\n')
 
-    return cleaned.strip() if cleaned.strip() else raw_text
+    result = cleaned.strip() if cleaned.strip() else raw_text
+    return _scrub_internal_names(result)
 
 
 def extract_json_with_delimiters(
@@ -740,6 +768,9 @@ def normalize_and_validate_response(
     else:
         final_response = response.answer
 
+    # Identity enforcement: scrub internal component names from output
+    final_response = _scrub_internal_names(final_response)
+
     context.latency_ms = int((time.time() - start_time) * 1000)
 
     # Record success metrics
@@ -869,6 +900,9 @@ def handle_list_result(
             final_response = f"{response.answer}\n\n{transparency}"
         else:
             final_response = response.answer
+
+        # Identity enforcement: scrub internal component names from output
+        final_response = _scrub_internal_names(final_response)
 
         context.parse_stage = "list_deterministic"
         context.reason_code = ReasonCode.SUCCESS

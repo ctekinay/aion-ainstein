@@ -1,8 +1,13 @@
 """Meta route: short-circuit for questions about AInstein itself.
 
 Detects questions about the system's own architecture, skills, formatting,
-and processing pipeline. Returns deterministic responses that explain how
-AInstein works, without querying the ESA knowledge base.
+identity, and processing pipeline. Returns deterministic responses that explain
+how AInstein works, without querying the ESA knowledge base.
+
+Response detail is controlled by the ainstein_disclosure_level setting:
+- Level 0 (default): functional description, no internals
+- Level 1: RAG pipeline overview, no internal component names
+- Level 2: full implementation detail (Elysia, Weaviate, DSPy, etc.)
 
 This prevents the "spiral" UX where meta questions get routed to ADR search,
 returning irrelevant results or hallucinated process descriptions.
@@ -17,7 +22,7 @@ logger = logging.getLogger(__name__)
 # Meta Intent Detection
 # =============================================================================
 
-# Patterns that indicate the user is asking about AInstein/Elysia itself,
+# Patterns that indicate the user is asking about AInstein itself,
 # not about the ESA knowledge base. Ordered by specificity.
 _META_PATTERNS = [
     # Skills / formatting process
@@ -35,6 +40,14 @@ _META_PATTERNS = [
     re.compile(r"\byour\s+(own\s+)?(architecture|design|system|pipeline)\b", re.IGNORECASE),
     re.compile(r"\bhow\s+(did\s+)?you\s+(came|come)\s+to\s+this\s+answer\b", re.IGNORECASE),
     re.compile(r"\bexplain\s+(the\s+)?process\s+how\s+you\b", re.IGNORECASE),
+
+    # Identity / name questions
+    re.compile(r"\bwho\s+are\s+you\b", re.IGNORECASE),
+    re.compile(r"\bwhat('?s| is)\s+your\s+name\b", re.IGNORECASE),
+    re.compile(r"\bare\s+you\s+(elysia|a\s+bot|an?\s+ai|a\s+language\s+model)\b", re.IGNORECASE),
+    re.compile(r"\bwhat\s+(is|are)\s+you\b", re.IGNORECASE),
+    re.compile(r"\bwhat\s+is\s+your\s+purpose\b", re.IGNORECASE),
+    re.compile(r"\btell\s+me\s+about\s+yourself\b", re.IGNORECASE),
 
     # Prompt / embedding internals
     re.compile(r"\b(prompt|embedding|vector)\s+(preserv|mutate|mess|change|modif)", re.IGNORECASE),
@@ -83,10 +96,51 @@ def is_meta_query(question: str) -> bool:
 
 
 # =============================================================================
-# Meta Response Template
+# Meta Response Templates (tiered by disclosure level)
 # =============================================================================
 
-_META_RESPONSE = """I am **AInstein**, the Energy System Architecture AI Assistant at Alliander. Here is how I process your questions:
+# Level 0: functional description — no internals, no component names
+_META_RESPONSE_L0 = """I am **AInstein**, the Energy System Architecture AI Assistant at Alliander.
+
+I search the ESA knowledge base and summarize the relevant records for you. I can help with:
+
+- **Architecture Decision Records** (ADRs) and their approval records
+- **Data governance principles** (PCPs) and their approval records
+- **IEC/CIM vocabulary** and energy sector terminology
+- **Data governance policies** and capabilities
+
+If I cannot find relevant information in the knowledge base, I will tell you so rather than guessing.
+
+This explanation describes my capabilities, not the ESA knowledge base."""
+
+# Level 1: power-user — mentions RAG pipeline, no internal component names
+_META_RESPONSE_L1 = """I am **AInstein**, the Energy System Architecture AI Assistant at Alliander.
+
+I use **retrieval-augmented generation**: I retrieve relevant passages from the ESA knowledge base, then generate an answer grounded in them.
+
+**How I process your questions:**
+1. **Intent classification** — I determine the query type (vocabulary lookup, document fetch, approval extraction, list/count, or semantic search).
+2. **Deterministic routing** — For specific documents, approval queries, lists, and counts, I use deterministic extraction with no LLM involvement.
+3. **Quality assurance** — Before answering, quality and formatting rules are applied to my working context. Your original question is preserved unchanged.
+4. **Retrieval** — For semantic queries, I search the relevant collection(s) using hybrid search (keyword + vector similarity).
+5. **Generation** — I synthesize an answer from retrieved documents, applying citation and abstention rules.
+
+**Key design choices:**
+- Quality rules are loaded **per query**, not at startup.
+- Your prompt is **never modified** — rules are injected separately.
+- Approval extraction uses **deterministic parsing** — no LLM interpretation of approver names.
+- If retrieval confidence is low, I **abstain** rather than guessing.
+
+**What I can answer:**
+- Architecture Decision Records (ADRs) and their approval records
+- Data governance principles (PCPs) and their approval records
+- IEC/CIM vocabulary and energy sector terminology
+- Data governance policies and capabilities
+
+This explanation describes my pipeline, not the ESA knowledge base."""
+
+# Level 2: debug — full implementation detail (Elysia, Weaviate, DSPy, etc.)
+_META_RESPONSE_L2 = """I am **AInstein**, the Energy System Architecture AI Assistant at Alliander. Here is how I process your questions:
 
 **Pipeline overview:**
 1. **Intent classification** — I determine the query type (vocabulary lookup, specific document fetch, approval extraction, list/count, semantic search, or cross-domain).
@@ -115,6 +169,11 @@ This explanation is generated from my system documentation, not from the ESA kno
 def build_meta_response(question: str, structured_mode: bool = False) -> str:
     """Build a deterministic response for meta/system questions.
 
+    Response detail is controlled by settings.ainstein_disclosure_level:
+    - 0: functional description, no internals
+    - 1: RAG pipeline overview, no internal component names
+    - 2: full implementation detail
+
     Args:
         question: The user's question (used for future refinement)
         structured_mode: Whether to wrap in JSON contract format
@@ -122,11 +181,21 @@ def build_meta_response(question: str, structured_mode: bool = False) -> str:
     Returns:
         Response text (plain or JSON-wrapped)
     """
+    from .config import settings
+
+    level = settings.ainstein_disclosure_level
+    if level >= 2:
+        body = _META_RESPONSE_L2
+    elif level >= 1:
+        body = _META_RESPONSE_L1
+    else:
+        body = _META_RESPONSE_L0
+
     if structured_mode:
         import json
         return json.dumps({
             "schema_version": "1.0",
-            "answer": _META_RESPONSE,
+            "answer": body,
             "items_shown": 0,
             "items_total": 0,
             "count_qualifier": None,
@@ -134,4 +203,4 @@ def build_meta_response(question: str, structured_mode: bool = False) -> str:
             "sources": [],
         }, indent=2)
 
-    return _META_RESPONSE
+    return body

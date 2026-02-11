@@ -2170,53 +2170,70 @@ IMPORTANT GUIDELINES:
         # DETERMINISTIC LIST HANDLING
         # For list queries, call list tools directly and use deterministic serialization
         # This bypasses LLM response generation for list endpoints (enterprise pattern)
-        if is_list_query(question):
-            question_lower = question.lower()
+        #
+        # Collection-specific keywords (DARs, ADRs, principles) route directly
+        # WITHOUT requiring the is_list_query() gate. This fixes queries like
+        # "how about DARs?" where topical markers ("about") would block the
+        # deterministic list path. Broader keywords ("decision", "architecture",
+        # "governance") stay inside the gate to avoid false positives.
+        question_lower = question.lower()
+        list_result = None
+        objects = []
 
-            # Route to appropriate list tool based on query content
-            list_result = None
-            objects = []
+        # Priority 1: Check for approval/governance/DAR record queries FIRST
+        # Patterns: "approval records", "decision approval", "who approved", "daci",
+        # "dar", "dars", "decision approval record(s)"
+        approval_markers = _get_markers("approval_intent")
+        # DAR-specific patterns with word boundaries to avoid false positives
+        _DAR_RE = re.compile(r"\bdars?\b|decision approval record", re.IGNORECASE)
+        is_approval_query = any(marker in question_lower for marker in approval_markers)
+        is_dar_list_query = bool(_DAR_RE.search(question_lower))
 
-            # Priority 1: Check for approval/governance/DAR record queries FIRST
-            # Patterns: "approval records", "decision approval", "who approved", "daci",
-            # "dar", "dars", "decision approval record(s)"
-            approval_markers = _get_markers("approval_intent")
-            # DAR-specific patterns with word boundaries to avoid false positives
-            _DAR_RE = re.compile(r"\bdars?\b|decision approval record", re.IGNORECASE)
-            is_approval_query = any(marker in question_lower for marker in approval_markers)
-            is_dar_list_query = bool(_DAR_RE.search(question_lower))
+        if is_approval_query or is_dar_list_query:
+            logger.info("Approval/DAR records query detected - using deterministic path")
+            list_tool = self._tool_registry.get("list_approval_records")
+            if list_tool:
+                # Determine collection type from query
+                if "principle" in question_lower:
+                    list_result = await list_tool("principle")
+                elif "adr" in question_lower:
+                    list_result = await list_tool("adr")
+                else:
+                    list_result = await list_tool("all")
+                objects = list_result.get("rows", []) if isinstance(list_result, dict) else []
 
-            if is_approval_query or is_dar_list_query:
-                logger.info("Approval/DAR records query detected - using deterministic path")
-                list_tool = self._tool_registry.get("list_approval_records")
-                if list_tool:
-                    # Determine collection type from query
-                    if "principle" in question_lower:
-                        list_result = await list_tool("principle")
-                    elif "adr" in question_lower:
-                        list_result = await list_tool("adr")
-                    else:
-                        list_result = await list_tool("all")
-                    objects = list_result.get("rows", []) if isinstance(list_result, dict) else []
+        elif re.search(r"\badrs?\b", question_lower):
+            logger.info("List query detected for ADRs - using deterministic path")
+            list_tool = self._tool_registry.get("list_all_adrs")
+            if list_tool:
+                list_result = await list_tool()
+                objects = list_result.get("rows", []) if isinstance(list_result, dict) else []
 
-            elif re.search(r"\badrs?\b", question_lower) or ("decision" in question_lower and "approval" not in question_lower) or "architecture" in question_lower:
-                logger.info("List query detected for ADRs - using deterministic path")
+        elif re.search(r"\bprinciples?\b", question_lower):
+            logger.info("List query detected for Principles - using deterministic path")
+            list_tool = self._tool_registry.get("list_all_principles")
+            if list_tool:
+                list_result = await list_tool()
+                objects = list_result.get("rows", []) if isinstance(list_result, dict) else []
+
+        elif re.search(r"\bpolic(?:y|ies)\b", question_lower):
+            # No deterministic list_policies tool — fall through to semantic/Tree path
+            logger.info("List query detected for Policies - falling through to semantic path")
+
+        elif is_list_query(question):
+            # Broader keywords only fire when is_list_query() confirms list intent
+            if ("decision" in question_lower and "approval" not in question_lower) or "architecture" in question_lower:
+                logger.info("List query detected for ADRs (broad keyword) - using deterministic path")
                 list_tool = self._tool_registry.get("list_all_adrs")
                 if list_tool:
                     list_result = await list_tool()
                     objects = list_result.get("rows", []) if isinstance(list_result, dict) else []
-
-            elif re.search(r"\bprinciples?\b", question_lower) or "governance" in question_lower:
-                logger.info("List query detected for Principles - using deterministic path")
+            elif "governance" in question_lower:
+                logger.info("List query detected for Principles (broad keyword) - using deterministic path")
                 list_tool = self._tool_registry.get("list_all_principles")
                 if list_tool:
                     list_result = await list_tool()
                     objects = list_result.get("rows", []) if isinstance(list_result, dict) else []
-
-            elif re.search(r"\bpolic(?:y|ies)\b", question_lower):
-                # No deterministic list_policies tool — fall through to semantic/Tree path
-                logger.info("List query detected for Policies - falling through to semantic path")
-
             else:
                 # No recognized collection keyword — ask for clarification
                 logger.info("List query detected but no collection keyword matched — asking for clarification")
@@ -2229,20 +2246,20 @@ IMPORTANT GUIDELINES:
                     "Please specify, for example: *list ADRs* or *list principles*."
                 ), []
 
-            # If we have a list result, use deterministic serialization
-            if list_result and is_list_result(list_result):
-                gateway_result = handle_list_result(list_result, context)
-                if gateway_result:
-                    logger.info(
-                        f"Deterministic list response: items_shown={gateway_result.structured_response.items_shown if gateway_result.structured_response else 0}, "
-                        f"items_total={gateway_result.structured_response.items_total if gateway_result.structured_response else 0}"
-                    )
-                    return gateway_result.response, objects
+        # If we have a list result, use deterministic serialization
+        if list_result and is_list_result(list_result):
+            gateway_result = handle_list_result(list_result, context)
+            if gateway_result:
+                logger.info(
+                    f"Deterministic list response: items_shown={gateway_result.structured_response.items_shown if gateway_result.structured_response else 0}, "
+                    f"items_total={gateway_result.structured_response.items_total if gateway_result.structured_response else 0}"
+                )
+                return gateway_result.response, objects
 
-            # Check for error result (e.g., fallback blocked)
-            if list_result and isinstance(list_result, dict) and list_result.get("error"):
-                error_msg = list_result.get("message", "An error occurred")
-                return error_msg, []
+        # Check for error result (e.g., fallback blocked)
+        if list_result and isinstance(list_result, dict) and list_result.get("error"):
+            error_msg = list_result.get("message", "An error occurred")
+            return error_msg, []
 
         # DETERMINISTIC COUNT HANDLING
         # For count queries, call count tool directly and return structured JSON

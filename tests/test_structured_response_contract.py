@@ -20,6 +20,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import pytest
 from src.skills.registry import SkillRegistry, get_skill_registry
+from src.config import settings
 from src.elysia_agents import (
     postprocess_llm_output,
     ENFORCEMENT_STRICT,
@@ -684,6 +685,73 @@ class TestSanitizeRawFallback:
         assert "schema_version" not in result
         assert "items_shown" not in result
         assert "count_qualifier" not in result
+
+
+class TestIdentityScrubber:
+    """Tests that internal component names are scrubbed from user-facing output.
+
+    The identity scrubber in response_gateway replaces internal names
+    (Elysia, Weaviate, DSPy) with user-facing equivalents at disclosure
+    levels 0 and 1. At level 2 (debug), names pass through unmodified.
+    """
+
+    def test_elysia_replaced_at_level0(self, monkeypatch):
+        """'Elysia' should be replaced with 'AInstein' at level 0."""
+        monkeypatch.setattr(settings, "ainstein_disclosure_level", 0)
+        from src.response_gateway import _scrub_internal_names
+        result = _scrub_internal_names("Elysia's tree selected the search tool")
+        assert "Elysia" not in result
+        assert "AInstein" in result
+
+    def test_weaviate_replaced_at_level0(self, monkeypatch):
+        """'Weaviate' should be replaced with 'the knowledge base'."""
+        monkeypatch.setattr(settings, "ainstein_disclosure_level", 0)
+        from src.response_gateway import _scrub_internal_names
+        result = _scrub_internal_names("I searched Weaviate for relevant documents")
+        assert "Weaviate" not in result
+        assert "the knowledge base" in result
+
+    def test_dspy_replaced_at_level0(self, monkeypatch):
+        """'DSPy' should be replaced with 'the generation framework'."""
+        monkeypatch.setattr(settings, "ainstein_disclosure_level", 0)
+        from src.response_gateway import _scrub_internal_names
+        result = _scrub_internal_names("DSPy generated the answer")
+        assert "DSPy" not in result
+        assert "the generation framework" in result
+
+    def test_decision_tree_framework_replaced(self, monkeypatch):
+        """'decision tree framework' should be replaced."""
+        monkeypatch.setattr(settings, "ainstein_disclosure_level", 0)
+        from src.response_gateway import _scrub_internal_names
+        result = _scrub_internal_names("The decision tree framework selected a tool")
+        assert "decision tree framework" not in result
+        assert "the reasoning pipeline" in result
+
+    def test_debug_mode_preserves_names(self, monkeypatch):
+        """At level 2 (debug), all internal names should pass through."""
+        monkeypatch.setattr(settings, "ainstein_disclosure_level", 2)
+        from src.response_gateway import _scrub_internal_names
+        text = "Elysia's tree queried Weaviate using DSPy"
+        result = _scrub_internal_names(text)
+        assert "Elysia" in result
+        assert "Weaviate" in result
+        assert "DSPy" in result
+
+    def test_sanitize_raw_fallback_applies_scrubber(self, monkeypatch):
+        """sanitize_raw_fallback should scrub internal names from output."""
+        monkeypatch.setattr(settings, "ainstein_disclosure_level", 0)
+        from src.response_gateway import sanitize_raw_fallback
+        result = sanitize_raw_fallback("Elysia found 5 documents in Weaviate")
+        assert "Elysia" not in result
+        assert "AInstein" in result
+        assert "Weaviate" not in result
+
+    def test_plain_text_without_internals_unchanged(self, monkeypatch):
+        """Text without internal names should pass through unchanged."""
+        monkeypatch.setattr(settings, "ainstein_disclosure_level", 0)
+        from src.response_gateway import _scrub_internal_names
+        text = "Here are the ADRs. ADR.21 is about data governance."
+        assert _scrub_internal_names(text) == text
 
 
 def run_tests():

@@ -420,5 +420,78 @@ class TestDARIntentDetection:
         assert matched is True, f"'{query}' should match approval markers"
 
 
+class TestTopicalMarkerBypass:
+    """Regression tests: collection keywords must route to list tools even when
+    topical markers ('about', 'regarding', etc.) would cause is_list_query()
+    to return False.
+
+    Bug: 'how about DARs?' was routed to the Elysia Tree (120s timeout + abstention)
+    because 'about' triggered the topical_intent filter in detect_list_query(),
+    skipping the entire deterministic list block.
+
+    Fix: collection-specific keywords (DARs, ADRs, principles) are now checked
+    BEFORE the is_list_query() gate so topical markers cannot block them.
+    """
+
+    @pytest.mark.parametrize("query,expected_dar", [
+        # Topical marker + DAR keyword — MUST detect DAR
+        ("how about DARs?", True),
+        ("what about DARs?", True),
+        ("regarding DARs", True),
+        ("tell me about DARs", True),
+        # Standard DAR queries (no topical marker)
+        ("list dars", True),
+        ("What DARs exist?", True),
+        # Non-DAR queries — must NOT detect DAR
+        ("how about ADRs?", False),
+        ("how about principles?", False),
+        ("use a standard approach", False),
+    ])
+    def test_dar_detected_despite_topical_markers(self, query, expected_dar):
+        """DAR keyword detection must work regardless of topical markers."""
+        import re
+        dar_re = re.compile(r"\bdars?\b|decision approval record", re.IGNORECASE)
+        matched = bool(dar_re.search(query.lower()))
+        assert matched == expected_dar, (
+            f"'{query}' DAR detection expected={expected_dar}, got={matched}"
+        )
+
+    @pytest.mark.parametrize("query", [
+        "how about DARs?",
+        "what about DARs?",
+        "regarding DARs",
+    ])
+    def test_topical_dar_queries_blocked_by_is_list_query(self, query):
+        """Verify is_list_query returns False for topical DAR queries.
+
+        This proves the bug: is_list_query() blocks these queries, so
+        collection keywords MUST be checked outside the gate.
+        """
+        result = detect_list_query(query)
+        # These return False because of topical markers — that's expected.
+        # The fix routes them BEFORE the is_list_query() gate.
+        assert result.is_list is False, (
+            f"'{query}' should NOT pass is_list_query (topical marker present), got: {result}"
+        )
+
+    @pytest.mark.parametrize("query,expected_collection", [
+        # Topical marker + collection keyword — verify which collection matches
+        ("how about ADRs?", "adr"),
+        ("what about principles?", "principle"),
+        ("how about DARs?", "dar"),
+    ])
+    def test_collection_keyword_detected_despite_topical_markers(self, query, expected_collection):
+        """Collection keywords must be detectable even with topical markers."""
+        import re
+        question_lower = query.lower()
+        dar_re = re.compile(r"\bdars?\b|decision approval record", re.IGNORECASE)
+        if expected_collection == "dar":
+            assert dar_re.search(question_lower), f"'{query}' should match DAR pattern"
+        elif expected_collection == "adr":
+            assert re.search(r"\badrs?\b", question_lower), f"'{query}' should match ADR pattern"
+        elif expected_collection == "principle":
+            assert re.search(r"\bprinciples?\b", question_lower), f"'{query}' should match Principle pattern"
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

@@ -493,8 +493,8 @@ def interactive():
 def elysia():
     """Start Elysia agentic RAG interactive session (decision tree-based)."""
     console.print(Panel(
-        "AION-AINSTEIN Elysia Mode\n"
-        "Using Weaviate's Elysia decision tree framework\n"
+        "AION-AINSTEIN Agent Mode\n"
+        "Using agentic decision tree framework\n"
         "Type 'quit' or 'exit' to end the session.",
         style="bold magenta"
     ))
@@ -509,14 +509,14 @@ def elysia():
         with weaviate_client() as client:
             configure_elysia_from_settings()
             elysia_system = ElysiaRAGSystem(client)
-            console.print("[green]Elysia system initialized with custom tools[/green]")
+            console.print("[green]Agent system initialized with custom tools[/green]")
             console.print("[dim]Available tools: search_vocabulary, search_architecture_decisions,[/dim]")
             console.print("[dim]                  search_principles, search_policies, list_all_adrs,[/dim]")
             console.print("[dim]                  list_all_principles, get_collection_stats[/dim]\n")
 
             while True:
                 try:
-                    user_input = console.input("\n[bold magenta]Elysia>[/bold magenta] ").strip()
+                    user_input = console.input("\n[bold magenta]AInstein>[/bold magenta] ").strip()
 
                     if not user_input:
                         continue
@@ -526,7 +526,7 @@ def elysia():
                         break
 
                     # Process with Elysia
-                    with console.status("Elysia thinking...", spinner="dots"):
+                    with console.status("Thinking...", spinner="dots"):
                         response, objects = asyncio.run(elysia_system.query(user_input))
 
                     # Note: Elysia's framework already displays the response via its "Assistant response" panels
@@ -552,7 +552,7 @@ def elysia():
 @app.command()
 def start_elysia_server():
     """Start the full Elysia web application."""
-    console.print(Panel("Starting Elysia Web Server", style="bold magenta"))
+    console.print(Panel("Starting AInstein Web Server", style="bold magenta"))
 
     try:
         import subprocess

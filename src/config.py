@@ -113,6 +113,16 @@ class Settings(BaseSettings):
         description="Deployment environment for conditional behavior"
     )
 
+    # AInstein Identity Configuration
+    ainstein_disclosure_level: int = Field(
+        default=0,
+        description=(
+            "Controls detail in meta responses and identity filtering. "
+            "0=functional (default), 1=power-user (RAG details), "
+            "2=debug (full internals: Elysia, Weaviate, DSPy)"
+        )
+    )
+
     # ==========================================================================
     # SKOSMOS Terminology Verification Configuration
     # ==========================================================================
