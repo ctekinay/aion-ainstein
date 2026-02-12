@@ -443,6 +443,64 @@ def _is_decision_or_reasoning_query(question: str) -> bool:
     return False
 
 
+def _has_esa_cues(question: str) -> bool:
+    """Check whether the question contains Energy System Architecture cues.
+
+    Returns True if the query references ESA document types, standards,
+    organisations, or technical domains.  Used to gate ESA-specific
+    routing (vocabulary, lists, cross-domain) so that general-purpose
+    questions don't get pulled into the ESA pipeline.
+    """
+    q = question.lower()
+
+    # Document type keywords
+    if re.search(r"\b(adrs?|dars?|pcps?|principles?|polic(?:y|ies))\b", q):
+        return True
+
+    # Standard references (IEC, CIM, SKOS, ArchiMate, CGMES, CIMXML, etc.)
+    if re.search(r"\b(iec|cim|skos|archimate|cgmes|cimxml|rdf|ttl|sparql)\b", q):
+        return True
+
+    # ESA domain keywords
+    esa_keywords = [
+        "architecture decision", "data governance", "energy system",
+        "alliander", "esa", "ainstein", "knowledge base",
+        "demandable capacity", "sign convention", "grid",
+        "approval record", "approval",
+    ]
+    if any(kw in q for kw in esa_keywords):
+        return True
+
+    # Explicit document references like ADR.0025, PCP.10
+    if re.search(r'\b(adr|pcp|dar)[.\s-]?\d', q):
+        return True
+
+    # CamelCase / PascalCase identifiers (12+ chars total with mixed case)
+    # These are likely CIM/IEC class names: PowerTransformer, TopologicalNode, etc.
+    # The 12-char minimum avoids false positives on common words (JavaScript, TypeScript).
+    if re.search(r'\b(?=[A-Za-z]{12,})[A-Z][a-z]+[A-Z]\w+\b', question):
+        return True
+
+    # Short CamelCase with AC/DC prefix (ACLine, DCSwitch, etc.)
+    if re.search(r'\b[AD]C[A-Z][a-z]\w+\b', question):
+        return True
+
+    return False
+
+
+# Out-of-scope response for queries with no ESA cues
+_OUT_OF_SCOPE_RESPONSE = (
+    "I'm **AInstein**, the Energy System Architecture assistant. "
+    "I can help with:\n\n"
+    "- **ADRs** — Architecture Decision Records\n"
+    "- **DARs** — Decision Approval Records\n"
+    "- **Principles** — Architecture & governance principles\n"
+    "- **Policies** — Data governance policies\n"
+    "- **Vocabulary** — IEC/CIM/ArchiMate terms\n\n"
+    "Could you rephrase your question in relation to one of these topics?"
+)
+
+
 def is_terminology_query(question: str) -> bool:
     """Check if query is asking about terminology/definitions.
 
@@ -457,6 +515,17 @@ def is_terminology_query(question: str) -> bool:
         return False
 
     question_lower = question.lower()
+
+    # Strong vocabulary keywords that are inherently ESA-scoped
+    # These fire even without additional ESA cues
+    _strong_vocab = {"cim", "iec", "skos", "archimate", "vocabulary", "vocab"}
+    if any(kw in question_lower for kw in _strong_vocab):
+        return True
+
+    # For broader patterns (e.g., "what is X"), require ESA cues
+    # to avoid pulling general questions into the SKOSMOS pipeline
+    if not _has_esa_cues(question):
+        return False
 
     # Check explicit terminology patterns
     for pattern in _get_compiled_terminology_patterns():
@@ -895,7 +964,11 @@ def get_collection_count(collection, content_filter=None) -> int:
         )
         return aggregate.total_count
     except Exception as e:
-        logger.warning(f"Failed to get collection count: {e}")
+        coll_name = getattr(collection, 'name', 'unknown')
+        logger.warning(
+            f"Failed to get collection count for {coll_name} "
+            f"(filter={'applied' if content_filter else 'none'}): {e}"
+        )
         return 0
 
 
@@ -1805,6 +1878,61 @@ IMPORTANT GUIDELINES:
 
         registry["list_approval_records"] = list_approval_records
 
+        # List all policy documents tool
+        async def list_all_policies() -> dict:
+            """List all data governance policy documents in the system.
+
+            Use this tool when the user asks:
+            - What policies exist?
+            - List all policies
+            - Show me the data governance policies
+            - What data governance documents are there?
+
+            Returns:
+                Marked list result with deduplicated policy documents
+            """
+            request_id = generate_request_id()
+            collection = client.collections.get(get_collection_name("policy"))
+
+            # PolicyDocument has no doc_type property — always fetch unfiltered
+            total_count = get_collection_count(collection, None)
+
+            all_objects = fetch_all_objects(
+                collection,
+                filters=None,
+                return_properties=["title", "file_path", "file_type"],
+            )
+
+            policies = []
+            for obj in all_objects:
+                policies.append({
+                    "title": obj.properties.get("title", ""),
+                    "file_path": obj.properties.get("file_path", ""),
+                    "file_type": obj.properties.get("file_type", ""),
+                })
+
+            # Dedupe by file_path
+            unique_policies = dedupe_by_identity(policies, identity_key="file_path")
+            unique_policies_sorted = sorted(
+                unique_policies,
+                key=lambda x: x.get("title", "") or x.get("file_path", "")
+            )
+
+            logger.info(
+                f"list_all_policies: Returning {len(unique_policies_sorted)} unique policies "
+                f"(collection total: {total_count}, chunks before dedupe: {len(policies)}, "
+                f"request_id={request_id})"
+            )
+
+            return build_list_result_marker(
+                collection="policy",
+                rows=unique_policies_sorted,
+                total_unique=len(unique_policies_sorted),
+                fallback_triggered=False,
+            )
+
+        registry["list_all_policies"] = list_all_policies
+
         # Search documents by team/owner
         async def search_by_team(team_name: str, query: str = "", limit: int = 10) -> list[dict]:
             """Search all documents owned by a specific team or workgroup.
@@ -2217,8 +2345,11 @@ IMPORTANT GUIDELINES:
                 objects = list_result.get("rows", []) if isinstance(list_result, dict) else []
 
         elif re.search(r"\bpolic(?:y|ies)\b", question_lower):
-            # No deterministic list_policies tool — fall through to semantic/Tree path
-            logger.info("List query detected for Policies - falling through to semantic path")
+            logger.info("List query detected for Policies - using deterministic path")
+            list_tool = self._tool_registry.get("list_all_policies")
+            if list_tool:
+                list_result = await list_tool()
+                objects = list_result.get("rows", []) if isinstance(list_result, dict) else []
 
         elif is_list_query(question):
             # Broader keywords only fire when is_list_query() confirms list intent
@@ -2235,16 +2366,21 @@ IMPORTANT GUIDELINES:
                     list_result = await list_tool()
                     objects = list_result.get("rows", []) if isinstance(list_result, dict) else []
             else:
-                # No recognized collection keyword — ask for clarification
-                logger.info("List query detected but no collection keyword matched — asking for clarification")
-                return (
-                    "I can list several types of documents. Which would you like?\n\n"
-                    "- **ADRs** — Architecture Decision Records\n"
-                    "- **DARs** — Decision Approval Records\n"
-                    "- **Principles** — Architecture & governance principles\n"
-                    "- **Policies** — Data governance policies\n\n"
-                    "Please specify, for example: *list ADRs* or *list principles*."
-                ), []
+                # No recognized collection keyword — only show ESA clarification
+                # if the query has ESA cues.  Otherwise let it fall through
+                # to the out-of-scope gate.
+                if _has_esa_cues(question):
+                    logger.info("List query detected but no collection keyword matched — asking for clarification")
+                    return (
+                        "I can list several types of documents. Which would you like?\n\n"
+                        "- **ADRs** — Architecture Decision Records\n"
+                        "- **DARs** — Decision Approval Records\n"
+                        "- **Principles** — Architecture & governance principles\n"
+                        "- **Policies** — Data governance policies\n\n"
+                        "Please specify, for example: *list ADRs* or *list principles*."
+                    ), []
+                else:
+                    logger.info("List query detected but no ESA cues — skipping ESA clarification")
 
         # If we have a list result, use deterministic serialization
         if list_result and is_list_result(list_result):
@@ -2331,6 +2467,28 @@ IMPORTANT GUIDELINES:
             return await self._multi_hop_query(
                 question, cross_collections, structured_mode=structured_mode
             )
+
+        # =============================================================================
+        # OUT-OF-SCOPE GATE
+        # If the query has no ESA cues at all (no document types, standards,
+        # domain terms), it's likely a general question that the Tree would
+        # waste time on. Return a polite scope message instead.
+        # =============================================================================
+        if not _has_esa_cues(question):
+            logger.info(f"Out-of-scope query detected (no ESA cues): {question[:80]}")
+            obs_metrics.increment("out_of_scope_total")
+            if structured_mode:
+                import json
+                return json.dumps({
+                    "schema_version": "1.0",
+                    "answer": _OUT_OF_SCOPE_RESPONSE,
+                    "items_shown": 0,
+                    "items_total": 0,
+                    "count_qualifier": None,
+                    "transparency_statement": "No ESA documents were searched.",
+                    "sources": [],
+                }, indent=2), []
+            return _OUT_OF_SCOPE_RESPONSE, []
 
         # Always specify our collection names to bypass Elysia's metadata collection discovery
         # This avoids gRPC errors from Elysia's internal collections
@@ -2594,7 +2752,63 @@ Guidelines:
         # Detect query type: list/catalog vs semantic/specific
         is_catalog_query = is_list_query(question)
         if is_catalog_query:
-            logger.info(f"Catalog query detected: {question}")
+            logger.info(f"Catalog query detected in _direct_query: {question}")
+
+        # ── Deterministic list shortcut (safety net) ──────────────────────
+        # When the Tree times out and falls back here, re-try the same
+        # deterministic list tools that the main query() method uses.
+        # This avoids the expensive generic search + LLM path for catalog
+        # queries that should have been handled deterministically.
+        _DAR_RE_FALLBACK = re.compile(r"\bdars?\b|decision approval record", re.IGNORECASE)
+        if _DAR_RE_FALLBACK.search(question_lower):
+            list_tool = self._tool_registry.get("list_approval_records")
+            if list_tool:
+                logger.info("_direct_query: re-routing DAR query to deterministic list tool")
+                if "principle" in question_lower:
+                    list_result = await list_tool("principle")
+                elif "adr" in question_lower:
+                    list_result = await list_tool("adr")
+                else:
+                    list_result = await list_tool("all")
+                if list_result and is_list_result(list_result):
+                    context = create_context_from_skills(question, _skill_registry)
+                    gateway_result = handle_list_result(list_result, context)
+                    if gateway_result:
+                        objects = list_result.get("rows", []) if isinstance(list_result, dict) else []
+                        return gateway_result.response, objects
+        elif re.search(r"\badrs?\b", question_lower):
+            list_tool = self._tool_registry.get("list_all_adrs")
+            if list_tool:
+                logger.info("_direct_query: re-routing ADR query to deterministic list tool")
+                list_result = await list_tool()
+                if list_result and is_list_result(list_result):
+                    context = create_context_from_skills(question, _skill_registry)
+                    gateway_result = handle_list_result(list_result, context)
+                    if gateway_result:
+                        objects = list_result.get("rows", []) if isinstance(list_result, dict) else []
+                        return gateway_result.response, objects
+        elif re.search(r"\bprinciples?\b", question_lower):
+            list_tool = self._tool_registry.get("list_all_principles")
+            if list_tool:
+                logger.info("_direct_query: re-routing Principle query to deterministic list tool")
+                list_result = await list_tool()
+                if list_result and is_list_result(list_result):
+                    context = create_context_from_skills(question, _skill_registry)
+                    gateway_result = handle_list_result(list_result, context)
+                    if gateway_result:
+                        objects = list_result.get("rows", []) if isinstance(list_result, dict) else []
+                        return gateway_result.response, objects
+        elif re.search(r"\bpolic(?:y|ies)\b", question_lower):
+            list_tool = self._tool_registry.get("list_all_policies")
+            if list_tool:
+                logger.info("_direct_query: re-routing Policy query to deterministic list tool")
+                list_result = await list_tool()
+                if list_result and is_list_result(list_result):
+                    context = create_context_from_skills(question, _skill_registry)
+                    gateway_result = handle_list_result(list_result, context)
+                    if gateway_result:
+                        objects = list_result.get("rows", []) if isinstance(list_result, dict) else []
+                        return gateway_result.response, objects
 
         # Load retrieval limits from skill configuration
         retrieval_limits = _skill_registry.loader.get_retrieval_limits(DEFAULT_SKILL)
@@ -2702,15 +2916,11 @@ Guidelines:
             try:
                 collection = self.client.collections.get(f"{get_collection_name('policy')}{suffix}")
 
-                # PolicyDocument may not have doc_type property — use content_filter
-                # only if supported, otherwise fall back to unfiltered query.
-                policy_filter = content_filter
-                try:
-                    total_count = get_collection_count(collection, policy_filter)
-                except Exception:
-                    logger.info("PolicyDocument does not support doc_type filter — querying without filter")
-                    policy_filter = None
-                    total_count = get_collection_count(collection)
+                # PolicyDocument does not have a doc_type property — never apply
+                # doc_type filters.  The old try/except around get_collection_count
+                # was dead code because that function swallows exceptions internally.
+                policy_filter = None
+                total_count = get_collection_count(collection)
                 collection_counts["Policy"] = total_count
 
                 if is_catalog_query:
@@ -2784,8 +2994,16 @@ Guidelines:
                 try:
                     collection = self.client.collections.get(f"{coll_base}{suffix}")
 
-                    # Get total count for transparency (even in fallback)
-                    total_count = get_collection_count(collection, content_filter if coll_base != get_collection_name("vocabulary") else None)
+                    # Get total count for transparency (even in fallback).
+                    # Skip doc_type filter for collections that lack the property
+                    # (Vocabulary has no doc_type, PolicyDocument has no doc_type).
+                    _skip_filter = coll_base in (
+                        get_collection_name("vocabulary"),
+                        get_collection_name("policy"),
+                    )
+                    total_count = get_collection_count(
+                        collection, None if _skip_filter else content_filter
+                    )
                     display_type = type_map.get(coll_base, coll_base)
                     if total_count > 0 and display_type not in collection_counts:
                         collection_counts[display_type] = total_count

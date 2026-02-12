@@ -12,7 +12,13 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from src.chat_ui import resolve_followup, _detect_subject, _conversation_subjects
+from src.chat_ui import (
+    resolve_followup,
+    _detect_subject,
+    _conversation_subjects,
+    _evict_stale_conversations,
+    _MAX_TRACKED_CONVERSATIONS,
+)
 
 
 @pytest.fixture(autouse=True)
@@ -149,6 +155,112 @@ class TestFollowupPatterns:
         resolve_followup("list dars", conv_id)
         result = resolve_followup(query, conv_id)
         assert result == query, f"'{query}' should NOT be rewritten"
+
+
+class TestApprovalFollowup:
+    """Test approval follow-up resolution: 'who approved them?'."""
+
+    def test_who_approved_them_after_adrs(self):
+        """'who approved them?' after listing ADRs should resolve."""
+        conv_id = "approval-test-1"
+        resolve_followup("list adrs", conv_id)
+        result = resolve_followup("who approved them?", conv_id)
+        assert "who approved" in result.lower()
+        assert "adrs" in result.lower()
+
+    def test_who_signed_off_on_them_after_dars(self):
+        """'who signed off on them?' should also resolve."""
+        conv_id = "approval-test-2"
+        resolve_followup("list dars", conv_id)
+        result = resolve_followup("who signed off on them?", conv_id)
+        assert "dars" in result.lower()
+
+    def test_who_approved_those_after_principles(self):
+        """'who approved those?' after principles should resolve."""
+        conv_id = "approval-test-3"
+        resolve_followup("list principles", conv_id)
+        result = resolve_followup("who approved those?", conv_id)
+        assert "principles" in result.lower()
+
+    def test_who_approved_without_context(self):
+        """'who approved them?' without context returns unchanged."""
+        result = resolve_followup("who approved them?", "no-context")
+        assert result == "who approved them?"
+
+
+class TestContinuationFollowup:
+    """Test continuation phrases: 'what about those?', 'how about them?'."""
+
+    def test_what_about_them_after_adrs(self):
+        """'what about them?' after ADRs should resolve."""
+        conv_id = "cont-test-1"
+        resolve_followup("list adrs", conv_id)
+        result = resolve_followup("what about them?", conv_id)
+        assert result == "list adrs"
+
+    def test_how_about_those_after_dars(self):
+        """'how about those?' after DARs should resolve."""
+        conv_id = "cont-test-2"
+        resolve_followup("and how about DARs?", conv_id)
+        result = resolve_followup("how about those?", conv_id)
+        assert result == "list dars"
+
+    def test_and_what_about_them(self):
+        """'and what about them?' after principles should resolve."""
+        conv_id = "cont-test-3"
+        resolve_followup("list principles", conv_id)
+        result = resolve_followup("and what about them?", conv_id)
+        assert result == "list principles"
+
+    def test_continuation_without_context(self):
+        """Continuation without context returns unchanged."""
+        result = resolve_followup("what about them?", "no-context")
+        assert result == "what about them?"
+
+    def test_continuation_with_explicit_subject_not_caught(self):
+        """'how about DARs?' has a real subject, NOT a pronoun follow-up."""
+        conv_id = "cont-test-4"
+        resolve_followup("list adrs", conv_id)
+        # This should detect "dars" as a new subject, not trigger pronoun resolution
+        result = resolve_followup("how about DARs?", conv_id)
+        assert result == "how about DARs?"  # Pass through (routing handles it)
+        assert _conversation_subjects[conv_id] == "dars"
+
+
+class TestConversationStateCap:
+    """Test that conversation state is bounded."""
+
+    def test_eviction_when_over_cap(self):
+        """Exceeding cap should evict oldest half of conversations."""
+        # Fill to over capacity
+        for i in range(_MAX_TRACKED_CONVERSATIONS + 10):
+            _conversation_subjects[f"conv-{i}"] = "adrs"
+
+        assert len(_conversation_subjects) > _MAX_TRACKED_CONVERSATIONS
+
+        _evict_stale_conversations()
+
+        # Should have evicted roughly half
+        assert len(_conversation_subjects) <= (_MAX_TRACKED_CONVERSATIONS + 10) // 2 + 10
+
+    def test_eviction_preserves_recent(self):
+        """Eviction should keep the most recent conversations."""
+        for i in range(_MAX_TRACKED_CONVERSATIONS + 10):
+            _conversation_subjects[f"conv-{i}"] = "adrs"
+
+        _evict_stale_conversations()
+
+        # Most recent conversations should survive
+        last_id = f"conv-{_MAX_TRACKED_CONVERSATIONS + 9}"
+        assert last_id in _conversation_subjects
+
+    def test_no_eviction_under_cap(self):
+        """No eviction when under the cap."""
+        for i in range(10):
+            _conversation_subjects[f"conv-{i}"] = "adrs"
+
+        _evict_stale_conversations()
+        assert len(_conversation_subjects) == 10
 
 
 if __name__ == "__main__":

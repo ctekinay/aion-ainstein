@@ -259,6 +259,18 @@ def finalize_list_result(result: dict) -> str:
             count_qualifier=count_qualifier,
             source_type="DAR",
         )
+    elif collection == "policy":
+        json_str = build_list_structured_json(
+            item_type_label="Policy",
+            items=rows,
+            identity_key="file_path",
+            title_key="title",
+            number_key=None,
+            status_key=None,
+            items_total=total_unique,
+            count_qualifier=count_qualifier,
+            source_type="Policy",
+        )
     else:
         # Generic fallback
         json_str = build_list_structured_json(

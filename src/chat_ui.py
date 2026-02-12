@@ -57,11 +57,26 @@ _db_path = Path(__file__).parent.parent / "chat_history.db"
 # Lightweight per-conversation subject tracking for resolving
 # ambiguous follow-ups like "list them" → "list dars".
 _conversation_subjects: dict[str, str] = {}  # conversation_id → last subject
+_MAX_TRACKED_CONVERSATIONS = 1000  # Cap to prevent unbounded memory growth
 
 # Ambiguous follow-up patterns (verb + pronoun, nothing else)
 _FOLLOWUP_RE = re.compile(
     r"^(list|show|display|give me|tell me about|show me)\s+"
     r"(them|those|these|it|all of them|them all)\s*[.?!]?$",
+    re.IGNORECASE,
+)
+
+# Approval follow-up patterns (e.g., "who approved them?")
+_APPROVAL_FOLLOWUP_RE = re.compile(
+    r"^(who\s+(?:approved|signed\s+off\s+on|reviewed))\s+"
+    r"(them|those|these|it)\s*\??\s*$",
+    re.IGNORECASE,
+)
+
+# Continuation phrases with pronoun only (e.g., "and what about those?")
+_CONTINUATION_FOLLOWUP_RE = re.compile(
+    r"^(?:and\s+)?(?:how|what)\s+about\s+"
+    r"(them|those|these|it)\s*\??\s*$",
     re.IGNORECASE,
 )
 
@@ -86,18 +101,36 @@ def _detect_subject(question: str) -> str | None:
     return None
 
 
+def _evict_stale_conversations() -> None:
+    """Evict oldest half of tracked conversations when cap is exceeded."""
+    if len(_conversation_subjects) > _MAX_TRACKED_CONVERSATIONS:
+        # dict preserves insertion order in Python 3.7+; evict first half
+        keys = list(_conversation_subjects.keys())
+        for key in keys[:len(keys) // 2]:
+            del _conversation_subjects[key]
+        logger.info(
+            f"Evicted {len(keys) // 2} stale conversations from follow-up state "
+            f"(remaining: {len(_conversation_subjects)})"
+        )
+
+
 def resolve_followup(question: str, conversation_id: str | None) -> str:
     """Resolve ambiguous follow-up queries using conversation context.
 
-    If the question is "list them" / "show those" and we have a previous
-    subject for this conversation, rewrite the query to include the subject.
+    Handles three follow-up patterns:
+    1. List follow-ups: "list them" → "list dars"
+    2. Approval follow-ups: "who approved them?" → "who approved the adrs?"
+    3. Continuation follow-ups: "what about those?" → "list dars"
+
     If no context exists, return the question unchanged (routing will handle it).
     """
     if not conversation_id:
         return question
 
-    # Check if this is an ambiguous follow-up
-    if _FOLLOWUP_RE.match(question.strip()):
+    stripped = question.strip()
+
+    # Pattern 1: List follow-ups ("list them", "show those")
+    if _FOLLOWUP_RE.match(stripped):
         last_subject = _conversation_subjects.get(conversation_id)
         if last_subject:
             rewritten = f"list {last_subject}"
@@ -105,11 +138,36 @@ def resolve_followup(question: str, conversation_id: str | None) -> str:
             return rewritten
         else:
             logger.info(f"Follow-up detected but no prior subject for {conversation_id[:8]}")
+            return question
+
+    # Pattern 2: Approval follow-ups ("who approved them?")
+    m = _APPROVAL_FOLLOWUP_RE.match(stripped)
+    if m:
+        last_subject = _conversation_subjects.get(conversation_id)
+        if last_subject:
+            rewritten = f"{m.group(1)} the {last_subject}?"
+            logger.info(f"Approval follow-up resolved: '{question}' → '{rewritten}'")
+            return rewritten
+        else:
+            logger.info(f"Approval follow-up detected but no prior subject for {conversation_id[:8]}")
+            return question
+
+    # Pattern 3: Continuation with pronoun only ("what about those?")
+    if _CONTINUATION_FOLLOWUP_RE.match(stripped):
+        last_subject = _conversation_subjects.get(conversation_id)
+        if last_subject:
+            rewritten = f"list {last_subject}"
+            logger.info(f"Continuation follow-up resolved: '{question}' → '{rewritten}'")
+            return rewritten
+        else:
+            logger.info(f"Continuation follow-up detected but no prior subject for {conversation_id[:8]}")
+            return question
 
     # Not a follow-up — detect and store subject for future follow-ups
     subject = _detect_subject(question)
     if subject and conversation_id:
         _conversation_subjects[conversation_id] = subject
+        _evict_stale_conversations()
 
     return question
 
