@@ -204,6 +204,53 @@ class Settings(BaseSettings):
         default=Path("config/corpus_expectations.yaml"),
         description="Path to corpus-specific verification expectations"
     )
+    routing_policy_path: Path = Field(
+        default=Path("config/routing_policy.yaml"),
+        description="Path to routing policy config"
+    )
+
+    # ==========================================================================
+    # Routing Policy Feature Flags
+    # ==========================================================================
+    # Environment variable overrides for routing_policy.yaml flags.
+    # Env vars take precedence over YAML values.
+
+    ainstein_strict_mode: Optional[bool] = Field(
+        default=None,
+        description="Override strict_mode_enabled (env: AINSTEIN_STRICT_MODE)"
+    )
+    ainstein_intent_router: Optional[bool] = Field(
+        default=None,
+        description="Override intent_router_enabled (env: AINSTEIN_INTENT_ROUTER)"
+    )
+    ainstein_intent_router_mode: Optional[str] = Field(
+        default=None,
+        description="Override intent_router_mode: heuristic|llm (env: AINSTEIN_INTENT_ROUTER_MODE)"
+    )
+    ainstein_followup_binding: Optional[bool] = Field(
+        default=None,
+        description="Override followup_binding_enabled (env: AINSTEIN_FOLLOWUP_BINDING)"
+    )
+    ainstein_catalog_short_circuit: Optional[bool] = Field(
+        default=None,
+        description="Override catalog_short_circuit_enabled (env: AINSTEIN_CATALOG_SHORT_CIRCUIT)"
+    )
+    ainstein_abstain_gate: Optional[bool] = Field(
+        default=None,
+        description="Override abstain_gate_enabled (env: AINSTEIN_ABSTAIN_GATE)"
+    )
+    ainstein_tree_enabled: Optional[bool] = Field(
+        default=None,
+        description="Override tree_enabled (env: AINSTEIN_TREE_ENABLED)"
+    )
+    ainstein_debug_headers: Optional[bool] = Field(
+        default=None,
+        description="Override debug_headers_enabled (env: AINSTEIN_DEBUG_HEADERS)"
+    )
+    ainstein_embed_mode: Optional[str] = Field(
+        default=None,
+        description="Embed mode: chunked|full|both (env: AINSTEIN_EMBED_MODE)"
+    )
 
     @property
     def project_root(self) -> Path:
@@ -261,6 +308,32 @@ class Settings(BaseSettings):
         return _load_corpus_expectations(
             str(self.resolve_path(self.corpus_expectations_path))
         )
+
+    def get_routing_policy(self) -> Dict[str, Any]:
+        """Load routing policy with env var overrides.
+
+        Precedence: env vars (AINSTEIN_*) > routing_policy.yaml > hardcoded defaults.
+        """
+        policy = _load_routing_policy(
+            str(self.resolve_path(self.routing_policy_path))
+        )
+
+        # Apply env var overrides
+        overrides = {
+            "strict_mode_enabled": self.ainstein_strict_mode,
+            "intent_router_enabled": self.ainstein_intent_router,
+            "intent_router_mode": self.ainstein_intent_router_mode,
+            "followup_binding_enabled": self.ainstein_followup_binding,
+            "catalog_short_circuit_enabled": self.ainstein_catalog_short_circuit,
+            "abstain_gate_enabled": self.ainstein_abstain_gate,
+            "tree_enabled": self.ainstein_tree_enabled,
+            "debug_headers_enabled": self.ainstein_debug_headers,
+        }
+        for key, value in overrides.items():
+            if value is not None:
+                policy[key] = value
+
+        return policy
 
 
 def _deep_merge(base: Dict[str, Any], override: Dict[str, Any]) -> Dict[str, Any]:
@@ -330,10 +403,39 @@ def _load_corpus_expectations(path: str) -> Dict[str, Any]:
     return {}
 
 
+@lru_cache(maxsize=1)
+def _load_routing_policy(path: str) -> Dict[str, Any]:
+    """Load routing policy YAML. Cached after first call."""
+    # Hardcoded defaults (used if YAML missing)
+    defaults: Dict[str, Any] = {
+        "strict_mode_enabled": True,
+        "intent_router_enabled": False,
+        "intent_router_mode": "heuristic",
+        "followup_binding_enabled": True,
+        "catalog_short_circuit_enabled": True,
+        "abstain_gate_enabled": True,
+        "list_route_requires_list_intent": True,
+        "max_tree_seconds": 120,
+        "tree_enabled": True,
+        "intent_confidence_threshold": 0.55,
+        "debug_headers_enabled": False,
+    }
+    policy_file = Path(path)
+    if policy_file.exists():
+        with open(policy_file) as f:
+            loaded = yaml.safe_load(f) or {}
+        logger.debug("Loaded routing policy from %s", policy_file)
+        defaults.update(loaded)
+    else:
+        logger.debug("No routing policy at %s, using defaults", policy_file)
+    return defaults
+
+
 def invalidate_config_caches() -> None:
     """Clear cached config. Useful for testing or config reload."""
     _load_taxonomy_config.cache_clear()
     _load_corpus_expectations.cache_clear()
+    _load_routing_policy.cache_clear()
 
 
 # Global settings instance

@@ -102,6 +102,36 @@ def generate_request_id() -> str:
     return str(uuid.uuid4())[:8]
 
 
+def _maybe_add_debug_footer(response: str, route_log: dict, debug_enabled: bool) -> str:
+    """Append routing debug footer if debug headers are enabled.
+
+    Only adds to string responses. Shows route, intent, confidence, and
+    collections queried. Never includes prompts or sensitive info.
+    """
+    if not debug_enabled or not isinstance(response, str):
+        return response
+
+    parts = []
+    if route_log.get("route_selected"):
+        parts.append(f"route: {route_log['route_selected']}")
+    if route_log.get("intent"):
+        parts.append(f"intent: {route_log['intent']}")
+    if route_log.get("confidence") is not None:
+        parts.append(f"intent_confidence: {route_log['confidence']:.2f}")
+    if route_log.get("collections_queried"):
+        parts.append(f"collections: {', '.join(route_log['collections_queried'])}")
+    if route_log.get("abstain_gate_triggered"):
+        parts.append("abstain_gate: triggered")
+    if route_log.get("tree_timeout"):
+        parts.append("tree_timeout: true")
+
+    if parts:
+        footer = "\n\n---\n_" + " | ".join(parts) + "_"
+        return response + footer
+
+    return response
+
+
 class FallbackBlockedError(Exception):
     """Raised when fallback is blocked due to safety cap or feature flag."""
 
@@ -2374,15 +2404,111 @@ IMPORTANT GUIDELINES:
         context = create_context_from_skills(question, _skill_registry)
 
         # =============================================================================
+        # ROUTING POLICY — load feature flags
+        # =============================================================================
+        routing_policy = settings.get_routing_policy()
+        intent_router_enabled = routing_policy.get("intent_router_enabled", False)
+        strict_mode_enabled = routing_policy.get("strict_mode_enabled", True)
+        catalog_short_circuit = routing_policy.get("catalog_short_circuit_enabled", True)
+        abstain_gate_enabled = routing_policy.get("abstain_gate_enabled", True)
+        tree_enabled = routing_policy.get("tree_enabled", True)
+        debug_headers = routing_policy.get("debug_headers_enabled", False)
+        intent_router_mode = routing_policy.get("intent_router_mode", "heuristic")
+        confidence_threshold = routing_policy.get("intent_confidence_threshold", 0.55)
+        max_tree_seconds = routing_policy.get("max_tree_seconds", settings.elysia_query_timeout_seconds)
+
+        # Routing transparency log (internal only, never exposed in responses)
+        route_log = {
+            "request_id": generate_request_id(),
+            "route_selected": None,
+            "intent": None,
+            "confidence": None,
+            "collections_queried": [],
+            "doc_types_allowed": [],
+            "abstain_gate_triggered": False,
+            "tree_timeout": False,
+        }
+
+        # =============================================================================
+        # INTENT ROUTER (when enabled, runs BEFORE legacy keyword routing)
+        # Returns a stable IntentDecision schema that determines the route.
+        # =============================================================================
+        intent_decision = None
+        if intent_router_enabled:
+            from .intent_router import (
+                classify_intent, needs_clarification, build_clarification_response,
+                handle_compare_concepts, handle_compare_counts,
+                Intent, OutputShape,
+            )
+            intent_decision = await classify_intent(question, mode=intent_router_mode)
+            route_log["intent"] = intent_decision.intent.value
+            route_log["confidence"] = intent_decision.confidence
+
+            # If confidence is too low, ask clarifying question
+            if needs_clarification(intent_decision, threshold=confidence_threshold):
+                route_log["route_selected"] = "clarification"
+                logger.info(f"Intent confidence too low ({intent_decision.confidence:.2f}), asking clarification")
+                clarification = build_clarification_response(intent_decision)
+                response = _maybe_add_debug_footer(clarification, route_log, debug_headers)
+                return response, []
+
+            # Route based on intent decision
+            if intent_decision.intent == Intent.META:
+                route_log["route_selected"] = "meta"
+                obs_metrics.increment("meta_route_total")
+                response = build_meta_response(question, structured_mode=structured_mode)
+                response = _maybe_add_debug_footer(response, route_log, debug_headers)
+                return response, []
+
+            if intent_decision.intent == Intent.COMPARE_CONCEPTS:
+                route_log["route_selected"] = "compare_concepts"
+                compare_response = handle_compare_concepts(question)
+                if structured_mode:
+                    import json as _json
+                    compare_response = _json.dumps({
+                        "schema_version": "1.0",
+                        "answer": compare_response,
+                        "sources": [],
+                        "transparency_statement": "Deterministic concept comparison.",
+                    }, indent=2)
+                response = _maybe_add_debug_footer(compare_response, route_log, debug_headers)
+                return response, []
+
+            if intent_decision.intent == Intent.COMPARE_COUNTS:
+                route_log["route_selected"] = "compare_counts"
+                counts_response = await handle_compare_counts(question, self._tool_registry)
+                if structured_mode:
+                    import json as _json
+                    counts_response = _json.dumps({
+                        "schema_version": "1.0",
+                        "answer": counts_response,
+                        "sources": [],
+                        "transparency_statement": "Numeric count comparison.",
+                    }, indent=2)
+                response = _maybe_add_debug_footer(counts_response, route_log, debug_headers)
+                return response, []
+
+            # For other intents (LIST, LOOKUP_DOC, LOOKUP_APPROVAL, SEMANTIC_ANSWER, COUNT),
+            # fall through to legacy routing which handles them well.
+            # The intent decision is logged for transparency.
+            logger.info(
+                f"Intent router decision: {intent_decision.intent.value} "
+                f"(confidence={intent_decision.confidence:.2f}), proceeding to legacy routing"
+            )
+
+        # =============================================================================
         # META ROUTE SHORT-CIRCUIT (P1)
         # Questions about AInstein itself (skills, architecture, formatting, pipeline)
         # are answered deterministically without querying the ESA knowledge base.
         # This prevents the "spiral" where meta questions get routed to ADR search.
         # =============================================================================
         if is_meta_query(question):
+            route_log["route_selected"] = "meta"
             logger.info(f"Meta route: short-circuiting for system question: {question[:80]}...")
             obs_metrics.increment("meta_route_total")
-            return build_meta_response(question, structured_mode=structured_mode), []
+            response = build_meta_response(question, structured_mode=structured_mode)
+            response = _maybe_add_debug_footer(response, route_log, debug_headers)
+            return response, []
 
         # Load direct-doc threshold for deterministic single-document routes
         _truncation = _skill_registry.loader.get_truncation(DEFAULT_SKILL)
