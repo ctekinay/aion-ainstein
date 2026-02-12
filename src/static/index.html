@@ -1246,6 +1246,243 @@
             cursor: not-allowed;
         }
 
+        /* Settings modal tabs */
+        .settings-tabs {
+            display: flex;
+            gap: 0;
+            border-bottom: 1px solid var(--border);
+            margin-bottom: 20px;
+        }
+
+        .settings-tab {
+            padding: 10px 20px;
+            background: none;
+            border: none;
+            border-bottom: 2px solid transparent;
+            color: var(--text-muted);
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .settings-tab:hover {
+            color: var(--text-secondary);
+        }
+
+        .settings-tab.active {
+            color: var(--primary);
+            border-bottom-color: var(--primary);
+        }
+
+        .settings-tab-content {
+            display: none;
+        }
+
+        .settings-tab-content.active {
+            display: block;
+        }
+
+        /* Routing mode selector */
+        .routing-mode-group {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 20px;
+        }
+
+        .routing-mode-card {
+            flex: 1;
+            padding: 16px;
+            border: 2px solid var(--border);
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+            background: var(--bg-input);
+        }
+
+        .routing-mode-card:hover {
+            border-color: var(--text-muted);
+        }
+
+        .routing-mode-card.selected {
+            border-color: var(--primary);
+            background: rgba(16, 185, 129, 0.08);
+        }
+
+        .routing-mode-card .mode-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 4px;
+        }
+
+        .routing-mode-card .mode-desc {
+            font-size: 12px;
+            color: var(--text-muted);
+            line-height: 1.4;
+        }
+
+        /* Hierarchical toggle group */
+        .toggle-group {
+            margin-bottom: 16px;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        .toggle-group.disabled {
+            opacity: 0.35;
+            pointer-events: none;
+        }
+
+        .toggle-group-header {
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-muted);
+            padding: 10px 14px 6px;
+            background: var(--bg-status);
+        }
+
+        .toggle-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 14px;
+            border-top: 1px solid var(--border);
+            transition: opacity 0.2s;
+        }
+
+        .toggle-row:first-child {
+            border-top: none;
+        }
+
+        .toggle-row.disabled {
+            opacity: 0.35;
+            pointer-events: none;
+        }
+
+        .toggle-row .toggle-info {
+            flex: 1;
+            margin-right: 12px;
+        }
+
+        .toggle-row .toggle-name {
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text-primary);
+        }
+
+        .toggle-row .toggle-desc {
+            font-size: 11px;
+            color: var(--text-muted);
+            margin-top: 2px;
+        }
+
+        /* Sub-toggles (indented under a parent) */
+        .toggle-row.sub-toggle {
+            padding-left: 32px;
+        }
+
+        /* Compact toggle switch for settings */
+        .routing-toggle {
+            position: relative;
+            width: 36px;
+            height: 20px;
+            flex-shrink: 0;
+        }
+
+        .routing-toggle input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .routing-toggle .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: var(--border);
+            border-radius: 20px;
+            transition: background 0.2s;
+        }
+
+        .routing-toggle .slider::before {
+            content: '';
+            position: absolute;
+            height: 14px;
+            width: 14px;
+            left: 3px;
+            bottom: 3px;
+            background: white;
+            border-radius: 50%;
+            transition: transform 0.2s;
+        }
+
+        .routing-toggle input:checked + .slider {
+            background: var(--primary);
+        }
+
+        .routing-toggle input:checked + .slider::before {
+            transform: translateX(16px);
+        }
+
+        .routing-toggle input:disabled + .slider {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+        /* Slider input for threshold */
+        .threshold-row {
+            padding: 10px 14px;
+            border-top: 1px solid var(--border);
+        }
+
+        .threshold-row.disabled {
+            opacity: 0.35;
+            pointer-events: none;
+        }
+
+        .threshold-row .threshold-label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 13px;
+            margin-bottom: 6px;
+        }
+
+        .threshold-row .threshold-name {
+            font-weight: 500;
+            color: var(--text-primary);
+        }
+
+        .threshold-row .threshold-value {
+            color: var(--primary);
+            font-weight: 600;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .threshold-row input[type="range"] {
+            width: 100%;
+            accent-color: var(--primary);
+        }
+
+        /* Select inside toggle group */
+        .inline-select {
+            padding: 4px 8px;
+            background: var(--bg-input);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            color: var(--text-primary);
+            font-size: 12px;
+            cursor: pointer;
+        }
+
+        .inline-select:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
         .current-model-badge {
             display: inline-flex;
             align-items: center;
@@ -1359,6 +1596,10 @@
             <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
             Skills
         </button>
+        <button class="settings-btn-sidebar" onclick="window.location.href='/routing'">
+            <svg viewBox="0 0 24 24"><path d="M13.5 5.5c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zM9.8 8.9L7 23h2.1l1.8-8 2.1 2v6h2v-7.5l-2.1-2 .6-3C14.8 12 16.8 13 19 13v-2c-1.9 0-3.5-1-4.3-2.4l-1-1.6c-.4-.6-1-1-1.7-1-.3 0-.5.1-.8.1L6 8.3V13h2V9.6l1.8-.7"/></svg>
+            Routing
+        </button>
         <button class="delete-all-btn" onclick="deleteAllConversations()">
             <svg viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
             Delete All
@@ -1370,41 +1611,172 @@
 
     <!-- Settings Modal -->
     <div class="modal-overlay" id="settings-modal">
-        <div class="modal">
+        <div class="modal" style="max-width: 540px;">
             <div class="modal-header">
                 <span class="modal-title">Settings</span>
                 <button class="modal-close" onclick="closeSettings()">&times;</button>
             </div>
 
-            <div class="settings-section">
-                <label class="settings-label">LLM Provider</label>
-                <span class="settings-sublabel">Choose between local (Ollama) or cloud (OpenAI) LLM</span>
-                <select class="settings-select" id="llm-provider" onchange="updateModelOptions()">
-                    <option value="ollama">Ollama (Local)</option>
-                    <option value="openai">OpenAI (Cloud)</option>
-                </select>
+            <!-- Tabs -->
+            <div class="settings-tabs">
+                <button class="settings-tab active" onclick="switchSettingsTab('llm', this)">LLM</button>
+                <button class="settings-tab" onclick="switchSettingsTab('routing', this)">Routing</button>
             </div>
 
-            <div class="settings-section">
-                <label class="settings-label">Model</label>
-                <span class="settings-sublabel">Select the AI model to use for responses</span>
-                <select class="settings-select" id="llm-model">
-                    <!-- Options populated dynamically -->
-                </select>
-                <div class="current-model-badge" id="current-model-badge">
-                    <span class="dot"></span>
-                    <span id="current-model-text">Loading...</span>
+            <!-- LLM Tab -->
+            <div class="settings-tab-content active" id="tab-llm">
+                <div class="settings-section">
+                    <label class="settings-label">LLM Provider</label>
+                    <span class="settings-sublabel">Choose between local (Ollama) or cloud (OpenAI) LLM</span>
+                    <select class="settings-select" id="llm-provider" onchange="updateModelOptions()">
+                        <option value="ollama">Ollama (Local)</option>
+                        <option value="openai">OpenAI (Cloud)</option>
+                    </select>
                 </div>
+
+                <div class="settings-section">
+                    <label class="settings-label">Model</label>
+                    <span class="settings-sublabel">Select the AI model to use for responses</span>
+                    <select class="settings-select" id="llm-model">
+                        <!-- Options populated dynamically -->
+                    </select>
+                    <div class="current-model-badge" id="current-model-badge">
+                        <span class="dot"></span>
+                        <span id="current-model-text">Loading...</span>
+                    </div>
+                </div>
+
+                <div class="settings-info">
+                    <span class="settings-info-icon">&#9432;</span>
+                    <span class="settings-info-text">
+                        Ollama runs locally and is free. OpenAI requires an API key configured in the server.
+                    </span>
+                </div>
+
+                <button class="settings-btn" onclick="saveLLMSettings()">Save Settings</button>
             </div>
 
-            <div class="settings-info">
-                <span class="settings-info-icon">&#9432;</span>
-                <span class="settings-info-text">
-                    Ollama runs locally and is free. OpenAI requires an API key configured in the server.
-                </span>
-            </div>
+            <!-- Routing Tab -->
+            <div class="settings-tab-content" id="tab-routing">
 
-            <button class="settings-btn" onclick="saveLLMSettings()">Save Settings</button>
+                <!-- Mode selector -->
+                <label class="settings-label">Routing Mode</label>
+                <span class="settings-sublabel">Choose how queries are classified and routed</span>
+                <div class="routing-mode-group">
+                    <div class="routing-mode-card selected" id="mode-card-strict" onclick="selectRoutingMode(true)">
+                        <div class="mode-title">Strict Mode</div>
+                        <div class="mode-desc">Keyword-triggered deterministic routing. Fast, predictable, no LLM classification.</div>
+                    </div>
+                    <div class="routing-mode-card" id="mode-card-llm" onclick="selectRoutingMode(false)">
+                        <div class="mode-title">LLM Mode</div>
+                        <div class="mode-desc">Intent router classifies queries, then Elysia Tree handles reasoning.</div>
+                    </div>
+                </div>
+
+                <!-- Strict-mode sub-options -->
+                <div class="toggle-group" id="strict-options">
+                    <div class="toggle-group-header">Strict Mode Options</div>
+                    <div class="toggle-row">
+                        <div class="toggle-info">
+                            <div class="toggle-name">Catalog short-circuit</div>
+                            <div class="toggle-desc">List/count queries bypass Elysia Tree</div>
+                        </div>
+                        <label class="routing-toggle">
+                            <input type="checkbox" id="rp-catalog-short-circuit" checked>
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+                    <div class="toggle-row sub-toggle">
+                        <div class="toggle-info">
+                            <div class="toggle-name">Require list intent</div>
+                            <div class="toggle-desc">Only trigger list tools when intent is confirmed</div>
+                        </div>
+                        <label class="routing-toggle">
+                            <input type="checkbox" id="rp-list-requires-intent" checked>
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- LLM-mode sub-options -->
+                <div class="toggle-group disabled" id="llm-options">
+                    <div class="toggle-group-header">LLM Mode Options</div>
+                    <div class="toggle-row">
+                        <div class="toggle-info">
+                            <div class="toggle-name">Intent classifier</div>
+                            <div class="toggle-desc">How queries are classified before routing</div>
+                        </div>
+                        <select class="inline-select" id="rp-intent-mode" disabled>
+                            <option value="heuristic">Heuristic (fast)</option>
+                            <option value="llm">LLM (accurate)</option>
+                        </select>
+                    </div>
+                    <div class="threshold-row disabled" id="threshold-row">
+                        <div class="threshold-label">
+                            <span class="threshold-name">Confidence threshold</span>
+                            <span class="threshold-value" id="threshold-display">0.55</span>
+                        </div>
+                        <input type="range" id="rp-confidence" min="0" max="100" value="55" disabled
+                            oninput="document.getElementById('threshold-display').textContent = (this.value / 100).toFixed(2)">
+                    </div>
+                </div>
+
+                <!-- Independent toggles -->
+                <div class="toggle-group">
+                    <div class="toggle-group-header">General</div>
+                    <div class="toggle-row">
+                        <div class="toggle-info">
+                            <div class="toggle-name">Elysia Tree</div>
+                            <div class="toggle-desc">Multi-step reasoning via tree search</div>
+                        </div>
+                        <label class="routing-toggle">
+                            <input type="checkbox" id="rp-tree-enabled" checked>
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+                    <div class="toggle-row">
+                        <div class="toggle-info">
+                            <div class="toggle-name">Abstain gate</div>
+                            <div class="toggle-desc">Reject answers when retrieval quality is poor</div>
+                        </div>
+                        <label class="routing-toggle">
+                            <input type="checkbox" id="rp-abstain-gate" checked>
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+                    <div class="toggle-row">
+                        <div class="toggle-info">
+                            <div class="toggle-name">Follow-up binding</div>
+                            <div class="toggle-desc">Resolve "list them" from conversation context</div>
+                        </div>
+                        <label class="routing-toggle">
+                            <input type="checkbox" id="rp-followup-binding" checked>
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+                    <div class="toggle-row">
+                        <div class="toggle-info">
+                            <div class="toggle-name">Debug headers</div>
+                            <div class="toggle-desc">Show routing info in responses (dev only)</div>
+                        </div>
+                        <label class="routing-toggle">
+                            <input type="checkbox" id="rp-debug-headers">
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="settings-info">
+                    <span class="settings-info-icon">&#9432;</span>
+                    <span class="settings-info-text">
+                        Strict mode uses keyword matching for fast, deterministic routing.
+                        LLM mode classifies intent first, then routes to the Elysia Tree.
+                        Switching modes auto-enables the relevant sub-options.
+                    </span>
+                </div>
+
+                <button class="settings-btn" onclick="saveRoutingSettings()">Save Routing Settings</button>
+            </div>
         </div>
     </div>
 
@@ -2567,10 +2939,13 @@
             const modal = document.getElementById('settings-modal');
             modal.classList.add('active');
 
-            // Set current values
+            // Set current LLM values
             document.getElementById('llm-provider').value = llmSettings.provider;
             updateModelOptions();
             document.getElementById('llm-model').value = llmSettings.model;
+
+            // Load routing settings
+            loadRoutingSettings();
         }
 
         // Close settings modal
@@ -2642,6 +3017,160 @@
             } catch (error) {
                 console.error('Failed to save LLM settings:', error);
                 alert('Failed to save settings. Please try again.');
+            }
+        }
+
+        // =====================================================================
+        // ROUTING SETTINGS
+        // =====================================================================
+
+        // Current routing policy state (loaded from server)
+        let routingPolicy = {};
+
+        // Switch between settings tabs
+        function switchSettingsTab(tabName, btn) {
+            // Update tab buttons
+            document.querySelectorAll('.settings-tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.settings-tab-content').forEach(c => c.classList.remove('active'));
+
+            // Activate the clicked tab
+            btn.classList.add('active');
+            document.getElementById('tab-' + tabName).classList.add('active');
+        }
+
+        // Load routing settings from server
+        async function loadRoutingSettings() {
+            try {
+                const resp = await fetch('/api/settings/routing');
+                if (!resp.ok) return;
+                const data = await resp.json();
+                routingPolicy = data.policy || {};
+                applyRoutingPolicyToUI(routingPolicy);
+            } catch (err) {
+                console.error('Failed to load routing settings:', err);
+            }
+        }
+
+        // Apply server state to all UI controls
+        function applyRoutingPolicyToUI(p) {
+            const isStrict = p.strict_mode_enabled !== false;  // default true
+
+            // Mode cards
+            selectRoutingMode(isStrict, /* save */ false);
+
+            // Strict sub-options
+            document.getElementById('rp-catalog-short-circuit').checked = p.catalog_short_circuit_enabled !== false;
+            document.getElementById('rp-list-requires-intent').checked = p.list_route_requires_list_intent !== false;
+
+            // LLM sub-options
+            document.getElementById('rp-intent-mode').value = p.intent_router_mode || 'heuristic';
+            const threshold = p.intent_confidence_threshold != null ? p.intent_confidence_threshold : 0.55;
+            document.getElementById('rp-confidence').value = Math.round(threshold * 100);
+            document.getElementById('threshold-display').textContent = threshold.toFixed(2);
+
+            // Independent toggles
+            document.getElementById('rp-tree-enabled').checked = p.tree_enabled !== false;
+            document.getElementById('rp-abstain-gate').checked = p.abstain_gate_enabled !== false;
+            document.getElementById('rp-followup-binding').checked = p.followup_binding_enabled !== false;
+            document.getElementById('rp-debug-headers').checked = !!p.debug_headers_enabled;
+
+            // Wire catalog_short_circuit → list-requires-intent dependency
+            updateListRequiresIntentState();
+        }
+
+        // Select routing mode (strict vs LLM) and update UI hierarchy
+        function selectRoutingMode(isStrict, save = false) {
+            const strictCard = document.getElementById('mode-card-strict');
+            const llmCard = document.getElementById('mode-card-llm');
+            const strictOpts = document.getElementById('strict-options');
+            const llmOpts = document.getElementById('llm-options');
+
+            if (isStrict) {
+                strictCard.classList.add('selected');
+                llmCard.classList.remove('selected');
+                strictOpts.classList.remove('disabled');
+                llmOpts.classList.add('disabled');
+
+                // Enable strict controls, disable LLM controls
+                strictOpts.querySelectorAll('input, select').forEach(el => el.disabled = false);
+                llmOpts.querySelectorAll('input, select').forEach(el => el.disabled = true);
+
+                // Update sub-toggle states
+                updateListRequiresIntentState();
+            } else {
+                llmCard.classList.add('selected');
+                strictCard.classList.remove('selected');
+                llmOpts.classList.remove('disabled');
+                strictOpts.classList.add('disabled');
+
+                // Enable LLM controls, disable strict controls
+                llmOpts.querySelectorAll('input, select').forEach(el => el.disabled = false);
+                strictOpts.querySelectorAll('input, select').forEach(el => el.disabled = true);
+
+                // Enable threshold row
+                document.getElementById('threshold-row').classList.remove('disabled');
+            }
+        }
+
+        // Sub-toggle: list-requires-intent is only relevant when catalog_short_circuit is on
+        function updateListRequiresIntentState() {
+            const catalogOn = document.getElementById('rp-catalog-short-circuit').checked;
+            const listRow = document.getElementById('rp-list-requires-intent').closest('.toggle-row');
+            const listInput = document.getElementById('rp-list-requires-intent');
+            if (catalogOn) {
+                listRow.classList.remove('disabled');
+                listInput.disabled = false;
+            } else {
+                listRow.classList.add('disabled');
+                listInput.disabled = true;
+            }
+        }
+
+        // Wire the catalog toggle to update sub-toggle state
+        document.addEventListener('DOMContentLoaded', () => {
+            const catalogCb = document.getElementById('rp-catalog-short-circuit');
+            if (catalogCb) {
+                catalogCb.addEventListener('change', updateListRequiresIntentState);
+            }
+        });
+
+        // Save routing settings to server
+        async function saveRoutingSettings() {
+            const isStrict = document.getElementById('mode-card-strict').classList.contains('selected');
+
+            const payload = {
+                strict_mode_enabled: isStrict,
+                // When switching to LLM mode, auto-enable intent router.
+                // When switching to strict mode, auto-disable it.
+                intent_router_enabled: !isStrict,
+                intent_router_mode: document.getElementById('rp-intent-mode').value,
+                intent_confidence_threshold: parseInt(document.getElementById('rp-confidence').value) / 100,
+                catalog_short_circuit_enabled: document.getElementById('rp-catalog-short-circuit').checked,
+                list_route_requires_list_intent: document.getElementById('rp-list-requires-intent').checked,
+                tree_enabled: document.getElementById('rp-tree-enabled').checked,
+                abstain_gate_enabled: document.getElementById('rp-abstain-gate').checked,
+                followup_binding_enabled: document.getElementById('rp-followup-binding').checked,
+                debug_headers_enabled: document.getElementById('rp-debug-headers').checked,
+            };
+
+            try {
+                const resp = await fetch('/api/settings/routing', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (resp.ok) {
+                    routingPolicy = (await resp.json()).policy;
+                    closeSettings();
+                    console.log('Routing settings saved:', routingPolicy);
+                } else {
+                    const err = await resp.json();
+                    alert('Failed to save routing settings: ' + (err.detail || 'Unknown error'));
+                }
+            } catch (err) {
+                console.error('Failed to save routing settings:', err);
+                alert('Failed to save routing settings. Please try again.');
             }
         }
     </script>
