@@ -607,6 +607,64 @@ def build_conceptual_compare_response(question: str) -> str:
     )
 
 
+# =============================================================================
+# Definitional Doc-Type Query Detection
+# =============================================================================
+
+# "What is a/an [doc-type]?" patterns — definitional, not listing
+_DEFINITIONAL_RE = re.compile(
+    r"\bwhat\s+(?:is|are)\s+(?:a|an)\s+"
+    r"(adrs?|dars?|pcps?|principles?|polic(?:y|ies))\b"
+    r"|\bwhat\s+(?:is|are)\s+"
+    r"(adrs?|dars?|pcps?|principles?|polic(?:y|ies))\b"
+    r"|\bdefine\s+(adrs?|dars?|pcps?|principles?|polic(?:y|ies))\b"
+    r"|\bwhat\s+does\s+(adrs?|dars?|pcps?|principles?|polic(?:y|ies))\s+mean\b",
+    re.IGNORECASE,
+)
+
+
+def is_definitional_doc_type_query(question: str) -> bool:
+    """Detect definitional questions about ESA document types.
+
+    Returns True for "What is a DAR?", "What is an ADR?", "Define PCP".
+    Returns False for "list DARs", "what DARs exist?", or compare queries.
+    """
+    # Compare queries are handled separately
+    if is_conceptual_compare_query(question):
+        return False
+
+    return bool(_DEFINITIONAL_RE.search(question))
+
+
+def _extract_definitional_doc_type(question: str) -> str | None:
+    """Extract the normalised doc type from a definitional query."""
+    m = _DEFINITIONAL_RE.search(question)
+    if not m:
+        return None
+    # The match is in one of the capture groups
+    raw = next((g for g in m.groups() if g), None)
+    if not raw:
+        return None
+    raw = raw.lower().rstrip("s")
+    if raw.startswith("polic"):
+        return "policy"
+    if raw.startswith("principle"):
+        return "principle"
+    return raw  # adr, dar, pcp
+
+
+def build_definitional_response(question: str) -> str:
+    """Build a deterministic definition for a single doc type."""
+    doc_type = _extract_definitional_doc_type(question)
+    desc = _DOC_TYPE_DESCRIPTIONS.get(doc_type, "")
+    if not desc:
+        return ""
+    return (
+        f"{desc}\n\n"
+        f"Would you like me to list the {doc_type.upper()}s in the knowledge base?"
+    )
+
+
 def is_terminology_query(question: str) -> bool:
     """Check if query is asking about terminology/definitions.
 
@@ -2418,6 +2476,23 @@ IMPORTANT GUIDELINES:
                 }, indent=2), []
             return compare_response, []
 
+        # DEFINITIONAL DOC-TYPE SHORT-CIRCUIT
+        # "What is a DAR?" → deterministic definition, not a list of 49 DARs.
+        # Must be checked BEFORE keyword-based list routing.
+        if is_definitional_doc_type_query(question):
+            logger.info("Route: semantic (definitional_doc_type)")
+            def_response = build_definitional_response(question)
+            if def_response:
+                if structured_mode:
+                    import json as _json
+                    return _json.dumps({
+                        "schema_version": "1.0",
+                        "answer": def_response,
+                        "sources": [],
+                        "transparency_statement": "Deterministic doc-type definition (no retrieval).",
+                    }, indent=2), []
+                return def_response, []
+
         # DETERMINISTIC LIST HANDLING
         # For list queries, call list tools directly and use deterministic serialization
         # This bypasses LLM response generation for list endpoints (enterprise pattern)
@@ -2442,7 +2517,7 @@ IMPORTANT GUIDELINES:
         # queries where topical markers block the full list-query detector.
         _LIST_INTENT_RE = re.compile(
             r"\blist\b|\bshow\b|\benumerate\b|\ball\b|\bwhich\b"
-            r"|\bexist(?:s|ing)?\b"
+            r"|\bexist(?:s|ing)?\b|\bprovide\b"
             r"|\bhow\s+about\b|\bwhat\s+about\b"
             r"|\bhow\s+many\b",
             re.IGNORECASE,
@@ -2454,11 +2529,13 @@ IMPORTANT GUIDELINES:
         # Priority 1: Check for approval/governance/DAR record queries FIRST
         # Patterns: "approval records", "decision approval", "who approved", "daci",
         # "dar", "dars", "decision approval record(s)"
+        #
+        # Approval-intent markers fire unconditionally (they encode intent).
+        # Bare DAR regex requires list intent to avoid "What is a DAR?" → list.
         approval_markers = _get_markers("approval_intent")
-        # DAR-specific patterns with word boundaries to avoid false positives
         _DAR_RE = re.compile(r"\bdars?\b|decision approval record", re.IGNORECASE)
         is_approval_query = any(marker in question_lower for marker in approval_markers)
-        is_dar_list_query = bool(_DAR_RE.search(question_lower))
+        is_dar_list_query = has_list_intent and bool(_DAR_RE.search(question_lower))
 
         if is_approval_query or is_dar_list_query:
             logger.info("Approval/DAR records query detected - using deterministic path")

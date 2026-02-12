@@ -53,7 +53,7 @@ class TestListIntentRegex:
 
     _LIST_INTENT_RE = re.compile(
         r"\blist\b|\bshow\b|\benumerate\b|\ball\b|\bwhich\b"
-        r"|\bexist(?:s|ing)?\b"
+        r"|\bexist(?:s|ing)?\b|\bprovide\b"
         r"|\bhow\s+about\b|\bwhat\s+about\b"
         r"|\bhow\s+many\b",
         re.IGNORECASE,
@@ -66,6 +66,7 @@ class TestListIntentRegex:
         "how about DARs?",
         "what about policies?",
         "how many ADRs do we have?",
+        "And can you provide DARs?",
     ])
     def test_list_intent_present(self, query):
         assert self._LIST_INTENT_RE.search(query.lower()), (
@@ -74,6 +75,8 @@ class TestListIntentRegex:
 
     @pytest.mark.parametrize("query", [
         "What is an ADR?",
+        "What is a DAR?",
+        "What is a DAR? Do you know?",
         "What's the difference between an ADR and a PCP?",
         "Tell me about ADR.0025",
         "Explain the ADR process",
