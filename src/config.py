@@ -438,5 +438,26 @@ def invalidate_config_caches() -> None:
     _load_routing_policy.cache_clear()
 
 
+def save_routing_policy(policy: Dict[str, Any]) -> None:
+    """Write routing policy to YAML and invalidate the cache.
+
+    Only writes recognised keys so callers cannot inject arbitrary YAML.
+    """
+    _KNOWN_KEYS = {
+        "strict_mode_enabled", "intent_router_enabled", "intent_router_mode",
+        "followup_binding_enabled", "catalog_short_circuit_enabled",
+        "abstain_gate_enabled", "list_route_requires_list_intent",
+        "max_tree_seconds", "tree_enabled", "intent_confidence_threshold",
+        "debug_headers_enabled",
+    }
+    filtered = {k: v for k, v in policy.items() if k in _KNOWN_KEYS}
+    policy_path = Path(settings.resolve_path(settings.routing_policy_path))
+    policy_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(policy_path, "w") as f:
+        yaml.dump(filtered, f, default_flow_style=False, sort_keys=False)
+    logger.info("Routing policy saved to %s", policy_path)
+    invalidate_config_caches()
+
+
 # Global settings instance
 settings = Settings()

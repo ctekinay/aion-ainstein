@@ -28,7 +28,7 @@ from pydantic import BaseModel
 
 from weaviate.classes.query import Filter
 
-from .config import settings
+from .config import settings, save_routing_policy, invalidate_config_caches
 from .weaviate.client import get_weaviate_client
 from .weaviate.collections import get_collection_name
 from .weaviate.embeddings import embed_text
@@ -1300,7 +1300,12 @@ async def chat_stream(request: ChatRequest):
         update_conversation_title(conversation_id, title)
 
     # Resolve follow-up queries ("list them" → "list dars")
-    resolved_message = resolve_followup(request.message, conversation_id)
+    # Gated by followup_binding_enabled routing policy flag.
+    _routing_policy = settings.get_routing_policy()
+    if _routing_policy.get("followup_binding_enabled", True):
+        resolved_message = resolve_followup(request.message, conversation_id)
+    else:
+        resolved_message = request.message
 
     async def event_generator():
         # Send conversation ID first
@@ -1573,6 +1578,81 @@ async def add_ollama_model(model_id: str):
 
     logger.info(f"Added new Ollama model: {model_id}")
     return {"status": "added", "model": new_model}
+
+
+# =============================================================================
+# Routing Policy Settings API
+# =============================================================================
+
+
+class RoutingPolicyUpdate(BaseModel):
+    """Request model for updating routing policy flags."""
+    strict_mode_enabled: Optional[bool] = None
+    intent_router_enabled: Optional[bool] = None
+    intent_router_mode: Optional[str] = None
+    followup_binding_enabled: Optional[bool] = None
+    catalog_short_circuit_enabled: Optional[bool] = None
+    abstain_gate_enabled: Optional[bool] = None
+    list_route_requires_list_intent: Optional[bool] = None
+    max_tree_seconds: Optional[int] = None
+    tree_enabled: Optional[bool] = None
+    intent_confidence_threshold: Optional[float] = None
+    debug_headers_enabled: Optional[bool] = None
+
+
+@app.get("/api/settings/routing")
+async def get_routing_settings():
+    """Get current routing policy flags."""
+    policy = settings.get_routing_policy()
+    return {"policy": policy}
+
+
+@app.post("/api/settings/routing")
+async def set_routing_settings(update: RoutingPolicyUpdate):
+    """Update routing policy flags.
+
+    Merges the provided values into the current policy and persists to YAML.
+    Invalidates the config cache so next request uses new values.
+    """
+    # Start from current policy
+    current = settings.get_routing_policy()
+
+    # Merge only the fields that were explicitly provided
+    update_dict = update.model_dump(exclude_none=True)
+    if not update_dict:
+        raise HTTPException(status_code=400, detail="No fields provided to update")
+
+    # Validate intent_router_mode
+    if "intent_router_mode" in update_dict:
+        if update_dict["intent_router_mode"] not in ("heuristic", "llm"):
+            raise HTTPException(
+                status_code=400,
+                detail="intent_router_mode must be 'heuristic' or 'llm'"
+            )
+
+    # Validate intent_confidence_threshold
+    if "intent_confidence_threshold" in update_dict:
+        val = update_dict["intent_confidence_threshold"]
+        if not (0.0 <= val <= 1.0):
+            raise HTTPException(
+                status_code=400,
+                detail="intent_confidence_threshold must be between 0.0 and 1.0"
+            )
+
+    # Validate max_tree_seconds
+    if "max_tree_seconds" in update_dict:
+        val = update_dict["max_tree_seconds"]
+        if val < 1 or val > 600:
+            raise HTTPException(
+                status_code=400,
+                detail="max_tree_seconds must be between 1 and 600"
+            )
+
+    current.update(update_dict)
+    save_routing_policy(current)
+
+    logger.info(f"Routing policy updated: {update_dict}")
+    return {"status": "updated", "policy": current}
 
 
 # =============================================================================

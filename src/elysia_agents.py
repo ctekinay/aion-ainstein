@@ -2416,6 +2416,8 @@ IMPORTANT GUIDELINES:
         intent_router_mode = routing_policy.get("intent_router_mode", "heuristic")
         confidence_threshold = routing_policy.get("intent_confidence_threshold", 0.55)
         max_tree_seconds = routing_policy.get("max_tree_seconds", settings.elysia_query_timeout_seconds)
+        list_route_requires_list_intent = routing_policy.get("list_route_requires_list_intent", True)
+        followup_binding_enabled = routing_policy.get("followup_binding_enabled", True)
 
         # Routing transparency log (internal only, never exposed in responses)
         route_log = {
@@ -2427,6 +2429,10 @@ IMPORTANT GUIDELINES:
             "doc_types_allowed": [],
             "abstain_gate_triggered": False,
             "tree_timeout": False,
+            "strict_mode": strict_mode_enabled,
+            "catalog_short_circuit": catalog_short_circuit,
+            "tree_enabled": tree_enabled,
+            "abstain_gate_enabled": abstain_gate_enabled,
         }
 
         # =============================================================================
@@ -2497,12 +2503,25 @@ IMPORTANT GUIDELINES:
             )
 
         # =============================================================================
+        # STRICT-MODE GATE
+        # When strict mode is disabled, skip ALL keyword-triggered deterministic
+        # routes below.  Queries proceed directly to the Elysia Tree / LLM path.
+        # The intent router (above) still handles META, COMPARE_CONCEPTS, and
+        # COMPARE_COUNTS when enabled.
+        # =============================================================================
+        if not strict_mode_enabled:
+            logger.info(
+                "Strict mode OFF — bypassing all deterministic routes, "
+                "proceeding to Tree/LLM path"
+            )
+
+        # =============================================================================
         # META ROUTE SHORT-CIRCUIT (P1)
         # Questions about AInstein itself (skills, architecture, formatting, pipeline)
         # are answered deterministically without querying the ESA knowledge base.
         # This prevents the "spiral" where meta questions get routed to ADR search.
         # =============================================================================
-        if is_meta_query(question):
+        if strict_mode_enabled and is_meta_query(question):
             route_log["route_selected"] = "meta"
             logger.info(f"Meta route: short-circuiting for system question: {question[:80]}...")
             obs_metrics.increment("meta_route_total")
@@ -2519,7 +2538,7 @@ IMPORTANT GUIDELINES:
         # For queries like "Who approved ADR.0025?", parse DAR tables directly
         # This bypasses LLM interpretation for reliable approver extraction
         # =============================================================================
-        if is_specific_approval_query(question):
+        if strict_mode_enabled and is_specific_approval_query(question):
             doc_type, doc_number = extract_document_number(question)
             if doc_type and doc_number:
                 logger.info(f"Specific approval query detected: {doc_type}.{doc_number}")
@@ -2544,7 +2563,7 @@ IMPORTANT GUIDELINES:
         # For queries like "Tell me about ADR.0025D" - explicit DAR content request
         # This fetches the DAR document itself (not approval extraction)
         # =============================================================================
-        if is_specific_dar_query(question):
+        if strict_mode_enabled and is_specific_dar_query(question):
             doc_type, doc_number, is_dar = extract_document_reference(question)
             if doc_type and doc_number:
                 logger.info(f"Specific DAR content query detected: {doc_type}.{doc_number}D")
@@ -2567,7 +2586,7 @@ IMPORTANT GUIDELINES:
         # For queries like "Tell me about ADR.0025" - fetch content doc, NOT DAR
         # This prevents DAR from outranking the actual decision record in semantic search
         # =============================================================================
-        if is_specific_content_query(question):
+        if strict_mode_enabled and is_specific_content_query(question):
             doc_type, doc_number, is_dar = extract_document_reference(question)
             if doc_type and doc_number and not is_dar:
                 logger.info(f"Specific content query detected: {doc_type}.{doc_number}")
@@ -2589,7 +2608,7 @@ IMPORTANT GUIDELINES:
         # "What's the difference between an ADR and a PCP?" → deterministic explanation
         # Must be checked BEFORE keyword-based list routing, otherwise "ADR" in the
         # question triggers list_all_adrs.
-        if is_conceptual_compare_query(question):
+        if strict_mode_enabled and is_conceptual_compare_query(question):
             logger.info("Route: semantic (conceptual_compare)")
             compare_response = build_conceptual_compare_response(question)
             if structured_mode:
@@ -2605,7 +2624,7 @@ IMPORTANT GUIDELINES:
         # DEFINITIONAL DOC-TYPE SHORT-CIRCUIT
         # "What is a DAR?" → deterministic definition, not a list of 49 DARs.
         # Must be checked BEFORE keyword-based list routing.
-        if is_definitional_doc_type_query(question):
+        if strict_mode_enabled and is_definitional_doc_type_query(question):
             logger.info("Route: semantic (definitional_doc_type)")
             def_response = build_definitional_response(question)
             if def_response:
@@ -2619,7 +2638,7 @@ IMPORTANT GUIDELINES:
                     }, indent=2), []
                 return def_response, []
 
-        # DETERMINISTIC LIST HANDLING
+        # DETERMINISTIC LIST HANDLING (gated by strict_mode + catalog_short_circuit)
         # For list queries, call list tools directly and use deterministic serialization
         # This bypasses LLM response generation for list endpoints (enterprise pattern)
         #
@@ -2638,116 +2657,122 @@ IMPORTANT GUIDELINES:
         list_result = None
         objects = []
 
-        # Lightweight list-intent verbs / topical patterns.
-        # These supplement is_list_query() to catch "how about DARs?" style
-        # queries where topical markers block the full list-query detector.
-        _LIST_INTENT_RE = re.compile(
-            r"\blist\b|\bshow\b|\benumerate\b|\ball\b|\bwhich\b"
-            r"|\bexist(?:s|ing)?\b|\bprovide\b"
-            r"|\bhow\s+about\b|\bwhat\s+about\b"
-            r"|\bhow\s+many\b",
-            re.IGNORECASE,
-        )
-        has_list_intent = bool(
-            is_list_query(question) or _LIST_INTENT_RE.search(question_lower)
-        )
+        if strict_mode_enabled and catalog_short_circuit:
+            # Lightweight list-intent verbs / topical patterns.
+            # These supplement is_list_query() to catch "how about DARs?" style
+            # queries where topical markers block the full list-query detector.
+            _LIST_INTENT_RE = re.compile(
+                r"\blist\b|\bshow\b|\benumerate\b|\ball\b|\bwhich\b"
+                r"|\bexist(?:s|ing)?\b|\bprovide\b"
+                r"|\bhow\s+about\b|\bwhat\s+about\b"
+                r"|\bhow\s+many\b",
+                re.IGNORECASE,
+            )
+            # When list_route_requires_list_intent is False, treat every query
+            # as having list intent (bare keyword match is enough).
+            if list_route_requires_list_intent:
+                has_list_intent = bool(
+                    is_list_query(question) or _LIST_INTENT_RE.search(question_lower)
+                )
+            else:
+                has_list_intent = True
 
-        # Priority 1: Check for approval/governance/DAR record queries FIRST
-        # Patterns: "approval records", "decision approval", "who approved", "daci",
-        # "dar", "dars", "decision approval record(s)"
-        #
-        # Approval-intent markers fire unconditionally (they encode intent).
-        # Bare DAR regex requires list intent to avoid "What is a DAR?" → list.
-        approval_markers = _get_markers("approval_intent")
-        _DAR_RE = re.compile(r"\bdars?\b|decision approval record", re.IGNORECASE)
-        is_approval_query = any(marker in question_lower for marker in approval_markers)
-        is_dar_list_query = has_list_intent and bool(_DAR_RE.search(question_lower))
+            # Priority 1: Check for approval/governance/DAR record queries FIRST
+            # Patterns: "approval records", "decision approval", "who approved", "daci",
+            # "dar", "dars", "decision approval record(s)"
+            #
+            # Approval-intent markers fire unconditionally (they encode intent).
+            # Bare DAR regex requires list intent to avoid "What is a DAR?" → list.
+            approval_markers = _get_markers("approval_intent")
+            _DAR_RE = re.compile(r"\bdars?\b|decision approval record", re.IGNORECASE)
+            is_approval_query = any(marker in question_lower for marker in approval_markers)
+            is_dar_list_query = has_list_intent and bool(_DAR_RE.search(question_lower))
 
-        if is_approval_query or is_dar_list_query:
-            logger.info("Approval/DAR records query detected - using deterministic path")
-            list_tool = self._tool_registry.get("list_approval_records")
-            if list_tool:
-                # Determine collection type from query
-                if "principle" in question_lower:
-                    list_result = await list_tool("principle")
-                elif "adr" in question_lower:
-                    list_result = await list_tool("adr")
-                else:
-                    list_result = await list_tool("all")
-                objects = list_result.get("rows", []) if isinstance(list_result, dict) else []
+            if is_approval_query or is_dar_list_query:
+                logger.info("Approval/DAR records query detected - using deterministic path")
+                list_tool = self._tool_registry.get("list_approval_records")
+                if list_tool:
+                    # Determine collection type from query
+                    if "principle" in question_lower:
+                        list_result = await list_tool("principle")
+                    elif "adr" in question_lower:
+                        list_result = await list_tool("adr")
+                    else:
+                        list_result = await list_tool("all")
+                    objects = list_result.get("rows", []) if isinstance(list_result, dict) else []
 
-        elif has_list_intent and re.search(r"\badrs?\b", question_lower):
-            logger.info("List query detected for ADRs - using deterministic path")
-            list_tool = self._tool_registry.get("list_all_adrs")
-            if list_tool:
-                list_result = await list_tool()
-                objects = list_result.get("rows", []) if isinstance(list_result, dict) else []
-
-        elif has_list_intent and re.search(r"\bprinciples?\b", question_lower):
-            logger.info("List query detected for Principles - using deterministic path")
-            list_tool = self._tool_registry.get("list_all_principles")
-            if list_tool:
-                list_result = await list_tool()
-                objects = list_result.get("rows", []) if isinstance(list_result, dict) else []
-
-        elif has_list_intent and re.search(r"\bpolic(?:y|ies)\b", question_lower):
-            logger.info("List query detected for Policies - using deterministic path")
-            list_tool = self._tool_registry.get("list_all_policies")
-            if list_tool:
-                list_result = await list_tool()
-                objects = list_result.get("rows", []) if isinstance(list_result, dict) else []
-
-        elif is_list_query(question):
-            # Broader keywords only fire when is_list_query() confirms list intent
-            if ("decision" in question_lower and "approval" not in question_lower) or "architecture" in question_lower:
-                logger.info("List query detected for ADRs (broad keyword) - using deterministic path")
+            elif has_list_intent and re.search(r"\badrs?\b", question_lower):
+                logger.info("List query detected for ADRs - using deterministic path")
                 list_tool = self._tool_registry.get("list_all_adrs")
                 if list_tool:
                     list_result = await list_tool()
                     objects = list_result.get("rows", []) if isinstance(list_result, dict) else []
-            elif "governance" in question_lower:
-                logger.info("List query detected for Principles (broad keyword) - using deterministic path")
+
+            elif has_list_intent and re.search(r"\bprinciples?\b", question_lower):
+                logger.info("List query detected for Principles - using deterministic path")
                 list_tool = self._tool_registry.get("list_all_principles")
                 if list_tool:
                     list_result = await list_tool()
                     objects = list_result.get("rows", []) if isinstance(list_result, dict) else []
-            else:
-                # No recognized collection keyword — only show ESA clarification
-                # if the query has ESA cues.  Otherwise let it fall through
-                # to the out-of-scope gate.
-                if _has_esa_cues(question):
-                    logger.info("List query detected but no collection keyword matched — asking for clarification")
-                    return (
-                        "I can list several types of documents. Which would you like?\n\n"
-                        "- **ADRs** — Architecture Decision Records\n"
-                        "- **DARs** — Decision Approval Records\n"
-                        "- **Principles** — Architecture & governance principles\n"
-                        "- **Policies** — Data governance policies\n\n"
-                        "Please specify, for example: *list ADRs* or *list principles*."
-                    ), []
+
+            elif has_list_intent and re.search(r"\bpolic(?:y|ies)\b", question_lower):
+                logger.info("List query detected for Policies - using deterministic path")
+                list_tool = self._tool_registry.get("list_all_policies")
+                if list_tool:
+                    list_result = await list_tool()
+                    objects = list_result.get("rows", []) if isinstance(list_result, dict) else []
+
+            elif is_list_query(question):
+                # Broader keywords only fire when is_list_query() confirms list intent
+                if ("decision" in question_lower and "approval" not in question_lower) or "architecture" in question_lower:
+                    logger.info("List query detected for ADRs (broad keyword) - using deterministic path")
+                    list_tool = self._tool_registry.get("list_all_adrs")
+                    if list_tool:
+                        list_result = await list_tool()
+                        objects = list_result.get("rows", []) if isinstance(list_result, dict) else []
+                elif "governance" in question_lower:
+                    logger.info("List query detected for Principles (broad keyword) - using deterministic path")
+                    list_tool = self._tool_registry.get("list_all_principles")
+                    if list_tool:
+                        list_result = await list_tool()
+                        objects = list_result.get("rows", []) if isinstance(list_result, dict) else []
                 else:
-                    logger.info("List query detected but no ESA cues — skipping ESA clarification")
+                    # No recognized collection keyword — only show ESA clarification
+                    # if the query has ESA cues.  Otherwise let it fall through
+                    # to the out-of-scope gate.
+                    if _has_esa_cues(question):
+                        logger.info("List query detected but no collection keyword matched — asking for clarification")
+                        return (
+                            "I can list several types of documents. Which would you like?\n\n"
+                            "- **ADRs** — Architecture Decision Records\n"
+                            "- **DARs** — Decision Approval Records\n"
+                            "- **Principles** — Architecture & governance principles\n"
+                            "- **Policies** — Data governance policies\n\n"
+                            "Please specify, for example: *list ADRs* or *list principles*."
+                        ), []
+                    else:
+                        logger.info("List query detected but no ESA cues — skipping ESA clarification")
 
-        # If we have a list result, use deterministic serialization
-        if list_result and is_list_result(list_result):
-            gateway_result = handle_list_result(list_result, context)
-            if gateway_result:
-                logger.info(
-                    f"Deterministic list response: items_shown={gateway_result.structured_response.items_shown if gateway_result.structured_response else 0}, "
-                    f"items_total={gateway_result.structured_response.items_total if gateway_result.structured_response else 0}"
-                )
-                return gateway_result.response, objects
+            # If we have a list result, use deterministic serialization
+            if list_result and is_list_result(list_result):
+                gateway_result = handle_list_result(list_result, context)
+                if gateway_result:
+                    logger.info(
+                        f"Deterministic list response: items_shown={gateway_result.structured_response.items_shown if gateway_result.structured_response else 0}, "
+                        f"items_total={gateway_result.structured_response.items_total if gateway_result.structured_response else 0}"
+                    )
+                    return gateway_result.response, objects
 
-        # Check for error result (e.g., fallback blocked)
-        if list_result and isinstance(list_result, dict) and list_result.get("error"):
-            error_msg = list_result.get("message", "An error occurred")
-            return error_msg, []
+            # Check for error result (e.g., fallback blocked)
+            if list_result and isinstance(list_result, dict) and list_result.get("error"):
+                error_msg = list_result.get("message", "An error occurred")
+                return error_msg, []
 
-        # DETERMINISTIC COUNT HANDLING
+        # DETERMINISTIC COUNT HANDLING (gated by strict_mode + catalog_short_circuit)
         # For count queries, call count tool directly and return structured JSON
         # This ensures accurate counts and contract compliance
         is_count, count_collection = is_count_query(question)
-        if is_count:
+        if strict_mode_enabled and catalog_short_circuit and is_count:
             logger.info(f"Count query detected for {count_collection} - using deterministic path")
             count_tool = self._tool_registry.get("count_documents")
             if count_tool:
@@ -2779,7 +2804,7 @@ IMPORTANT GUIDELINES:
         # TERMINOLOGY VERIFICATION (Phase 5 Gap A)
         # For terminology queries, verify terms against SKOSMOS before proceeding
         # This prevents hallucination about undefined technical terms
-        if is_terminology_query(question):
+        if strict_mode_enabled and is_terminology_query(question):
             request_id = generate_request_id()
             should_abstain_term, abstain_reason_term, term_results = verify_terminology_in_query(
                 question, request_id
@@ -2805,7 +2830,7 @@ IMPORTANT GUIDELINES:
         # deterministic coverage and lower latency.
         # =============================================================================
         cross_domain, cross_collections = is_cross_domain_query(question)
-        if cross_domain:
+        if strict_mode_enabled and cross_domain:
             logger.info(
                 f"Cross-domain query detected: collections={cross_collections}"
             )
@@ -2820,7 +2845,7 @@ IMPORTANT GUIDELINES:
         # domain terms), it's likely a general question that the Tree would
         # waste time on. Return a polite scope message instead.
         # =============================================================================
-        if not _has_esa_cues(question):
+        if strict_mode_enabled and not _has_esa_cues(question):
             logger.info(f"Out-of-scope query detected (no ESA cues): {question[:80]}")
             obs_metrics.increment("out_of_scope_total")
             if structured_mode:
@@ -2848,74 +2873,87 @@ IMPORTANT GUIDELINES:
         else:
             agent_description = self._base_agent_description
 
-        # Create per-request tree instance (thread-safe: no shared mutable state)
-        request_tree = self._create_tree(agent_description)
+        # =============================================================================
+        # TREE / LLM PATH
+        # When tree_enabled=true, use Elysia Tree for multi-step reasoning.
+        # When tree_enabled=false, use direct retrieval + LLM generation.
+        # =============================================================================
+        if tree_enabled:
+            # Create per-request tree instance (thread-safe: no shared mutable state)
+            request_tree = self._create_tree(agent_description)
 
-        try:
-            # Use semaphore to limit concurrent Elysia calls (prevents thread explosion)
-            # Use asyncio.to_thread to offload blocking Tree call (prevents event loop blocking)
-            # Use wait_for to add timeout and enable cancellation
-            semaphore = _get_elysia_semaphore()
-            async with semaphore:
-                response, objects = await asyncio.wait_for(
-                    asyncio.to_thread(
-                        request_tree, question, collection_names=our_collections
-                    ),
-                    timeout=settings.elysia_query_timeout_seconds
+            try:
+                # Use semaphore to limit concurrent Elysia calls (prevents thread explosion)
+                # Use asyncio.to_thread to offload blocking Tree call (prevents event loop blocking)
+                # Use wait_for to add timeout and enable cancellation
+                semaphore = _get_elysia_semaphore()
+                async with semaphore:
+                    response, objects = await asyncio.wait_for(
+                        asyncio.to_thread(
+                            request_tree, question, collection_names=our_collections
+                        ),
+                        timeout=max_tree_seconds
+                    )
+
+                    # Log tree completion stats for debugging (must be done after call completes)
+                    iterations = request_tree.tree_data.num_trees_completed
+                    limit = request_tree.tree_data.recursion_limit
+
+                if iterations >= limit:
+                    logger.warning(f"Elysia tree hit recursion limit ({iterations}/{limit})")
+                else:
+                    logger.debug(f"Elysia tree completed in {iterations} iteration(s)")
+
+            except asyncio.TimeoutError:
+                # Query exceeded timeout - log and fallback
+                logger.warning(
+                    f"Elysia tree timed out after {max_tree_seconds}s, "
+                    "using direct tool execution"
                 )
+                response, objects = await self._direct_query(question, structured_mode=structured_mode)
+                return response, objects
 
-                # Log tree completion stats for debugging (must be done after call completes)
-                iterations = request_tree.tree_data.num_trees_completed
-                limit = request_tree.tree_data.recursion_limit
-
-            if iterations >= limit:
-                logger.warning(f"Elysia tree hit recursion limit ({iterations}/{limit})")
-            else:
-                logger.debug(f"Elysia tree completed in {iterations} iteration(s)")
-
-        except asyncio.TimeoutError:
-            # Query exceeded timeout - log and fallback
-            logger.warning(
-                f"Elysia tree timed out after {settings.elysia_query_timeout_seconds}s, "
-                "using direct tool execution"
-            )
+            except Exception as e:
+                # If Elysia's tree fails, fall back to direct tool execution
+                logger.warning(f"Elysia tree failed: {e}, using direct tool execution")
+                # _direct_query handles its own post-processing, pass structured_mode
+                response, objects = await self._direct_query(question, structured_mode=structured_mode)
+                # Return directly since _direct_query already post-processed
+                return response, objects
+        else:
+            # Tree disabled — use direct retrieval + LLM generation
+            logger.info("Tree disabled — using direct retrieval + LLM generation")
             response, objects = await self._direct_query(question, structured_mode=structured_mode)
-            return response, objects
-
-        except Exception as e:
-            # If Elysia's tree fails, fall back to direct tool execution
-            logger.warning(f"Elysia tree failed: {e}, using direct tool execution")
-            # _direct_query handles its own post-processing, pass structured_mode
-            response, objects = await self._direct_query(question, structured_mode=structured_mode)
-            # Return directly since _direct_query already post-processed
             return response, objects
 
         # =================================================================
         # GROUNDING GATE: reject LLM answers when retrieval is empty
         # If the Tree generated a substantive response but retrieved zero
         # documents, the answer is almost certainly hallucinated.
+        # Gated by abstain_gate_enabled flag.
         # =================================================================
-        _response_text = response if isinstance(response, str) else str(response)
-        _is_substantive = len(_response_text.strip()) > 100
-        _is_abstention = any(
-            phrase in _response_text.lower()
-            for phrase in (
-                "not found in the knowledge base",
-                "don't have sufficient information",
-                "no relevant documents",
-                "i couldn't find",
+        if abstain_gate_enabled:
+            _response_text = response if isinstance(response, str) else str(response)
+            _is_substantive = len(_response_text.strip()) > 100
+            _is_abstention = any(
+                phrase in _response_text.lower()
+                for phrase in (
+                    "not found in the knowledge base",
+                    "don't have sufficient information",
+                    "no relevant documents",
+                    "i couldn't find",
+                )
             )
-        )
-        if not objects and _is_substantive and not _is_abstention:
-            logger.warning(
-                "Grounding gate: Tree returned substantive response with zero "
-                "retrieved objects — replacing with abstention"
-            )
-            obs_metrics.increment("grounding_gate_abstention_total")
-            grounded = get_abstention_response(
-                "No relevant documents were retrieved from the knowledge base for this query."
-            )
-            return grounded, objects
+            if not objects and _is_substantive and not _is_abstention:
+                logger.warning(
+                    "Grounding gate: Tree returned substantive response with zero "
+                    "retrieved objects — replacing with abstention"
+                )
+                obs_metrics.increment("grounding_gate_abstention_total")
+                grounded = get_abstention_response(
+                    "No relevant documents were retrieved from the knowledge base for this query."
+                )
+                return grounded, objects
 
         # POST-PROCESS the Elysia tree response through unified contract enforcement
         # This is the critical fix: main path must also enforce structured response contract
