@@ -1957,6 +1957,20 @@ async def skills_page():
         return HTMLResponse("<h1>Skills UI</h1><p>skills.html not found.</p>")
 
 
+@app.get("/routing", response_class=HTMLResponse)
+async def routing_page():
+    """Serve the Routing Settings UI page."""
+    static_dir = Path(__file__).parent / "static"
+    routing_path = static_dir / "routing.html"
+    if routing_path.exists():
+        return HTMLResponse(
+            routing_path.read_text(encoding="utf-8"),
+            headers={"Cache-Control": "no-cache, no-store, must-revalidate"},
+        )
+    else:
+        return HTMLResponse("<h1>Routing Settings</h1><p>routing.html not found.</p>")
+
+
 # Mount static files
 static_dir = Path(__file__).parent / "static"
 if static_dir.exists():
