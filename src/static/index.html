@@ -1330,6 +1330,11 @@
             overflow: hidden;
         }
 
+        .toggle-group.disabled {
+            opacity: 0.35;
+            pointer-events: none;
+        }
+
         .toggle-group-header {
             font-size: 11px;
             font-weight: 600;
@@ -1610,8 +1615,8 @@
 
             <!-- Tabs -->
             <div class="settings-tabs">
-                <button class="settings-tab active" onclick="switchSettingsTab('llm')">LLM</button>
-                <button class="settings-tab" onclick="switchSettingsTab('routing')">Routing</button>
+                <button class="settings-tab active" onclick="switchSettingsTab('llm', this)">LLM</button>
+                <button class="settings-tab" onclick="switchSettingsTab('routing', this)">Routing</button>
             </div>
 
             <!-- LLM Tab -->
@@ -3019,13 +3024,13 @@
         let routingPolicy = {};
 
         // Switch between settings tabs
-        function switchSettingsTab(tabName) {
+        function switchSettingsTab(tabName, btn) {
             // Update tab buttons
             document.querySelectorAll('.settings-tab').forEach(t => t.classList.remove('active'));
             document.querySelectorAll('.settings-tab-content').forEach(c => c.classList.remove('active'));
 
             // Activate the clicked tab
-            event.target.classList.add('active');
+            btn.classList.add('active');
             document.getElementById('tab-' + tabName).classList.add('active');
         }
 

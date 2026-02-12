@@ -1272,7 +1272,10 @@ async def root():
     index_path = static_dir / "index.html"
 
     if index_path.exists():
-        return FileResponse(index_path)
+        return FileResponse(
+            index_path,
+            headers={"Cache-Control": "no-cache, no-store, must-revalidate"},
+        )
     else:
         return HTMLResponse("<h1>AInstein</h1><p>Static files not found.</p>")
 
