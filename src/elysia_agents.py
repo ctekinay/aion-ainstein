@@ -501,6 +501,112 @@ _OUT_OF_SCOPE_RESPONSE = (
 )
 
 
+# =============================================================================
+# Conceptual Compare Detection
+# =============================================================================
+
+# Regex for "difference between", "different from/than", "compare", "vs", "versus"
+_COMPARE_RE = re.compile(
+    r"\bdifferen(?:ce|t)\s+(?:between|from|than)\b"
+    r"|\bcompare\b|\bcomparison\b"
+    r"|\bvs\.?\b|\bversus\b",
+    re.IGNORECASE,
+)
+
+# Doc-type keywords that qualify a compare query as ESA-scoped
+_COMPARE_DOC_TYPES = re.compile(
+    r"\badrs?\b|\bdars?\b|\bpcps?\b|\bprinciples?\b|\bpolic(?:y|ies)\b",
+    re.IGNORECASE,
+)
+
+
+def is_conceptual_compare_query(question: str) -> bool:
+    """Detect conceptual comparison queries between ESA document types.
+
+    Returns True for queries like:
+      - "What's the difference between an ADR and a PCP?"
+      - "ADR vs PCP"
+      - "Compare ADRs and DARs"
+
+    Requires BOTH a compare intent AND 2+ distinct doc-type keywords.
+    """
+    if not _COMPARE_RE.search(question):
+        return False
+
+    # Count distinct doc-type keywords present
+    matches = _COMPARE_DOC_TYPES.findall(question.lower())
+    # Normalise to base types to count distinct types
+    types_seen = set()
+    for m in matches:
+        m = m.lower().rstrip("s")
+        if m.startswith("polic"):
+            types_seen.add("policy")
+        elif m.startswith("principle"):
+            types_seen.add("principle")
+        else:
+            types_seen.add(m)  # adr, dar, pcp
+
+    return len(types_seen) >= 2
+
+
+# Deterministic descriptions keyed by normalised doc type
+_DOC_TYPE_DESCRIPTIONS = {
+    "adr": (
+        "**ADR (Architecture Decision Record)** — captures a single architecture "
+        "decision: the context, the decision itself, its consequences, and any "
+        "alternatives considered. ADRs are versioned and can be superseded."
+    ),
+    "pcp": (
+        "**PCP (Principle)** — a guiding rule or standard that shapes many "
+        "decisions. Principles are more stable than ADRs and express *what* "
+        "the organisation values (e.g., \"API-first\", \"Data at the source\")."
+    ),
+    "dar": (
+        "**DAR (Decision Approval Record)** — the administrative companion "
+        "to an ADR or Principle. It records *who* approved the decision, "
+        "when, and via which governance body (e.g., DACI roles)."
+    ),
+    "policy": (
+        "**Policy** — a formal governance document (often PDF/DOCX) that "
+        "defines mandatory rules and standards at the organisation level, "
+        "such as a Data Governance Policy."
+    ),
+    "principle": (
+        "**PCP (Principle)** — a guiding rule or standard that shapes many "
+        "decisions. Principles are more stable than ADRs and express *what* "
+        "the organisation values (e.g., \"API-first\", \"Data at the source\")."
+    ),
+}
+
+
+def build_conceptual_compare_response(question: str) -> str:
+    """Build a deterministic explanation comparing ESA document types."""
+    q = question.lower()
+    types_seen: list[str] = []
+    for m in _COMPARE_DOC_TYPES.finditer(q):
+        raw = m.group().lower().rstrip("s")
+        if raw.startswith("polic"):
+            norm = "policy"
+        elif raw.startswith("principle"):
+            norm = "principle"
+        else:
+            norm = raw
+        if norm not in types_seen:
+            types_seen.append(norm)
+
+    parts = []
+    for t in types_seen:
+        desc = _DOC_TYPE_DESCRIPTIONS.get(t)
+        if desc:
+            parts.append(desc)
+
+    body = "\n\n".join(parts)
+    return (
+        f"{body}\n\n"
+        "Would you like me to list examples of any of these document types?"
+    )
+
+
 def is_terminology_query(question: str) -> bool:
     """Check if query is asking about terminology/definitions.
 
@@ -2295,18 +2401,55 @@ IMPORTANT GUIDELINES:
                 else:
                     logger.warning(f"Content not found for {doc_type}.{doc_number}, falling back to LLM path")
 
+        # CONCEPTUAL COMPARE SHORT-CIRCUIT
+        # "What's the difference between an ADR and a PCP?" → deterministic explanation
+        # Must be checked BEFORE keyword-based list routing, otherwise "ADR" in the
+        # question triggers list_all_adrs.
+        if is_conceptual_compare_query(question):
+            logger.info("Route: semantic (conceptual_compare)")
+            compare_response = build_conceptual_compare_response(question)
+            if structured_mode:
+                import json as _json
+                return _json.dumps({
+                    "schema_version": "1.0",
+                    "answer": compare_response,
+                    "sources": [],
+                    "transparency_statement": "Deterministic doc-type comparison (no retrieval).",
+                }, indent=2), []
+            return compare_response, []
+
         # DETERMINISTIC LIST HANDLING
         # For list queries, call list tools directly and use deterministic serialization
         # This bypasses LLM response generation for list endpoints (enterprise pattern)
         #
-        # Collection-specific keywords (DARs, ADRs, principles) route directly
-        # WITHOUT requiring the is_list_query() gate. This fixes queries like
-        # "how about DARs?" where topical markers ("about") would block the
-        # deterministic list path. Broader keywords ("decision", "architecture",
-        # "governance") stay inside the gate to avoid false positives.
+        # Collection-specific keywords route to deterministic list tools when
+        # accompanied by list intent.  This avoids the old behaviour where a bare
+        # "ADR" mention (e.g. "What is an ADR?") would trigger list_all_adrs.
+        #
+        # List intent is established by:
+        #   a) is_list_query() (strong/medium confidence), OR
+        #   b) a lightweight verb/topical regex (_LIST_INTENT_RE) that catches
+        #      "list X", "show X", "what X exist", "how about X", etc.
+        #
+        # DAR/approval queries are an exception — they always fire because the
+        # approval_intent markers themselves already encode list intent.
         question_lower = question.lower()
         list_result = None
         objects = []
+
+        # Lightweight list-intent verbs / topical patterns.
+        # These supplement is_list_query() to catch "how about DARs?" style
+        # queries where topical markers block the full list-query detector.
+        _LIST_INTENT_RE = re.compile(
+            r"\blist\b|\bshow\b|\benumerate\b|\ball\b|\bwhich\b"
+            r"|\bexist(?:s|ing)?\b"
+            r"|\bhow\s+about\b|\bwhat\s+about\b"
+            r"|\bhow\s+many\b",
+            re.IGNORECASE,
+        )
+        has_list_intent = bool(
+            is_list_query(question) or _LIST_INTENT_RE.search(question_lower)
+        )
 
         # Priority 1: Check for approval/governance/DAR record queries FIRST
         # Patterns: "approval records", "decision approval", "who approved", "daci",
@@ -2330,21 +2473,21 @@ IMPORTANT GUIDELINES:
                     list_result = await list_tool("all")
                 objects = list_result.get("rows", []) if isinstance(list_result, dict) else []
 
-        elif re.search(r"\badrs?\b", question_lower):
+        elif has_list_intent and re.search(r"\badrs?\b", question_lower):
             logger.info("List query detected for ADRs - using deterministic path")
             list_tool = self._tool_registry.get("list_all_adrs")
             if list_tool:
                 list_result = await list_tool()
                 objects = list_result.get("rows", []) if isinstance(list_result, dict) else []
 
-        elif re.search(r"\bprinciples?\b", question_lower):
+        elif has_list_intent and re.search(r"\bprinciples?\b", question_lower):
             logger.info("List query detected for Principles - using deterministic path")
             list_tool = self._tool_registry.get("list_all_principles")
             if list_tool:
                 list_result = await list_tool()
                 objects = list_result.get("rows", []) if isinstance(list_result, dict) else []
 
-        elif re.search(r"\bpolic(?:y|ies)\b", question_lower):
+        elif has_list_intent and re.search(r"\bpolic(?:y|ies)\b", question_lower):
             logger.info("List query detected for Policies - using deterministic path")
             list_tool = self._tool_registry.get("list_all_policies")
             if list_tool:
