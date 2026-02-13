@@ -413,6 +413,7 @@ class MarkdownLoader:
         doc.doc_type = result.doc_type
 
         # Enriched metadata (P2): canonical_id, date, uuid, dar_path
+        # TODO: update when PRINCIPLE_APPROVAL is added to DocType
         is_dar = doc.doc_type == DocType.ADR_APPROVAL
         if adr_number:
             adr_id = self._format_adr_id(adr_number)
@@ -518,6 +519,7 @@ class MarkdownLoader:
         doc.doc_type = result.doc_type
 
         # Enriched metadata (P2): canonical_id, status, date, uuid, dar_path
+        # TODO: update when PRINCIPLE_APPROVAL is added to DocType
         is_dar = doc.doc_type == DocType.ADR_APPROVAL
         if principle_number:
             pcp_id = self._format_principle_id(principle_number)
