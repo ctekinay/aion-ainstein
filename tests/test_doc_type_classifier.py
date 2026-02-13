@@ -247,7 +247,7 @@ class TestPrincipleClassification:
         ("0001-api-first.md", DocType.PRINCIPLE),
 
         # Approval records
-        ("0010D-approval.md", DocType.ADR_APPROVAL),
+        ("0010D-approval.md", DocType.PRINCIPLE_APPROVAL),
 
         # Index files
         ("index.md", DocType.INDEX),
@@ -497,7 +497,7 @@ class TestIngestionClassifiers:
         # DAR still classified correctly
         ("0010D-approval.md",
          "Approved by governance board.",
-         DocType.ADR_APPROVAL),
+         DocType.PRINCIPLE_APPROVAL),
         # Non-numbered template file
         ("principle-template.md",
          "Fill in the principle fields.",
