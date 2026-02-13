@@ -77,7 +77,7 @@ Users do NOT consistently use the official `ADR.NN` or `PCP.NN` format. You shou
 
 The words "ADR", "adr", "Adr", "ADRs", "Adrs", "adrs" all refer to Architecture Decision Records. Similarly, "PCP", "pcp", "principle", "Principle", "principles" all refer to Architecture Principles.
 
-When a user asks about a specific document by ID, this is a **lookup**, not a semantic search. Use the `adr_number` or `principle_number` metadata fields to find the exact document, not text similarity. (A `canonical_id` field like `"ADR.22"` may be added in future; use it for filtering when available.)
+When a user asks about a specific document by ID, this is a **lookup**, not a semantic search. Use the `canonical_id` field (e.g., `"ADR.22"`, `"PCP.10"`, `"ADR.22D"` for DARs) or the `adr_number` / `principle_number` metadata fields to find the exact document, not text similarity.
 
 ## Disambiguation Rules
 

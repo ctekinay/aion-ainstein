@@ -2022,10 +2022,7 @@ IMPORTANT GUIDELINES:
                     collection = client.collections.get(coll_name)
 
                     # Filter for approval records
-                    approval_filter = (
-                        Filter.by_property("doc_type").equal("adr_approval") |
-                        Filter.by_property("doc_type").equal("decision_approval_record")
-                    )
+                    approval_filter = Filter.by_property("doc_type").equal("adr_approval")
 
                     # Fetch all approval records
                     all_objects = fetch_all_objects(

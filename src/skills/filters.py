@@ -13,7 +13,6 @@ Canonical doc_type taxonomy (from Phase 2):
 
 Legacy values (backward compatible):
 - content: Maps to adr or principle (pre-migration data)
-- decision_approval_record: Maps to adr_approval
 """
 
 import logging
@@ -48,7 +47,7 @@ ADR_CONTENT_TYPES = ["adr", "content"]  # Fallback; prefer _get_content_types("a
 PRINCIPLE_CONTENT_TYPES = ["principle", "content"]
 
 # Types to exclude (for reference, loaded from config when available)
-EXCLUDED_TYPES = ["adr_approval", "decision_approval_record", "template", "index"]
+EXCLUDED_TYPES = ["adr_approval", "template", "index"]
 
 
 def build_document_filter(
@@ -97,7 +96,7 @@ def build_document_filter(
 
         if needs_dar:
             # Include approval records for approval/governance queries
-            allowed_types.extend(["adr_approval", "decision_approval_record"])
+            allowed_types.append("adr_approval")
             logger.info("Query detected as approval/governance - including approval records")
 
     # Build allow-list filter: doc_type IN [allowed_types]

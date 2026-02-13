@@ -245,18 +245,16 @@ class TestTaxonomyFilteringCriteria:
     def test_adr_content_types_excludes_approval(self):
         """Default ADR content types must not include approval records."""
         assert "adr_approval" not in ADR_CONTENT_TYPES
-        assert "decision_approval_record" not in ADR_CONTENT_TYPES
 
     def test_principle_content_types_excludes_approval(self):
         """Default principle content types must not include approval records."""
         assert "adr_approval" not in PRINCIPLE_CONTENT_TYPES
-        assert "decision_approval_record" not in PRINCIPLE_CONTENT_TYPES
 
     def test_tell_me_about_adr_excludes_dar(self):
         """'Tell me about ADR.0025' must not retrieve DAR.
 
         This tests Section 7 filtering requirement:
-        Content queries should NOT include decision_approval_record.
+        Content queries should NOT include adr_approval.
         """
         registry = self._create_mock_registry()
         result = build_document_filter(
@@ -273,7 +271,7 @@ class TestTaxonomyFilteringCriteria:
         """'Who approved ADR.0025' must be able to retrieve DAR.
 
         This tests Section 7 filtering requirement:
-        Approval queries should include decision_approval_record.
+        Approval queries should include adr_approval.
         """
         filter_config = {
             "include_dar_patterns": ["who approved"],
