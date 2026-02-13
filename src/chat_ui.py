@@ -1590,13 +1590,10 @@ async def add_ollama_model(model_id: str):
 
 class RoutingPolicyUpdate(BaseModel):
     """Request model for updating routing policy flags."""
-    strict_mode_enabled: Optional[bool] = None
     intent_router_enabled: Optional[bool] = None
     intent_router_mode: Optional[str] = None
     followup_binding_enabled: Optional[bool] = None
-    catalog_short_circuit_enabled: Optional[bool] = None
     abstain_gate_enabled: Optional[bool] = None
-    list_route_requires_list_intent: Optional[bool] = None
     max_tree_seconds: Optional[int] = None
     tree_enabled: Optional[bool] = None
     intent_confidence_threshold: Optional[float] = None

@@ -22,11 +22,9 @@ class TestRoutingPolicyLoading:
         invalidate_config_caches()
         s = Settings()
         policy = s.get_routing_policy()
-        assert "strict_mode_enabled" in policy
         assert "intent_router_enabled" in policy
         assert "intent_router_mode" in policy
         assert "followup_binding_enabled" in policy
-        assert "catalog_short_circuit_enabled" in policy
         assert "abstain_gate_enabled" in policy
         assert "tree_enabled" in policy
         assert "debug_headers_enabled" in policy
@@ -35,18 +33,10 @@ class TestRoutingPolicyLoading:
         invalidate_config_caches()
         s = Settings()
         policy = s.get_routing_policy()
-        assert policy["strict_mode_enabled"] is True
         assert policy["intent_router_enabled"] is False
         assert policy["intent_router_mode"] == "heuristic"
         assert policy["tree_enabled"] is True
         assert policy["debug_headers_enabled"] is False
-
-    def test_env_var_overrides_yaml(self):
-        """AINSTEIN_STRICT_MODE=0 should override YAML."""
-        invalidate_config_caches()
-        s = Settings(ainstein_strict_mode=False)
-        policy = s.get_routing_policy()
-        assert policy["strict_mode_enabled"] is False
 
     def test_intent_router_env_override(self):
         invalidate_config_caches()
@@ -56,29 +46,8 @@ class TestRoutingPolicyLoading:
         assert policy["intent_router_mode"] == "llm"
 
 
-class TestStrictModeOffBehavior:
-    """When strict_mode is off, conceptual queries must NOT dump lists."""
-
-    def test_what_is_adr_with_strict_off(self):
-        """With intent router enabled and strict mode off,
-        'What is an ADR?' should classify as compare_concepts, not list."""
-        from src.intent_router import heuristic_classify, Intent
-
-        d = heuristic_classify("What's the difference between ADR and PCP?")
-        # Regardless of strict mode, intent router should classify correctly
-        assert d.intent == Intent.COMPARE_CONCEPTS
-        assert d.intent != Intent.LIST
-
-    def test_list_adrs_still_works_with_strict_off(self):
-        """Explicit list requests should still work."""
-        from src.intent_router import heuristic_classify, Intent
-
-        d = heuristic_classify("List all ADRs")
-        assert d.intent == Intent.LIST
-
-
-class TestIntentRouterOnRouting:
-    """When intent_router is enabled, comparative queries route correctly."""
+class TestIntentRouterRouting:
+    """Intent router classifies queries correctly."""
 
     def test_comparative_routes_to_compare_concepts(self):
         from src.intent_router import heuristic_classify, Intent
@@ -97,6 +66,12 @@ class TestIntentRouterOnRouting:
 
         d = heuristic_classify("What architecture decisions affect API design?")
         assert d.intent == Intent.SEMANTIC_ANSWER
+
+    def test_list_adrs_routes_to_list(self):
+        from src.intent_router import heuristic_classify, Intent
+
+        d = heuristic_classify("List all ADRs")
+        assert d.intent == Intent.LIST
 
 
 class TestAbstainGateToggle:

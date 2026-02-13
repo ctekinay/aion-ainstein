@@ -6,17 +6,10 @@
 # or via the Settings > Routing UI.
 #
 # ┌─────────────────────────────────────────────────────────────┐
-# │  ROUTING MODE (choose one)                                  │
+# │  ROUTING                                                    │
 # │                                                             │
-# │  strict_mode_enabled: true     (keyword routing)            │
-# │    ├── catalog_short_circuit   (list/count bypass tree)     │
-# │    │   └── list_route_requires_list_intent                  │
-# │    └── [deterministic routes fire for meta, approval,       │
-# │         DAR, content, compare, definitional, terminology,   │
-# │         cross-domain, out-of-scope]                         │
-# │                                                             │
-# │  strict_mode_enabled: false    (LLM routing)                │
-# │    ├── intent_router_enabled   (auto-set to true)           │
+# │  Intent Router                                              │
+# │    ├── intent_router_enabled                                │
 # │    ├── intent_router_mode      (heuristic | llm)            │
 # │    └── intent_confidence_threshold                          │
 # │                                                             │
@@ -29,17 +22,9 @@
 # └─────────────────────────────────────────────────────────────┘
 # =============================================================================
 
-# ---- Master Mode Switch ----
+# ---- Intent Router ----
 
-# Strict mode: when true, keyword-triggered deterministic routes fire
-# (list detection, approval detection, scope gating, etc.).
-# When false, all queries go through intent router → Elysia Tree path.
-strict_mode_enabled: true
-
-# ---- Intent Router (active when strict_mode_enabled is false) ----
-
-# Intent router: when true, classify_intent() runs BEFORE routing.
-# Automatically enabled when strict_mode_enabled is false.
+# Intent router: when true, classify_intent() runs BEFORE the Tree/LLM path.
 intent_router_enabled: false
 
 # Intent router implementation: "heuristic" (fast, regex) or "llm" (uses LLM)
@@ -47,17 +32,6 @@ intent_router_mode: heuristic
 
 # Confidence threshold below which the router asks a clarifying question
 intent_confidence_threshold: 0.55
-
-# ---- Strict Mode Sub-Options ----
-
-# Catalog short-circuit: deterministic list/count routes bypass Elysia Tree.
-# Only effective when strict_mode_enabled is true.
-catalog_short_circuit_enabled: true
-
-# List route requires list intent: only trigger list tools when the intent
-# classifier confirms list intent (prevents "What is an ADR?" → list).
-# Only effective when catalog_short_circuit_enabled is true.
-list_route_requires_list_intent: true
 
 # ---- Independent Options ----
 

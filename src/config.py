@@ -215,10 +215,6 @@ class Settings(BaseSettings):
     # Environment variable overrides for routing_policy.yaml flags.
     # Env vars take precedence over YAML values.
 
-    ainstein_strict_mode: Optional[bool] = Field(
-        default=None,
-        description="Override strict_mode_enabled (env: AINSTEIN_STRICT_MODE)"
-    )
     ainstein_intent_router: Optional[bool] = Field(
         default=None,
         description="Override intent_router_enabled (env: AINSTEIN_INTENT_ROUTER)"
@@ -230,10 +226,6 @@ class Settings(BaseSettings):
     ainstein_followup_binding: Optional[bool] = Field(
         default=None,
         description="Override followup_binding_enabled (env: AINSTEIN_FOLLOWUP_BINDING)"
-    )
-    ainstein_catalog_short_circuit: Optional[bool] = Field(
-        default=None,
-        description="Override catalog_short_circuit_enabled (env: AINSTEIN_CATALOG_SHORT_CIRCUIT)"
     )
     ainstein_abstain_gate: Optional[bool] = Field(
         default=None,
@@ -320,11 +312,9 @@ class Settings(BaseSettings):
 
         # Apply env var overrides
         overrides = {
-            "strict_mode_enabled": self.ainstein_strict_mode,
             "intent_router_enabled": self.ainstein_intent_router,
             "intent_router_mode": self.ainstein_intent_router_mode,
             "followup_binding_enabled": self.ainstein_followup_binding,
-            "catalog_short_circuit_enabled": self.ainstein_catalog_short_circuit,
             "abstain_gate_enabled": self.ainstein_abstain_gate,
             "tree_enabled": self.ainstein_tree_enabled,
             "debug_headers_enabled": self.ainstein_debug_headers,
@@ -408,13 +398,10 @@ def _load_routing_policy(path: str) -> Dict[str, Any]:
     """Load routing policy YAML. Cached after first call."""
     # Hardcoded defaults (used if YAML missing)
     defaults: Dict[str, Any] = {
-        "strict_mode_enabled": True,
         "intent_router_enabled": False,
         "intent_router_mode": "heuristic",
         "followup_binding_enabled": True,
-        "catalog_short_circuit_enabled": True,
         "abstain_gate_enabled": True,
-        "list_route_requires_list_intent": True,
         "max_tree_seconds": 120,
         "tree_enabled": True,
         "intent_confidence_threshold": 0.55,
@@ -444,9 +431,9 @@ def save_routing_policy(policy: Dict[str, Any]) -> None:
     Only writes recognised keys so callers cannot inject arbitrary YAML.
     """
     _KNOWN_KEYS = {
-        "strict_mode_enabled", "intent_router_enabled", "intent_router_mode",
-        "followup_binding_enabled", "catalog_short_circuit_enabled",
-        "abstain_gate_enabled", "list_route_requires_list_intent",
+        "intent_router_enabled", "intent_router_mode",
+        "followup_binding_enabled",
+        "abstain_gate_enabled",
         "max_tree_seconds", "tree_enabled", "intent_confidence_threshold",
         "debug_headers_enabled",
     }
