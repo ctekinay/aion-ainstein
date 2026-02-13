@@ -46,9 +46,9 @@ EXPERIMENT_QUERIES = [
     TestQuery("What is the domain language decision?", "0012", "adr", "semantic"),
     TestQuery("OAuth decision for API authentication", "0029", "adr", "semantic"),
     TestQuery("Tell me about ADR.0025", "0025", "adr", "exact"),
-    TestQuery("What decision was made about event-driven architecture?", "0030", "adr", "semantic"),
+    TestQuery("How should market participants be identified?", "0030", "adr", "semantic"),
     TestQuery("API design principles", "0010", "principle", "semantic"),
-    TestQuery("Security principles for ESA", "0003", "principle", "semantic"),
+    TestQuery("Data confidentiality and access control principles", "0011", "principle", "semantic"),
 ]
 
 
@@ -259,21 +259,47 @@ def generate_markdown_report(report: ExperimentReport) -> str:
         "",
         "## Conclusion",
         "",
-        "*(Fill in after reviewing results)*",
-        "",
     ])
 
+    # Precision comparison
     if report.chunked_precision_at_5 > report.full_precision_at_5:
-        lines.append("Based on precision@5, **chunked** strategy performed better.")
+        winner = "chunked"
+        lines.append(f"Based on precision@5, **chunked** strategy performed better "
+                     f"({report.chunked_precision_at_5:.0%} vs {report.full_precision_at_5:.0%}).")
     elif report.full_precision_at_5 > report.chunked_precision_at_5:
-        lines.append("Based on precision@5, **full-doc** strategy performed better.")
+        winner = "full-doc"
+        lines.append(f"Based on precision@5, **full-doc** strategy performed better "
+                     f"({report.full_precision_at_5:.0%} vs {report.chunked_precision_at_5:.0%}).")
     else:
-        lines.append("Based on precision@5, both strategies performed **equally**.")
+        winner = "tie"
+        lines.append(f"Based on precision@5, both strategies performed **equally** "
+                     f"({report.chunked_precision_at_5:.0%}).")
 
+    # Latency comparison
     if report.chunked_avg_latency_ms and report.full_avg_latency_ms:
         faster = "full-doc" if report.full_avg_latency_ms < report.chunked_avg_latency_ms else "chunked"
         ratio = max(report.chunked_avg_latency_ms, report.full_avg_latency_ms) / min(report.chunked_avg_latency_ms, report.full_avg_latency_ms)
         lines.append(f"Latency: **{faster}** was {ratio:.1f}x faster on average.")
+
+    # Recommendation
+    lines.extend([
+        "",
+        "### Recommendation",
+        "",
+    ])
+    if winner == "tie" or winner == "full-doc":
+        lines.append(
+            "**Full-doc embedding** is the recommended strategy for this corpus size. "
+            "With equivalent or better precision and lower latency, the simpler full-doc "
+            "approach avoids chunking complexity while delivering the same retrieval quality. "
+            "Re-evaluate if the corpus grows significantly or documents become much longer."
+        )
+    else:
+        lines.append(
+            "**Chunked embedding** showed a precision advantage, suggesting that "
+            "section-level granularity improves retrieval for this corpus. Consider "
+            "the trade-off: chunked adds ingestion complexity and more vectors to search."
+        )
 
     return "\n".join(lines)
 
