@@ -188,6 +188,9 @@ class ChunkingStrategy(ABC):
             meta.date = metadata.get("date", "")
             meta.doc_uuid = metadata.get("doc_uuid", "")
             meta.dar_path = metadata.get("dar_path", "")
+            # Let classifier override strategy default for document_type
+            if metadata.get("document_type"):
+                meta.document_type = metadata["document_type"]
 
         chunk = Chunk(
             content=content,

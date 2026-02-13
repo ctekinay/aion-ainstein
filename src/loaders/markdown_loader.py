@@ -636,6 +636,7 @@ class MarkdownLoader:
                 adr_number = self._extract_adr_number(adr_file)
                 result = classify_adr_document(adr_file, title, body)
                 is_dar = result.doc_type == DocType.ADR_APPROVAL
+                index_metadata["document_type"] = result.doc_type
                 if adr_number:
                     adr_id = self._format_adr_id(adr_number)
                     index_metadata["canonical_id"] = f"{adr_id}D" if is_dar else adr_id
@@ -706,6 +707,7 @@ class MarkdownLoader:
                 principle_number = self._extract_principle_number(principle_file)
                 result = classify_principle_document(principle_file, title, body)
                 is_dar = result.doc_type == DocType.PRINCIPLE_APPROVAL
+                index_metadata["document_type"] = result.doc_type
                 if principle_number:
                     pcp_id = self._format_principle_id(principle_number)
                     index_metadata["canonical_id"] = f"{pcp_id}D" if is_dar else pcp_id
