@@ -449,72 +449,66 @@ class TestNumberedFileIdentityRule:
         assert result.doc_type == DocType.ADR_APPROVAL
 
 
-class TestMarkdownLoaderClassifiers:
-    """Regression tests for the markdown_loader.py classifiers (used during ingestion).
+class TestIngestionClassifiers:
+    """Regression tests for the canonical classifiers used during ingestion.
 
-    These test the MarkdownLoader._classify_adr_document and
-    _classify_principle_document instance methods directly, ensuring the
-    identity rule is enforced in the actual ingestion path.
+    These call classify_adr_document / classify_principle_document from
+    doc_type_classifier (now the single source of truth used by markdown_loader).
     """
-
-    @pytest.fixture
-    def loader(self, tmp_path):
-        from src.loaders.markdown_loader import MarkdownLoader
-        return MarkdownLoader(base_path=tmp_path)
 
     @pytest.mark.parametrize("filename,content,expected", [
         # ADR.0000 — discusses MADR templates but is a real ADR
         ("0000-use-markdown-architectural-decision-records.md",
          "We use MADR template format. The template provides structure.",
-         "content"),
+         DocType.ADR),
         # ADR.0001 — discusses conventions including the word "template"
         ("0001-adr-conventions.md",
          "Follow the template structure for each ADR.",
-         "content"),
+         DocType.ADR),
         # Regular numbered ADR
         ("0025-use-oauth.md",
          "We decided to use OAuth 2.0 for authentication.",
-         "content"),
+         DocType.ADR),
         # DAR still classified correctly
         ("0025D-approval.md",
          "Approved by DACI committee.",
-         "decision_approval_record"),
+         DocType.ADR_APPROVAL),
         # Non-numbered template file
         ("adr-template.md",
          "Fill in the template fields.",
-         "template"),
+         DocType.TEMPLATE),
     ])
-    def test_adr_classifier_identity_rule(self, loader, filename, content, expected):
-        """markdown_loader ADR classifier respects numbered file identity rule."""
-        result = loader._classify_adr_document(
-            Path(filename), title="", content=content
+    def test_adr_classifier_identity_rule(self, filename, content, expected):
+        """ADR classifier respects numbered file identity rule."""
+        result = classify_adr_document(Path(filename), title="", content=content)
+        assert result.doc_type == expected, (
+            f"Expected '{expected}' for {filename}, got '{result.doc_type}'"
         )
-        assert result == expected, f"Expected '{expected}' for {filename}, got '{result}'"
 
     @pytest.mark.parametrize("filename,content,expected", [
         # Numbered principle mentioning "template" in content
         ("0010-data-quality.md",
          "This principle follows the template format.",
-         "content"),
+         DocType.PRINCIPLE),
         # Numbered principle with placeholder-like text
         ("0020-api-first.md",
          "Refer to {title} for details about API design.",
-         "content"),
+         DocType.PRINCIPLE),
         # DAR still classified correctly
         ("0010D-approval.md",
          "Approved by governance board.",
-         "decision_approval_record"),
+         DocType.ADR_APPROVAL),
         # Non-numbered template file
         ("principle-template.md",
          "Fill in the principle fields.",
-         "template"),
+         DocType.TEMPLATE),
     ])
-    def test_principle_classifier_identity_rule(self, loader, filename, content, expected):
-        """markdown_loader principle classifier respects numbered file identity rule."""
-        result = loader._classify_principle_document(
-            Path(filename), title="", content=content
+    def test_principle_classifier_identity_rule(self, filename, content, expected):
+        """Principle classifier respects numbered file identity rule."""
+        result = classify_principle_document(Path(filename), title="", content=content)
+        assert result.doc_type == expected, (
+            f"Expected '{expected}' for {filename}, got '{result.doc_type}'"
         )
-        assert result == expected, f"Expected '{expected}' for {filename}, got '{result}'"
 
 
 if __name__ == "__main__":
