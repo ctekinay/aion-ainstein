@@ -14,7 +14,12 @@ from typing import Iterator, Optional
 import frontmatter
 
 from .index_metadata_loader import get_document_metadata
-from ..doc_type_classifier import DocType, REGISTRY_FILENAMES as _CLASSIFIER_REGISTRY_FILENAMES
+from ..doc_type_classifier import (
+    DocType,
+    REGISTRY_FILENAMES as _CLASSIFIER_REGISTRY_FILENAMES,
+    classify_adr_document,
+    classify_principle_document,
+)
 
 # Import chunking module (optional, for enhanced chunking)
 try:
@@ -49,6 +54,17 @@ SKIP_DOC_TYPES_AT_INGESTION = set(DocType.skip_at_ingestion_types())
 
 # Registry filenames - imported from doc_type_classifier (single source of truth)
 REGISTRY_FILENAMES = _CLASSIFIER_REGISTRY_FILENAMES
+
+
+def _clean_frontmatter_status(metadata: dict) -> str:
+    """Extract and clean status string from frontmatter metadata.
+
+    Handles both top-level 'status' key and quoted values.
+    """
+    val = metadata.get("status", "")
+    if val and isinstance(val, str):
+        return val.strip().strip('"').strip("'")
+    return ""
 
 
 @dataclass
@@ -306,77 +322,6 @@ class MarkdownLoader:
             collection_name=index_metadata.get("collection_name", ""),
         )
 
-    def _classify_adr_document(self, file_path: Path, title: str, content: str) -> str:
-        """Classify an ADR document as content, index, template, registry, or decision_approval_record.
-
-        Classification priority (most reliable first):
-        1. Filename identity: NNNND-*.md → decision_approval_record
-        2. Filename identity: NNNN-*.md → content (authoritative, skips heuristics)
-        3. Filename match for registry/index/template files
-        4. Heuristic: placeholder tokens in content
-        5. Default: content
-
-        Args:
-            file_path: Path to the ADR file
-            title: Document title
-            content: Document content
-
-        Returns:
-            Classification: 'content', 'index', 'template', 'registry', or 'decision_approval_record'
-        """
-        file_name = file_path.name.lower()
-        title_lower = title.lower()
-
-        # Identity rule 1: DARs (NNNND-*.md)
-        if re.match(r"^\d{4}d-", file_name):
-            return 'decision_approval_record'
-
-        # Identity rule 2: Numbered content files (NNNN-*.md) are ALWAYS content.
-        # This is authoritative — a real ADR may mention "template" in prose
-        # (e.g., ADR.0000 discusses MADR templates) without being a template.
-        if re.match(r"^\d{4}-", file_name):
-            return 'content'
-
-        # Registry files: esa_doc_registry.md (NOT skipped - canonical doc registry)
-        if file_name in REGISTRY_FILENAMES:
-            return 'registry'
-
-        # Index files: contain lists of documents, no actual decisions (SKIPPED)
-        index_patterns = ['index.md', 'readme.md', 'overview.md', '_index.md']
-        if file_name in index_patterns:
-            return 'index'
-
-        # Template files: only for non-numbered files (e.g., adr-template.md)
-        # Filename/title indicators
-        template_filename_indicators = ['template']
-        if any(ind in file_name or ind in title_lower for ind in template_filename_indicators):
-            return 'template'
-
-        # Strong placeholder tokens in content (explicit fill-in markers)
-        placeholder_tokens = [
-            '{short title',
-            '{problem statement}',
-            '{context}',
-            '{decision outcome}',
-            '[insert ',
-            '{insert ',
-        ]
-        if any(token in content.lower() for token in placeholder_tokens):
-            return 'template'
-
-        # Index-like content: lists of other documents
-        index_content_indicators = [
-            'decision approval record list',
-            'energy system architecture - decision records',
-            'list of decisions',
-            'decision record list',
-        ]
-        if any(ind in title_lower for ind in index_content_indicators):
-            return 'index'
-
-        # Default: actual content document
-        return 'content'
-
     # Regex pattern for extracting ADR number from filename
     ADR_NUMBER_PATTERN = re.compile(r"^(\d{4})D?-")
 
@@ -463,11 +408,12 @@ class MarkdownLoader:
         adr_number = self._extract_adr_number(file_path)
         doc.adr_number = adr_number
 
-        # Classify first to determine if it's a decision approval record
-        doc.doc_type = self._classify_adr_document(file_path, doc.title, doc.content)
+        # Classify via canonical classifier (single source of truth)
+        result = classify_adr_document(file_path, doc.title, doc.content)
+        doc.doc_type = result.doc_type
 
         # Enriched metadata (P2): canonical_id, date, uuid, dar_path
-        is_dar = doc.doc_type == 'decision_approval_record'
+        is_dar = doc.doc_type == DocType.ADR_APPROVAL
         if adr_number:
             adr_id = self._format_adr_id(adr_number)
             doc.canonical_id = f"{adr_id}D" if is_dar else adr_id
@@ -476,10 +422,7 @@ class MarkdownLoader:
         dct = doc.metadata.get("dct", {})
         if isinstance(dct, dict):
             doc.doc_uuid = dct.get("identifier", "")
-        # For ADRs, status can also come from frontmatter if not extracted from content
-        fm_status = doc.metadata.get("status", "")
-        if fm_status and isinstance(fm_status, str):
-            fm_status = fm_status.strip().strip('"').strip("'")
+        fm_status = _clean_frontmatter_status(doc.metadata)
 
         # Prepend ADR ID to title for better retrieval (using official format ADR.XX)
         # Use different prefix for Decision Approval Records
@@ -512,67 +455,6 @@ class MarkdownLoader:
             doc.consequences = consequences_match.group(1).strip()
 
         return doc
-
-    def _classify_principle_document(self, file_path: Path, title: str, content: str) -> str:
-        """Classify a principle document as content, index, template, registry, or decision_approval_record.
-
-        Classification priority (most reliable first):
-        1. Filename identity: NNNND-*.md → decision_approval_record
-        2. Filename identity: NNNN-*.md → content (authoritative, skips heuristics)
-        3. Filename match for registry/index/template files
-        4. Heuristic: placeholder tokens in content
-        5. Default: content
-
-        Args:
-            file_path: Path to the principle file
-            title: Document title
-            content: Document content
-
-        Returns:
-            Classification: 'content', 'index', 'template', 'registry', or 'decision_approval_record'
-        """
-        file_name = file_path.name.lower()
-        title_lower = title.lower()
-
-        # Identity rule 1: DARs (NNNND-*.md)
-        if re.match(r"^\d{4}d-", file_name):
-            return 'decision_approval_record'
-
-        # Identity rule 2: Numbered content files (NNNN-*.md) are ALWAYS content.
-        # This is authoritative — a real principle may mention "template" in prose
-        # without being a template.
-        if re.match(r"^\d{4}-", file_name):
-            return 'content'
-
-        # Registry files: esa_doc_registry.md (NOT skipped - canonical doc registry)
-        if file_name in REGISTRY_FILENAMES:
-            return 'registry'
-
-        # Index files (SKIPPED)
-        index_patterns = ['index.md', 'readme.md', 'overview.md', '_index.md']
-        if file_name in index_patterns:
-            return 'index'
-
-        # Template files: only for non-numbered files (e.g., principle-template.md)
-        # Filename/title indicators
-        template_filename_indicators = ['template']
-        if any(ind in file_name or ind in title_lower for ind in template_filename_indicators):
-            return 'template'
-
-        # Strong placeholder tokens in content (explicit fill-in markers)
-        placeholder_tokens = [
-            '{title}',
-            '{description}',
-            '{short title',
-            '{problem statement}',
-            '[insert ',
-            '{insert ',
-        ]
-        if any(token in content.lower() for token in placeholder_tokens):
-            return 'template'
-
-        # Default: actual content
-        return 'content'
 
     # Regex pattern for extracting Principle number from filename
     PRINCIPLE_NUMBER_PATTERN = re.compile(r"^(\d{4})D?-")
@@ -631,11 +513,12 @@ class MarkdownLoader:
         principle_number = self._extract_principle_number(file_path)
         doc.principle_number = principle_number
 
-        # Classify first to determine if it's a decision approval record
-        doc.doc_type = self._classify_principle_document(file_path, doc.title, doc.content)
+        # Classify via canonical classifier (single source of truth)
+        result = classify_principle_document(file_path, doc.title, doc.content)
+        doc.doc_type = result.doc_type
 
         # Enriched metadata (P2): canonical_id, status, date, uuid, dar_path
-        is_dar = doc.doc_type == 'decision_approval_record'
+        is_dar = doc.doc_type == DocType.ADR_APPROVAL
         if principle_number:
             pcp_id = self._format_principle_id(principle_number)
             doc.canonical_id = f"{pcp_id}D" if is_dar else pcp_id
@@ -646,9 +529,7 @@ class MarkdownLoader:
             doc.doc_uuid = dct.get("identifier", "")
             doc.status = dct.get("isVersionOf", "")
         if not doc.status:
-            fm_status = doc.metadata.get("status", "")
-            if fm_status and isinstance(fm_status, str):
-                doc.status = fm_status.strip().strip('"').strip("'")
+            doc.status = _clean_frontmatter_status(doc.metadata)
         # Date from frontmatter (principles use dct.issued or date)
         if isinstance(dct, dict) and dct.get("issued"):
             doc.date = str(dct["issued"])
@@ -750,8 +631,8 @@ class MarkdownLoader:
 
                 # Enrich with P2 metadata
                 adr_number = self._extract_adr_number(adr_file)
-                doc_type = self._classify_adr_document(adr_file, title, body)
-                is_dar = doc_type == 'decision_approval_record'
+                result = classify_adr_document(adr_file, title, body)
+                is_dar = result.doc_type == DocType.ADR_APPROVAL
                 if adr_number:
                     adr_id = self._format_adr_id(adr_number)
                     index_metadata["canonical_id"] = f"{adr_id}D" if is_dar else adr_id
@@ -760,9 +641,9 @@ class MarkdownLoader:
                 dct = fm_metadata.get("dct", {})
                 if isinstance(dct, dict):
                     index_metadata["doc_uuid"] = dct.get("identifier", "")
-                fm_status = fm_metadata.get("status", "")
-                if fm_status and isinstance(fm_status, str):
-                    index_metadata["status"] = fm_status.strip().strip('"').strip("'")
+                fm_status = _clean_frontmatter_status(fm_metadata)
+                if fm_status:
+                    index_metadata["status"] = fm_status
 
                 chunked_doc = strategy.chunk_document(
                     content=body,
@@ -820,8 +701,8 @@ class MarkdownLoader:
 
                 # Enrich with P2 metadata
                 principle_number = self._extract_principle_number(principle_file)
-                doc_type = self._classify_principle_document(principle_file, title, body)
-                is_dar = doc_type == 'decision_approval_record'
+                result = classify_principle_document(principle_file, title, body)
+                is_dar = result.doc_type == DocType.ADR_APPROVAL
                 if principle_number:
                     pcp_id = self._format_principle_id(principle_number)
                     index_metadata["canonical_id"] = f"{pcp_id}D" if is_dar else pcp_id
@@ -833,9 +714,9 @@ class MarkdownLoader:
                     if dct.get("issued"):
                         index_metadata["date"] = str(dct["issued"])
                 if not index_metadata.get("status"):
-                    fm_status = fm_metadata.get("status", "")
-                    if fm_status and isinstance(fm_status, str):
-                        index_metadata["status"] = fm_status.strip().strip('"').strip("'")
+                    fm_status = _clean_frontmatter_status(fm_metadata)
+                    if fm_status:
+                        index_metadata["status"] = fm_status
                 if not index_metadata.get("date") and fm_metadata.get("date"):
                     index_metadata["date"] = str(fm_metadata["date"])
 
