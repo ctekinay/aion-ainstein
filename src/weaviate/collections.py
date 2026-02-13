@@ -552,6 +552,9 @@ class CollectionManager:
         )
 
     # ============== OpenAI Collection Creation Methods ==============
+    # NOTE: OpenAI ADR/Principle schemas are missing P2 enriched fields
+    # (canonical_id, date, doc_uuid, dar_path, and status on Principle).
+    # Add these before using OpenAI collections for embedding comparison.
 
     def _create_vocabulary_collection_openai(self) -> None:
         """Create OpenAI-embedded collection for SKOS/OWL vocabulary concepts."""
