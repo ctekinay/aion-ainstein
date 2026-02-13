@@ -2149,7 +2149,7 @@ IMPORTANT GUIDELINES:
             if needs_clarification(intent_decision, threshold=confidence_threshold):
                 route_log["route_selected"] = "clarification"
                 logger.info(f"Intent confidence too low ({intent_decision.confidence:.2f}), asking clarification")
-                clarification = build_clarification_response(intent_decision)
+                clarification = await build_clarification_response(intent_decision, question)
                 response = _maybe_add_debug_footer(clarification, route_log, debug_headers)
                 return response, []
 

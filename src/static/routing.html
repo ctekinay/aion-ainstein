@@ -81,61 +81,6 @@
             color: var(--text-primary);
         }
 
-        /* Mode selector cards */
-        .mode-section {
-            margin-bottom: 28px;
-        }
-
-        .section-label {
-            font-size: 14px;
-            font-weight: 600;
-            color: var(--text-primary);
-            margin-bottom: 4px;
-        }
-
-        .section-hint {
-            font-size: 12px;
-            color: var(--text-muted);
-            margin-bottom: 12px;
-        }
-
-        .mode-group {
-            display: flex;
-            gap: 10px;
-        }
-
-        .mode-card {
-            flex: 1;
-            padding: 18px;
-            border: 2px solid var(--border);
-            border-radius: 12px;
-            cursor: pointer;
-            transition: all 0.2s;
-            background: var(--bg-card);
-        }
-
-        .mode-card:hover {
-            border-color: var(--text-muted);
-        }
-
-        .mode-card.selected {
-            border-color: var(--primary);
-            background: rgba(16, 185, 129, 0.08);
-        }
-
-        .mode-card .mode-title {
-            font-size: 15px;
-            font-weight: 600;
-            color: var(--text-primary);
-            margin-bottom: 4px;
-        }
-
-        .mode-card .mode-desc {
-            font-size: 12px;
-            color: var(--text-muted);
-            line-height: 1.4;
-        }
-
         /* Toggle groups */
         .toggle-group {
             margin-bottom: 20px;
@@ -143,12 +88,6 @@
             border-radius: 10px;
             overflow: hidden;
             background: var(--bg-card);
-            transition: opacity 0.25s;
-        }
-
-        .toggle-group.disabled {
-            opacity: 0.3;
-            pointer-events: none;
         }
 
         .toggle-group-header {
@@ -167,16 +106,10 @@
             justify-content: space-between;
             padding: 12px 16px;
             border-top: 1px solid var(--border);
-            transition: opacity 0.2s;
         }
 
         .toggle-row:first-child {
             border-top: none;
-        }
-
-        .toggle-row.disabled {
-            opacity: 0.3;
-            pointer-events: none;
         }
 
         .toggle-row .toggle-info {
@@ -194,10 +127,6 @@
             font-size: 12px;
             color: var(--text-muted);
             margin-top: 2px;
-        }
-
-        .toggle-row.sub-toggle {
-            padding-left: 36px;
         }
 
         /* Toggle switch */
@@ -243,11 +172,6 @@
             transform: translateX(18px);
         }
 
-        .toggle-switch input:disabled + .slider {
-            opacity: 0.4;
-            cursor: not-allowed;
-        }
-
         /* Inline select */
         .inline-select {
             padding: 6px 10px;
@@ -259,21 +183,10 @@
             cursor: pointer;
         }
 
-        .inline-select:disabled {
-            opacity: 0.4;
-            cursor: not-allowed;
-        }
-
         /* Threshold slider */
         .threshold-row {
             padding: 12px 16px;
             border-top: 1px solid var(--border);
-            transition: opacity 0.2s;
-        }
-
-        .threshold-row.disabled {
-            opacity: 0.3;
-            pointer-events: none;
         }
 
         .threshold-label {
@@ -380,66 +293,25 @@
             <a class="back-link" href="/">&#8592; Back to chat</a>
         </div>
 
-        <!-- Mode selector -->
-        <div class="mode-section">
-            <div class="section-label">Routing Mode</div>
-            <div class="section-hint">Choose how queries are classified and routed</div>
-            <div class="mode-group">
-                <div class="mode-card selected" id="mode-card-strict" onclick="selectMode(true)">
-                    <div class="mode-title">Strict Mode</div>
-                    <div class="mode-desc">Keyword-triggered deterministic routing. Fast, predictable, no LLM classification.</div>
-                </div>
-                <div class="mode-card" id="mode-card-llm" onclick="selectMode(false)">
-                    <div class="mode-title">LLM Mode</div>
-                    <div class="mode-desc">Intent router classifies queries first, then Elysia Tree handles reasoning.</div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Strict-mode sub-options -->
-        <div class="toggle-group" id="strict-options">
-            <div class="toggle-group-header">Strict Mode Options</div>
-            <div class="toggle-row">
-                <div class="toggle-info">
-                    <div class="toggle-name">Catalog short-circuit</div>
-                    <div class="toggle-desc">List/count queries bypass Elysia Tree with deterministic results</div>
-                </div>
-                <label class="toggle-switch">
-                    <input type="checkbox" id="rp-catalog" checked onchange="updateSubToggles()">
-                    <span class="slider"></span>
-                </label>
-            </div>
-            <div class="toggle-row sub-toggle" id="row-list-intent">
-                <div class="toggle-info">
-                    <div class="toggle-name">Require list intent</div>
-                    <div class="toggle-desc">Only trigger list tools when intent is confirmed (prevents "What is an ADR?" triggering a list)</div>
-                </div>
-                <label class="toggle-switch">
-                    <input type="checkbox" id="rp-list-intent" checked>
-                    <span class="slider"></span>
-                </label>
-            </div>
-        </div>
-
-        <!-- LLM-mode sub-options -->
-        <div class="toggle-group disabled" id="llm-options">
-            <div class="toggle-group-header">LLM Mode Options</div>
+        <!-- Intent router options -->
+        <div class="toggle-group">
+            <div class="toggle-group-header">Intent Router</div>
             <div class="toggle-row">
                 <div class="toggle-info">
                     <div class="toggle-name">Intent classifier</div>
                     <div class="toggle-desc">How queries are classified before routing</div>
                 </div>
-                <select class="inline-select" id="rp-intent-mode" disabled>
+                <select class="inline-select" id="rp-intent-mode">
                     <option value="heuristic">Heuristic (fast)</option>
                     <option value="llm">LLM (accurate)</option>
                 </select>
             </div>
-            <div class="threshold-row" id="threshold-row">
+            <div class="threshold-row">
                 <div class="threshold-label">
                     <span class="threshold-name">Confidence threshold</span>
                     <span class="threshold-value" id="threshold-display">0.55</span>
                 </div>
-                <input type="range" id="rp-confidence" min="0" max="100" value="55" disabled
+                <input type="range" id="rp-confidence" min="0" max="100" value="55"
                     oninput="document.getElementById('threshold-display').textContent = (this.value / 100).toFixed(2)">
             </div>
         </div>
@@ -449,7 +321,7 @@
             <div class="toggle-group-header">General</div>
             <div class="toggle-row">
                 <div class="toggle-info">
-                    <div class="toggle-name">Elysia Tree</div>
+                    <div class="toggle-name">Agent Tree</div>
                     <div class="toggle-desc">Multi-step reasoning via tree search. When off, uses direct retrieval + LLM.</div>
                 </div>
                 <label class="toggle-switch">
@@ -492,9 +364,8 @@
         <div class="info-box">
             <span class="info-icon">&#9432;</span>
             <span class="info-text">
-                <strong>Strict mode</strong> uses keyword matching for fast, deterministic routing.
-                <strong>LLM mode</strong> classifies intent first, then routes to the Elysia Tree.
-                Switching modes auto-enables the relevant sub-options and disables the irrelevant ones.
+                The intent router classifies queries before routing them to the Agent Tree.
+                Below the confidence threshold, the system asks a clarifying question instead of guessing.
             </span>
         </div>
 
@@ -525,11 +396,6 @@
         }
 
         function applyToUI(p) {
-            const isStrict = p.strict_mode_enabled !== false;
-            selectMode(isStrict);
-
-            document.getElementById('rp-catalog').checked = p.catalog_short_circuit_enabled !== false;
-            document.getElementById('rp-list-intent').checked = p.list_route_requires_list_intent !== false;
             document.getElementById('rp-intent-mode').value = p.intent_router_mode || 'heuristic';
 
             const threshold = p.intent_confidence_threshold != null ? p.intent_confidence_threshold : 0.55;
@@ -540,60 +406,14 @@
             document.getElementById('rp-abstain').checked = p.abstain_gate_enabled !== false;
             document.getElementById('rp-followup').checked = p.followup_binding_enabled !== false;
             document.getElementById('rp-debug').checked = !!p.debug_headers_enabled;
-
-            updateSubToggles();
-        }
-
-        // ── Mode selection ──
-        function selectMode(isStrict) {
-            const strictCard = document.getElementById('mode-card-strict');
-            const llmCard = document.getElementById('mode-card-llm');
-            const strictOpts = document.getElementById('strict-options');
-            const llmOpts = document.getElementById('llm-options');
-
-            if (isStrict) {
-                strictCard.classList.add('selected');
-                llmCard.classList.remove('selected');
-                strictOpts.classList.remove('disabled');
-                llmOpts.classList.add('disabled');
-                strictOpts.querySelectorAll('input, select').forEach(el => el.disabled = false);
-                llmOpts.querySelectorAll('input, select').forEach(el => el.disabled = true);
-                updateSubToggles();
-            } else {
-                llmCard.classList.add('selected');
-                strictCard.classList.remove('selected');
-                llmOpts.classList.remove('disabled');
-                strictOpts.classList.add('disabled');
-                llmOpts.querySelectorAll('input, select').forEach(el => el.disabled = false);
-                strictOpts.querySelectorAll('input, select').forEach(el => el.disabled = true);
-            }
-        }
-
-        // ── Sub-toggle dependency: catalog → list-intent ──
-        function updateSubToggles() {
-            const catalogOn = document.getElementById('rp-catalog').checked;
-            const listRow = document.getElementById('row-list-intent');
-            const listInput = document.getElementById('rp-list-intent');
-            if (catalogOn) {
-                listRow.classList.remove('disabled');
-                listInput.disabled = false;
-            } else {
-                listRow.classList.add('disabled');
-                listInput.disabled = true;
-            }
         }
 
         // ── Save ──
         async function saveSettings() {
-            const isStrict = document.getElementById('mode-card-strict').classList.contains('selected');
-
             const payload = {
-                strict_mode_enabled: isStrict,
-                intent_router_enabled: !isStrict,
+                intent_router_enabled: true,
                 intent_router_mode: document.getElementById('rp-intent-mode').value,
                 intent_confidence_threshold: parseInt(document.getElementById('rp-confidence').value) / 100,
-                catalog_short_circuit_enabled: document.getElementById('rp-catalog').checked,
-                list_route_requires_list_intent: document.getElementById('rp-list-intent').checked,
                 tree_enabled: document.getElementById('rp-tree').checked,
                 abstain_gate_enabled: document.getElementById('rp-abstain').checked,
                 followup_binding_enabled: document.getElementById('rp-followup').checked,
