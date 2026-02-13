@@ -94,7 +94,8 @@ def ingest_full_docs(client):
     from src.loaders.markdown_loader import MarkdownLoader
     from weaviate.classes.data import DataObject
 
-    loader = MarkdownLoader()
+    base_path = settings.resolve_path(settings.markdown_path)
+    loader = MarkdownLoader(base_path)
     stats = {"adr": 0, "principle": 0, "errors": []}
 
     # --- ADRs ---
