@@ -512,8 +512,100 @@ def needs_clarification(decision: IntentDecision, threshold: float = DEFAULT_CON
     return decision.confidence < threshold or decision.intent == Intent.UNKNOWN
 
 
-def build_clarification_response(decision: IntentDecision) -> str:
-    """Build a helpful clarification prompt for the user."""
+_CLARIFICATION_PROMPT = """\
+You are AInstein, the Energy System Architecture (ESA) assistant at Alliander.
+
+The user asked a question, but you're not confident what they want. Generate a short,
+contextual clarifying question (2-4 sentences max) that:
+1. Acknowledges what the user said
+2. Offers 2-3 specific options relevant to their wording
+3. Uses markdown bullet points for options
+
+The knowledge base contains: ADRs (Architecture Decision Records), Principles (PCPs),
+DARs (Decision Approval Records), Policies, and IEC/CIM vocabulary terms.
+
+Classification context:
+- Best-guess intent: {intent}
+- Detected scope: {entity_scope}
+- Confidence: {confidence:.0%}
+- Reasoning: {reasoning}
+- Detected entities: {entities}
+
+User question: {question}
+
+Write ONLY the clarifying response (no JSON, no preamble):"""
+
+
+async def build_clarification_response(
+    decision: IntentDecision,
+    question: str = "",
+) -> str:
+    """Generate a contextual clarifying question via the LLM.
+
+    Falls back to a static menu if the LLM call fails.
+    """
+    from .config import settings
+
+    prompt = _CLARIFICATION_PROMPT.format(
+        intent=decision.intent.value,
+        entity_scope=decision.entity_scope.value,
+        confidence=decision.confidence,
+        reasoning=decision.reasoning,
+        entities=", ".join(decision.detected_entities) if decision.detected_entities else "none",
+        question=question,
+    )
+
+    try:
+        if settings.llm_provider == "ollama":
+            response = await _generate_clarification_ollama(prompt)
+        else:
+            response = await _generate_clarification_openai(prompt)
+
+        if response and len(response.strip()) > 20:
+            return response.strip()
+    except Exception as e:
+        logger.warning(f"LLM clarification generation failed: {e}, using fallback")
+
+    return _build_fallback_clarification(decision)
+
+
+async def _generate_clarification_ollama(prompt: str) -> Optional[str]:
+    """Generate clarification using Ollama."""
+    import httpx
+    from .config import settings
+
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        resp = await client.post(
+            f"{settings.ollama_url}/api/generate",
+            json={
+                "model": settings.ollama_model,
+                "prompt": prompt,
+                "stream": False,
+                "options": {"temperature": 0.3, "num_predict": 200},
+            },
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        return data.get("response", "").strip()
+
+
+async def _generate_clarification_openai(prompt: str) -> Optional[str]:
+    """Generate clarification using OpenAI."""
+    import openai
+    from .config import settings
+
+    client = openai.AsyncOpenAI(api_key=settings.openai_api_key)
+    resp = await client.chat.completions.create(
+        model=settings.openai_chat_model,
+        messages=[{"role": "user", "content": prompt}],
+        max_tokens=200,
+        temperature=0.3,
+    )
+    return resp.choices[0].message.content.strip()
+
+
+def _build_fallback_clarification(decision: IntentDecision) -> str:
+    """Static fallback when LLM is unavailable."""
     if decision.clarification_options:
         options = "\n".join(f"- {opt}" for opt in decision.clarification_options)
         return (
@@ -522,7 +614,6 @@ def build_clarification_response(decision: IntentDecision) -> str:
             "Please rephrase your question or pick one of the options above."
         )
 
-    # Default clarification based on detected scope
     return (
         "I want to make sure I give you the right answer. "
         "Are you looking for:\n\n"

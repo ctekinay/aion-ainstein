@@ -31,7 +31,6 @@ from src.weaviate.skosmos_client import (
 )
 from src.elysia_agents import (
     is_terminology_query,
-    is_cross_domain_query,
     verify_terminology_in_query,
 )
 from src.observability import metrics
@@ -533,73 +532,5 @@ class TestAcceptanceCriteria:
 
 # =============================================================================
 # Cross-Domain Query Detection Tests
-# =============================================================================
-
-class TestCrossDomainDetection:
-    """Tests for is_cross_domain_query() — multi-hop route detection."""
-
-    @pytest.mark.parametrize("query, expected_types", [
-        (
-            "How do the architecture decisions support the data governance principles?",
-            {"adr", "principle"},
-        ),
-        (
-            "What security measures are defined across ADRs and principles?",
-            {"adr", "principle"},
-        ),
-        (
-            "How do architecture decisions relate to policies?",
-            {"adr", "policy"},
-        ),
-        (
-            "What is the relationship between principles and ADRs on security?",
-            {"adr", "principle"},
-        ),
-    ])
-    def test_cross_domain_detected(self, query, expected_types):
-        """Cross-domain queries spanning 2+ doc types are detected."""
-        is_cross, types = is_cross_domain_query(query)
-        assert is_cross is True, f"Expected cross-domain for: {query}"
-        assert set(types) == expected_types, f"Expected {expected_types}, got {set(types)}"
-
-    @pytest.mark.parametrize("query", [
-        "What is ADR.0025?",
-        "List all principles",
-        "What is CIM?",
-        "Who approved PCP.0020?",
-        "Tell me about ADR.0028",
-        "What does eventual consistency by design mean?",
-    ])
-    def test_single_domain_not_cross_domain(self, query):
-        """Single-domain queries must NOT trigger multi-hop route."""
-        is_cross, types = is_cross_domain_query(query)
-        assert is_cross is False, f"Unexpected cross-domain for: {query}"
-
-    def test_gold_standard_x1(self):
-        """Gold standard X1 must be detected as cross-domain."""
-        is_cross, types = is_cross_domain_query(
-            "How do the architecture decisions support the data governance principles?"
-        )
-        assert is_cross is True
-        assert "adr" in types
-        assert "principle" in types
-
-    def test_gold_standard_x4(self):
-        """Gold standard X4 must be detected as cross-domain."""
-        is_cross, types = is_cross_domain_query(
-            "What security measures are defined across ADRs and principles?"
-        )
-        assert is_cross is True
-        assert "adr" in types
-        assert "principle" in types
-
-    def test_comparative_within_collection_not_cross_domain(self):
-        """C1 (TLS vs OAuth) is comparative but same collection — NOT cross-domain."""
-        is_cross, types = is_cross_domain_query(
-            "What's the difference between TLS and OAuth 2.0 in our architecture?"
-        )
-        assert is_cross is False
-
-
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

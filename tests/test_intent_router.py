@@ -9,7 +9,7 @@ from src.intent_router import (
     IntentDecision,
     heuristic_classify,
     needs_clarification,
-    build_clarification_response,
+    _build_fallback_clarification,
     handle_compare_concepts,
     DEFAULT_CONFIDENCE_THRESHOLD,
 )
@@ -219,7 +219,7 @@ class TestBuildClarificationResponse:
             confidence=0.20,
             clarification_options=["Search knowledge base", "List documents"],
         )
-        result = build_clarification_response(d)
+        result = _build_fallback_clarification(d)
         assert "clarify" in result.lower() or "not sure" in result.lower()
         assert "Search knowledge base" in result
 
@@ -230,7 +230,7 @@ class TestBuildClarificationResponse:
             output_shape=OutputShape.CLARIFICATION,
             confidence=0.20,
         )
-        result = build_clarification_response(d)
+        result = _build_fallback_clarification(d)
         assert "list" in result.lower()
         assert "definition" in result.lower() or "comparison" in result.lower()
 
