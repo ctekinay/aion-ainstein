@@ -287,156 +287,91 @@ Templates define the **expected structure** of ADRs and PCPs (what sections exis
 
 ### 3.1 Philosophy
 
-The current system tries to handle domain knowledge through:
-- Regex patterns scattered across 10+ files
-- YAML configs that are partially used
-- Hardcoded assumptions in code
+**What got us here**: The current system has 10 modules with 40+ hardcoded regex patterns
+trying to prevent the LLM from ever seeing an ambiguous query. The intent was good — zero
+hallucination, deterministic routing, predictable behavior. The result is a regex arms race
+where every new edge case requires a new pattern, duplicate classification logic creates
+two-truth problems, and the system still fails on basic queries like "What does ADR-0012
+decide?" because it treats the query as a bag of tokens.
 
-This should be replaced with:
-1. **A single Domain Knowledge Skill** — a structured, human-readable document that captures everything the system needs to know about the ESA document ecosystem
-2. **A Document Registry Service** — a programmatic layer that provides authoritative lookups
-3. **Consolidated classification** — one path for document type identification
+**The fundamental error**: We treated this like an enterprise production system from day one,
+optimizing for zero-failure before validating the basic interaction model. We have 49 documents
+and a POC user base. We built infrastructure for 10,000.
+
+**The corrected principle**: For a POC with 49 documents — **trust the LLM, enrich the data,
+and let the system ask questions when it's unsure.**
+
+The LLM is already good at understanding natural language, resolving references, and generating
+accurate answers — if it has the right context. Our job is to give it:
+1. Domain knowledge (a skill document)
+2. Good metadata (enriched Weaviate properties)
+3. Clean retrieval (correct doc_types, no duplicate classification)
+4. Permission to say "I'm not sure, did you mean X?"
+
+Everything else — the regex cascades, the deterministic routing chains, the pre-retrieval
+resolution layers — is us not trusting the tool we chose to build with.
 
 ### 3.2 Proposed Architecture
 
 ```
 ┌──────────────────────────────────────────────────────────┐
-│  LAYER 1: Domain Knowledge Skill (NEW)                   │
+│  Domain Knowledge Skill (NEW)                            │
 │  "What is an ADR? How are documents named?"              │
-│  → Used by LLM for grounded understanding                │
-│  → Single source of truth for domain vocabulary          │
+│  → LLM reads this, understands the domain                │
+│  → Replaces half the regex in the system                 │
 │  → File: src/skills/esa_document_ontology.md             │
 └──────────────┬───────────────────────────────────────────┘
-               │ informs
+               │ context for
 ┌──────────────▼───────────────────────────────────────────┐
-│  LAYER 2: Document Registry Service (NEW)                │
-│  "Resolve ADR.22 → file, metadata, DAR link"             │
-│  → Parses esa_doc_registry.md into structured data       │
-│  → Builds ADR↔DAR linkage from filenames + UUIDs         │
-│  → Provides lookup by ID, number, title, owner           │
-│  → File: src/services/document_registry.py               │
+│  LLM (intent classification + query understanding)       │
+│  → With domain knowledge, naturally resolves "ADR 12"    │
+│  → Classifies intent without regex cascades              │
+│  → Asks clarifying questions when ambiguous              │
+│  → Replaces: intent_router.py heuristics,                │
+│    approval_extractor.py patterns, meta_route.py gates   │
 └──────────────┬───────────────────────────────────────────┘
-               │ used by
+               │ queries
 ┌──────────────▼───────────────────────────────────────────┐
-│  LAYER 3: Consolidated Classifier (REFACTORED)           │
-│  "Is this file an ADR, PCP, DAR, template, or index?"    │
-│  → Single module: src/doc_type_classifier.py             │
-│  → markdown_loader.py CALLS it, doesn't duplicate it     │
-│  → All config from taxonomy.default.yaml only            │
+│  Enriched Weaviate Store (IMPROVED)                      │
+│  → canonical_id, owner, status as filterable fields      │
+│  → LLM can request filtered queries when it knows the ID │
+│  → No pre-retrieval gate needed — LLM decides when to    │
+│    filter vs when to search semantically                 │
 └──────────────┬───────────────────────────────────────────┘
-               │ used by
+               │ backed by
 ┌──────────────▼───────────────────────────────────────────┐
-│  LAYER 4: Query Understanding (REFACTORED)               │
-│  "User said 'ADR.12' → resolve to specific document"     │
-│  → Pre-retrieval: detect ID references, resolve via      │
-│    Registry Service, add Weaviate where-filter           │
-│  → All patterns from taxonomy.default.yaml only          │
-│  → intent_router.py, approval_extractor.py unified       │
+│  Simplified Classifier (CLEANED UP)                      │
+│  → One path: doc_type_classifier.py only                 │
+│  → markdown_loader.py calls it, doesn't duplicate it     │
+│  → Patterns only for mechanical file parsing (ingestion) │
+│  → NOT for query understanding (that's the LLM's job)    │
 └──────────────────────────────────────────────────────────┘
 ```
 
 ### 3.3 Detailed Actions
 
-#### Action 1: Create the ESA Document Ontology Skill
+#### P1: Domain Knowledge Skill
 
-Create `src/skills/esa_document_ontology.md` — a structured knowledge document that captures:
+Create `src/skills/esa_document_ontology.md` — a well-written skill document that explains:
 
-**Section A: Document Types**
-- What is an ADR (Architecture Decision Record)?
-- What is a PCP (Architecture Principle)?
-- What is a DAR (Decision Approval Record)?
-- How do DARs relate to ADRs and PCPs? (1:1 relationship, same folder, same number + D suffix)
+- What ADRs, PCPs, and DARs are
+- How they're numbered (sequential, overlapping between ADR and PCP)
+- How they relate (every ADR/PCP has exactly one DAR, same number + D suffix, same folder)
+- How users refer to them (all the variations from §1.6)
+- The disambiguation rules (folder path, registry prefix, frontmatter)
+- The owner groups (ESA, BA, DO) and what they mean
+- The frontmatter schemas and their inconsistencies
 
-**Section B: Naming and Identification**
-- Official IDs: ADR.NN, PCP.NN (from registry)
-- Filename format: NNNN-descriptive-title.md (content), NNNND-descriptive-title.md (DAR)
-- The XXXX placeholder convention for drafts
-- How users refer to documents (all variations)
-- The overlapping number problem (ADR.22 ≠ PCP.22)
+This single file replaces half the regex in the system. The LLM reads it, understands the
+domain, and can naturally resolve "ADR 12" vs "principle 12" — because it knows what those
+things are.
 
-**Section C: Repository Structure**
-- Folder layout: decisions/ has ADRs + their DARs, principles/ has PCPs + their DARs
-- Template files (not documents, authoring aids)
-- Registry file (canonical index of all ADRs and PCPs)
-- README (repository documentation)
+**Effort**: Low (1-2 hours to write well)
+**Impact**: Highest of any single change
 
-**Section D: Governance**
-- Owner groups: ESA, BA, DO
-- DACI framework: Driver, Approver, Contributors, Informed
-- Status lifecycle: proposed → accepted → deprecated/superseded/revoked
-- How ownership is determined (from DAR, from registry)
+#### P2: Metadata Enrichment at Ingestion
 
-**Section E: Frontmatter Schema**
-- ADR frontmatter fields (parent, nav_order, status, date, driver)
-- PCP frontmatter fields (parent, nav_order, dct.identifier, dct.title, owl.versionIRI)
-- DAR frontmatter fields (nav_order, dct.identifier, dct.title)
-- Known inconsistencies (ADRs lack UUIDs, nav_order format varies)
-
-This skill would be loaded into the LLM context when processing any query about the ESA corpus, giving it grounded understanding rather than pattern-matching.
-
-#### Action 2: Build the Document Registry Service
-
-Create `src/services/document_registry.py`:
-
-```python
-class DocumentEntry:
-    """A single document in the registry."""
-    doc_type: str          # "adr" or "principle"
-    canonical_id: str      # "ADR.22" or "PCP.22"
-    number: str            # "0022"
-    title: str             # "Use priority-based scheduling"
-    status: str            # "accepted", "proposed", etc.
-    date: str              # "2024-11-14"
-    owner: str             # "System Operations - Energy System Architecture Group"
-    content_path: Path     # decisions/0022-use-priority-based-scheduling.md
-    dar_path: Path         # decisions/0022D-use-priority-based-scheduling.md
-    uuid: str | None       # From frontmatter dct.identifier (if available)
-
-class DocumentRegistry:
-    """Authoritative lookup service for ESA documents."""
-
-    def load_from_registry_file(self, path: Path) -> None:
-        """Parse esa_doc_registry.md into structured entries."""
-
-    def load_from_filesystem(self, doc_path: Path) -> None:
-        """Scan decisions/ and principles/ to build entry list."""
-
-    def resolve(self, query: str) -> DocumentEntry | None:
-        """Resolve 'ADR.22', 'adr-0022', 'decision 22', etc."""
-
-    def lookup_by_number(self, number: str, doc_type: str = None) -> list[DocumentEntry]:
-        """Find by number, optionally filtered by type."""
-
-    def lookup_by_title(self, title_fragment: str) -> list[DocumentEntry]:
-        """Fuzzy match on title."""
-
-    def get_dar_for(self, entry: DocumentEntry) -> DocumentEntry | None:
-        """Get the DAR corresponding to an ADR or PCP."""
-
-    def list_by_owner(self, owner_fragment: str) -> list[DocumentEntry]:
-        """Find all docs by owner group."""
-
-    def list_by_status(self, status: str) -> list[DocumentEntry]:
-        """Find all docs with given status."""
-```
-
-This service would be:
-- Initialized once at startup from both the registry file and the filesystem
-- Used by the query pipeline to resolve document references before retrieval
-- Used by ingestion to enrich documents with authoritative metadata
-
-#### Action 3: Consolidate Classification
-
-**Remove** duplicate classification in `markdown_loader.py`. Make it call `doc_type_classifier.py` exclusively.
-
-**Fix** `doc_type_classifier.py`:
-- Add PRINCIPLE and PRINCIPLE_APPROVAL to `all_types()`
-- Deprecate and remove the `content` legacy type with a migration
-- Ensure all patterns come from `taxonomy.default.yaml` (no hardcoding)
-
-#### Action 4: Enrich Weaviate Properties
-
-Add queryable metadata properties to Weaviate collections:
+Add these properties to Weaviate documents during ingestion:
 
 ```
 # Current
@@ -447,93 +382,133 @@ content: str          # Full text
 
 # Add
 canonical_id: str     # "ADR.22"
-dar_path: str         # "decisions/0022D-use-priority-based-scheduling.md"
-uuid: str             # "urn:uuid:..." (from frontmatter)
 owner: str            # "System Operations - Energy System Architecture Group"
 owner_abbr: str       # "ESA"
 status: str           # "accepted"
 date: str             # "2024-11-14"
+uuid: str             # "urn:uuid:..." (from frontmatter where available)
+dar_path: str         # "decisions/0022D-use-priority-based-scheduling.md"
 ```
 
-This enables:
-- `where: canonical_id = "ADR.22"` for exact lookups
-- `where: owner_abbr = "ESA"` for ownership queries
-- `where: status = "proposed"` for status filtering
+This is a one-time ingestion improvement. It doesn't add routing complexity — it just makes
+the data richer so that when the LLM decides to filter by `canonical_id`, it can.
 
-#### Action 5: Pre-Retrieval Document Resolution
+**Effort**: Medium (modify ingestion pipeline, re-index)
+**Impact**: High — enables exact-match lookups and structured queries
 
-Add a `resolve_document_reference()` step in the query pipeline, before Weaviate search:
+#### P3: Simplify Classification (delete, don't consolidate)
 
-1. Detect if query contains a document reference (any of the variations in §1.6)
-2. Use the Registry Service to resolve it to a specific `DocumentEntry`
-3. If resolved: add a Weaviate `where` filter on `canonical_id` or `adr_number`
-4. If ambiguous (just a number, could be ADR or PCP): ask for clarification OR search both with the filter
+Don't build a more elaborate classifier. Simplify the existing one:
 
-This eliminates the "ADR-0001 beats ADR-0012" problem entirely — it's a lookup, not a search.
+- `markdown_loader.py` should call `doc_type_classifier.py` — **delete** the duplicate
+  `_classify_adr_document()` and `_classify_principle_document()` methods
+- `doc_type_classifier.py` should classify based on folder + filename + frontmatter —
+  that's ~20 lines of logic, not 120
+- Add PRINCIPLE and PRINCIPLE_APPROVAL to `all_types()`
+- Remove the `content` legacy type — migrate any remaining references to `adr`
 
-#### Action 6: Unify Pattern Sources
+**Effort**: Low (mostly deletion)
+**Impact**: Medium — removes a source of bugs
 
-All regex patterns should come from ONE place:
-- `taxonomy.default.yaml` for document identity patterns
-- `routing_policy.yaml` for routing behavior flags
+#### P4: Strip Hardcoded Routing Patterns (delete, don't unify)
 
-Code modules should import patterns from config, not define their own. Specifically:
-- `intent_router.py`: replace hardcoded patterns with config-loaded ones
-- `approval_extractor.py`: use shared patterns from config
-- `meta_route.py`: use shared negative patterns from config
+Instead of unifying 40 patterns into one file, **delete 30 of them**. The LLM with domain
+knowledge can classify intent. We have `intent_router_mode: llm` in the routing policy.
 
-#### Action 7: Fix Corpus Expectations
+Remove user-facing query patterns from:
+- `intent_router.py` — let `intent_router_mode: llm` handle intent classification with
+  the domain skill as context
+- `approval_extractor.py` — the LLM with domain knowledge can identify approval queries
+- `meta_route.py` — the LLM can distinguish system-meta from corpus questions
 
-Update `corpus_expectations.yaml`:
+**Keep** patterns only where they're mechanical and non-ambiguous:
+- Filename parsing during ingestion (is this file `NNNN-*.md` or `NNNND-*.md`?)
+- Registry table parsing (extracting ID, Title, Status columns)
+- These are **data-processing** patterns, not **query-understanding** patterns
+
+**Effort**: Medium (careful removal + testing)
+**Impact**: High — eliminates the regex arms race, lets the LLM do what it's good at
+
+#### P5: Enable Clarifying Questions
+
+When the system encounters ambiguity — e.g., user says "tell me about 0022" and both ADR.22
+and PCP.22 exist — it should **ask, not guess**:
+
+> "There are two documents numbered 0022:
+> - **ADR.22**: Use priority-based scheduling (Architecture Decision)
+> - **PCP.22**: Omnichannel Multibranded (Architecture Principle)
+>
+> Which one are you interested in?"
+
+This is more natural, more reliable, and more user-friendly than any deterministic
+disambiguation logic. Users learn from these interactions — they start saying "ADR 22"
+instead of just "22". The system trains its users.
+
+**Effort**: Low-Medium (add clarification flow to query pipeline)
+**Impact**: High — solves the ambiguity problem correctly instead of guessing
+
+#### P6: Test Harness with Real Queries
+
+We have 49 documents. Build a test set of 20-30 real queries:
 
 ```yaml
-adr:
-  unique_count:
-    enabled: true
-    min: 18     # actual current count
-    max: 40     # reasonable growth ceiling
-  must_include_ids:
-    enabled: true
-    values: ["0000", "0001", "0002", "0031"]  # first + latest
+# tests/fixtures/retrieval_test_queries.yaml
+queries:
+  - query: "What does ADR 12 say?"
+    expected_doc: "ADR.12"
+    category: exact_match
 
-principle:
-  unique_count:
-    enabled: true
-    min: 31     # actual current count
-    max: 50     # reasonable growth ceiling
-  must_include_ids:
-    enabled: true
-    values: ["0010", "0040"]  # first + latest
+  - query: "List all principles"
+    expected: count_gte_31
+    category: list
 
-dar:
-  unique_count:
-    enabled: true
-    min: 49     # 18 ADR DARs + 31 PCP DARs
-    max: 90
+  - query: "Who approved PCP.22?"
+    expected_doc: "PCP.22D"
+    category: approval
+
+  - query: "What is the status of ADR.25?"
+    expected_doc: "ADR.25"
+    category: status
+
+  - query: "Tell me about 0022"
+    expected: clarification_question  # ambiguous — should ask
+    category: disambiguation
+
+  - query: "What ADRs are about security?"
+    expected_docs: ["ADR.27", "ADR.29"]
+    category: semantic
+
+  - query: "Compare ADR.27 and ADR.29"
+    expected_docs: ["ADR.27", "ADR.29"]
+    category: compare
 ```
 
-#### Action 8: Address Source Data Inconsistencies (Suggestions to Repo Maintainers)
+Run them before and after each change. Measure retrieval quality, response quality, and
+failure modes. This is the advantage of having a small corpus — we can test exhaustively.
 
-These are changes to the source data (`esa-main-artifacts`) that would make automation much more reliable:
+**Effort**: Low (a script + a YAML file of test cases)
+**Impact**: Prevents regressions and gives us data to make decisions
 
-1. **Add UUIDs to ADR frontmatter** — PCPs have them, ADRs don't. This breaks UUID-based linking.
-2. **Standardize nav_order format** — ADRs use plain numbers (`22`), PCPs use prefixed (`PCP.22`). Pick one.
-3. **Add canonical_id to frontmatter** — Instead of deriving `ADR.22` from folder + filename, put `id: ADR.22` in frontmatter.
-4. **Add a `dar_ref` column to the registry** — The registry lists ADRs and PCPs but not their DARs. Adding a column with the DAR filename would make the relationship explicit.
-5. **Consider a `manifest.yaml` per folder** — Instead of relying on filename parsing, each folder could have a manifest listing its documents with metadata. This is automation-friendly while keeping the human-readable markdown files as-is.
+### 3.4 What We're Explicitly NOT Doing
 
-### 3.4 Implementation Priority
+| Rejected Approach | Why |
+|-------------------|-----|
+| Document Registry Service (7-method class) | 49 documents don't need a service abstraction. A dict loaded at startup does the same thing in 50 lines. |
+| Pre-retrieval document resolution gate | Another deterministic gate before the LLM — exactly the pattern that created the 10-module mess. The LLM with domain knowledge + enriched metadata can do this itself. |
+| Unifying 40 regex patterns into one file | The right answer isn't moving patterns — it's deleting most of them. |
+| Fixing corpus_expectations.yaml | Nice-to-have, not blocking anything. |
+| Source data suggestions (UUIDs for ADRs, etc.) | Requires external team action, not in our control right now. |
 
-| Priority | Action | Effort | Impact |
-|----------|--------|--------|--------|
-| **P0** | Action 1: Domain Knowledge Skill | Low | High — gives LLM grounded understanding |
-| **P0** | Action 5: Pre-retrieval document resolution | Medium | High — fixes the exact-match failure |
-| **P1** | Action 2: Document Registry Service | Medium | High — authoritative lookups for everything |
-| **P1** | Action 4: Enrich Weaviate properties | Medium | High — enables filtered queries |
-| **P2** | Action 3: Consolidate classification | Low | Medium — reduces bugs from duplication |
-| **P2** | Action 6: Unify pattern sources | Low | Medium — single source of truth for patterns |
-| **P3** | Action 7: Fix corpus expectations | Low | Low — validation improvement |
-| **P3** | Action 8: Source data suggestions | External | High — but requires repo maintainer action |
+### 3.5 Implementation Priority
+
+| Priority | Action | Effort | Impact | Philosophy |
+|----------|--------|--------|--------|-----------|
+| **P1** | Domain Knowledge Skill | Low | Highest | Give the LLM understanding |
+| **P2** | Metadata enrichment at ingestion | Medium | High | Enrich the data |
+| **P3** | Simplify classification (delete dupes) | Low | Medium | Clean up, don't add |
+| **P4** | Strip hardcoded routing patterns | Medium | High | Trust the LLM |
+| **P5** | Clarifying questions for ambiguity | Low-Med | High | Let the system ask |
+| **P6** | Test harness with real queries | Low | High | Measure, don't guess |
 
 ---
 
