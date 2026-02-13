@@ -173,4 +173,4 @@ dct:
 
 ## Legacy Note: the `content` doc_type
 
-Some ADR documents in Weaviate have `doc_type: "content"` instead of `doc_type: "adr"`. This is a legacy artifact from earlier ingestion runs. When filtering by document type, include both `"adr"` and `"content"` to avoid silently missing ADRs. This will be cleaned up in a future migration.
+Resolved. After the P3 re-index, all documents use canonical `doc_type` values (`adr`, `adr_approval`, `principle`, `principle_approval`). The legacy `"content"` value no longer exists in Weaviate. Filters still accept `"content"` as a fallback for safety, but new queries should use the canonical values.
