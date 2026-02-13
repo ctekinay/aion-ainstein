@@ -66,10 +66,10 @@ def _chunk_to_adr_dict(chunk: "Chunk", adr_number: str = "") -> dict[str, Any]:
         "full_text": chunk.full_text or chunk.build_full_text(),
         "doc_type": meta.document_type or "content",
         # Enriched metadata (P2)
-        "canonical_id": getattr(meta, "canonical_id", ""),
-        "date": getattr(meta, "date", ""),
-        "doc_uuid": getattr(meta, "doc_uuid", ""),
-        "dar_path": getattr(meta, "dar_path", ""),
+        "canonical_id": meta.canonical_id,
+        "date": meta.date,
+        "doc_uuid": meta.doc_uuid,
+        "dar_path": meta.dar_path,
         # Ownership properties
         "owner_team": meta.owner_team,
         "owner_team_abbr": meta.owner_team_abbr,
@@ -104,11 +104,11 @@ def _chunk_to_principle_dict(chunk: "Chunk", principle_number: str = "") -> dict
         "content": chunk.content,
         "full_text": chunk.full_text or chunk.build_full_text(),
         # Enriched metadata (P2)
-        "canonical_id": getattr(meta, "canonical_id", ""),
-        "status": getattr(meta, "status", ""),
-        "date": getattr(meta, "date", ""),
-        "doc_uuid": getattr(meta, "doc_uuid", ""),
-        "dar_path": getattr(meta, "dar_path", ""),
+        "canonical_id": meta.canonical_id,
+        "status": meta.status,
+        "date": meta.date,
+        "doc_uuid": meta.doc_uuid,
+        "dar_path": meta.dar_path,
         # Ownership properties
         "owner_team": meta.owner_team,
         "owner_team_abbr": meta.owner_team_abbr,
