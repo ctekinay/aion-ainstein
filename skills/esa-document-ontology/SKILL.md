@@ -77,7 +77,7 @@ Users do NOT consistently use the official `ADR.NN` or `PCP.NN` format. You shou
 
 The words "ADR", "adr", "Adr", "ADRs", "Adrs", "adrs" all refer to Architecture Decision Records. Similarly, "PCP", "pcp", "principle", "Principle", "principles" all refer to Architecture Principles.
 
-When a user asks about a specific document by ID, this is a **lookup**, not a semantic search. The system should use the `canonical_id` or `adr_number`/`principle_number` metadata fields to find the exact document, not rely on text similarity.
+When a user asks about a specific document by ID, this is a **lookup**, not a semantic search. Use the `adr_number` or `principle_number` metadata fields to find the exact document, not text similarity. (A `canonical_id` field like `"ADR.22"` may be added in future; use it for filtering when available.)
 
 ## Disambiguation Rules
 
@@ -170,3 +170,7 @@ dct:
   identifier: urn:uuid:...   # same UUID as the PCP content file
   title: Document title
 ```
+
+## Legacy Note: the `content` doc_type
+
+Some ADR documents in Weaviate have `doc_type: "content"` instead of `doc_type: "adr"`. This is a legacy artifact from earlier ingestion runs. When filtering by document type, include both `"adr"` and `"content"` to avoid silently missing ADRs. This will be cleaned up in a future migration.
