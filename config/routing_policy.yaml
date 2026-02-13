@@ -1,52 +1,8 @@
-# =============================================================================
-# AION-AINSTEIN Routing Policy
-# =============================================================================
-# Centralized runtime configuration for routing behavior.
-# All flags can be overridden via environment variables (AINSTEIN_ prefix)
-# or via the Settings > Routing UI.
-#
-# ┌─────────────────────────────────────────────────────────────┐
-# │  ROUTING                                                    │
-# │                                                             │
-# │  Intent Router                                              │
-# │    ├── intent_router_enabled                                │
-# │    ├── intent_router_mode      (heuristic | llm)            │
-# │    └── intent_confidence_threshold                          │
-# │                                                             │
-# │  INDEPENDENT (always active)                                │
-# │    ├── tree_enabled                                         │
-# │    ├── abstain_gate_enabled                                 │
-# │    ├── followup_binding_enabled                             │
-# │    ├── max_tree_seconds                                     │
-# │    └── debug_headers_enabled                                │
-# └─────────────────────────────────────────────────────────────┘
-# =============================================================================
-
-# ---- Intent Router ----
-
-# Intent router: when true, classify_intent() runs BEFORE the Tree/LLM path.
-intent_router_enabled: false
-
-# Intent router implementation: "heuristic" (fast, regex) or "llm" (uses LLM)
-intent_router_mode: heuristic
-
-# Confidence threshold below which the router asks a clarifying question
+intent_router_enabled: true
+intent_router_mode: llm
 intent_confidence_threshold: 0.55
-
-# ---- Independent Options ----
-
-# Follow-up binding: resolve "list them" → "list dars" from conversation context
 followup_binding_enabled: true
-
-# Enable/disable Elysia Tree entirely. When false, all queries use
-# direct retrieval + LLM generation (useful for "bare LLM + retrieval" experiments)
-tree_enabled: true
-
-# Maximum seconds before Elysia Tree times out and falls back to direct query
+abstain_gate_enabled: false
 max_tree_seconds: 120
-
-# Abstain gate: reject answers when retrieval quality is poor
-abstain_gate_enabled: true
-
-# Append routing debug footer to web UI responses (dev only)
+tree_enabled: true
 debug_headers_enabled: false
