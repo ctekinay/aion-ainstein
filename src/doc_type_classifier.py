@@ -97,7 +97,7 @@ class DocType:
         - index: Should not be in store, but filter as fallback
         - registry: May be excluded from content queries
         """
-        return [cls.ADR_APPROVAL, cls.TEMPLATE, cls.INDEX, cls.REGISTRY]
+        return [cls.ADR_APPROVAL, cls.PRINCIPLE_APPROVAL, cls.TEMPLATE, cls.INDEX, cls.REGISTRY]
 
 
 # =============================================================================

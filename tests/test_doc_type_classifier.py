@@ -57,6 +57,7 @@ class TestDocTypeConstants:
         """Test that excluded_types contains metadata documents."""
         excluded = DocType.excluded_types()
         assert DocType.ADR_APPROVAL in excluded
+        assert DocType.PRINCIPLE_APPROVAL in excluded
         assert DocType.TEMPLATE in excluded
         assert DocType.INDEX in excluded
         assert DocType.ADR not in excluded
