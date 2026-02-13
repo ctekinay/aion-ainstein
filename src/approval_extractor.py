@@ -441,15 +441,9 @@ def get_approval_record_from_weaviate(
         # Use the correct approval type for each document kind (PCP30 fix)
         number_filter = Filter.by_property(id_field).equal(doc_number)
         if doc_type == "adr":
-            type_filter = (
-                Filter.by_property("doc_type").equal("adr_approval") |
-                Filter.by_property("doc_type").equal("decision_approval_record")
-            )
+            type_filter = Filter.by_property("doc_type").equal("adr_approval")
         else:
-            type_filter = (
-                Filter.by_property("doc_type").equal("principle_approval") |
-                Filter.by_property("doc_type").equal("decision_approval_record")
-            )
+            type_filter = Filter.by_property("doc_type").equal("principle_approval")
         combined_filter = number_filter & type_filter
 
         # Fetch the DAR
@@ -767,8 +761,8 @@ def get_content_record_from_weaviate(
 ) -> Optional[ContentRecord]:
     """Fetch a document's content (not DAR) from Weaviate.
 
-    This explicitly excludes decision_approval_record documents to ensure
-    we get the actual content document.
+    This explicitly excludes approval documents (adr_approval, principle_approval)
+    to ensure we get the actual content document.
 
     Args:
         client: Weaviate client
@@ -794,16 +788,11 @@ def get_content_record_from_weaviate(
         collection = client.collections.get(collection_name)
 
         # Build filter: number matches AND doc_type is content (not DAR)
-        # Explicitly exclude decision_approval_record
         number_filter = Filter.by_property(id_field).equal(doc_number)
-        content_type_filter = (
-            Filter.by_property("doc_type").equal("content") |
-            Filter.by_property("doc_type").equal("adr")  # Legacy type
-        )
-        exclude_dar_filter = Filter.by_property("doc_type").not_equal("decision_approval_record")
         exclude_dar_approval = Filter.by_property("doc_type").not_equal("adr_approval")
+        exclude_principle_approval = Filter.by_property("doc_type").not_equal("principle_approval")
 
-        combined_filter = number_filter & exclude_dar_filter & exclude_dar_approval
+        combined_filter = number_filter & exclude_dar_approval & exclude_principle_approval
 
         # Fetch the content document
         results = collection.query.fetch_objects(
@@ -827,7 +816,7 @@ def get_content_record_from_weaviate(
                 continue
 
             # Skip if doc_type is approval-related
-            if doc_type_prop in ["decision_approval_record", "adr_approval"]:
+            if doc_type_prop in ["adr_approval", "principle_approval"]:
                 continue
 
             # Prefer files matching NNNN-*.md pattern (content files)
@@ -907,15 +896,9 @@ def get_dar_record_from_weaviate(
         # Use the correct approval type for each document kind (PCP30 fix)
         number_filter = Filter.by_property(id_field).equal(doc_number)
         if doc_type == "adr":
-            dar_type_filter = (
-                Filter.by_property("doc_type").equal("decision_approval_record") |
-                Filter.by_property("doc_type").equal("adr_approval")
-            )
+            dar_type_filter = Filter.by_property("doc_type").equal("adr_approval")
         else:
-            dar_type_filter = (
-                Filter.by_property("doc_type").equal("decision_approval_record") |
-                Filter.by_property("doc_type").equal("principle_approval")
-            )
+            dar_type_filter = Filter.by_property("doc_type").equal("principle_approval")
         combined_filter = number_filter & dar_type_filter
 
         # Fetch the DAR

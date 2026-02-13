@@ -350,12 +350,15 @@ class MarkdownLoader:
         For a content file like 0022-title.md, the DAR is 0022D-title.md in the same dir.
         For a DAR file, returns its own path (it IS the DAR).
 
+        # TODO: returns absolute paths (e.g., /Users/.../0024D-use-standard-...md).
+        # Make relative to repo root for portability across machines.
+
         Args:
             file_path: Path to the content or DAR file
             doc_number: 4-digit document number
 
         Returns:
-            Relative path to the DAR file, or empty string if not found
+            Path to the DAR file, or empty string if not found
         """
         filename = file_path.name
         # If this IS a DAR file, return its own path

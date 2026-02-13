@@ -77,7 +77,7 @@ Users do NOT consistently use the official `ADR.NN` or `PCP.NN` format. You shou
 
 The words "ADR", "adr", "Adr", "ADRs", "Adrs", "adrs" all refer to Architecture Decision Records. Similarly, "PCP", "pcp", "principle", "Principle", "principles" all refer to Architecture Principles.
 
-When a user asks about a specific document by ID, this is a **lookup**, not a semantic search. Use the `adr_number` or `principle_number` metadata fields to find the exact document, not text similarity. (A `canonical_id` field like `"ADR.22"` may be added in future; use it for filtering when available.)
+When a user asks about a specific document by ID, this is a **lookup**, not a semantic search. Use the `canonical_id` field (e.g., `"ADR.22"`, `"PCP.10"`, `"ADR.22D"` for DARs) or the `adr_number` / `principle_number` metadata fields to find the exact document, not text similarity.
 
 ## Disambiguation Rules
 
@@ -173,4 +173,4 @@ dct:
 
 ## Legacy Note: the `content` doc_type
 
-Some ADR documents in Weaviate have `doc_type: "content"` instead of `doc_type: "adr"`. This is a legacy artifact from earlier ingestion runs. When filtering by document type, include both `"adr"` and `"content"` to avoid silently missing ADRs. This will be cleaned up in a future migration.
+Resolved. After the P3 re-index, all documents use canonical `doc_type` values (`adr`, `adr_approval`, `principle`, `principle_approval`). The legacy `"content"` value no longer exists in Weaviate. Filters still accept `"content"` as a fallback for safety, but new queries should use the canonical values.
