@@ -50,6 +50,23 @@ skills:
       - "total"
       - "exist"
 
+  - name: esa-document-ontology
+    path: esa-document-ontology/SKILL.md
+    description: "Domain knowledge about ADRs, PCPs, DARs: naming, numbering, relationships, disambiguation"
+    enabled: true
+    auto_activate: true  # Needed for virtually all queries about the ESA corpus
+    triggers:
+      - "adr"
+      - "pcp"
+      - "dar"
+      - "principle"
+      - "decision"
+      - "approval"
+      - "0010"
+      - "0012"
+      - "0022"
+      - "0025"
+
 # Future skills can be added here:
 #
 #  - name: alliander-domain-expert
