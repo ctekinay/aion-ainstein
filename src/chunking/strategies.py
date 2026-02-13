@@ -174,7 +174,7 @@ class ChunkingStrategy(ABC):
             completeness=completeness,
         )
 
-        # Apply external metadata (ownership, etc.)
+        # Apply external metadata (ownership, P2 enrichment, etc.)
         if metadata:
             meta.owner_team = metadata.get("owner_team", "")
             meta.owner_team_abbr = metadata.get("owner_team_abbr", "")
@@ -182,6 +182,12 @@ class ChunkingStrategy(ABC):
             meta.owner_organization = metadata.get("owner_organization", "")
             meta.owner_display = metadata.get("owner_display", "")
             meta.collection_name = metadata.get("collection_name", "")
+            # Enriched metadata (P2)
+            meta.canonical_id = metadata.get("canonical_id", "")
+            meta.status = metadata.get("status", "")
+            meta.date = metadata.get("date", "")
+            meta.doc_uuid = metadata.get("doc_uuid", "")
+            meta.dar_path = metadata.get("dar_path", "")
 
         chunk = Chunk(
             content=content,

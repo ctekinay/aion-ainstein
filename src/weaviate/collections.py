@@ -375,6 +375,31 @@ class CollectionManager:
                     description="Document classification: content (actual ADR), index (list/overview), template",
                     tokenization=Tokenization.FIELD,
                 ),
+                # Enriched metadata (P2)
+                Property(
+                    name="canonical_id",
+                    data_type=DataType.TEXT,
+                    description="Official ID (e.g., 'ADR.22', 'ADR.22D')",
+                    tokenization=Tokenization.FIELD,
+                ),
+                Property(
+                    name="date",
+                    data_type=DataType.TEXT,
+                    description="Date from frontmatter (YYYY-MM-DD)",
+                    tokenization=Tokenization.FIELD,
+                ),
+                Property(
+                    name="doc_uuid",
+                    data_type=DataType.TEXT,
+                    description="UUID from frontmatter dct:identifier (where available)",
+                    tokenization=Tokenization.FIELD,
+                ),
+                Property(
+                    name="dar_path",
+                    data_type=DataType.TEXT,
+                    description="Path to corresponding Decision Approval Record",
+                    tokenization=Tokenization.FIELD,
+                ),
                 # Ownership properties from index.md
                 *self._get_ownership_properties(),
             ],
@@ -432,6 +457,37 @@ class CollectionManager:
                     data_type=DataType.TEXT,
                     description="Combined searchable text",
                     tokenization=Tokenization.WORD,
+                ),
+                # Enriched metadata (P2)
+                Property(
+                    name="canonical_id",
+                    data_type=DataType.TEXT,
+                    description="Official ID (e.g., 'PCP.22', 'PCP.22D')",
+                    tokenization=Tokenization.FIELD,
+                ),
+                Property(
+                    name="status",
+                    data_type=DataType.TEXT,
+                    description="Status of the principle (proposed, accepted, etc.)",
+                    tokenization=Tokenization.FIELD,
+                ),
+                Property(
+                    name="date",
+                    data_type=DataType.TEXT,
+                    description="Date from frontmatter (YYYY-MM-DD)",
+                    tokenization=Tokenization.FIELD,
+                ),
+                Property(
+                    name="doc_uuid",
+                    data_type=DataType.TEXT,
+                    description="UUID from frontmatter dct:identifier",
+                    tokenization=Tokenization.FIELD,
+                ),
+                Property(
+                    name="dar_path",
+                    data_type=DataType.TEXT,
+                    description="Path to corresponding Decision Approval Record",
+                    tokenization=Tokenization.FIELD,
                 ),
                 # Ownership properties from index.md
                 *self._get_ownership_properties(),

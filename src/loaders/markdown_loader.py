@@ -72,6 +72,12 @@ class MarkdownDocument:
     # Principle-specific fields
     principle_number: str = ""  # Extracted from filename (e.g., "0010")
 
+    # Enriched metadata (P2)
+    canonical_id: str = ""  # "ADR.22" or "PCP.22" or "ADR.22D" etc.
+    date: str = ""  # From frontmatter
+    doc_uuid: str = ""  # From frontmatter dct.identifier
+    dar_path: str = ""  # Path to corresponding DAR file
+
     # Ownership fields from index.md
     owner_team: str = ""
     owner_team_abbr: str = ""
@@ -93,6 +99,11 @@ class MarkdownDocument:
             "consequences": self.consequences,
             "adr_number": self.adr_number,
             "principle_number": self.principle_number,
+            # Enriched metadata (P2)
+            "canonical_id": self.canonical_id,
+            "date": self.date,
+            "doc_uuid": self.doc_uuid,
+            "dar_path": self.dar_path,
             # Ownership fields
             "owner_team": self.owner_team,
             "owner_team_abbr": self.owner_team_abbr,
@@ -387,6 +398,32 @@ class MarkdownLoader:
         # Also check nav_order in metadata for backup
         return ""
 
+    @staticmethod
+    def _compute_dar_path(file_path: Path, doc_number: str) -> str:
+        """Compute the path to the corresponding Decision Approval Record.
+
+        For a content file like 0022-title.md, the DAR is 0022D-title.md in the same dir.
+        For a DAR file, returns its own path (it IS the DAR).
+
+        Args:
+            file_path: Path to the content or DAR file
+            doc_number: 4-digit document number
+
+        Returns:
+            Relative path to the DAR file, or empty string if not found
+        """
+        filename = file_path.name
+        # If this IS a DAR file, return its own path
+        if re.match(r"^\d{4}[dD]-", filename):
+            return str(file_path)
+
+        # Compute DAR filename: replace "NNNN-" with "NNNND-"
+        dar_filename = filename.replace(f"{doc_number}-", f"{doc_number}D-", 1)
+        dar_path = file_path.parent / dar_filename
+        if dar_path.exists():
+            return str(dar_path)
+        return ""
+
     def _format_adr_id(self, adr_number: str) -> str:
         """Format ADR number to official ID format (ADR.XX).
 
@@ -429,11 +466,26 @@ class MarkdownLoader:
         # Classify first to determine if it's a decision approval record
         doc.doc_type = self._classify_adr_document(file_path, doc.title, doc.content)
 
+        # Enriched metadata (P2): canonical_id, date, uuid, dar_path
+        is_dar = doc.doc_type == 'decision_approval_record'
+        if adr_number:
+            adr_id = self._format_adr_id(adr_number)
+            doc.canonical_id = f"{adr_id}D" if is_dar else adr_id
+            doc.dar_path = self._compute_dar_path(file_path, adr_number)
+        doc.date = str(doc.metadata.get("date", ""))
+        dct = doc.metadata.get("dct", {})
+        if isinstance(dct, dict):
+            doc.doc_uuid = dct.get("identifier", "")
+        # For ADRs, status can also come from frontmatter if not extracted from content
+        fm_status = doc.metadata.get("status", "")
+        if fm_status and isinstance(fm_status, str):
+            fm_status = fm_status.strip().strip('"').strip("'")
+
         # Prepend ADR ID to title for better retrieval (using official format ADR.XX)
         # Use different prefix for Decision Approval Records
         if adr_number and not doc.title.lower().startswith("adr"):
             adr_id = self._format_adr_id(adr_number)
-            if doc.doc_type == 'decision_approval_record':
+            if is_dar:
                 doc.title = f"{adr_id}D (Approval Record): {doc.title}"
             else:
                 doc.title = f"{adr_id}: {doc.title}"
@@ -444,6 +496,8 @@ class MarkdownLoader:
         status_match = self.ADR_STATUS_PATTERN.search(content)
         if status_match:
             doc.status = status_match.group(1).strip()
+        elif fm_status:
+            doc.status = fm_status
 
         context_match = self.ADR_CONTEXT_PATTERN.search(content)
         if context_match:
@@ -580,11 +634,32 @@ class MarkdownLoader:
         # Classify first to determine if it's a decision approval record
         doc.doc_type = self._classify_principle_document(file_path, doc.title, doc.content)
 
+        # Enriched metadata (P2): canonical_id, status, date, uuid, dar_path
+        is_dar = doc.doc_type == 'decision_approval_record'
+        if principle_number:
+            pcp_id = self._format_principle_id(principle_number)
+            doc.canonical_id = f"{pcp_id}D" if is_dar else pcp_id
+            doc.dar_path = self._compute_dar_path(file_path, principle_number)
+        # Status from frontmatter (principles use dct.isVersionOf or status)
+        dct = doc.metadata.get("dct", {})
+        if isinstance(dct, dict):
+            doc.doc_uuid = dct.get("identifier", "")
+            doc.status = dct.get("isVersionOf", "")
+        if not doc.status:
+            fm_status = doc.metadata.get("status", "")
+            if fm_status and isinstance(fm_status, str):
+                doc.status = fm_status.strip().strip('"').strip("'")
+        # Date from frontmatter (principles use dct.issued or date)
+        if isinstance(dct, dict) and dct.get("issued"):
+            doc.date = str(dct["issued"])
+        elif doc.metadata.get("date"):
+            doc.date = str(doc.metadata["date"])
+
         # Prepend Principle ID to title for better retrieval (using official format PCP.XX)
         # Use different prefix for Decision Approval Records
         if principle_number and not doc.title.lower().startswith("pcp"):
             pcp_id = self._format_principle_id(principle_number)
-            if doc.doc_type == 'decision_approval_record':
+            if is_dar:
                 doc.title = f"{pcp_id}D (Approval Record): {doc.title}"
             else:
                 doc.title = f"{pcp_id}: {doc.title}"
@@ -662,14 +737,32 @@ class MarkdownLoader:
                 content = adr_file.read_text(encoding="utf-8")
 
                 # Parse frontmatter
+                fm_metadata = {}
                 try:
                     post = frontmatter.loads(content)
+                    fm_metadata = dict(post.metadata)
                     body = post.content
                 except Exception:
                     body = content
 
                 title = self._extract_title(body, adr_file)
                 index_metadata = get_document_metadata(adr_file)
+
+                # Enrich with P2 metadata
+                adr_number = self._extract_adr_number(adr_file)
+                doc_type = self._classify_adr_document(adr_file, title, body)
+                is_dar = doc_type == 'decision_approval_record'
+                if adr_number:
+                    adr_id = self._format_adr_id(adr_number)
+                    index_metadata["canonical_id"] = f"{adr_id}D" if is_dar else adr_id
+                    index_metadata["dar_path"] = self._compute_dar_path(adr_file, adr_number)
+                index_metadata["date"] = str(fm_metadata.get("date", ""))
+                dct = fm_metadata.get("dct", {})
+                if isinstance(dct, dict):
+                    index_metadata["doc_uuid"] = dct.get("identifier", "")
+                fm_status = fm_metadata.get("status", "")
+                if fm_status and isinstance(fm_status, str):
+                    index_metadata["status"] = fm_status.strip().strip('"').strip("'")
 
                 chunked_doc = strategy.chunk_document(
                     content=body,
@@ -714,14 +807,37 @@ class MarkdownLoader:
                 content = principle_file.read_text(encoding="utf-8")
 
                 # Parse frontmatter
+                fm_metadata = {}
                 try:
                     post = frontmatter.loads(content)
+                    fm_metadata = dict(post.metadata)
                     body = post.content
                 except Exception:
                     body = content
 
                 title = self._extract_title(body, principle_file)
                 index_metadata = get_document_metadata(principle_file)
+
+                # Enrich with P2 metadata
+                principle_number = self._extract_principle_number(principle_file)
+                doc_type = self._classify_principle_document(principle_file, title, body)
+                is_dar = doc_type == 'decision_approval_record'
+                if principle_number:
+                    pcp_id = self._format_principle_id(principle_number)
+                    index_metadata["canonical_id"] = f"{pcp_id}D" if is_dar else pcp_id
+                    index_metadata["dar_path"] = self._compute_dar_path(principle_file, principle_number)
+                dct = fm_metadata.get("dct", {})
+                if isinstance(dct, dict):
+                    index_metadata["doc_uuid"] = dct.get("identifier", "")
+                    index_metadata["status"] = dct.get("isVersionOf", "")
+                    if dct.get("issued"):
+                        index_metadata["date"] = str(dct["issued"])
+                if not index_metadata.get("status"):
+                    fm_status = fm_metadata.get("status", "")
+                    if fm_status and isinstance(fm_status, str):
+                        index_metadata["status"] = fm_status.strip().strip('"').strip("'")
+                if not index_metadata.get("date") and fm_metadata.get("date"):
+                    index_metadata["date"] = str(fm_metadata["date"])
 
                 chunked_doc = strategy.chunk_document(
                     content=body,

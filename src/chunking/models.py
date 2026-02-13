@@ -78,6 +78,13 @@ class ChunkMetadata:
     # ADR-specific
     adr_status: str = ""  # accepted, deprecated, superseded, etc.
 
+    # Enriched metadata (P2)
+    canonical_id: str = ""  # "ADR.22" or "PCP.22"
+    status: str = ""  # Document status (for principles; ADRs use adr_status)
+    date: str = ""  # From frontmatter
+    doc_uuid: str = ""  # From frontmatter dct.identifier
+    dar_path: str = ""  # Path to corresponding DAR
+
     # Quality signals
     completeness: float = 1.0  # 0-1, how complete this chunk is
     confidence: float = 1.0  # 0-1, confidence in chunk boundaries
