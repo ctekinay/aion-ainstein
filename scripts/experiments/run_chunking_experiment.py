@@ -44,7 +44,7 @@ class TestQuery:
 EXPERIMENT_QUERIES = [
     TestQuery("What does ADR-0012 decide?", "0012", "adr", "exact"),
     TestQuery("What is the domain language decision?", "0012", "adr", "semantic"),
-    TestQuery("OAuth decision for API authentication", "0031", "adr", "semantic"),
+    TestQuery("OAuth decision for API authentication", "0029", "adr", "semantic"),
     TestQuery("Tell me about ADR.0025", "0025", "adr", "exact"),
     TestQuery("What decision was made about event-driven architecture?", "0030", "adr", "semantic"),
     TestQuery("API design principles", "0010", "principle", "semantic"),
@@ -123,7 +123,7 @@ def run_retrieval_test(
     for i, obj in enumerate(results.objects):
         props = dict(obj.properties)
         score = obj.metadata.score if obj.metadata else 0.0
-        doc_id = props.get("adr_number", props.get("principle_number", ""))
+        doc_id = props.get("adr_number") or props.get("principle_number", "")
         title = props.get("title", "")
 
         top_results.append({
@@ -263,8 +263,17 @@ def generate_markdown_report(report: ExperimentReport) -> str:
         "",
     ])
 
-    winner = "chunked" if report.chunked_precision_at_5 >= report.full_precision_at_5 else "full-doc"
-    lines.append(f"Based on precision@5, **{winner}** strategy performed better.")
+    if report.chunked_precision_at_5 > report.full_precision_at_5:
+        lines.append("Based on precision@5, **chunked** strategy performed better.")
+    elif report.full_precision_at_5 > report.chunked_precision_at_5:
+        lines.append("Based on precision@5, **full-doc** strategy performed better.")
+    else:
+        lines.append("Based on precision@5, both strategies performed **equally**.")
+
+    if report.chunked_avg_latency_ms and report.full_avg_latency_ms:
+        faster = "full-doc" if report.full_avg_latency_ms < report.chunked_avg_latency_ms else "chunked"
+        ratio = max(report.chunked_avg_latency_ms, report.full_avg_latency_ms) / min(report.chunked_avg_latency_ms, report.full_avg_latency_ms)
+        lines.append(f"Latency: **{faster}** was {ratio:.1f}x faster on average.")
 
     return "\n".join(lines)
 
