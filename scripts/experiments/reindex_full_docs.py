@@ -89,6 +89,15 @@ def create_full_doc_collections(client, recreate: bool = False):
         logger.info(f"Created: {collection_name}")
 
 
+def _filter_properties(doc: dict, collection_type: str) -> dict:
+    """Filter doc properties to only those defined in the collection schema."""
+    common_keys = {"file_path", "title", "content", "full_text", "doc_type"}
+    adr_keys = common_keys | {"adr_number", "status", "context", "decision", "consequences"}
+    principle_keys = common_keys | {"principle_number"}
+    allowed = adr_keys if collection_type == "adr" else principle_keys
+    return {k: v for k, v in doc.items() if k in allowed}
+
+
 def ingest_full_docs(client):
     """Ingest documents as single objects (1 per file, no chunking)."""
     from src.loaders.markdown_loader import MarkdownLoader
@@ -119,7 +128,7 @@ def ingest_full_docs(client):
             try:
                 vector = embed_text(text)
                 adr_collection.data.insert(
-                    properties=doc,
+                    properties=_filter_properties(doc, "adr"),
                     vector=vector,
                 )
                 stats["adr"] += 1
@@ -154,7 +163,7 @@ def ingest_full_docs(client):
             try:
                 vector = embed_text(text)
                 principle_collection.data.insert(
-                    properties=doc,
+                    properties=_filter_properties(doc, "principle"),
                     vector=vector,
                 )
                 stats["principle"] += 1
