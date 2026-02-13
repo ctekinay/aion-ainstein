@@ -249,6 +249,7 @@ class TestTaxonomyFilteringCriteria:
     def test_principle_content_types_excludes_approval(self):
         """Default principle content types must not include approval records."""
         assert "adr_approval" not in PRINCIPLE_CONTENT_TYPES
+        assert "principle_approval" not in PRINCIPLE_CONTENT_TYPES
 
     def test_tell_me_about_adr_excludes_dar(self):
         """'Tell me about ADR.0025' must not retrieve DAR.

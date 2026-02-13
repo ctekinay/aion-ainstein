@@ -67,7 +67,7 @@ class DocType:
     @classmethod
     def all_types(cls) -> list[str]:
         """Return all valid document types."""
-        return [cls.ADR, cls.ADR_APPROVAL, cls.TEMPLATE, cls.INDEX, cls.REGISTRY, cls.UNKNOWN]
+        return [cls.ADR, cls.ADR_APPROVAL, cls.PRINCIPLE, cls.PRINCIPLE_APPROVAL, cls.TEMPLATE, cls.INDEX, cls.REGISTRY, cls.UNKNOWN]
 
     @classmethod
     def content_types(cls) -> list[str]:
@@ -315,10 +315,9 @@ def classify_principle_document(
     content_lower = content.lower() if content else ""
 
     # 1. Check for Decision Approval Record (NNNND-*.md pattern)
-    # Principles can also have approval records
     if DAR_FILENAME_PATTERN.match(file_name):
         return ClassificationResult(
-            doc_type=DocType.ADR_APPROVAL,  # Use same type for consistency
+            doc_type=DocType.PRINCIPLE_APPROVAL,
             confidence="filename",
             reason=f"Filename matches DAR pattern: {file_name}"
         )

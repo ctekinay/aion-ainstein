@@ -2021,8 +2021,11 @@ IMPORTANT GUIDELINES:
                 try:
                     collection = client.collections.get(coll_name)
 
-                    # Filter for approval records
-                    approval_filter = Filter.by_property("doc_type").equal("adr_approval")
+                    # Filter for approval records — use correct type per collection
+                    if coll_name == get_collection_name("principle"):
+                        approval_filter = Filter.by_property("doc_type").equal("principle_approval")
+                    else:
+                        approval_filter = Filter.by_property("doc_type").equal("adr_approval")
 
                     # Fetch all approval records
                     all_objects = fetch_all_objects(

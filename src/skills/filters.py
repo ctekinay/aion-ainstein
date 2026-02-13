@@ -4,15 +4,13 @@ This module provides dynamic filtering based on skill configuration,
 replacing hardcoded filtering logic with externalized rules.
 
 Canonical doc_type taxonomy (from Phase 2):
-- adr: Actual Architectural Decision Records
-- adr_approval: Decision Approval Records (NNNND-*.md)
-- principle: Actual principles
+- adr: Architectural Decision Records
+- adr_approval: ADR Decision Approval Records (NNNND-*.md in decisions/)
+- principle: Principles
+- principle_approval: Principle Decision Approval Records (NNNND-*.md in principles/)
 - template: Template files
 - index: Index/list files
 - unknown: Unclassified
-
-Legacy values (backward compatible):
-- content: Maps to adr or principle (pre-migration data)
 """
 
 import logging
@@ -47,7 +45,7 @@ ADR_CONTENT_TYPES = ["adr", "content"]  # Fallback; prefer _get_content_types("a
 PRINCIPLE_CONTENT_TYPES = ["principle", "content"]
 
 # Types to exclude (for reference, loaded from config when available)
-EXCLUDED_TYPES = ["adr_approval", "template", "index"]
+EXCLUDED_TYPES = ["adr_approval", "principle_approval", "template", "index"]
 
 
 def build_document_filter(
@@ -97,6 +95,7 @@ def build_document_filter(
         if needs_dar:
             # Include approval records for approval/governance queries
             allowed_types.append("adr_approval")
+            allowed_types.append("principle_approval")
             logger.info("Query detected as approval/governance - including approval records")
 
     # Build allow-list filter: doc_type IN [allowed_types]
