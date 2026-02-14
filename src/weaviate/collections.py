@@ -654,6 +654,9 @@ class CollectionManager:
             description="Architectural Decision Records (OpenAI embeddings)",
             vectorizer_config=self._get_openai_vectorizer_config(),
             generative_config=self._get_openai_generative_config(),
+            vector_index_config=Configure.VectorIndex.hnsw(
+                distance_metric=VectorDistances.COSINE,
+            ),
             properties=[
                 Property(
                     name="file_path",
@@ -757,6 +760,9 @@ class CollectionManager:
             description="Architecture and governance principles (OpenAI embeddings)",
             vectorizer_config=self._get_openai_vectorizer_config(),
             generative_config=self._get_openai_generative_config(),
+            vector_index_config=Configure.VectorIndex.hnsw(
+                distance_metric=VectorDistances.COSINE,
+            ),
             properties=[
                 Property(
                     name="file_path",
