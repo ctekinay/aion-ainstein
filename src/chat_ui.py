@@ -896,6 +896,7 @@ async def perform_retrieval(question: str, provider: str = "ollama") -> tuple[li
 
     # For Ollama provider, compute query embedding client-side
     # WORKAROUND for Weaviate text2vec-ollama bug (#8406)
+    # For OpenAI provider, Weaviate's text2vec-openai computes embeddings server-side
     query_vector = None
     use_keyword_only = False
     if provider == "ollama":
@@ -904,6 +905,10 @@ async def perform_retrieval(question: str, provider: str = "ollama") -> tuple[li
         except Exception as e:
             logger.warning(f"Embedding failed, using keyword-only search: {e}")
             use_keyword_only = True
+
+    # Only pass vector when computed client-side; omitting lets Weaviate use
+    # its configured vectorizer (text2vec-openai) for the vector component.
+    _hybrid_vector_kwargs = {"vector": query_vector} if query_vector is not None else {}
 
     # Build filter dynamically based on skill configuration and query intent
     # This replaces hardcoded filtering with skills-based configuration
@@ -924,7 +929,7 @@ async def perform_retrieval(question: str, provider: str = "ollama") -> tuple[li
         else:
             results = collection.query.hybrid(
                 query=question,
-                vector=query_vector,
+                **_hybrid_vector_kwargs,
                 limit=adr_limit,
                 alpha=settings.alpha_default,  # Configurable in config.py
                 filters=content_filter,
@@ -952,7 +957,7 @@ async def perform_retrieval(question: str, provider: str = "ollama") -> tuple[li
         else:
             results = collection.query.hybrid(
                 query=question,
-                vector=query_vector,
+                **_hybrid_vector_kwargs,
                 limit=principle_limit,
                 alpha=settings.alpha_default,
                 filters=content_filter,
@@ -979,7 +984,7 @@ async def perform_retrieval(question: str, provider: str = "ollama") -> tuple[li
         else:
             results = collection.query.hybrid(
                 query=question,
-                vector=query_vector,
+                **_hybrid_vector_kwargs,
                 limit=policy_limit,
                 alpha=settings.alpha_default,
             )
@@ -1004,7 +1009,7 @@ async def perform_retrieval(question: str, provider: str = "ollama") -> tuple[li
         else:
             results = collection.query.hybrid(
                 query=question,
-                vector=query_vector,
+                **_hybrid_vector_kwargs,
                 limit=vocab_limit,
                 alpha=settings.alpha_vocabulary,  # Configurable in config.py
             )

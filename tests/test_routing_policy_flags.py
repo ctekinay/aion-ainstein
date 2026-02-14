@@ -33,8 +33,8 @@ class TestRoutingPolicyLoading:
         invalidate_config_caches()
         s = Settings()
         policy = s.get_routing_policy()
-        assert policy["intent_router_enabled"] is False
-        assert policy["intent_router_mode"] == "heuristic"
+        assert policy["intent_router_enabled"] is True
+        assert policy["intent_router_mode"] == "llm"
         assert policy["tree_enabled"] is True
         assert policy["debug_headers_enabled"] is False
 
@@ -84,11 +84,11 @@ class TestAbstainGateToggle:
         assert "abstain_gate_enabled" in policy
         assert isinstance(policy["abstain_gate_enabled"], bool)
 
-    def test_abstain_gate_default_is_true(self):
+    def test_abstain_gate_default_is_false(self):
         invalidate_config_caches()
         s = Settings()
         policy = s.get_routing_policy()
-        assert policy["abstain_gate_enabled"] is True
+        assert policy["abstain_gate_enabled"] is False
 
 
 class TestDebugHeadersFlag:

@@ -508,6 +508,9 @@ class ResponseValidator:
         if not isinstance(data.get("answer"), str):
             errors.append("'answer' must be a string")
             reason_code = ReasonCode.SCHEMA_TYPE_ERROR
+        elif len(data["answer"].strip()) == 0:
+            errors.append("'answer' must not be empty")
+            reason_code = ReasonCode.INVARIANT_VIOLATION
 
         if not isinstance(data.get("items_shown"), int):
             errors.append("'items_shown' must be an integer")
