@@ -2462,6 +2462,7 @@ IMPORTANT GUIDELINES:
                     all_results.append({
                         "type": "ADR",
                         "title": obj.properties.get("title", ""),
+                        "canonical_id": obj.properties.get("canonical_id", ""),
                         "content": obj.properties.get("decision", "")[:content_chars],
                         "distance": getattr(obj.metadata, 'distance', None),
                         "score": getattr(obj.metadata, 'score', None),
@@ -2494,6 +2495,7 @@ IMPORTANT GUIDELINES:
                     all_results.append({
                         "type": "Principle",
                         "title": obj.properties.get("title", ""),
+                        "canonical_id": obj.properties.get("canonical_id", ""),
                         "content": obj.properties.get("content", "")[:content_chars],
                         "distance": getattr(obj.metadata, 'distance', None),
                         "score": getattr(obj.metadata, 'score', None),
@@ -2564,6 +2566,7 @@ IMPORTANT GUIDELINES:
                         "type": "Vocabulary",
                         "label": obj.properties.get("pref_label", ""),
                         "definition": obj.properties.get("definition", ""),
+                        "uri": obj.properties.get("uri", ""),
                         "distance": getattr(obj.metadata, 'distance', None),
                         "score": getattr(obj.metadata, 'score', None),
                     })
@@ -2607,6 +2610,7 @@ IMPORTANT GUIDELINES:
                                 "type": "Vocabulary",
                                 "label": obj.properties.get("pref_label", ""),
                                 "definition": obj.properties.get("definition", ""),
+                                "uri": obj.properties.get("uri", ""),
                                 "distance": getattr(obj.metadata, 'distance', None),
                                 "score": getattr(obj.metadata, 'score', None),
                             })
@@ -2614,6 +2618,7 @@ IMPORTANT GUIDELINES:
                             all_results.append({
                                 "type": display_type,
                                 "title": obj.properties.get("title", ""),
+                                "canonical_id": obj.properties.get("canonical_id", ""),
                                 "content": obj.properties.get("content", obj.properties.get("decision", ""))[:summary_chars],
                                 "distance": getattr(obj.metadata, 'distance', None),
                                 "score": getattr(obj.metadata, 'score', None),
