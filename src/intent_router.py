@@ -106,13 +106,14 @@ _DAR_RE = re.compile(r"\bdars?\b|decision\s+approval\s+record", re.IGNORECASE)
 _POLICY_RE = re.compile(r"\bpolic(?:y|ies)\b", re.IGNORECASE)
 _VOCAB_RE = re.compile(
     r"\b(?:concept|term|definition|vocabulary|ontology|skos|iec|cim|"
-    r"standard|meaning|semantic|taxonomy|owl|rdf)\b",
+    r"standard|meaning|semantic|taxonomy|owl|rdf|archimate)\b",
     re.IGNORECASE,
 )
 
 _LIST_VERBS_RE = re.compile(
     r"\b(?:list|show|enumerate|give\s+me|display)\b"
     r"|\b(?:what|which)\s+\w+s?\s+(?:are|exist|do\s+we\s+have)\b"
+    r"|\b(?:what|which)\s+are\s+(?:all\s+)?(?:the\s+)?\w+"
     r"|\bshow\s+(?:me\s+)?all\b",
     re.IGNORECASE,
 )
@@ -138,7 +139,9 @@ _COMPARE_COUNTS_RE = re.compile(
 _META_RE = re.compile(
     r"\b(?:who\s+are\s+you|what\s+(?:are|is)\s+you|your\s+(?:name|architecture|pipeline))\b"
     r"|\b(?:how\s+do\s+you\s+work|explain\s+your|your\s+skills?)\b"
-    r"|\bare\s+you\s+(?:elysia|ainstein|an?\s+(?:ai|llm|bot))\b",
+    r"|\bare\s+you\s+(?:elysia|ainstein|an?\s+(?:ai|llm|bot))\b"
+    r"|\b(?:skills?|tools?)\s+(?:did|do)\s+you\s+use\b"
+    r"|\byour\s+own\s+(?:architecture|pipeline|design)\b",
     re.IGNORECASE,
 )
 
@@ -330,7 +333,13 @@ def heuristic_classify(question: str) -> IntentDecision:
         or _DAR_RE.search(q_lower)
         or _POLICY_RE.search(q_lower)
         or _VOCAB_RE.search(q_lower)
-        or re.search(r"\b(?:esa|alliander|energy|architecture|governance)\b", q_lower)
+        or re.search(
+            r"\b(?:esa|alliander|energy|architecture|governance|"
+            r"consistency|idempoten|interoperab|security|tls|oauth|"
+            r"data\s+(?:quality|reliability|access|integration)|"
+            r"message\s+exchange|distributed\s+system|capability)\b",
+            q_lower,
+        )
     )
 
     if has_esa_cues:
@@ -362,21 +371,31 @@ def heuristic_classify(question: str) -> IntentDecision:
 # =============================================================================
 
 _LLM_CLASSIFY_PROMPT = """\
-You are an intent classifier for an Energy System Architecture (ESA) knowledge base assistant.
+You are an intent classifier for an Energy System Architecture (ESA) knowledge base assistant called AInstein at Alliander.
+
+The knowledge base contains: Architecture Decision Records (ADRs), Principles (PCPs), Decision Approval Records (DARs), Policy documents, and IEC/CIM vocabulary terms covering energy systems, ArchiMate, CIM standards, and related technical domains.
 
 Given a user question, classify it into exactly ONE of these intents:
-- list: user wants to see a list of documents (ADRs, principles, policies, DARs)
+- lookup_doc: user wants details about a specific document by ID (e.g. "Tell me about ADR.0025", "What does ADR.0028 decide?", "What is the status of ADR.0027?")
+- lookup_approval: user wants approval/approver info (e.g. "Who approved ADR.0025?", "Who approved PCP.0020?", "What are the approvers?")
+- list: user wants to see a list/catalog of documents (e.g. "List all ADRs", "What principles exist?", "What are all the data governance principles?")
 - compare_counts: user wants a numeric comparison between document types
 - compare_concepts: user wants to understand differences between concepts/document types
-- lookup_approval: user wants approval/approver info for a specific document
-- lookup_doc: user wants details about a specific document (e.g. ADR.0025)
-- semantic_answer: user wants a substantive answer from the knowledge base
+- semantic_answer: user wants a substantive answer from the knowledge base. This includes ANY question about energy terms, architecture, governance, standards, CIM, IEC, ArchiMate, data quality, security, policies, or capabilities — even if the question doesn't explicitly mention "ADR" or "PCP". Examples: "What is a Business Actor in ArchiMate?", "What does eventual consistency by design mean?", "How should message exchange be handled?", "What capability document addresses data integration?", "What is defined in IEC 61970?"
 - count: user wants to know how many documents exist
-- meta: user is asking about the assistant itself (not the knowledge base)
-- unknown: cannot determine intent
+- meta: user is asking about AInstein/the assistant itself, its architecture, pipeline, skills, or capabilities — NOT about the ESA knowledge base content. Examples: "Explain your own architecture", "Which skills did you use?", "How do you work?", "Who are you?"
+- unknown: genuinely unrelated to ESA or the assistant (e.g. "What's the weather?")
+
+IMPORTANT: Default to "semantic_answer" with confidence >= 0.7 for any question that could plausibly be answered from an energy/architecture knowledge base. Only use "unknown" for questions clearly outside this domain.
 
 Also classify the entity scope (which collection):
-- adr, pcp, dar_adr, dar_pcp, dar_all, policy, vocab, multi, unknown
+- adr: about Architecture Decision Records
+- pcp: about Principles
+- dar_adr, dar_pcp, dar_all: about Decision Approval Records
+- policy: about policy/governance documents
+- vocab: about vocabulary, terminology, definitions, CIM, IEC standards, ArchiMate
+- multi: crosses multiple collections
+- unknown: not determinable
 
 And the output shape:
 - short_answer, list, table, explanation, clarification
@@ -493,10 +512,41 @@ async def classify_intent(question: str, mode: str = "heuristic") -> IntentDecis
     Returns:
         IntentDecision with stable schema
     """
+    # Hybrid approach: for high-confidence structural intents (META, LOOKUP_DOC,
+    # LOOKUP_APPROVAL), the heuristic is more reliable than the LLM because these
+    # are pattern-based. Run heuristic first as a guardrail.
+    _HEURISTIC_OVERRIDE_INTENTS = {
+        Intent.META, Intent.LOOKUP_DOC, Intent.LOOKUP_APPROVAL,
+    }
+    _HEURISTIC_OVERRIDE_THRESHOLD = 0.85
+
+    heuristic_decision = heuristic_classify(question)
+
     if mode == "llm":
-        decision = await llm_classify(question)
+        # If heuristic gives high confidence for structural intents, trust it
+        if (heuristic_decision.intent in _HEURISTIC_OVERRIDE_INTENTS
+                and heuristic_decision.confidence >= _HEURISTIC_OVERRIDE_THRESHOLD):
+            logger.info(
+                f"Heuristic override: {heuristic_decision.intent.value} "
+                f"(confidence={heuristic_decision.confidence:.2f}), skipping LLM"
+            )
+            decision = heuristic_decision
+        else:
+            llm_decision = await llm_classify(question)
+            # If LLM returns low confidence but heuristic has a real answer, prefer heuristic
+            if (llm_decision.confidence < DEFAULT_CONFIDENCE_THRESHOLD
+                    and heuristic_decision.intent != Intent.UNKNOWN
+                    and heuristic_decision.confidence >= DEFAULT_CONFIDENCE_THRESHOLD):
+                logger.info(
+                    f"LLM low-confidence fallback to heuristic: "
+                    f"LLM={llm_decision.intent.value}({llm_decision.confidence:.2f}) → "
+                    f"heuristic={heuristic_decision.intent.value}({heuristic_decision.confidence:.2f})"
+                )
+                decision = heuristic_decision
+            else:
+                decision = llm_decision
     else:
-        decision = heuristic_classify(question)
+        decision = heuristic_decision
 
     logger.info(
         f"Intent classified: intent={decision.intent.value}, "

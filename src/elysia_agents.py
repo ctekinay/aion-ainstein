@@ -2068,6 +2068,301 @@ IMPORTANT GUIDELINES:
         logger.info(f"Built tool registry with {len(registry)} tools: {list(registry.keys())}")
         return registry
 
+    # =================================================================
+    # INTENT SHORT-CIRCUIT HANDLERS
+    # These bypass the Elysia Tree for intents with deterministic routing.
+    # =================================================================
+
+    @staticmethod
+    def _normalize_doc_ref(ref: str) -> tuple[str, str]:
+        """Normalize a document reference to (collection_type, canonical_id).
+
+        Examples:
+            "adr.0025" → ("adr", "ADR.0025")
+            "ADR-25" → ("adr", "ADR.0025")
+            "pcp.10" → ("pcp", "PCP.0010")
+        """
+        match = re.match(r'(adr|pcp|dar)[.\s\-]?(\d{1,4})', ref.strip(), re.IGNORECASE)
+        if not match:
+            return "", ""
+        prefix = match.group(1).upper()
+        number = match.group(2).zfill(4)
+        return prefix.lower(), f"{prefix}.{number}"
+
+    async def _handle_lookup_doc(
+        self, question: str, intent_decision, structured_mode: bool
+    ) -> tuple[str, list]:
+        """Fetch a specific document by ID and generate an LLM answer.
+
+        Short-circuits the Tree for queries like "Tell me about ADR.0025".
+        """
+        doc_refs = intent_decision.detected_entities
+        if not doc_refs:
+            return None, []
+
+        coll_type, canonical_id = self._normalize_doc_ref(doc_refs[0])
+        if not canonical_id:
+            return None, []
+
+        logger.info(f"Deterministic content retrieval for {canonical_id}")
+
+        # Determine collection name and number field
+        suffix = "_OpenAI" if settings.llm_provider == "openai" else ""
+        if coll_type in ("adr", "dar"):
+            coll_name = get_collection_name("adr")
+            number_field = "adr_number"
+        elif coll_type == "pcp":
+            coll_name = get_collection_name("principle")
+            number_field = "principle_number"
+        else:
+            return None, []
+
+        # Fetch all chunks of the specific document by ID
+        collection = self.client.collections.get(f"{coll_name}{suffix}")
+        results = collection.query.fetch_objects(
+            filters=Filter.by_property(number_field).equal(canonical_id),
+            limit=20,
+        )
+
+        if not results.objects:
+            # Document doesn't exist → clean abstention
+            logger.info(f"Document {canonical_id} not found in collection")
+            abstention = get_abstention_response(
+                f"Document {canonical_id} was not found in the knowledge base."
+            )
+            return abstention, []
+
+        # Compile document content from all chunks
+        doc_parts = []
+        objects_out = []
+        for obj in results.objects:
+            props = obj.properties
+            if coll_type in ("adr", "dar"):
+                doc_parts.append(
+                    f"Title: {props.get('title', '')}\n"
+                    f"ADR Number: {props.get('adr_number', '')}\n"
+                    f"Status: {props.get('status', '')}\n"
+                    f"Context: {props.get('context', '')}\n"
+                    f"Decision: {props.get('decision', '')}\n"
+                    f"Consequences: {props.get('consequences', '')}"
+                )
+                objects_out.append({
+                    "type": "ADR",
+                    "title": props.get("title", ""),
+                    "adr_number": props.get("adr_number", ""),
+                    "status": props.get("status", ""),
+                })
+            else:
+                doc_parts.append(
+                    f"Title: {props.get('title', '')}\n"
+                    f"Principle Number: {props.get('principle_number', '')}\n"
+                    f"Content: {props.get('content', '')}"
+                )
+                objects_out.append({
+                    "type": "Principle",
+                    "title": props.get("title", ""),
+                    "principle_number": props.get("principle_number", ""),
+                })
+
+        # Dedupe objects
+        seen_titles = set()
+        unique_objects = []
+        for obj in objects_out:
+            key = obj.get("title", "")
+            if key not in seen_titles:
+                seen_titles.add(key)
+                unique_objects.append(obj)
+
+        doc_content = "\n\n---\n\n".join(doc_parts)
+
+        # Generate answer via LLM
+        system_prompt = (
+            "You are AInstein, the ESA knowledge base assistant at Alliander. "
+            "Answer the user's question based on the document content below. "
+            "Be thorough and include relevant details from the document. "
+            "If the content doesn't address the question, say so."
+        )
+        user_prompt = f"Question: {question}\n\nDocument content:\n{doc_content}"
+
+        if settings.llm_provider == "ollama":
+            raw_response = await self._generate_with_ollama(system_prompt, user_prompt)
+        else:
+            raw_response = await self._generate_with_openai(system_prompt, user_prompt)
+
+        # Post-process for structured mode
+        processed, _, _ = postprocess_llm_output(
+            raw_response=raw_response,
+            structured_mode=structured_mode,
+            enforcement_policy=DEFAULT_ENFORCEMENT_POLICY,
+        )
+
+        return processed, unique_objects
+
+    async def _handle_lookup_approval(
+        self, question: str, intent_decision, structured_mode: bool
+    ) -> tuple[str, list]:
+        """Fetch approval records for a specific document.
+
+        Short-circuits the Tree for queries like "Who approved ADR.0025?".
+        """
+        doc_refs = intent_decision.detected_entities
+        logger.info(f"Deterministic approval extraction for {doc_refs}")
+
+        suffix = "_OpenAI" if settings.llm_provider == "openai" else ""
+
+        if doc_refs:
+            coll_type, canonical_id = self._normalize_doc_ref(doc_refs[0])
+            if not canonical_id:
+                return None, []
+
+            # Determine the approval doc_type and collection
+            if coll_type in ("adr", "dar"):
+                coll_name = get_collection_name("adr")
+                approval_doc_type = "adr_approval"
+                number_field = "adr_number"
+            elif coll_type == "pcp":
+                coll_name = get_collection_name("principle")
+                approval_doc_type = "principle_approval"
+                number_field = "principle_number"
+            else:
+                return None, []
+
+            # Fetch approval records for this specific document
+            collection = self.client.collections.get(f"{coll_name}{suffix}")
+            results = collection.query.fetch_objects(
+                filters=(
+                    Filter.by_property("doc_type").equal(approval_doc_type)
+                    & Filter.by_property(number_field).equal(canonical_id)
+                ),
+                limit=10,
+            )
+
+            if not results.objects:
+                # No approval record found
+                abstention = get_abstention_response(
+                    f"No approval record found for {canonical_id} in the knowledge base."
+                )
+                return abstention, []
+
+            # Compile approval content
+            doc_parts = []
+            objects_out = []
+            for obj in results.objects:
+                props = obj.properties
+                content = props.get("content", "") or props.get("decision", "") or ""
+                doc_parts.append(
+                    f"Title: {props.get('title', '')}\n"
+                    f"Content:\n{content}"
+                )
+                objects_out.append({
+                    "type": "Approval Record",
+                    "title": props.get("title", ""),
+                    "file_path": props.get("file_path", ""),
+                })
+
+            doc_content = "\n\n---\n\n".join(doc_parts)
+
+            # Generate answer via LLM
+            system_prompt = (
+                "You are AInstein, the ESA knowledge base assistant at Alliander. "
+                "Answer the user's question about document approval based on the "
+                "approval record content below. Include the names of approvers "
+                "and their roles if available."
+            )
+            user_prompt = f"Question: {question}\n\nApproval record:\n{doc_content}"
+
+            if settings.llm_provider == "ollama":
+                raw_response = await self._generate_with_ollama(system_prompt, user_prompt)
+            else:
+                raw_response = await self._generate_with_openai(system_prompt, user_prompt)
+
+            processed, _, _ = postprocess_llm_output(
+                raw_response=raw_response,
+                structured_mode=structured_mode,
+                enforcement_policy=DEFAULT_ENFORCEMENT_POLICY,
+            )
+            return processed, objects_out
+
+        else:
+            # No specific doc ref — use the list_approval_records tool
+            list_tool = self._tool_registry.get("list_approval_records")
+            if list_tool:
+                scope = intent_decision.entity_scope.value
+                if scope in ("adr", "dar_adr"):
+                    list_result = await list_tool("adr")
+                elif scope in ("pcp", "dar_pcp"):
+                    list_result = await list_tool("principle")
+                else:
+                    list_result = await list_tool("all")
+
+                if list_result and is_list_result(list_result):
+                    context = create_context_from_skills(question, _skill_registry)
+                    gateway_result = handle_list_result(list_result, context)
+                    if gateway_result:
+                        objects = list_result.get("rows", []) if isinstance(list_result, dict) else []
+                        return gateway_result.response, objects
+
+            return None, []
+
+    async def _handle_list(
+        self, question: str, intent_decision, structured_mode: bool
+    ) -> tuple[str, list]:
+        """Execute deterministic list for the given entity scope.
+
+        Short-circuits the Tree for queries like "List all ADRs".
+        """
+        scope = intent_decision.entity_scope.value
+        logger.info(f"Deterministic list response for scope: {scope}")
+
+        # Map scope to list tool
+        scope_tool_map = {
+            "adr": "list_all_adrs",
+            "pcp": "list_all_principles",
+            "dar_adr": "list_approval_records",
+            "dar_pcp": "list_approval_records",
+            "dar_all": "list_approval_records",
+            "policy": "list_all_policies",
+        }
+
+        tool_name = scope_tool_map.get(scope)
+        if not tool_name:
+            # Unknown scope — try to infer from question text
+            q = question.lower()
+            if "adr" in q or "decision" in q:
+                tool_name = "list_all_adrs"
+            elif "principle" in q or "pcp" in q:
+                tool_name = "list_all_principles"
+            elif "polic" in q:
+                tool_name = "list_all_policies"
+            elif "approval" in q or "dar" in q:
+                tool_name = "list_approval_records"
+            else:
+                return None, []
+
+        list_tool = self._tool_registry.get(tool_name)
+        if not list_tool:
+            return None, []
+
+        # Call the list tool
+        if tool_name == "list_approval_records":
+            if scope == "dar_adr":
+                list_result = await list_tool("adr")
+            elif scope == "dar_pcp":
+                list_result = await list_tool("principle")
+            else:
+                list_result = await list_tool("all")
+        else:
+            list_result = await list_tool()
+
+        if list_result and is_list_result(list_result):
+            context = create_context_from_skills(question, _skill_registry)
+            gateway_result = handle_list_result(list_result, context)
+            if gateway_result:
+                objects = list_result.get("rows", []) if isinstance(list_result, dict) else []
+                return gateway_result.response, objects
+
+        return None, []
+
     async def query(self, question: str, collection_names: Optional[list[str]] = None) -> tuple[str, list[dict]]:
         """Process a query using Elysia's decision tree.
 
@@ -2139,7 +2434,7 @@ IMPORTANT GUIDELINES:
             from .intent_router import (
                 classify_intent, needs_clarification, build_clarification_response,
                 handle_compare_concepts, handle_compare_counts,
-                Intent, OutputShape,
+                Intent, EntityScope, OutputShape,
             )
             intent_decision = await classify_intent(question, mode=intent_router_mode)
             route_log["intent"] = intent_decision.intent.value
@@ -2189,12 +2484,41 @@ IMPORTANT GUIDELINES:
                 response = _maybe_add_debug_footer(counts_response, route_log, debug_headers)
                 return response, []
 
-            # For other intents (LIST, LOOKUP_DOC, LOOKUP_APPROVAL, SEMANTIC_ANSWER, COUNT),
-            # fall through to legacy routing which handles them well.
-            # The intent decision is logged for transparency.
+            # ---- LOOKUP_DOC: fetch specific document by ID ----
+            if intent_decision.intent == Intent.LOOKUP_DOC and intent_decision.detected_entities:
+                route_log["route_selected"] = "lookup_doc"
+                response, objects = await self._handle_lookup_doc(
+                    question, intent_decision, structured_mode
+                )
+                if response:
+                    response = _maybe_add_debug_footer(response, route_log, debug_headers)
+                    return response, objects
+
+            # ---- LOOKUP_APPROVAL: fetch approval info ----
+            if intent_decision.intent == Intent.LOOKUP_APPROVAL:
+                route_log["route_selected"] = "lookup_approval"
+                response, objects = await self._handle_lookup_approval(
+                    question, intent_decision, structured_mode
+                )
+                if response:
+                    response = _maybe_add_debug_footer(response, route_log, debug_headers)
+                    return response, objects
+
+            # ---- LIST: deterministic document listing ----
+            if intent_decision.intent == Intent.LIST:
+                route_log["route_selected"] = "list"
+                response, objects = await self._handle_list(
+                    question, intent_decision, structured_mode
+                )
+                if response:
+                    response = _maybe_add_debug_footer(response, route_log, debug_headers)
+                    return response, objects
+
+            # For remaining intents (SEMANTIC_ANSWER, COUNT, UNKNOWN),
+            # fall through to Tree/direct routing.
             logger.info(
                 f"Intent router decision: {intent_decision.intent.value} "
-                f"(confidence={intent_decision.confidence:.2f}), proceeding to legacy routing"
+                f"(confidence={intent_decision.confidence:.2f}), proceeding to Tree routing"
             )
 
         # Always specify our collection names to bypass Elysia's metadata collection discovery
@@ -2208,6 +2532,37 @@ IMPORTANT GUIDELINES:
             logger.debug("Injected skills into agent description")
         else:
             agent_description = self._base_agent_description
+
+        # Inject entity scope hint from intent router to guide Tree tool selection
+        if intent_router_enabled and intent_decision:
+            scope = intent_decision.entity_scope
+            scope_hints = {
+                EntityScope.ADR: (
+                    "\n\nIMPORTANT: This query is about Architecture Decision Records (ADRs). "
+                    "Use search_architecture_decisions() to find relevant ADRs. "
+                    "Do NOT use list_all_adrs() unless the user explicitly asks for a list."
+                ),
+                EntityScope.PCP: (
+                    "\n\nIMPORTANT: This query is about Principles (PCPs). "
+                    "Use search_principles() to find relevant principles. "
+                    "Do NOT use list_all_principles() unless the user explicitly asks for a list."
+                ),
+                EntityScope.POLICY: (
+                    "\n\nIMPORTANT: This query is about Policy documents. "
+                    "Use search_policies() to find relevant policies."
+                ),
+                EntityScope.VOCAB: (
+                    "\n\nIMPORTANT: This query is about vocabulary/terminology. "
+                    "Use search_vocabulary() to find relevant terms and definitions."
+                ),
+                EntityScope.MULTI: (
+                    "\n\nIMPORTANT: This is a cross-domain query. "
+                    "Search multiple collections (ADRs, principles, policies) to provide a comprehensive answer."
+                ),
+            }
+            hint = scope_hints.get(scope, "")
+            if hint:
+                agent_description += hint
 
         # =============================================================================
         # TREE / LLM PATH
