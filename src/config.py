@@ -42,7 +42,7 @@ class Settings(BaseSettings):
     # OpenAI Configuration (fallback/alternative)
     openai_api_key: Optional[str] = Field(default=None)
     openai_embedding_model: str = Field(default="text-embedding-3-small")
-    openai_chat_model: str = Field(default="gpt-4o-mini")
+    openai_chat_model: str = Field(default="gpt-5.2")
 
     @property
     def chat_model(self) -> str:
