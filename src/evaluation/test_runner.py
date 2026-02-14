@@ -1126,6 +1126,16 @@ async def run_tests(provider: str = "ollama", model: str = None, quick: bool = F
     if not await init_rag_system(provider, model):
         print("FATAL: Could not initialize RAG system.")
         return {"error": "rag_init_failed", "results": []}
+
+    # Capture resolved configuration for the report
+    from ..config import settings
+    resolved_chat_model = settings.chat_model
+    resolved_embedding_model = settings.embedding_model
+    routing_policy = settings.get_routing_policy()
+    print(f"  Chat model: {resolved_chat_model}")
+    print(f"  Embedding model: {resolved_embedding_model}")
+    print(f"  Abstain gate: {'ON' if routing_policy.get('abstain_gate_enabled') else 'OFF'}")
+    print(f"  Intent router: {routing_policy.get('intent_router_mode', 'unknown')}")
     print()
 
     print(f"Running {len(questions)} questions...")
@@ -1204,7 +1214,14 @@ async def run_tests(provider: str = "ollama", model: str = None, quick: bool = F
         "version": "3.0",
         "test_suite": test_suite,
         "provider": provider,
-        "model": model,
+        "chat_model": resolved_chat_model,
+        "embedding_model": resolved_embedding_model,
+        "config": {
+            "abstain_gate_enabled": routing_policy.get("abstain_gate_enabled"),
+            "intent_router_mode": routing_policy.get("intent_router_mode"),
+            "intent_confidence_threshold": routing_policy.get("intent_confidence_threshold"),
+            "tree_enabled": routing_policy.get("tree_enabled"),
+        },
         "total_questions": total,
         "summary": {
             "correct": correct,
@@ -1240,6 +1257,8 @@ async def run_tests(provider: str = "ollama", model: str = None, quick: bool = F
     print(f"{'='*60}")
     print("SUMMARY")
     print(f"{'='*60}")
+    print(f"Config: {provider} | chat={resolved_chat_model} | embed={resolved_embedding_model}")
+    print(f"        abstain_gate={'ON' if routing_policy.get('abstain_gate_enabled') else 'OFF'} | intent_router={routing_policy.get('intent_router_mode', '?')}")
     print(f"Total Questions: {total}")
     print(f"  PASS:    {correct} ({correct/total*100:.1f}%)" if total else "")
     print(f"  PARTIAL: {partial} ({partial/total*100:.1f}%)" if total else "")
@@ -1283,7 +1302,10 @@ def save_report(report: dict, output_dir: str = "test_results"):
     output_path.mkdir(exist_ok=True)
 
     suite_prefix = report.get("test_suite", "gold_standard_v3")
-    filename = f"{suite_prefix}_{report['provider']}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+    # Include chat+embedding model in filename for traceability
+    chat = report.get("chat_model", "unknown").replace(":", "-").replace("/", "-")
+    embed = report.get("embedding_model", "unknown").replace(":", "-").replace("/", "-")
+    filename = f"{suite_prefix}_{report['provider']}_{chat}_{embed}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
     filepath = output_path / filename
 
     with open(filepath, "w") as f:
