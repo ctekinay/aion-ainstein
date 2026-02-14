@@ -12,7 +12,7 @@ PROJECT_ROOT = Path(__file__).parent.parent
 
 
 class TestRoutingPolicyLoading:
-    """Verify routing_policy.yaml loads correctly."""
+    """Verify routing_policy.yaml loads correctly (YAML-present tests)."""
 
     def test_routing_policy_file_exists(self):
         policy_file = PROJECT_ROOT / "config" / "routing_policy.yaml"
@@ -44,6 +44,40 @@ class TestRoutingPolicyLoading:
         policy = s.get_routing_policy()
         assert policy["intent_router_enabled"] is True
         assert policy["intent_router_mode"] == "llm"
+
+
+class TestRoutingPolicyFallbackDefaults:
+    """Verify hardcoded fallback defaults when YAML is absent."""
+
+    def test_fallback_intent_router_disabled(self, tmp_path):
+        invalidate_config_caches()
+        s = Settings(routing_policy_path=str(tmp_path / "nonexistent.yaml"))
+        policy = s.get_routing_policy()
+        assert policy["intent_router_enabled"] is False
+
+    def test_fallback_intent_router_mode_heuristic(self, tmp_path):
+        invalidate_config_caches()
+        s = Settings(routing_policy_path=str(tmp_path / "nonexistent.yaml"))
+        policy = s.get_routing_policy()
+        assert policy["intent_router_mode"] == "heuristic"
+
+    def test_fallback_abstain_gate_enabled(self, tmp_path):
+        invalidate_config_caches()
+        s = Settings(routing_policy_path=str(tmp_path / "nonexistent.yaml"))
+        policy = s.get_routing_policy()
+        assert policy["abstain_gate_enabled"] is True
+
+    def test_fallback_tree_enabled(self, tmp_path):
+        invalidate_config_caches()
+        s = Settings(routing_policy_path=str(tmp_path / "nonexistent.yaml"))
+        policy = s.get_routing_policy()
+        assert policy["tree_enabled"] is True
+
+    def test_fallback_confidence_threshold(self, tmp_path):
+        invalidate_config_caches()
+        s = Settings(routing_policy_path=str(tmp_path / "nonexistent.yaml"))
+        policy = s.get_routing_policy()
+        assert policy["intent_confidence_threshold"] == 0.55
 
 
 class TestIntentRouterRouting:
