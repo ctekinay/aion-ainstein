@@ -611,11 +611,11 @@ async def init_rag_system(provider: str = "ollama", model: str = None) -> bool:
     from ..elysia_agents import ElysiaRAGSystem, configure_elysia_from_settings
 
     default_models = {
-        "ollama": "qwen3:4b",
+        "ollama": "gpt-oss:20b",
         "openai": "gpt-4o-mini"
     }
 
-    model = model or default_models.get(provider, "qwen3:4b")
+    model = model or default_models.get(provider, "gpt-oss:20b")
 
     settings.llm_provider = provider
     if provider == "ollama":

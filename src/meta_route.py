@@ -1,99 +1,18 @@
-"""Meta route: short-circuit for questions about AInstein itself.
+"""Meta route: deterministic responses for questions about AInstein itself.
 
-Detects questions about the system's own architecture, skills, formatting,
-identity, and processing pipeline. Returns deterministic responses that explain
-how AInstein works, without querying the ESA knowledge base.
+Returns canned responses that explain how AInstein works, without querying
+the ESA knowledge base. Meta intent detection is handled by the LLM intent
+router (Intent.META); this module only builds the response.
 
 Response detail is controlled by the ainstein_disclosure_level setting:
 - Level 0 (default): functional description, no internals
 - Level 1: RAG pipeline overview, no internal component names
 - Level 2: full implementation detail (Elysia, Weaviate, DSPy, etc.)
-
-This prevents the "spiral" UX where meta questions get routed to ADR search,
-returning irrelevant results or hallucinated process descriptions.
 """
 
 import logging
-import re
 
 logger = logging.getLogger(__name__)
-
-# =============================================================================
-# Meta Intent Detection
-# =============================================================================
-
-# Patterns that indicate the user is asking about AInstein itself,
-# not about the ESA knowledge base. Ordered by specificity.
-_META_PATTERNS = [
-    # Skills / formatting process
-    re.compile(r"\b(which|what)\s+skills?\b", re.IGNORECASE),
-    re.compile(r"\bhow\s+did\s+you\s+format\b", re.IGNORECASE),
-    re.compile(r"\bshow\s+(me\s+)?(the\s+)?(sequential\s+)?steps\b", re.IGNORECASE),
-    re.compile(r"\bwhen\s+(did|does)\s+(the\s+)?skill\s+kick", re.IGNORECASE),
-    re.compile(r"\bdo\s+you\s+load\s+(skills?|at\s+startup)\b", re.IGNORECASE),
-    re.compile(r"\bskill\s+(activation|injection|loading)\b", re.IGNORECASE),
-
-    # System architecture / self-description
-    re.compile(r"\b(explain|describe|show)\s+(me\s+)?(your|the\s+system('s)?)\s+(own\s+)?(architecture|design|pipeline)\b", re.IGNORECASE),
-    re.compile(r"\bhow\s+(are|were)\s+you\s+built\b", re.IGNORECASE),
-    re.compile(r"\bhow\s+do\s+you\s+work\b", re.IGNORECASE),
-    re.compile(r"\byour\s+(own\s+)?(architecture|design|system|pipeline)\b", re.IGNORECASE),
-    re.compile(r"\bhow\s+(did\s+)?you\s+(came|come)\s+to\s+this\s+answer\b", re.IGNORECASE),
-    re.compile(r"\bexplain\s+(the\s+)?process\s+how\s+you\b", re.IGNORECASE),
-
-    # Identity / name questions
-    re.compile(r"\bwho\s+are\s+you\b", re.IGNORECASE),
-    re.compile(r"\bwhat('?s| is)\s+your\s+name\b", re.IGNORECASE),
-    re.compile(r"\bare\s+you\s+(elysia|a\s+bot|an?\s+ai|a\s+language\s+model)\b", re.IGNORECASE),
-    re.compile(r"\bwhat\s+(is|are)\s+you\b", re.IGNORECASE),
-    re.compile(r"\bwhat\s+is\s+your\s+purpose\b", re.IGNORECASE),
-    re.compile(r"\btell\s+me\s+about\s+yourself\b", re.IGNORECASE),
-
-    # Prompt / embedding internals
-    re.compile(r"\b(prompt|embedding|vector)\s+(preserv|mutate|mess|change|modif)", re.IGNORECASE),
-    re.compile(r"\bdo\s+you\s+(mess|change|modify)\s+(up\s+)?(the\s+)?(original\s+)?prompt\b", re.IGNORECASE),
-    re.compile(r"\bhow\s+can\s+I\s+check\s+this\b", re.IGNORECASE),
-
-    # Debug / trace
-    re.compile(r"\b(debug|trace|reasoning)\s*(mode|view|id|log)?\b", re.IGNORECASE),
-
-    # Functional description of "you"
-    re.compile(r"\bfunctional\s+description\s+(of\s+)?(your|the\s+system)\b", re.IGNORECASE),
-]
-
-# Negative patterns: if these match, it's probably an ESA question, not meta
-_NOT_META_PATTERNS = [
-    re.compile(r"\badr[.\s-]?\d{1,4}\b", re.IGNORECASE),
-    re.compile(r"\bpcp[.\s-]?\d{1,4}\b", re.IGNORECASE),
-    re.compile(r"\biec\s+\d+\b", re.IGNORECASE),
-    re.compile(r"\bcim\b", re.IGNORECASE),
-    re.compile(r"\balliander('s)?\s+(energy|data|policy|principle)\b", re.IGNORECASE),
-]
-
-
-def is_meta_query(question: str) -> bool:
-    """Detect if the user is asking about AInstein itself, not the ESA corpus.
-
-    Args:
-        question: The user's question
-
-    Returns:
-        True if this is a meta/system question that should be short-circuited
-    """
-    # Check negative patterns first — if the question references specific ESA
-    # documents or standards, it's not a meta question even if it uses "your"
-    for pattern in _NOT_META_PATTERNS:
-        if pattern.search(question):
-            return False
-
-    # Check positive patterns
-    for pattern in _META_PATTERNS:
-        if pattern.search(question):
-            logger.info(f"Meta intent detected: matched pattern '{pattern.pattern}'")
-            return True
-
-    return False
-
 
 # =============================================================================
 # Meta Response Templates (tiered by disclosure level)

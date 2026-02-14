@@ -215,7 +215,7 @@ from .weaviate.embeddings import embed_text
 from .weaviate.collections import get_collection_name, get_all_collection_names
 from .weaviate.skosmos_client import get_skosmos_client, TermLookupResult
 from .observability import metrics as obs_metrics
-from .meta_route import is_meta_query, build_meta_response
+from .meta_route import build_meta_response
 from .response_schema import (
     ResponseParser,
     ResponseValidator,
@@ -2301,6 +2301,16 @@ IMPORTANT GUIDELINES:
 
         if structured_mode:
             logger.info(f"Main path post-processing: was_structured={was_structured}, reason={reason}")
+
+        # Guard: if post-processing produced an empty response despite retrieved
+        # objects, fall back to direct query rather than returning nothing.
+        if not processed_response or not processed_response.strip():
+            logger.warning(
+                "Tree returned empty response after post-processing "
+                f"(objects={len(objects)}), falling back to _direct_query"
+            )
+            obs_metrics.increment("tree_empty_response_total")
+            return await self._direct_query(question, structured_mode=structured_mode)
 
         # Cache the successful semantic response
         _cache_put(question, processed_response, objects)
