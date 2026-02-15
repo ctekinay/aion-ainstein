@@ -1,14 +1,17 @@
 ---
 parent: Decisions
-nav_order: 2
-
-# These are optional elements. Feel free to remove any of them.
-status: "accepted"
-date: "2025-07-17"
-approvers: "Energy System Architecture: Robert-Jan Peters, Laurent van Groningen"
-consulted: "no"
-informed: "BBN architecture, ART-SO solution architecture"
+nav_order: ADR.2
+dct:
+  identifier: urn:uuid:c3d4e5f6-a7b8-4c9d-0e1f-2a3b4c5d6e7f
+  title: Use DACI for Decision-Making Process
+  isVersionOf: accepted
+  issued: 2025-07-17
+owl:
+  versionIRI: "https://esa-artifacts.alliander.com/metamodel/decisions/2025-07/0002-use-DACI-for-decision-making-process.html"
+  versionInfo: "v1.0.0 (2025-07-17)"
 ---
+<!-- markdownlint-disable-next-line MD025 -->
+
 # Use DACI for Decision-Making Process?
 
 ## Context and Problem Statement

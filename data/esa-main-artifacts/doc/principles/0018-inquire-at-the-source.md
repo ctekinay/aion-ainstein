@@ -1,34 +1,16 @@
 ---
 parent: Principles
-nav_order: 0018
-title: Inquire at the Source
-status: proposed
-date: 2025-11-12
-driver: Operational resilience, auditability, consistent decision-making based on authentic data
-contributors: Laurent van Groningen, Robert-Jan Peters, Cagri Tekinay
+nav_order: PCP.18
+dct:
+  identifier: urn:uuid:9c0d1e2f-3a4b-4c5d-6e7f-8a9b0c1d2e3f
+  title: Inquire at the Source
+  isVersionOf: proposed
+  issued: 2025-11-12
+owl:
+  versionIRI: "https://esa-artifacts.alliander.com/metamodel/principles/2025-11/0018-inquire-at-the-source.html"
+  versionInfo: "v1.0.0 (2025-11-12)"
 ---
-
-<!-- Reasoning [CT]: I understand and agree with RJP's feedbacks.The original principle was more focused on WHERE to store data ("as close to its source as feasible"), which is the technical implementation concern (new Principle 0019). The governance aspect (who is authoritative) was implied but not explicitly stated, so I created the Principle 1, i.e., 0018-inquire-at-the-source, as per RJP's suggestion.
-
-To Principle 0018 (Governance):
-
-"essential for operational resilience, auditability, and consistent decision-making based on authentic data"
-"avoids the creation of conflicting 'truths'"
-"supports the principle of 'do it right the first time'"
-Added: "clear accountability for data quality and integrity" (governance focus)
-
-To Principle 0019 (Technical):
-
-"Preserving original data as close to its source as feasible is essential for operational resilience, auditability, and consistent decision-making based on authentic data"
-"By ensuring that both local and central processes rely on the same high-quality, original data, the organization avoids the creation of conflicting 'truths' and supports the principle of 'do it right the first time.'"
-"This approach empowers local autonomy while enabling robust central analytics, reducing the risk of systemic failures due to central outages"
-"Although storing data locally introduces the risk of isolated data loss, it is generally less catastrophic than losing all centrally stored data at once"
-"Therefore, appropriate mitigations should be in place to protect local datasets, ensuring continuity and trust in business-critical processes"
-Added from feedback: "The location of usage (e.g., decentralized/local or centralized) is a key implication driver and has impact on the technological design of the solution"
-
-Reasoning: The original rationale discussed BOTH why source authority matters AND why local storage matters. I kept the full technical storage discussion in 0019 (old 0018), and extracted the governance/authority aspects for the new Principle 0018. I added the feedback about "location of usage" to P2's rationale as per RJP's request.
-
--->
+<!-- markdownlint-disable-next-line MD025 -->
 
 # Inquire at the Source
 

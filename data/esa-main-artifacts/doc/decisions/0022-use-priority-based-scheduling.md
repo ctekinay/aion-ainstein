@@ -1,16 +1,15 @@
 ---
 parent: Decisions
-nav_order: 22
-
-status: "proposed"
-date: 2025-07-21
-
-driver: Robert-Jan Peters (Alliander), Laurent van Groningen (Alliander)
-approvers: list everyone with the final say in this ADR.
-contributors: "Robert Steeg <robert.steegh@enexis.nl>; Rick Harms <rick.harms@stedin.net>"
-informed: list every one who need to be aware of the decision once made.
+nav_order: ADR.22
+dct:
+  identifier: urn:uuid:c9d0e1f2-a3b4-4c5d-6e7f-8a9b0c1d2e3f
+  title: Use priority based scheduling
+  isVersionOf: proposed
+  issued: 2025-07-21
+owl:
+  versionIRI: "https://esa-artifacts.alliander.com/metamodel/decisions/2025-07/0022-use-priority-based-scheduling.html"
+  versionInfo: "v1.0.0 (2025-07-21)"
 ---
-
 <!-- markdownlint-disable-next-line MD025 -->
 
 # Use priority based scheduling

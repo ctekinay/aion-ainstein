@@ -1,15 +1,16 @@
 ---
 parent: Principles
-nav_order: "0016"
-title: Make Uncertainty Explicit to Strengthen Decisions
-status: proposed
-date: 2025-10-27
-
-driver: Decision quality, operational robustness, trust in system outputs
-#approvers: "...
-contributors: Christian Heuer, Laurent van Groningen, Robert-Jan Peters
-#informed: System architects, data engineers, business analysts, product owners
+nav_order: PCP.16
+dct:
+  identifier: urn:uuid:7a8b9c0d-1e2f-4a3b-4c5d-6e7f8a9b0c1d
+  title: Make Uncertainty Explicit to Strengthen Decisions
+  isVersionOf: proposed
+  issued: 2025-10-27
+owl:
+  versionIRI: "https://esa-artifacts.alliander.com/metamodel/principles/2025-10/0016-make-uncertain-explicit.html"
+  versionInfo: "v1.0.0 (2025-10-27)"
 ---
+<!-- markdownlint-disable-next-line MD025 -->
 
 # Principle: Make Uncertainty Explicit to Strengthen Decisions
 

@@ -1,15 +1,16 @@
 ---
 parent: Principles
-nav_order: "0015"
-title: Business-Compliant Storage – Derived Data Reproduction
-status: proposed
-date: 2025-10-27
-
-driver: Data integrity, reproducibility, storage efficiency
-#approvers: ...
-contributors: Christian Heuer, Laurent van Groningen, Robert-Jan Peters
-#informed: Data owners, system architects, analytics teams
+nav_order: PCP.15
+dct:
+  identifier: urn:uuid:6f7a8b9c-0d1e-4f2a-3b4c-5d6e7f8a9b0c
+  title: Business-Compliant Storage – Derived Data Reproduction
+  isVersionOf: proposed
+  issued: 2025-10-27
+owl:
+  versionIRI: "https://esa-artifacts.alliander.com/metamodel/principles/2025-10/0015-derived-data-reproduction.html"
+  versionInfo: "v1.0.0 (2025-10-27)"
 ---
+<!-- markdownlint-disable-next-line MD025 -->
 
 # Principle: Business-Compliant Storage – Derived Data Reproduction
 

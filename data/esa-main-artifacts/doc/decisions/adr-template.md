@@ -1,20 +1,17 @@
 ---
-# Configuration for the Jekyll template "Just the Docs"
 parent: Decisions
-nav_order: 100
-title: ADR Template
-status: proposed | rejected | accepted | deprecated | … | superseded by ADR-0123
-date: YYYY-MM-DD when the decision was last updated
-
-#driver: list every driving this ADR
-#approvers: list everyone with the final say in this ADR.
-#contributors: list everyone whose opinions are sought (typically subject-matter experts); and with whom there is a two-way communication
-#informed: list every one who need to be aware of the decision once made. 
-
-# These are optional elements. Feel free to remove any of them.
-# additional decision-makers: {list everyone involved in the decision}
+nav_order: ADR.NN
+dct:
+  identifier: urn:uuid:[generate a new UUID]
+  title: "[Short title, representative of solved problem and found solution]"
+  isVersionOf: proposed
+  issued: YYYY-MM-DD
+owl:
+  versionIRI: "https://esa-artifacts.alliander.com/metamodel/decisions/YYYY-MM/XXXX-descriptive-title.html"
+  versionInfo: "v1.0.0 (YYYY-MM-DD)"
 ---
 <!-- markdownlint-disable-next-line MD025 -->
+
 # {short title, representative of solved problem and found solution}
 
 ## Context and Problem Statement
@@ -89,4 +86,5 @@ Checklist for writer of ADR, please remove.
 - [ ] Pro's/Cons consider the context
 - [ ] Consequences explained (effects, outcomes, outputs, follow ups, and more)
 - [ ] Need for subsequent ADRs
+- [ ] drivers should be action-oriented, outcome-focused, and explicit about purpose
 -->

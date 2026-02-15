@@ -1,15 +1,15 @@
 ---
-# Configuration for the Jekyll template "Just the Docs"
 parent: Decisions
-nav_order: 12
-
-status: "accepted"
-# date: {YYYY-MM-DD when the decision was last updated}
-# decision-makers: {list everyone involved in the decision}
-# consulted: {list everyone whose opinions are sought (typically subject-matter experts); and with whom there is a two-way communication}
-# informed: {list everyone who is kept up-to-date on progress; and with whom there is a one-way communication}
+nav_order: ADR.12
+dct:
+  identifier: urn:uuid:f6a7b8c9-d0e1-4f2a-3b4c-5d6e7f8a9b0c
+  title: Use CIM (IEC 61970/61968/62325) as default domain language
+  isVersionOf: accepted
+  issued: 2025-01-01
+owl:
+  versionIRI: "https://esa-artifacts.alliander.com/metamodel/decisions/2025-01/0012-use-CIM-as-default-domain-language.html"
+  versionInfo: "v1.0.0 (2025-01-01)"
 ---
-
 <!-- markdownlint-disable-next-line MD025 -->
 
 # Use CIM (IEC 61970/61968/62325) as default domain language

@@ -1,13 +1,15 @@
 ---
 parent: Decisions
-nav_order: 20
-
-status: "accepted"
-date: 09-04-2025
-decision-makers: Arjan Stam (in afstemming met Gilbert de Graaf), Peter Wessels
-consulted: Mitchel Have, Robbert van Waveren, René Tiesma, Laurent van Groningen, Robert-Jan Peters 
+nav_order: ADR.20
+dct:
+  identifier: urn:uuid:a7b8c9d0-e1f2-4a3b-4c5d-6e7f8a9b0c1d
+  title: Verify Demand/Response Products
+  isVersionOf: accepted
+  issued: 2025-04-09
+owl:
+  versionIRI: "https://esa-artifacts.alliander.com/metamodel/decisions/2025-04/0020-verify-demand-response-products.html"
+  versionInfo: "v1.0.0 (2025-04-09)"
 ---
-
 <!-- markdownlint-disable-next-line MD025 -->
 
 # Verify Demand/Response Products
