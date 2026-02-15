@@ -49,7 +49,7 @@ logger = logging.getLogger(__name__)
 
 
 @dataclass
-class TestResult:
+class CheckResult:
     """Result of a single test."""
     name: str
     passed: bool
@@ -59,10 +59,10 @@ class TestResult:
 
 
 @dataclass
-class TestSuite:
+class CheckSuite:
     """Collection of test results."""
     suite_name: str
-    results: List[TestResult]
+    results: List[CheckResult]
 
     @property
     def passed(self) -> bool:
@@ -98,7 +98,7 @@ class ImplementationTester:
 
     # ========== Test Suite 1: Skills Injection ==========
 
-    async def test_skills_injection(self) -> TestSuite:
+    async def test_skills_injection(self) -> CheckSuite:
         """Test that skills are properly injected into Elysia's agent description."""
         console.print(Panel("[bold]Test Suite 1: Skills Injection[/bold]"))
         results = []
@@ -115,10 +115,10 @@ class ImplementationTester:
                 "ADR" in base_content
             )
             message = "✓ Base description configured" if passed else "✗ Base description missing or invalid"
-            results.append(TestResult(test_name, passed, message))
+            results.append(CheckResult(test_name, passed, message))
             console.print(f"  {message}")
         except Exception as e:
-            results.append(TestResult(test_name, False, f"✗ Error: {e}"))
+            results.append(CheckResult(test_name, False, f"✗ Error: {e}"))
             console.print(f"  ✗ Error: {e}")
 
         # Test 1.2: Check Tree initialization
@@ -127,10 +127,10 @@ class ImplementationTester:
             has_tree = hasattr(self.elysia, 'tree')
             passed = has_tree and self.elysia.tree is not None
             message = "✓ Tree properly initialized" if passed else "✗ Tree not initialized"
-            results.append(TestResult(test_name, passed, message))
+            results.append(CheckResult(test_name, passed, message))
             console.print(f"  {message}")
         except Exception as e:
-            results.append(TestResult(test_name, False, f"✗ Error: {e}"))
+            results.append(CheckResult(test_name, False, f"✗ Error: {e}"))
             console.print(f"  ✗ Error: {e}")
 
         # Test 1.3: Test dynamic skill injection for "list" queries
@@ -152,17 +152,17 @@ class ImplementationTester:
 
             passed = has_formatting
             message = "✓ Response has rich formatting" if passed else "✗ Response lacks formatting (skills may not be injected)"
-            results.append(TestResult(test_name, passed, message, latency_ms=latency_ms))
+            results.append(CheckResult(test_name, passed, message, latency_ms=latency_ms))
             console.print(f"  {message} (latency: {latency_ms}ms)")
         except Exception as e:
-            results.append(TestResult(test_name, False, f"✗ Error: {e}"))
+            results.append(CheckResult(test_name, False, f"✗ Error: {e}"))
             console.print(f"  ✗ Error: {e}")
 
-        return TestSuite("Skills Injection", results)
+        return CheckSuite("Skills Injection", results)
 
     # ========== Test Suite 2: DAR Filtering ==========
 
-    async def test_dar_filtering(self) -> TestSuite:
+    async def test_dar_filtering(self) -> CheckSuite:
         """Test that Decision Approval Records are properly filtered."""
         console.print(Panel("[bold]Test Suite 2: DAR Filtering[/bold]"))
         results = []
@@ -188,10 +188,10 @@ class ImplementationTester:
             adr_count = len(re.findall(r'ADR\.\d{2}(?!D)', response))
             details = {"adr_count": adr_count, "has_dars": has_dar_indicators}
 
-            results.append(TestResult(test_name, passed, message, details, latency_ms))
+            results.append(CheckResult(test_name, passed, message, details, latency_ms))
             console.print(f"  {message} (found {adr_count} ADRs, latency: {latency_ms}ms)")
         except Exception as e:
-            results.append(TestResult(test_name, False, f"✗ Error: {e}"))
+            results.append(CheckResult(test_name, False, f"✗ Error: {e}"))
             console.print(f"  ✗ Error: {e}")
 
         # Test 2.2: Expected ADR count (should be ~18 without DARs)
@@ -219,17 +219,17 @@ class ImplementationTester:
             passed = 15 <= total_count <= 150  # Extended range for chunking variance
             message = f"✓ Found {total_count} ADR objects" if passed else f"✗ Unexpected count: {total_count}"
 
-            results.append(TestResult(test_name, passed, message, {"total_count": total_count}))
+            results.append(CheckResult(test_name, passed, message, {"total_count": total_count}))
             console.print(f"  {message}")
         except Exception as e:
-            results.append(TestResult(test_name, False, f"✗ Error: {e}"))
+            results.append(CheckResult(test_name, False, f"✗ Error: {e}"))
             console.print(f"  ✗ Error: {e}")
 
-        return TestSuite("DAR Filtering", results)
+        return CheckSuite("DAR Filtering", results)
 
     # ========== Test Suite 3: Principle Number Extraction ==========
 
-    async def test_principle_numbers(self) -> TestSuite:
+    async def test_principle_numbers(self) -> CheckSuite:
         """Test that principle numbers are properly extracted in chunked mode."""
         console.print(Panel("[bold]Test Suite 3: Principle Number Extraction[/bold]"))
         results = []
@@ -258,13 +258,13 @@ class ImplementationTester:
                 f"✗ Only {principles_with_numbers}/{total_sampled} have numbers (expected ≥80%)"
             )
 
-            results.append(TestResult(
+            results.append(CheckResult(
                 test_name, passed, message,
                 {"with_numbers": principles_with_numbers, "total": total_sampled}
             ))
             console.print(f"  {message}")
         except Exception as e:
-            results.append(TestResult(test_name, False, f"✗ Error: {e}"))
+            results.append(CheckResult(test_name, False, f"✗ Error: {e}"))
             console.print(f"  ✗ Error: {e}")
 
         # Test 3.2: Query for specific principle by number
@@ -280,17 +280,17 @@ class ImplementationTester:
             passed = has_reference
             message = "✓ Successfully retrieved PCP.10" if passed else "✗ PCP.10 not found"
 
-            results.append(TestResult(test_name, passed, message, latency_ms=latency_ms))
+            results.append(CheckResult(test_name, passed, message, latency_ms=latency_ms))
             console.print(f"  {message} (latency: {latency_ms}ms)")
         except Exception as e:
-            results.append(TestResult(test_name, False, f"✗ Error: {e}"))
+            results.append(CheckResult(test_name, False, f"✗ Error: {e}"))
             console.print(f"  ✗ Error: {e}")
 
-        return TestSuite("Principle Number Extraction", results)
+        return CheckSuite("Principle Number Extraction", results)
 
     # ========== Test Suite 4: Chunking Quality ==========
 
-    async def test_chunking_quality(self) -> TestSuite:
+    async def test_chunking_quality(self) -> CheckSuite:
         """Test chunking implementation quality."""
         console.print(Panel("[bold]Test Suite 4: Chunking Quality[/bold]"))
         results = []
@@ -318,13 +318,13 @@ class ImplementationTester:
             )
 
             # This isn't a pass/fail test, just informational
-            results.append(TestResult(
+            results.append(CheckResult(
                 test_name, True, message,
                 {"chunked_count": chunked_titles, "total": total_sampled, "chunking_enabled": chunking_detected}
             ))
             console.print(f"  {message}")
         except Exception as e:
-            results.append(TestResult(test_name, False, f"✗ Error: {e}"))
+            results.append(CheckResult(test_name, False, f"✗ Error: {e}"))
             console.print(f"  ✗ Error: {e}")
 
         # Test 4.2: Query for specific section (tests precision)
@@ -341,17 +341,17 @@ class ImplementationTester:
             passed = has_reference and mentions_decision
             message = "✓ Successfully retrieved decision section" if passed else "✗ Failed to retrieve decision"
 
-            results.append(TestResult(test_name, passed, message, latency_ms=latency_ms))
+            results.append(CheckResult(test_name, passed, message, latency_ms=latency_ms))
             console.print(f"  {message} (latency: {latency_ms}ms)")
         except Exception as e:
-            results.append(TestResult(test_name, False, f"✗ Error: {e}"))
+            results.append(CheckResult(test_name, False, f"✗ Error: {e}"))
             console.print(f"  ✗ Error: {e}")
 
-        return TestSuite("Chunking Quality", results)
+        return CheckSuite("Chunking Quality", results)
 
     # ========== Test Suite 5: Transparency & Counts ==========
 
-    async def test_transparency(self) -> TestSuite:
+    async def test_transparency(self) -> CheckSuite:
         """Test transparency features using structured output validation.
 
         Enterprise-grade approach:
@@ -406,10 +406,10 @@ class ImplementationTester:
                     f"✗ No structured data or count indicators found"
                 )
 
-            results.append(TestResult(test_name, passed, message, latency_ms=latency_ms))
+            results.append(CheckResult(test_name, passed, message, latency_ms=latency_ms))
             console.print(f"  {message} (latency: {latency_ms}ms)")
         except Exception as e:
-            results.append(TestResult(test_name, False, f"✗ Error: {e}"))
+            results.append(CheckResult(test_name, False, f"✗ Error: {e}"))
             console.print(f"  ✗ Error: {e}")
 
         # Test 5.2: Collection count transparency
@@ -452,16 +452,16 @@ class ImplementationTester:
                 f"✗ No valid count found (expected 15-40 docs or ~{actual_count} chunks, found {numbers})"
             )
 
-            results.append(TestResult(test_name, passed, message, {"actual": actual_count, "mentioned": numbers}))
+            results.append(CheckResult(test_name, passed, message, {"actual": actual_count, "mentioned": numbers}))
             console.print(f"  {message}")
         except Exception as e:
-            results.append(TestResult(test_name, False, f"✗ Error: {e}"))
+            results.append(CheckResult(test_name, False, f"✗ Error: {e}"))
             console.print(f"  ✗ Error: {e}")
 
-        return TestSuite("Transparency", results)
+        return CheckSuite("Transparency", results)
 
 
-async def run_all_tests(skip_ingestion: bool = False) -> Dict[str, TestSuite]:
+async def run_all_tests(skip_ingestion: bool = False) -> Dict[str, CheckSuite]:
     """Run all test suites."""
     tester = ImplementationTester()
 
@@ -501,7 +501,7 @@ async def run_all_tests(skip_ingestion: bool = False) -> Dict[str, TestSuite]:
         tester.teardown()
 
 
-def print_summary(suites: Dict[str, TestSuite]):
+def print_summary(suites: Dict[str, CheckSuite]):
     """Print test summary table."""
     console.print("\n")
     console.print(Panel("[bold]Test Summary[/bold]"))
