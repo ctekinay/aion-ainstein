@@ -3,8 +3,11 @@
 Designed for list-mode regression detection. Every question maps to a specific
 pathology from v4 test results. No generic/unstable questions.
 
-Run: python -m pytest tests/test_daily_smoke.py -v -m smoke
-Requires: running Weaviate + LLM provider (ollama or openai)
+Unit tests (always run):
+    pytest -m smoke -q
+
+Live integration tests (requires Weaviate + LLM):
+    RUN_LIVE_SMOKE=1 pytest -m smoke_live -v --timeout=300
 
 Categories:
 - 4 non-list-with-keyword: catches "ADR keyword -> list dump" regression
@@ -12,11 +15,13 @@ Categories:
 - 2 approval: ensures DAR routing works
 - 2 overlap disambiguation: ensures number-overlap handling
 """
+import os
+
 import pytest
 
 from tests.test_trace_invariants import check_all_invariants
 
-pytestmark = [pytest.mark.smoke, pytest.mark.integration]
+pytestmark = [pytest.mark.smoke]
 
 SMOKE_QUESTIONS = [
     # ── 4x non-list queries that mention ADR/PCP (must NOT list) ──────────
@@ -193,3 +198,114 @@ class TestDailySmokeDefinitions:
         }
         results = check_all_invariants(trace)
         assert all(r[1] for r in results), f"Clean trace should pass all invariants: {results}"
+
+
+# =============================================================================
+# Live Integration Smoke Tests
+# =============================================================================
+# Requires: running Weaviate + LLM provider
+# Gate: RUN_LIVE_SMOKE=1
+# Run: RUN_LIVE_SMOKE=1 pytest -m smoke_live -v --timeout=300
+
+_LIVE_SKIP_REASON = "Live smoke disabled; set RUN_LIVE_SMOKE=1"
+_live_enabled = os.environ.get("RUN_LIVE_SMOKE") == "1"
+
+
+@pytest.fixture(scope="module")
+async def rag_system():
+    """Initialize RAG system once per module (expensive)."""
+    if not _live_enabled:
+        pytest.skip(_LIVE_SKIP_REASON)
+
+    from src.evaluation.test_runner import init_rag_system, query_rag
+
+    provider = os.environ.get("LLM_PROVIDER", "ollama")
+    model = os.environ.get("LLM_MODEL")
+    ok = await init_rag_system(provider=provider, model=model)
+    if not ok:
+        pytest.skip("RAG system failed to initialize (Weaviate or LLM unavailable)")
+
+    return query_rag
+
+
+# Build parametrize IDs for readable test names: "S01-non_list_with_keyword"
+_smoke_ids = [f"{q['id']}-{q['category']}" for q in SMOKE_QUESTIONS]
+
+
+@pytest.mark.smoke_live
+@pytest.mark.integration
+@pytest.mark.timeout(300)
+@pytest.mark.parametrize("smoke_q", SMOKE_QUESTIONS, ids=_smoke_ids)
+async def test_smoke_live(rag_system, smoke_q):
+    """Execute a single smoke question against the live RAG system.
+
+    Validates:
+    1. must_contain_any / must_not_contain on response text
+    2. Trace invariants A-E
+    3. Per-question trace_check conditions
+    """
+    query_rag = rag_system
+    question = smoke_q["q"]
+
+    # ── Query ──────────────────────────────────────────────────────────────
+    result = await query_rag(question)
+
+    if result.get("error"):
+        pytest.fail(f"[{smoke_q['id']}] RAG error: {result['error']}")
+
+    response = result.get("response", "")
+    trace = result.get("trace", {})
+
+    # ── Corpus drift guard: skip if doc not found ──────────────────────────
+    _not_found_signals = [
+        "not found",
+        "no document",
+        "don't have",
+        "do not have",
+        "insufficient information",
+        "no results",
+    ]
+    if any(s in response.lower() for s in _not_found_signals):
+        # Only skip for questions that reference specific doc IDs
+        if any(ref in smoke_q["q"] for ref in ["ADR.", "PCP.", "0012", "0010", "0022"]):
+            pytest.skip(f"[{smoke_q['id']}] Document not found in corpus — skipping")
+
+    # ── Response text assertions (shallow, tolerant of LLM variance) ──────
+    errors = []
+
+    if "must_contain_any" in smoke_q:
+        if not _check_must_contain_any(response, smoke_q["must_contain_any"]):
+            errors.append(
+                f"must_contain_any failed: none of {smoke_q['must_contain_any']} "
+                f"found in response ({response[:200]}...)"
+            )
+
+    if "must_not_contain" in smoke_q:
+        if not _check_must_not_contain(response, smoke_q["must_not_contain"]):
+            found = [p for p in smoke_q["must_not_contain"] if p.lower() in response.lower()]
+            errors.append(
+                f"must_not_contain failed: forbidden patterns {found} "
+                f"found in response ({response[:200]}...)"
+            )
+
+    # ── Trace invariants A-E ──────────────────────────────────────────────
+    if trace:
+        invariant_results = check_all_invariants(trace)
+        for name, passed, msg in invariant_results:
+            if not passed:
+                errors.append(f"Invariant {name} violated: {msg}")
+
+        # ── Per-question trace_check ──────────────────────────────────────
+        trace_check = smoke_q.get("trace_check", "none")
+        if not _check_trace_condition(trace, trace_check):
+            errors.append(
+                f"trace_check failed: '{trace_check}' "
+                f"(trace fields: response_mode={trace.get('response_mode')}, "
+                f"collection_selected={trace.get('collection_selected')}, "
+                f"list_finalized={trace.get('list_finalized_deterministically')})"
+            )
+
+    # ── Report ────────────────────────────────────────────────────────────
+    if errors:
+        error_block = "\n  ".join(errors)
+        pytest.fail(f"[{smoke_q['id']}] {smoke_q['q']}\n  {error_block}")

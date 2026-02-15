@@ -40,11 +40,15 @@ def check_invariant_b(trace: dict) -> tuple[bool, str]:
 
 
 def check_invariant_c(trace: dict) -> tuple[bool, str]:
-    """Invariant C: fallback must not produce list tools."""
-    if trace.get("fallback_used"):
+    """Invariant C: fallback must not produce list tools for non-list intents.
+
+    When intent IS list, fallback using list tools is legitimate (tree timed out
+    but the query genuinely needs a catalog response).
+    """
+    if trace.get("fallback_used") and trace.get("intent_action") != "list":
         list_tools = [tc for tc in trace.get("tool_calls", []) if _is_list_tool(tc)]
         if list_tools:
-            return False, f"fallback used list tool: {list_tools}"
+            return False, f"fallback used list tool but intent={trace.get('intent_action')}: {list_tools}"
     return True, ""
 
 
@@ -124,10 +128,19 @@ class TestTraceInvariantsUnit:
         ok, _ = check_invariant_c(trace)
         assert ok
 
-    def test_invariant_c_fails_fallback_with_list_tool(self):
-        trace = {"fallback_used": True, "tool_calls": [{"tool": "list_all_adrs", "tool_kind": "list"}]}
+    def test_invariant_c_fails_fallback_with_list_tool_non_list_intent(self):
+        trace = {"fallback_used": True, "intent_action": "semantic_answer",
+                 "tool_calls": [{"tool": "list_all_adrs", "tool_kind": "list"}]}
         ok, msg = check_invariant_c(trace)
         assert not ok
+        assert "intent=semantic_answer" in msg
+
+    def test_invariant_c_passes_fallback_with_list_tool_list_intent(self):
+        """Fallback + list tool is OK when intent IS list (tree timed out on legitimate list query)."""
+        trace = {"fallback_used": True, "intent_action": "list",
+                 "tool_calls": [{"tool": "list_all_adrs", "tool_kind": "list"}]}
+        ok, _ = check_invariant_c(trace)
+        assert ok
 
     def test_invariant_d_passes_without_constraint(self):
         trace = {"intent_constraints": [], "final_output": "long text about stuff"}

@@ -250,6 +250,95 @@ class TraceStore:
         return len(self._traces)
 
 
+# =============================================================================
+# Tree Tool Introspection — extract tool calls from Elysia tree data
+# =============================================================================
+
+# Tool name → tool_kind mapping for trace population
+_TOOL_KIND_MAP = {
+    "list_all_adrs": "list",
+    "list_all_principles": "list",
+    "list_approval_records": "list",
+    "list_all_policies": "list",
+    "search_architecture_decisions": "search",
+    "search_principles": "search",
+    "search_policies": "search",
+    "search_vocabulary": "search",
+    "search_by_team": "search",
+    "verify_terminology": "lookup",
+    "get_collection_stats": "other",
+    "count_documents": "other",
+}
+
+# Tool name → collection mapping for trace.collection_selected
+_TOOL_COLLECTION_MAP = {
+    "list_all_adrs": "adr",
+    "search_architecture_decisions": "adr",
+    "list_all_principles": "principle",
+    "search_principles": "principle",
+    "list_approval_records": "approval",
+    "list_all_policies": "policy",
+    "search_policies": "policy",
+    "search_vocabulary": "vocabulary",
+    "verify_terminology": "vocabulary",
+    "search_by_team": "adr",
+}
+
+
+def _extract_tree_tool_calls(tree_data) -> list[dict]:
+    """Extract tool call metadata from Elysia tree's tasks_completed.
+
+    Parses tree_data.tasks_completed (list of {prompt, task: [{task, iteration, ...}]})
+    into the trace tool_call format.
+
+    Args:
+        tree_data: Elysia TreeData object with tasks_completed attribute
+
+    Returns:
+        List of trace-format tool call dicts
+    """
+    tool_calls = []
+    tasks_completed = getattr(tree_data, "tasks_completed", [])
+    for entry in tasks_completed:
+        for task_info in entry.get("task", []):
+            tool_name = task_info.get("task", "")
+            if not tool_name:
+                continue
+            tool_kind = _TOOL_KIND_MAP.get(tool_name, "other")
+            result_shape = "list_all" if tool_kind == "list" else "candidates" if tool_kind == "search" else ""
+            tool_calls.append({
+                "tool": tool_name,
+                "tool_kind": tool_kind,
+                "result_shape": result_shape,
+                "iteration": task_info.get("iteration", 0),
+                "source": "tree",
+            })
+    return tool_calls
+
+
+def _infer_collection_from_tool_calls(tool_calls: list[dict]) -> tuple[str, str]:
+    """Infer collection_selected from tree tool calls.
+
+    Returns (collection_name, reason) based on the most specific tool used.
+    Prioritizes list/approval tools over search tools.
+
+    Args:
+        tool_calls: List of trace-format tool call dicts
+
+    Returns:
+        (collection_name, reason) tuple
+    """
+    # Priority: approval > list > search > other
+    for priority_kind in ("list", "search", "lookup", "other"):
+        for tc in tool_calls:
+            if tc.get("tool_kind") == priority_kind:
+                tool_name = tc.get("tool", "")
+                collection = _TOOL_COLLECTION_MAP.get(tool_name, "")
+                if collection:
+                    return collection, f"tree_tool:{tool_name}"
+    return "", "none"
+
+
 def _maybe_add_debug_footer(response: str, route_log: dict, debug_enabled: bool) -> str:
     """Append routing debug footer if debug headers are enabled.
 
@@ -1364,7 +1453,7 @@ IMPORTANT GUIDELINES:
         self._trace_store.store(trace)
         self._last_request_id = trace.request_id
 
-    def _create_tree(self, agent_description: str) -> Tree:
+    def _create_tree(self, agent_description: str, recursion_limit: int | None = None) -> Tree:
         """Create and configure a new Elysia Tree instance.
 
         Creates a fresh tree per request to avoid race conditions
@@ -1372,6 +1461,8 @@ IMPORTANT GUIDELINES:
 
         Args:
             agent_description: Full agent description including skill content
+            recursion_limit: Override for recursion limit (default: self._recursion_limit).
+                             List intent queries use a higher limit to allow tool + format steps.
 
         Returns:
             Configured Tree instance with all tools registered
@@ -1383,7 +1474,7 @@ IMPORTANT GUIDELINES:
         )
 
         # Limit recursion to prevent infinite loops in decision tree
-        tree.tree_data.recursion_limit = self._recursion_limit
+        tree.tree_data.recursion_limit = recursion_limit if recursion_limit is not None else self._recursion_limit
 
         # Register all tools on this tree instance
         for name, func in self._tool_registry.items():
@@ -2415,8 +2506,10 @@ IMPORTANT GUIDELINES:
         # =============================================================================
         if tree_enabled:
             trace.router_path.append("tree")
+            # List intent queries need more iterations (tool call + format/finalize)
+            tree_recursion_limit = 4 if trace.intent_action == "list" else None
             # Create per-request tree instance (thread-safe: no shared mutable state)
-            request_tree = self._create_tree(agent_description)
+            request_tree = self._create_tree(agent_description, recursion_limit=tree_recursion_limit)
 
             try:
                 # Use semaphore to limit concurrent Elysia calls (prevents thread explosion)
@@ -2439,6 +2532,20 @@ IMPORTANT GUIDELINES:
                     logger.warning(f"Elysia tree hit recursion limit ({iterations}/{limit})")
                 else:
                     logger.debug(f"Elysia tree completed in {iterations} iteration(s)")
+
+                # ── Trace: extract tool calls from tree execution ───────────
+                tree_tool_calls = _extract_tree_tool_calls(request_tree.tree_data)
+                if tree_tool_calls:
+                    trace.tool_calls.extend(tree_tool_calls)
+                    # Infer collection_selected from the tools the tree chose
+                    if not trace.collection_selected:
+                        coll, reason = _infer_collection_from_tool_calls(tree_tool_calls)
+                        trace.collection_selected = coll
+                        trace.collection_selection_reason = reason
+                    logger.debug(
+                        f"Tree tool calls: {[tc['tool'] for tc in tree_tool_calls]}, "
+                        f"collection_selected={trace.collection_selected}"
+                    )
 
             except asyncio.TimeoutError:
                 # Query exceeded timeout - log and fallback
@@ -2505,6 +2612,39 @@ IMPORTANT GUIDELINES:
                 trace.final_output = (grounded or "")[:500]
                 self._store_trace(trace)
                 return grounded, objects
+
+        # ── List intent intercept: deterministic finalization ─────────
+        # When the tree called a list tool for a genuine list query, bypass LLM
+        # post-processing and use deterministic finalization instead. This prevents
+        # structured-parse degradation from turning list results into raw text.
+        if trace.intent_action == "list" and any(
+            tc.get("tool_kind") == "list" for tc in trace.tool_calls
+        ):
+            # Find which list tool the tree called, invoke it directly for the marker dict
+            list_tool_name = next(
+                tc["tool"] for tc in trace.tool_calls if tc.get("tool_kind") == "list"
+            )
+            list_tool_fn = self._tool_registry.get(list_tool_name)
+            if list_tool_fn:
+                logger.info(f"Tree list intercept: re-invoking {list_tool_name} for deterministic finalization")
+                # list_approval_records takes a collection_type arg; others take none
+                if list_tool_name == "list_approval_records":
+                    list_result = await list_tool_fn("all")
+                else:
+                    list_result = await list_tool_fn()
+                if list_result and is_list_result(list_result):
+                    context = create_context_from_skills(question, _skill_registry)
+                    gateway_result = handle_list_result(list_result, context)
+                    if gateway_result:
+                        list_objects = list_result.get("rows", []) if isinstance(list_result, dict) else []
+                        trace.list_marker_seen = True
+                        trace.list_finalized_deterministically = True
+                        trace.list_finalization_reason = "tree_list_intercept"
+                        trace.response_mode = "deterministic_list"
+                        trace.raw_model_output = (response if isinstance(response, str) else str(response))[:500]
+                        trace.final_output = (gateway_result.response or "")[:500]
+                        self._store_trace(trace)
+                        return gateway_result.response, list_objects
 
         # POST-PROCESS the Elysia tree response through unified contract enforcement
         # This is the critical fix: main path must also enforce structured response contract
