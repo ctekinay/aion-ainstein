@@ -60,6 +60,34 @@ doc_types:
 
   skip_at_ingestion: [index, template]
 
+  # Query-time retrieval filters by intent bucket
+  # "allow" = included in primary retrieval pass
+  # "secondary" = excluded from primary pass, allowed in second-pass disambiguation
+  # "deny" = never included
+  allowed_types_by_intent:
+    direct_doc_summary:
+      allow: [adr, principle, content]
+      secondary: [registry]
+      deny: [index, template, unknown]
+    approval_lookup:
+      allow: [adr_approval, principle_approval]
+      secondary: [registry]
+      deny: [index, template, unknown]
+    select_id:
+      allow: [adr, principle, content]
+      secondary: [registry]
+      deny: [index, template, unknown]
+    list_all:
+      allow: [adr, principle, adr_approval, principle_approval, content]
+      secondary: [registry]
+      deny: [index, template, unknown]
+    meta_overview:
+      allow: [registry, index, adr, principle, content]
+      deny: [template, unknown]
+
+retrieval:
+  secondary_pass_threshold: 0.55
+
 routing:
   locale: en
 

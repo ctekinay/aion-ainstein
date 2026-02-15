@@ -11,8 +11,10 @@ Concurrency:
 
 import asyncio
 import logging
+import time
 import uuid
-from dataclasses import dataclass, field
+from collections import OrderedDict
+from dataclasses import asdict, dataclass, field
 from typing import Optional, Any
 
 import re
@@ -100,6 +102,152 @@ def get_fallback_metrics() -> FallbackMetrics:
 def generate_request_id() -> str:
     """Generate a unique request ID for error tracking."""
     return str(uuid.uuid4())[:8]
+
+
+# =============================================================================
+# Query Trace — structured audit trace for every query
+# =============================================================================
+
+_INTENT_HUMAN_LABELS = {
+    "semantic_answer": "summarize", "list": "list_all", "lookup_doc": "select_id",
+    "lookup_approval": "approval_lookup", "meta": "meta_overview",
+    "compare_concepts": "compare", "compare_counts": "compare_counts",
+    "count": "count", "unknown": "unknown",
+}
+
+
+def _intent_to_human(intent) -> str:
+    """Map Intent enum to human-readable label."""
+    return _INTENT_HUMAN_LABELS.get(intent.value if hasattr(intent, "value") else str(intent), str(intent))
+
+
+@dataclass
+class QueryTrace:
+    """Structured audit trace for every query — the measurement contract.
+
+    Stored in a request-scoped TraceStore keyed by request_id. Consumers
+    retrieve traces via get_trace(request_id), never via a single mutable slot.
+    """
+    # Identity
+    request_id: str = ""
+
+    # Intent (uses canonical Intent enum values — NOT human-friendly labels)
+    intent_action: str = ""           # semantic_answer, list, lookup_doc, lookup_approval, meta, compare_concepts, compare_counts, count, unknown
+    intent_action_human: str = ""     # human-readable: summarize, list_all, select_id, approval_lookup, meta_overview, compare, count, unknown
+    intent_subject_type: str = ""     # adr, pcp, dar, policy, vocab, unknown
+    intent_subject_id: str = ""       # e.g. "ADR.0025" if detected
+    intent_constraints: list = field(default_factory=list)
+    intent_confidence: float = 0.0
+    intent_reasoning: str = ""
+
+    # Decision path
+    router_path: list = field(default_factory=list)
+    fallback_used: bool = False
+    fallback_reason: str = ""
+    legacy_direct_query_used: bool = False
+
+    # Tool calls — each entry has: tool, tool_kind, result_shape, retrieved_types_topk, retrieved_ids_topk
+    # tool_kind: "list" | "search" | "lookup" | "other"
+    tool_calls: list = field(default_factory=list)
+
+    # Collection routing (auditable keyword heuristics)
+    collection_selected: str = ""
+    collection_selection_reason: str = ""
+
+    # List gating (auditable)
+    is_catalog_query: bool = False
+    catalog_detection_reason: str = ""
+    list_marker_seen: bool = False
+    list_finalized_deterministically: bool = False
+    list_finalization_reason: str = ""
+
+    # Response mode — single truth field for what produced the output
+    response_mode: str = ""           # llm_synthesis | deterministic_list | tool_only | refusal | clarification | error
+
+    # Resolved ID (from retrieval, not from user input)
+    resolved_id: str = ""
+
+    # Retrieval scores
+    primary_top_score: float = 0.0
+    secondary_top_score: float = 0.0
+    score_semantics: str = "higher_is_better"
+
+    # Raw vs final
+    raw_model_output: str = ""
+    final_output: str = ""
+    postprocessors_applied: list = field(default_factory=list)
+
+    def to_dict(self) -> dict:
+        return asdict(self)
+
+
+class TraceStore:
+    """Request-scoped trace storage with bounded eviction.
+
+    Stores QueryTrace objects keyed by request_id. Provides deterministic
+    eviction: traces are removed when the store exceeds max_size (oldest-first,
+    LRU order) OR when they exceed ttl_seconds age (checked lazily on store/get).
+
+    Eviction policy (deterministic):
+    1. On every store() call, evict entries older than ttl_seconds.
+    2. After TTL eviction, if len > max_size, evict oldest entries until
+       len == max_size.
+    3. On get(), evict the requested entry if it's older than ttl_seconds
+       (returns None).
+
+    Thread safety: NOT thread-safe. Acceptable for single-event-loop async usage.
+    If true threading is introduced, wrap with a lock.
+    """
+
+    def __init__(self, max_size: int = 100, ttl_seconds: float = 600.0):
+        self._traces: OrderedDict[str, tuple[float, QueryTrace]] = OrderedDict()
+        self.max_size = max_size
+        self.ttl_seconds = ttl_seconds
+
+    def store(self, trace: QueryTrace) -> None:
+        """Store a trace under its request_id. Evicts stale/overflow entries."""
+        if not trace.request_id:
+            return
+        now = time.monotonic()
+        # Evict expired entries
+        self._evict_expired(now)
+        # Store (move to end if already exists)
+        self._traces[trace.request_id] = (now, trace)
+        self._traces.move_to_end(trace.request_id)
+        # Evict overflow (oldest first)
+        while len(self._traces) > self.max_size:
+            self._traces.popitem(last=False)
+
+    def get(self, request_id: str) -> Optional[QueryTrace]:
+        """Retrieve trace by request_id. Returns None if not found or expired.
+
+        Returns None in two cases (logged at DEBUG for auditability):
+        - request_id not in store (never stored, or evicted by max_size overflow)
+        - entry expired (age > ttl_seconds, lazy-evicted on this get() call)
+        """
+        entry = self._traces.get(request_id)
+        if entry is None:
+            logger.debug(f"TraceStore.get({request_id!r}): miss (not in store, possibly evicted by overflow or never stored)")
+            return None
+        stored_at, trace = entry
+        age = time.monotonic() - stored_at
+        if age > self.ttl_seconds:
+            del self._traces[request_id]
+            logger.debug(f"TraceStore.get({request_id!r}): expired (age={age:.1f}s > ttl={self.ttl_seconds}s)")
+            return None
+        return trace
+
+    def _evict_expired(self, now: float) -> None:
+        """Remove entries older than ttl_seconds."""
+        expired = [
+            rid for rid, (stored_at, _) in self._traces.items()
+            if now - stored_at > self.ttl_seconds
+        ]
+        for rid in expired:
+            del self._traces[rid]
+
+    def __len__(self) -> int:
+        return len(self._traces)
 
 
 def _maybe_add_debug_footer(response: str, route_log: dict, debug_enabled: bool) -> str:
@@ -210,7 +358,7 @@ def check_fallback_allowed(
 
     return True, None
 from .skills import SkillRegistry, get_skill_registry, DEFAULT_SKILL
-from .skills.filters import build_document_filter
+from .skills.filters import build_document_filter, build_intent_aware_filter
 from .weaviate.embeddings import embed_text
 from .weaviate.collections import get_collection_name, get_all_collection_names
 from .weaviate.skosmos_client import get_skosmos_client, TermLookupResult
@@ -1179,6 +1327,8 @@ class ElysiaRAGSystem:
 
         self.client = client
         self._recursion_limit = 2
+        self._trace_store = TraceStore(max_size=100, ttl_seconds=600.0)
+        self._last_request_id: str = ""  # Index pointer: which request_id to look up (NOT the trace itself)
 
         # Base agent description for AInstein - skills will be injected dynamically per query
         self._base_agent_description = """You are AInstein, the Energy System Architecture AI Assistant at Alliander.
@@ -1197,6 +1347,22 @@ IMPORTANT GUIDELINES:
 
         # Build tool registry (functions to register on per-request trees)
         self._tool_registry = self._build_tool_registry()
+
+    def get_trace(self, request_id: str) -> Optional[QueryTrace]:
+        """Retrieve trace for a specific request by its request_id.
+
+        Args:
+            request_id: The unique request identifier.
+
+        Returns:
+            QueryTrace if found and not expired, None otherwise.
+        """
+        return self._trace_store.get(request_id)
+
+    def _store_trace(self, trace: QueryTrace) -> None:
+        """Store trace in the request-scoped store and update last_request_id pointer."""
+        self._trace_store.store(trace)
+        self._last_request_id = trace.request_id
 
     def _create_tree(self, agent_description: str) -> Tree:
         """Create and configure a new Elysia Tree instance.
@@ -2117,8 +2283,13 @@ IMPORTANT GUIDELINES:
         followup_binding_enabled = routing_policy.get("followup_binding_enabled", True)
 
         # Routing transparency log (internal only, never exposed in responses)
+        _req_id = generate_request_id()
+        # Bind request_id early so it's available even if query() fails partway through.
+        # This is the authoritative ID for this query — _store_trace() also sets it,
+        # but setting it here ensures it's available before any early return.
+        self._last_request_id = _req_id
         route_log = {
-            "request_id": generate_request_id(),
+            "request_id": _req_id,
             "route_selected": None,
             "intent": None,
             "confidence": None,
@@ -2129,6 +2300,9 @@ IMPORTANT GUIDELINES:
             "tree_enabled": tree_enabled,
             "abstain_gate_enabled": abstain_gate_enabled,
         }
+
+        # ── Query Trace (structured audit contract) ──────────────────────
+        trace = QueryTrace(request_id=_req_id)
 
         # =============================================================================
         # INTENT ROUTER (when enabled, runs BEFORE legacy keyword routing)
@@ -2145,12 +2319,25 @@ IMPORTANT GUIDELINES:
             route_log["intent"] = intent_decision.intent.value
             route_log["confidence"] = intent_decision.confidence
 
+            # ── Trace: intent classification ──────────────────────────────
+            trace.intent_action = intent_decision.intent.value
+            trace.intent_action_human = _intent_to_human(intent_decision.intent)
+            trace.intent_subject_type = intent_decision.entity_scope.value
+            trace.intent_confidence = intent_decision.confidence
+            trace.intent_reasoning = intent_decision.reasoning
+            trace.intent_subject_id = intent_decision.detected_entities[0] if intent_decision.detected_entities else ""
+            trace.router_path.append("intent_router")
+
             # If confidence is too low, ask clarifying question
             if needs_clarification(intent_decision, threshold=confidence_threshold):
                 route_log["route_selected"] = "clarification"
                 logger.info(f"Intent confidence too low ({intent_decision.confidence:.2f}), asking clarification")
                 clarification = await build_clarification_response(intent_decision, question)
                 response = _maybe_add_debug_footer(clarification, route_log, debug_headers)
+                trace.response_mode = "clarification"
+                trace.final_output = (response or "")[:500]
+                trace.router_path.append("clarification")
+                self._store_trace(trace)
                 return response, []
 
             # Route based on intent decision
@@ -2159,6 +2346,10 @@ IMPORTANT GUIDELINES:
                 obs_metrics.increment("meta_route_total")
                 response = build_meta_response(question, structured_mode=structured_mode)
                 response = _maybe_add_debug_footer(response, route_log, debug_headers)
+                trace.response_mode = "tool_only"
+                trace.final_output = (response or "")[:500]
+                trace.router_path.append("meta")
+                self._store_trace(trace)
                 return response, []
 
             if intent_decision.intent == Intent.COMPARE_CONCEPTS:
@@ -2173,6 +2364,10 @@ IMPORTANT GUIDELINES:
                         "transparency_statement": "Deterministic concept comparison.",
                     }, indent=2)
                 response = _maybe_add_debug_footer(compare_response, route_log, debug_headers)
+                trace.response_mode = "tool_only"
+                trace.final_output = (response or "")[:500]
+                trace.router_path.append("compare_concepts")
+                self._store_trace(trace)
                 return response, []
 
             if intent_decision.intent == Intent.COMPARE_COUNTS:
@@ -2187,6 +2382,10 @@ IMPORTANT GUIDELINES:
                         "transparency_statement": "Numeric count comparison.",
                     }, indent=2)
                 response = _maybe_add_debug_footer(counts_response, route_log, debug_headers)
+                trace.response_mode = "tool_only"
+                trace.final_output = (response or "")[:500]
+                trace.router_path.append("compare_counts")
+                self._store_trace(trace)
                 return response, []
 
             # For other intents (LIST, LOOKUP_DOC, LOOKUP_APPROVAL, SEMANTIC_ANSWER, COUNT),
@@ -2215,6 +2414,7 @@ IMPORTANT GUIDELINES:
         # When tree_enabled=false, use direct retrieval + LLM generation.
         # =============================================================================
         if tree_enabled:
+            trace.router_path.append("tree")
             # Create per-request tree instance (thread-safe: no shared mutable state)
             request_tree = self._create_tree(agent_description)
 
@@ -2246,20 +2446,32 @@ IMPORTANT GUIDELINES:
                     f"Elysia tree timed out after {max_tree_seconds}s, "
                     "using direct tool execution"
                 )
-                response, objects = await self._direct_query(question, structured_mode=structured_mode)
+                trace.fallback_used = True
+                trace.fallback_reason = "timeout"
+                trace.router_path.append("fallback_timeout")
+                response, objects = await self._direct_query(question, structured_mode=structured_mode, trace=trace)
+                self._store_trace(trace)
                 return response, objects
 
             except Exception as e:
                 # If Elysia's tree fails, fall back to direct tool execution
                 logger.warning(f"Elysia tree failed: {e}, using direct tool execution")
+                trace.fallback_used = True
+                trace.fallback_reason = f"exception:{e}"
+                trace.router_path.append("fallback_exception")
                 # _direct_query handles its own post-processing, pass structured_mode
-                response, objects = await self._direct_query(question, structured_mode=structured_mode)
+                response, objects = await self._direct_query(question, structured_mode=structured_mode, trace=trace)
                 # Return directly since _direct_query already post-processed
+                self._store_trace(trace)
                 return response, objects
         else:
             # Tree disabled — use direct retrieval + LLM generation
             logger.info("Tree disabled — using direct retrieval + LLM generation")
-            response, objects = await self._direct_query(question, structured_mode=structured_mode)
+            trace.fallback_used = True
+            trace.fallback_reason = "tree_disabled"
+            trace.router_path.append("tree_disabled")
+            response, objects = await self._direct_query(question, structured_mode=structured_mode, trace=trace)
+            self._store_trace(trace)
             return response, objects
 
         # =================================================================
@@ -2289,6 +2501,9 @@ IMPORTANT GUIDELINES:
                 grounded = get_abstention_response(
                     "No relevant documents were retrieved from the knowledge base for this query."
                 )
+                trace.response_mode = "refusal"
+                trace.final_output = (grounded or "")[:500]
+                self._store_trace(trace)
                 return grounded, objects
 
         # POST-PROCESS the Elysia tree response through unified contract enforcement
@@ -2302,6 +2517,11 @@ IMPORTANT GUIDELINES:
         if structured_mode:
             logger.info(f"Main path post-processing: was_structured={was_structured}, reason={reason}")
 
+        # ── Trace: post-processing ────────────────────────────────────
+        trace.raw_model_output = (response if isinstance(response, str) else str(response))[:500]
+        trace.postprocessors_applied.append({"name": "postprocess_llm_output", "reason": reason})
+        trace.response_mode = "llm_synthesis"
+
         # Guard: if post-processing produced an empty response despite retrieved
         # objects, fall back to direct query rather than returning nothing.
         if not processed_response or not processed_response.strip():
@@ -2310,14 +2530,22 @@ IMPORTANT GUIDELINES:
                 f"(objects={len(objects)}), falling back to _direct_query"
             )
             obs_metrics.increment("tree_empty_response_total")
-            return await self._direct_query(question, structured_mode=structured_mode)
+            trace.fallback_used = True
+            trace.fallback_reason = "empty_response"
+            trace.router_path.append("fallback_empty")
+            result = await self._direct_query(question, structured_mode=structured_mode, trace=trace)
+            self._store_trace(trace)
+            return result
+
+        trace.final_output = (processed_response or "")[:500]
 
         # Cache the successful semantic response
         _cache_put(question, processed_response, objects)
 
+        self._store_trace(trace)
         return processed_response, objects
 
-    async def _direct_query(self, question: str, structured_mode: bool = None) -> tuple[str, list[dict]]:
+    async def _direct_query(self, question: str, structured_mode: bool = None, trace: Optional[QueryTrace] = None) -> tuple[str, list[dict]]:
         """Direct query execution bypassing Elysia tree when it fails.
 
         Supports both OpenAI and Ollama as LLM backends.
@@ -2327,6 +2555,7 @@ IMPORTANT GUIDELINES:
         Args:
             question: The user's question
             structured_mode: Whether response-contract is active (auto-detected if None)
+            trace: Optional QueryTrace for structured auditing
 
         Returns:
             Tuple of (response text, retrieved objects)
@@ -2338,66 +2567,113 @@ IMPORTANT GUIDELINES:
         all_results = []
         collection_counts = {}  # Track total counts for transparency
 
+        # ── Trace: mark legacy direct query used ──────────────────────
+        if trace is None:
+            trace = QueryTrace(request_id=generate_request_id())
+        trace.legacy_direct_query_used = True
+
         # Detect query type: list/catalog vs semantic/specific
-        is_catalog_query = is_list_query(question)
+        _catalog_result = is_list_query(question)
+        is_catalog_query = bool(_catalog_result)
+        trace.is_catalog_query = is_catalog_query
+        trace.catalog_detection_reason = "keyword" if is_catalog_query else "none"
         if is_catalog_query:
             logger.info(f"Catalog query detected in _direct_query: {question}")
 
-        # ── Deterministic list shortcut (safety net) ──────────────────────
+        # ── Deterministic list shortcut (GATED: only for explicit list intent) ──
         # When the Tree times out and falls back here, re-try the same
         # deterministic list tools that the main query() method uses.
         # This avoids the expensive generic search + LLM path for catalog
         # queries that should have been handled deterministically.
-        _DAR_RE_FALLBACK = re.compile(r"\bdars?\b|decision approval record", re.IGNORECASE)
-        if _DAR_RE_FALLBACK.search(question_lower):
-            list_tool = self._tool_registry.get("list_approval_records")
-            if list_tool:
-                logger.info("_direct_query: re-routing DAR query to deterministic list tool")
-                if "principle" in question_lower:
-                    list_result = await list_tool("principle")
-                elif "adr" in question_lower:
-                    list_result = await list_tool("adr")
-                else:
-                    list_result = await list_tool("all")
-                if list_result and is_list_result(list_result):
-                    context = create_context_from_skills(question, _skill_registry)
-                    gateway_result = handle_list_result(list_result, context)
-                    if gateway_result:
-                        objects = list_result.get("rows", []) if isinstance(list_result, dict) else []
-                        return gateway_result.response, objects
-        elif re.search(r"\badrs?\b", question_lower):
-            list_tool = self._tool_registry.get("list_all_adrs")
-            if list_tool:
-                logger.info("_direct_query: re-routing ADR query to deterministic list tool")
-                list_result = await list_tool()
-                if list_result and is_list_result(list_result):
-                    context = create_context_from_skills(question, _skill_registry)
-                    gateway_result = handle_list_result(list_result, context)
-                    if gateway_result:
-                        objects = list_result.get("rows", []) if isinstance(list_result, dict) else []
-                        return gateway_result.response, objects
-        elif re.search(r"\bprinciples?\b", question_lower):
-            list_tool = self._tool_registry.get("list_all_principles")
-            if list_tool:
-                logger.info("_direct_query: re-routing Principle query to deterministic list tool")
-                list_result = await list_tool()
-                if list_result and is_list_result(list_result):
-                    context = create_context_from_skills(question, _skill_registry)
-                    gateway_result = handle_list_result(list_result, context)
-                    if gateway_result:
-                        objects = list_result.get("rows", []) if isinstance(list_result, dict) else []
-                        return gateway_result.response, objects
-        elif re.search(r"\bpolic(?:y|ies)\b", question_lower):
-            list_tool = self._tool_registry.get("list_all_policies")
-            if list_tool:
-                logger.info("_direct_query: re-routing Policy query to deterministic list tool")
-                list_result = await list_tool()
-                if list_result and is_list_result(list_result):
-                    context = create_context_from_skills(question, _skill_registry)
-                    gateway_result = handle_list_result(list_result, context)
-                    if gateway_result:
-                        objects = list_result.get("rows", []) if isinstance(list_result, dict) else []
-                        return gateway_result.response, objects
+        # GATE: Only invoke list tools for genuine catalog/list queries.
+        if is_catalog_query:
+            trace.list_finalization_reason = "explicit_list_intent"
+            _DAR_RE_FALLBACK = re.compile(r"\bdars?\b|decision approval record", re.IGNORECASE)
+            if _DAR_RE_FALLBACK.search(question_lower):
+                list_tool = self._tool_registry.get("list_approval_records")
+                if list_tool:
+                    logger.info("_direct_query: re-routing DAR query to deterministic list tool")
+                    if "principle" in question_lower:
+                        list_result = await list_tool("principle")
+                    elif "adr" in question_lower:
+                        list_result = await list_tool("adr")
+                    else:
+                        list_result = await list_tool("all")
+                    if list_result and is_list_result(list_result):
+                        context = create_context_from_skills(question, _skill_registry)
+                        gateway_result = handle_list_result(list_result, context)
+                        if gateway_result:
+                            objects = list_result.get("rows", []) if isinstance(list_result, dict) else []
+                            trace.tool_calls.append({"tool": "list_approval_records", "tool_kind": "list", "result_shape": "list_all", "retrieved_types_topk": [], "retrieved_ids_topk": []})
+                            trace.list_marker_seen = True
+                            trace.list_finalized_deterministically = True
+                            trace.response_mode = "deterministic_list"
+                            trace.collection_selected = "dar"
+                            trace.collection_selection_reason = "keyword:dar"
+                            trace.final_output = (gateway_result.response or "")[:500]
+                            self._store_trace(trace)
+                            return gateway_result.response, objects
+            elif re.search(r"\badrs?\b", question_lower):
+                list_tool = self._tool_registry.get("list_all_adrs")
+                if list_tool:
+                    logger.info("_direct_query: re-routing ADR query to deterministic list tool")
+                    list_result = await list_tool()
+                    if list_result and is_list_result(list_result):
+                        context = create_context_from_skills(question, _skill_registry)
+                        gateway_result = handle_list_result(list_result, context)
+                        if gateway_result:
+                            objects = list_result.get("rows", []) if isinstance(list_result, dict) else []
+                            trace.tool_calls.append({"tool": "list_all_adrs", "tool_kind": "list", "result_shape": "list_all", "retrieved_types_topk": [], "retrieved_ids_topk": []})
+                            trace.list_marker_seen = True
+                            trace.list_finalized_deterministically = True
+                            trace.response_mode = "deterministic_list"
+                            trace.collection_selected = "adr"
+                            trace.collection_selection_reason = "keyword:adrs"
+                            trace.final_output = (gateway_result.response or "")[:500]
+                            self._store_trace(trace)
+                            return gateway_result.response, objects
+            elif re.search(r"\bprinciples?\b", question_lower):
+                list_tool = self._tool_registry.get("list_all_principles")
+                if list_tool:
+                    logger.info("_direct_query: re-routing Principle query to deterministic list tool")
+                    list_result = await list_tool()
+                    if list_result and is_list_result(list_result):
+                        context = create_context_from_skills(question, _skill_registry)
+                        gateway_result = handle_list_result(list_result, context)
+                        if gateway_result:
+                            objects = list_result.get("rows", []) if isinstance(list_result, dict) else []
+                            trace.tool_calls.append({"tool": "list_all_principles", "tool_kind": "list", "result_shape": "list_all", "retrieved_types_topk": [], "retrieved_ids_topk": []})
+                            trace.list_marker_seen = True
+                            trace.list_finalized_deterministically = True
+                            trace.response_mode = "deterministic_list"
+                            trace.collection_selected = "principle"
+                            trace.collection_selection_reason = "keyword:principles"
+                            trace.final_output = (gateway_result.response or "")[:500]
+                            self._store_trace(trace)
+                            return gateway_result.response, objects
+            elif re.search(r"\bpolic(?:y|ies)\b", question_lower):
+                list_tool = self._tool_registry.get("list_all_policies")
+                if list_tool:
+                    logger.info("_direct_query: re-routing Policy query to deterministic list tool")
+                    list_result = await list_tool()
+                    if list_result and is_list_result(list_result):
+                        context = create_context_from_skills(question, _skill_registry)
+                        gateway_result = handle_list_result(list_result, context)
+                        if gateway_result:
+                            objects = list_result.get("rows", []) if isinstance(list_result, dict) else []
+                            trace.tool_calls.append({"tool": "list_all_policies", "tool_kind": "list", "result_shape": "list_all", "retrieved_types_topk": [], "retrieved_ids_topk": []})
+                            trace.list_marker_seen = True
+                            trace.list_finalized_deterministically = True
+                            trace.response_mode = "deterministic_list"
+                            trace.collection_selected = "policy"
+                            trace.collection_selection_reason = "keyword:policies"
+                            trace.final_output = (gateway_result.response or "")[:500]
+                            self._store_trace(trace)
+                            return gateway_result.response, objects
+        else:
+            # Non-list query with collection keyword — skip list tools, fall through to search
+            trace.list_finalization_reason = "BLOCKED_non_list_intent"
+            logger.info("_direct_query: non-list query with collection keyword, skipping list tools")
 
         # Load retrieval limits from skill configuration
         retrieval_limits = _skill_registry.loader.get_retrieval_limits(DEFAULT_SKILL)
@@ -2428,11 +2704,17 @@ IMPORTANT GUIDELINES:
             except Exception as e:
                 logger.error(f"Failed to compute query embedding: {e}")
 
-        # Build document filter based on skill configuration and query intent
-        content_filter = build_document_filter(question, _skill_registry, DEFAULT_SKILL)
+        # Build document filter — prefer intent-aware filter if trace has intent info
+        content_filter = None
+        if trace and trace.intent_action:
+            content_filter = build_intent_aware_filter(trace.intent_action, "adr")
+        if not content_filter:
+            content_filter = build_document_filter(question, _skill_registry, DEFAULT_SKILL)
 
         # Request metadata for abstention decisions
         metadata_request = MetadataQuery(score=True, distance=True)
+
+        _collections_searched = []  # Track which collections were searched for trace
 
         # Search relevant collections
         if any(term in question_lower for term in ["adr", "decision", "architecture"]):
@@ -2467,6 +2749,15 @@ IMPORTANT GUIDELINES:
                         "distance": getattr(obj.metadata, 'distance', None),
                         "score": getattr(obj.metadata, 'score', None),
                     })
+                # ── Trace: ADR search ──
+                _collections_searched.append("adr")
+                trace.tool_calls.append({
+                    "tool": "fetch_objects" if is_catalog_query else "hybrid_search",
+                    "tool_kind": "search", "args": "adr",
+                    "result_shape": "candidates",
+                    "retrieved_types_topk": ["ADR"] * min(len(results.objects), 5),
+                    "retrieved_ids_topk": [obj.properties.get("canonical_id", "") for obj in results.objects[:5]],
+                })
             except Exception as e:
                 logger.warning(f"Error searching {get_collection_name('adr')}{suffix}: {e}")
 
@@ -2500,6 +2791,15 @@ IMPORTANT GUIDELINES:
                         "distance": getattr(obj.metadata, 'distance', None),
                         "score": getattr(obj.metadata, 'score', None),
                     })
+                # ── Trace: Principle search ──
+                _collections_searched.append("principle")
+                trace.tool_calls.append({
+                    "tool": "fetch_objects" if is_catalog_query else "hybrid_search",
+                    "tool_kind": "search", "args": "principle",
+                    "result_shape": "candidates",
+                    "retrieved_types_topk": ["Principle"] * min(len(results.objects), 5),
+                    "retrieved_ids_topk": [obj.properties.get("canonical_id", "") for obj in results.objects[:5]],
+                })
             except Exception as e:
                 logger.warning(f"Error searching {get_collection_name('principle')}{suffix}: {e}")
 
@@ -2535,6 +2835,15 @@ IMPORTANT GUIDELINES:
                         "distance": getattr(obj.metadata, 'distance', None),
                         "score": getattr(obj.metadata, 'score', None),
                     })
+                # ── Trace: Policy search ──
+                _collections_searched.append("policy")
+                trace.tool_calls.append({
+                    "tool": "fetch_objects" if is_catalog_query else "hybrid_search",
+                    "tool_kind": "search", "args": "policy",
+                    "result_shape": "candidates",
+                    "retrieved_types_topk": ["Policy"] * min(len(results.objects), 5),
+                    "retrieved_ids_topk": [],
+                })
             except Exception as e:
                 logger.warning(f"Error searching {get_collection_name('policy')}{suffix}: {e}")
 
@@ -2570,6 +2879,15 @@ IMPORTANT GUIDELINES:
                         "distance": getattr(obj.metadata, 'distance', None),
                         "score": getattr(obj.metadata, 'score', None),
                     })
+                # ── Trace: Vocabulary search ──
+                _collections_searched.append("vocabulary")
+                trace.tool_calls.append({
+                    "tool": "fetch_objects" if is_catalog_query else "hybrid_search",
+                    "tool_kind": "search", "args": "vocabulary",
+                    "result_shape": "candidates",
+                    "retrieved_types_topk": ["Vocabulary"] * min(len(results.objects), 5),
+                    "retrieved_ids_topk": [],
+                })
             except Exception as e:
                 logger.warning(f"Error searching {get_collection_name('vocabulary')}{suffix}: {e}")
 
@@ -2625,6 +2943,31 @@ IMPORTANT GUIDELINES:
                             })
                 except Exception as e:
                     logger.warning(f"Error searching {coll_base}{suffix}: {e}")
+            # ── Trace: fallback all-collection search ──
+            _collections_searched.append("all")
+            trace.tool_calls.append({
+                "tool": "hybrid_search", "tool_kind": "search", "args": "all",
+                "result_shape": "candidates",
+                "retrieved_types_topk": [r.get("type", "unknown") for r in all_results[:5]],
+                "retrieved_ids_topk": [r.get("canonical_id", "") for r in all_results[:5] if r.get("canonical_id")],
+            })
+
+        # ── Trace: set collection_selected from searches performed ──
+        if len(_collections_searched) == 1:
+            trace.collection_selected = _collections_searched[0]
+            trace.collection_selection_reason = f"keyword:{_collections_searched[0]}"
+        elif len(_collections_searched) > 1:
+            trace.collection_selected = "multi_collection"
+            trace.collection_selection_reason = f"keyword:{','.join(_collections_searched)}"
+        else:
+            trace.collection_selected = ""
+            trace.collection_selection_reason = "none"
+
+        # Capture primary top score for trace
+        if all_results:
+            _scores = [r.get("score") for r in all_results if r.get("score") is not None]
+            trace.primary_top_score = max(_scores) if _scores else 0.0
+            trace.score_semantics = "higher_is_better"
 
         # Check if we should abstain from answering
         # Rule: Abstention applies only to semantic routes. Catalog/list queries
@@ -2637,6 +2980,9 @@ IMPORTANT GUIDELINES:
             abstain, reason = should_abstain(question, all_results)
             if abstain:
                 logger.info(f"Abstaining from query: {reason}")
+                trace.response_mode = "refusal"
+                trace.final_output = get_abstention_response(reason)[:500]
+                self._store_trace(trace)
                 return get_abstention_response(reason), all_results
 
         # Build context from retrieved results with transparency about totals
@@ -2710,6 +3056,12 @@ Guidelines:
         if structured_mode:
             logger.info(f"Fallback path post-processing: was_structured={was_structured}, reason={reason}")
 
+        # ── Trace: LLM synthesis finalization ──
+        trace.raw_model_output = (raw_response or "")[:500]
+        trace.response_mode = "llm_synthesis"
+        trace.postprocessors_applied.append({"name": "postprocess_llm_output", "reason": reason or "fallback_path"})
+        trace.final_output = (response_text or "")[:500]
+        self._store_trace(trace)
         return response_text, all_results
 
     async def _generate_with_ollama(self, system_prompt: str, user_prompt: str) -> str:

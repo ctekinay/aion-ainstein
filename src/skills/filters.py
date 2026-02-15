@@ -114,6 +114,87 @@ def build_document_filter(
     return combined
 
 
+# =============================================================================
+# Intent-Aware Filtering (P5)
+# =============================================================================
+
+# Intent action → intent bucket mapping (uses canonical Intent enum values)
+_INTENT_TO_BUCKET = {
+    "semantic_answer": "direct_doc_summary",
+    "lookup_doc": "direct_doc_summary",
+    "lookup_approval": "approval_lookup",
+    "list": "list_all",
+    "meta": "meta_overview",
+    "compare_concepts": "direct_doc_summary",
+    "compare_counts": "direct_doc_summary",
+    "count": "direct_doc_summary",
+}
+
+
+def _load_intent_filter_config() -> dict:
+    """Load allowed_types_by_intent from taxonomy config.
+
+    Returns:
+        Dict mapping bucket name to {allow: [...], secondary: [...], deny: [...]}
+    """
+    try:
+        from ..config import Settings
+        config = Settings().get_taxonomy_config()
+        return config.get("doc_types", {}).get("allowed_types_by_intent", {})
+    except Exception:
+        logger.debug("Could not load intent filter config from taxonomy")
+        return {}
+
+
+def build_intent_aware_filter(
+    intent_action: str,
+    collection_type: str = "adr",
+    include_secondary: bool = False,
+) -> Optional[Filter]:
+    """Build Weaviate filter using intent-aware allow/deny rules.
+
+    Reads allowed_types_by_intent from taxonomy config and builds
+    a positive filter (doc_type IN allowed_types).
+
+    Primary pass: only 'allow' types. Secondary pass (include_secondary=True):
+    also includes 'secondary' types (e.g., registry for disambiguation).
+
+    Args:
+        intent_action: The classified intent (e.g., "semantic_answer", "list", "lookup_doc")
+        collection_type: "adr" or "principle"
+        include_secondary: If True, include secondary types (for disambiguation fallback)
+
+    Returns:
+        Weaviate Filter or None if no rules configured for this intent
+    """
+    config = _load_intent_filter_config()
+    if not config:
+        return None
+
+    bucket = _INTENT_TO_BUCKET.get(intent_action)
+    if not bucket or bucket not in config:
+        return None
+
+    bucket_config = config[bucket]
+    allowed = list(bucket_config.get("allow", []))
+    if include_secondary:
+        allowed.extend(bucket_config.get("secondary", []))
+
+    if not allowed:
+        return None
+
+    logger.debug(f"Intent-aware filter: intent={intent_action} bucket={bucket} types={allowed} secondary={include_secondary}")
+
+    filters = [Filter.by_property("doc_type").equal(t) for t in allowed]
+    if len(filters) == 1:
+        return filters[0]
+
+    combined = filters[0]
+    for f in filters[1:]:
+        combined = combined | f
+    return combined
+
+
 def build_adr_filter(
     question: str = "",
     skill_registry = None,

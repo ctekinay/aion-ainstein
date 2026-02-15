@@ -1037,6 +1037,18 @@ async def query_rag(question: str, debug: bool = False, verbose: bool = False) -
 
         latency_ms = int((time.time() - start_time) * 1000)
 
+        # Capture trace bound to THIS query's request_id.
+        # _last_request_id is set at query() entry (before any return path),
+        # and captured here immediately after query() returns. In single-flight
+        # mode (test harness), no interleaving is possible. For future
+        # concurrency, query() should return request_id in its result tuple.
+        _req_id = getattr(_rag_system, '_last_request_id', '')
+        _get_trace = getattr(_rag_system, 'get_trace', None)
+        trace = _get_trace(_req_id) if _get_trace and _req_id else None
+        trace_dict = trace.to_dict() if trace else {}
+        if _req_id:
+            trace_dict["_bound_request_id"] = _req_id
+
         # Get route from log capture
         actual_route = _route_capture.get_route()
 
@@ -1102,6 +1114,7 @@ async def query_rag(question: str, debug: bool = False, verbose: bool = False) -
                 "raw_object_keys": sorted(raw_object_keys),
                 "total_retrieved": len(top_hits),
             },
+            "trace": trace_dict,
         }
 
     except Exception as e:
@@ -1295,6 +1308,18 @@ async def run_single_test(test: dict, debug: bool = False, verbose: bool = False
             sc_str = f"{sc:.4f}" if sc is not None else "-"
             print(f"    [HIT {i+1}] {t} | {cid} | score={sc_str} | {title}")
 
+    # ── Trace summary in debug mode ──
+    t = result.get("trace", {})
+    if debug and t:
+        req_id = t.get("request_id") or t.get("_bound_request_id", "")
+        path = " → ".join(t.get("router_path", []))
+        print(f"    [TRACE] req={req_id} | path={path} | fallback={t.get('fallback_used')} | list_finalized={t.get('list_finalized_deterministically')}")
+        if t.get("tool_calls"):
+            tools = ", ".join(f"{tc['tool']}({tc.get('result_shape', '')})" for tc in t["tool_calls"])
+            print(f"    [TRACE] tools={tools}")
+        if t.get("response_mode"):
+            print(f"    [TRACE] response_mode={t['response_mode']} | collection={t.get('collection_selected', '')}")
+
     return {
         **test,
         "response": response[:500],
@@ -1313,6 +1338,8 @@ async def run_single_test(test: dict, debug: bool = False, verbose: bool = False
         "retrieved_doc_ids_ok": retrieved_doc_ids_ok,
         "retrieval_debug": retrieval_debug,
         "fullness": fullness,
+        "request_id": t.get("request_id") or t.get("_bound_request_id", ""),
+        "trace": t,
         "error": None
     }
 
