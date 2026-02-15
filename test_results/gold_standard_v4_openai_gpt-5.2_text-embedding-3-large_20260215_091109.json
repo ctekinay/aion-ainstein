@@ -1,0 +1,5334 @@
+{
+  "timestamp": "2026-02-15T09:11:09.778185",
+  "version": "4.0",
+  "test_suite": "gold_standard_v4",
+  "provider": "openai",
+  "chat_model": "gpt-5.2",
+  "embedding_model": "text-embedding-3-large",
+  "config": {
+    "abstain_gate_enabled": false,
+    "intent_router_mode": "llm",
+    "intent_confidence_threshold": 0.55,
+    "tree_enabled": true
+  },
+  "total_questions": 44,
+  "summary": {
+    "correct": 12,
+    "partial": 13,
+    "wrong": 19,
+    "errors": 0,
+    "hallucinations": 4,
+    "grounded_pass": 12,
+    "grounded_pass_strict": 11,
+    "accuracy": "27.3%",
+    "grounded_accuracy": "27.3%",
+    "grounded_accuracy_strict": "25.0%",
+    "route_accuracy": "54.5%",
+    "doc_id_accuracy_response": "79.5%",
+    "doc_id_accuracy_retrieval": "79.5%",
+    "avg_latency_ms": 1792,
+    "avg_keyword_score": "56.4%"
+  },
+  "failure_triage": {
+    "routing_bugs": [
+      "A2",
+      "F1",
+      "F2",
+      "F3",
+      "L2",
+      "N3",
+      "M1",
+      "M4",
+      "BA2",
+      "BA3",
+      "G1",
+      "G2",
+      "G3",
+      "G4",
+      "G5",
+      "G6",
+      "G7",
+      "G8",
+      "G9",
+      "G10"
+    ],
+    "retrieval_failures": [
+      "A3",
+      "A4",
+      "P4",
+      "X1"
+    ],
+    "citation_failures": [],
+    "prior_answers": [
+      "G5"
+    ],
+    "formatter_bugs": [
+      "V6",
+      "V8",
+      "P1",
+      "P3",
+      "P5",
+      "PO3",
+      "X4",
+      "D1",
+      "R1",
+      "R2",
+      "R3",
+      "R4",
+      "R5"
+    ]
+  },
+  "by_category": {
+    "Vocabulary": {
+      "score": "2/4",
+      "grounded": "2/4",
+      "grounded_strict": "2/4",
+      "route_ok": "4/4",
+      "cited_ok": "4/4",
+      "retrieved_ok": "4/4"
+    },
+    "ADR": {
+      "score": "3/5",
+      "grounded": "3/5",
+      "grounded_strict": "3/5",
+      "route_ok": "4/5",
+      "cited_ok": "3/5",
+      "retrieved_ok": "3/5"
+    },
+    "Fullness": {
+      "score": "0/3",
+      "grounded": "0/3",
+      "grounded_strict": "0/3",
+      "route_ok": "0/3",
+      "cited_ok": "2/3",
+      "retrieved_ok": "2/3"
+    },
+    "Principle": {
+      "score": "0/4",
+      "grounded": "0/4",
+      "grounded_strict": "0/4",
+      "route_ok": "4/4",
+      "cited_ok": "3/4",
+      "retrieved_ok": "3/4"
+    },
+    "Policy": {
+      "score": "1/2",
+      "grounded": "1/2",
+      "grounded_strict": "1/2",
+      "route_ok": "2/2",
+      "cited_ok": "2/2",
+      "retrieved_ok": "2/2"
+    },
+    "Cross-Domain": {
+      "score": "0/2",
+      "grounded": "0/2",
+      "grounded_strict": "0/2",
+      "route_ok": "2/2",
+      "cited_ok": "1/2",
+      "retrieved_ok": "1/2"
+    },
+    "Comparative": {
+      "score": "1/1",
+      "grounded": "1/1",
+      "grounded_strict": "1/1",
+      "route_ok": "1/1",
+      "cited_ok": "1/1",
+      "retrieved_ok": "1/1"
+    },
+    "Listing": {
+      "score": "1/1",
+      "grounded": "1/1",
+      "grounded_strict": "1/1",
+      "route_ok": "0/1",
+      "cited_ok": "1/1",
+      "retrieved_ok": "1/1"
+    },
+    "Disambiguation": {
+      "score": "0/1",
+      "grounded": "0/1",
+      "grounded_strict": "0/1",
+      "route_ok": "1/1",
+      "cited_ok": "1/1",
+      "retrieved_ok": "1/1"
+    },
+    "Negative": {
+      "score": "1/2",
+      "grounded": "1/2",
+      "grounded_strict": "1/2",
+      "route_ok": "1/2",
+      "cited_ok": "2/2",
+      "retrieved_ok": "2/2"
+    },
+    "Meta": {
+      "score": "0/2",
+      "grounded": "0/2",
+      "grounded_strict": "0/2",
+      "route_ok": "0/2",
+      "cited_ok": "2/2",
+      "retrieved_ok": "2/2"
+    },
+    "BatchApproval": {
+      "score": "2/2",
+      "grounded": "2/2",
+      "grounded_strict": "2/2",
+      "route_ok": "0/2",
+      "cited_ok": "1/2",
+      "retrieved_ok": "2/2"
+    },
+    "Grounded": {
+      "score": "1/10",
+      "grounded": "1/10",
+      "grounded_strict": "0/10",
+      "route_ok": "0/10",
+      "cited_ok": "7/10",
+      "retrieved_ok": "6/10"
+    },
+    "NearMiss": {
+      "score": "0/5",
+      "grounded": "0/5",
+      "grounded_strict": "0/5",
+      "route_ok": "5/5",
+      "cited_ok": "5/5",
+      "retrieved_ok": "5/5"
+    }
+  },
+  "by_difficulty": {
+    "Easy": "5/11 (grounded: 5/11)",
+    "Medium": "5/26 (grounded: 5/26)",
+    "Hard": "1/3 (grounded: 1/3)",
+    "Test": "1/4 (grounded: 1/4)"
+  },
+  "results": [
+    {
+      "id": "V1",
+      "category": "Vocabulary",
+      "difficulty": "Easy",
+      "question": "What is 'Demandable Capacity' in energy systems?",
+      "expected_keywords": [
+        "difference",
+        "high",
+        "low",
+        "power",
+        "limit"
+      ],
+      "expected_route": "vocab",
+      "expected_doc_ids": [],
+      "response": "{\n  \"schema_version\": \"1.0\",\n  \"answer\": \"'Demandable Capacity' is defined as: \\\"Het verschil tussen de hoge en lage vermogensgrens.\\\" In English: it is the difference between the upper (high) and lower (low) power limit. This describes the adjustable range (bandwidth) between two power boundaries within which capacity can be demanded/activated. (Vocabulary: Demandable Capacity)\",\n  \"items_shown\": 1,\n  \"items_total\": 5608,\n  \"count_qualifier\": \"exact\",\n  \"sources\": [\n    {\n      \"title\": \"Demand",
+      "latency_ms": 9481,
+      "score": "PASS",
+      "keyword_score": 1.0,
+      "grounded_pass": true,
+      "grounded_pass_strict": true,
+      "hallucination": {
+        "is_hallucination": false,
+        "issues": [],
+        "adr_refs_found": [],
+        "adr_refs_unsupported": []
+      },
+      "sources_count": 5,
+      "actual_route": "semantic",
+      "route_ok": true,
+      "actual_doc_ids": [],
+      "doc_ids_ok": true,
+      "retrieved_doc_ids": [],
+      "retrieved_doc_ids_ok": true,
+      "retrieval_debug": {
+        "top_hits": [
+          {
+            "type": "Vocabulary",
+            "title": "Demandable Capacity",
+            "canonical_id": "",
+            "uri": "https://vocabs.alliander.com/terms/1",
+            "score": 1.0,
+            "distance": null,
+            "snippet": "Het verschil tussen de hoge en lage vermogensgrens."
+          },
+          {
+            "type": "Vocabulary",
+            "title": "Capacity Management",
+            "canonical_id": "",
+            "uri": "https://vocabs.alliander.com/terms/127",
+            "score": 0.43002742528915405,
+            "distance": null,
+            "snippet": "Capacity management is the practice of aligning demand and response for transport and distribution capacity among DSO\u2019s, TSO and market participants a"
+          },
+          {
+            "type": "Vocabulary",
+            "title": "Demandable Capacity Limit",
+            "canonical_id": "",
+            "uri": "https://vocabs.alliander.com/terms/4",
+            "score": 0.4098352789878845,
+            "distance": null,
+            "snippet": "Dit is de limiet die de klant krijgt opgelegd tijdens de afroep. Een klant mag niet boven deze limiet uitkomen."
+          },
+          {
+            "type": "Vocabulary",
+            "title": "Coordinated net transmission capacity",
+            "canonical_id": "",
+            "uri": "http://data.europa.eu/eli/terms/943-68",
+            "score": 0.37031227350234985,
+            "distance": null,
+            "snippet": "Capacity defined ex ante for maximum energy exchange"
+          },
+          {
+            "type": "Vocabulary",
+            "title": "Demand response transmission constraint management",
+            "canonical_id": "",
+            "uri": "http://data.europa.eu/eli/terms/1388-18",
+            "score": 0.3377849757671356,
+            "distance": null,
+            "snippet": "Demand within a demand facility or closed distribution system that is available for modulation by the relevant system operator or relevant TSO to mana"
+          }
+        ],
+        "raw_object_keys": [
+          "definition",
+          "distance",
+          "label",
+          "score",
+          "type",
+          "uri"
+        ],
+        "total_retrieved": 8
+      },
+      "fullness": null,
+      "error": null
+    },
+    {
+      "id": "V3",
+      "category": "Vocabulary",
+      "difficulty": "Easy",
+      "question": "What is Agentic RAG according to the vocabulary?",
+      "expected_keywords": [
+        "agent",
+        "RAG",
+        "retrieval"
+      ],
+      "expected_route": "vocab",
+      "expected_doc_ids": [],
+      "response": "{\n  \"schema_version\": \"1.0\",\n  \"answer\": \"According to the vocabulary, Agentic RAG is: \u201cA Retrieval-Augmented Generation system enhanced with autonomous AI agents that dynamically orchestrate the retrieval process through planning, reasoning, and decision-making.\u201d\",\n  \"items_shown\": 1,\n  \"items_total\": 5608,\n  \"count_qualifier\": \"exact\",\n  \"sources\": [\n    {\n      \"title\": \"Agentic RAG\",\n      \"type\": \"Vocabulary\"\n    }\n  ]\n}",
+      "latency_ms": 3424,
+      "score": "PASS",
+      "keyword_score": 1.0,
+      "grounded_pass": true,
+      "grounded_pass_strict": true,
+      "hallucination": {
+        "is_hallucination": false,
+        "issues": [],
+        "adr_refs_found": [],
+        "adr_refs_unsupported": []
+      },
+      "sources_count": 5,
+      "actual_route": "semantic",
+      "route_ok": true,
+      "actual_doc_ids": [],
+      "doc_ids_ok": true,
+      "retrieved_doc_ids": [],
+      "retrieved_doc_ids_ok": true,
+      "retrieval_debug": {
+        "top_hits": [
+          {
+            "type": "Vocabulary",
+            "title": "Agentic RAG",
+            "canonical_id": "",
+            "uri": "http://vocabs.alliander.com/terms/aaio/AgenticRAG",
+            "score": 1.0,
+            "distance": null,
+            "snippet": "A Retrieval-Augmented Generation system enhanced with autonomous AI agents that dynamically orchestrate the retrieval process through planning, reason"
+          },
+          {
+            "type": "Vocabulary",
+            "title": "Agentic AI",
+            "canonical_id": "",
+            "uri": "http://vocabs.alliander.com/terms/aaio/AgenticAI",
+            "score": 0.5786151885986328,
+            "distance": null,
+            "snippet": "A term commonly used interchangeably with 'AI Agent' to describe software systems that operate with minimal human intervention."
+          },
+          {
+            "type": "Vocabulary",
+            "title": "Agentic Forecast Prediction Model",
+            "canonical_id": "",
+            "uri": "https://vocabs.alliander.com/terms/317",
+            "score": 0.5160019397735596,
+            "distance": null,
+            "snippet": "An Agentic Forecast Prediction Model is an autonomous, goal-driven forecasting system composed of cooperating software agents that continuously observ"
+          },
+          {
+            "type": "Vocabulary",
+            "title": "Retrieval-Augmented Generation (RAG)",
+            "canonical_id": "",
+            "uri": "http://vocabs.alliander.com/terms/aaio/RAG",
+            "score": 0.4886099100112915,
+            "distance": null,
+            "snippet": "An AI framework that enhances language models by retrieving relevant information before generating responses."
+          },
+          {
+            "type": "Vocabulary",
+            "title": "Metered Data Aggregator",
+            "canonical_id": "",
+            "uri": "http://vocabs.entsoe.com/terms/MeteredDataAggregator",
+            "score": 0.23054222762584686,
+            "distance": null,
+            "snippet": "A party responsible for the establishment and qualification of measured data from the Metered Data Responsible. This data is aggregated according to a"
+          }
+        ],
+        "raw_object_keys": [
+          "definition",
+          "distance",
+          "label",
+          "score",
+          "type",
+          "uri"
+        ],
+        "total_retrieved": 8
+      },
+      "fullness": null,
+      "error": null
+    },
+    {
+      "id": "V6",
+      "category": "Vocabulary",
+      "difficulty": "Easy",
+      "question": "Using the ArchiMate vocabulary in our KB, define a Business Actor in 1 to 2 sentences.",
+      "expected_keywords": [
+        "Business Actor",
+        "role"
+      ],
+      "expected_route": "semantic",
+      "expected_doc_ids": [],
+      "response": "{\n  \"schema_version\": \"1.0\",\n  \"answer\": \"A Business Actor is an organizational entity that performs business behavior. In ArchiMate terms, it is a type of Actor\u2014i.e., an entity capable of performing specific behavior\u2014applied in a business context.\",\n  \"items_shown\": 2,\n  \"items_total\": 5608,\n  \"count_qualifier\": \"exact\",\n  \"sources\": [\n    {\n      \"title\": \"Business Actor\",\n      \"type\": \"Vocabulary\"\n    },\n    {\n      \"title\": \"Actor\",\n      \"type\": \"Vocabulary\"\n    }\n  ]\n}",
+      "latency_ms": 2944,
+      "score": "PARTIAL",
+      "keyword_score": 0.5,
+      "grounded_pass": false,
+      "grounded_pass_strict": false,
+      "hallucination": {
+        "is_hallucination": false,
+        "issues": [],
+        "adr_refs_found": [],
+        "adr_refs_unsupported": []
+      },
+      "sources_count": 5,
+      "actual_route": "semantic",
+      "route_ok": true,
+      "actual_doc_ids": [],
+      "doc_ids_ok": true,
+      "retrieved_doc_ids": [],
+      "retrieved_doc_ids_ok": true,
+      "retrieval_debug": {
+        "top_hits": [
+          {
+            "type": "Vocabulary",
+            "title": "Business Actor",
+            "canonical_id": "",
+            "uri": "http://www.opengroup.org/archimate/3.2/BusinessActor",
+            "score": 1.0,
+            "distance": null,
+            "snippet": "Organizational entity performing business behavior."
+          },
+          {
+            "type": "Vocabulary",
+            "title": "Actor",
+            "canonical_id": "",
+            "uri": "https://vocabs.alliander.com/def/ppt/111",
+            "score": 0.5562486052513123,
+            "distance": null,
+            "snippet": "Een actor is een entiteit die in staat is een bepaald gedrag uit te voeren."
+          },
+          {
+            "type": "Vocabulary",
+            "title": "Business Service",
+            "canonical_id": "",
+            "uri": "http://www.opengroup.org/archimate/3.2/BusinessService",
+            "score": 0.4371541142463684,
+            "distance": null,
+            "snippet": "Externally visible unit of business behavior."
+          },
+          {
+            "type": "Vocabulary",
+            "title": "Stakeholder",
+            "canonical_id": "",
+            "uri": "http://www.opengroup.org/archimate/3.2/Stakeholder",
+            "score": 0.42815732955932617,
+            "distance": null,
+            "snippet": "A stakeholder is the role of an individual, team, or organization (or classes thereof) that represents their interests in the outcome of the architect"
+          },
+          {
+            "type": "Vocabulary",
+            "title": "Business Process",
+            "canonical_id": "",
+            "uri": "http://www.opengroup.org/archimate/3.2/BusinessProcess",
+            "score": 0.41384589672088623,
+            "distance": null,
+            "snippet": "Sequence of business behaviors achieving a result."
+          }
+        ],
+        "raw_object_keys": [
+          "definition",
+          "distance",
+          "label",
+          "score",
+          "type",
+          "uri"
+        ],
+        "total_retrieved": 8
+      },
+      "fullness": null,
+      "error": null
+    },
+    {
+      "id": "V8",
+      "category": "Vocabulary",
+      "difficulty": "Medium",
+      "question": "What is defined in the IEC 61970 standard?",
+      "expected_keywords": [
+        "CIM",
+        "Common Information Model",
+        "energy"
+      ],
+      "expected_route": "vocab",
+      "expected_doc_ids": [],
+      "response": "{\n  \"schema_version\": \"1.0\",\n  \"answer\": \"I don't have sufficient information in the knowledge base context you provided to answer this confidently. The retrieved vocabulary snippets only state that IEC 61970-301 defines user conventions for using the MeasurementValueSource attributes, but they do not define what the IEC 61970 standard (overall) covers.\\n\\nWhat I can state from the provided context:\\n- IEC 61970-301 defines user conventions for how to use the MeasurementValueSource attributes. (",
+      "latency_ms": 7603,
+      "score": "WRONG",
+      "keyword_score": 0.0,
+      "grounded_pass": false,
+      "grounded_pass_strict": false,
+      "hallucination": {
+        "is_hallucination": false,
+        "issues": [],
+        "adr_refs_found": [],
+        "adr_refs_unsupported": []
+      },
+      "sources_count": 5,
+      "actual_route": "semantic",
+      "route_ok": true,
+      "actual_doc_ids": [],
+      "doc_ids_ok": true,
+      "retrieved_doc_ids": [],
+      "retrieved_doc_ids_ok": true,
+      "retrieval_debug": {
+        "top_hits": [
+          {
+            "type": "Vocabulary",
+            "title": "ControlArea",
+            "canonical_id": "",
+            "uri": "http://iec.ch/TC57/ns/CIM/SteadyStateHypothesis-EU/ControlArea",
+            "score": 0.6000000238418579,
+            "distance": null,
+            "snippet": "A control area is a grouping of generating units and/or loads and a cutset of tie lines (as terminals) which may be used for a variety of purposes inc"
+          },
+          {
+            "type": "Vocabulary",
+            "title": "ControlArea",
+            "canonical_id": "",
+            "uri": "http://iec.ch/TC57/ns/CIM/CoreEquipment-EU/ControlArea",
+            "score": 0.49785754084587097,
+            "distance": null,
+            "snippet": "A control area is a grouping of generating units and/or loads and a cutset of tie lines (as terminals) which may be used for a variety of purposes inc"
+          },
+          {
+            "type": "Vocabulary",
+            "title": "Untitled",
+            "canonical_id": "",
+            "uri": "http://iec.ch/TC57/ns/CIM/EnergyManagementSystem",
+            "score": 0.48738235235214233,
+            "distance": null
+          },
+          {
+            "type": "Vocabulary",
+            "title": "MeasurementValueSource",
+            "canonical_id": "",
+            "uri": "http://iec.ch/TC57/ns/CIM/Operation-EU/MeasurementValueSource",
+            "score": 0.3999999761581421,
+            "distance": null,
+            "snippet": "MeasurementValueSource describes the alternative sources updating a MeasurementValue. User conventions for how to use the MeasurementValueSource attri"
+          },
+          {
+            "type": "Vocabulary",
+            "title": "DCTerminal",
+            "canonical_id": "",
+            "uri": "http://iec.ch/TC57/ns/CIM/SteadyStateHypothesis-EU/DCTerminal",
+            "score": 0.35919979214668274,
+            "distance": null,
+            "snippet": "An electrical connection point to generic DC conducting equipment."
+          }
+        ],
+        "raw_object_keys": [
+          "definition",
+          "distance",
+          "label",
+          "score",
+          "type",
+          "uri"
+        ],
+        "total_retrieved": 8
+      },
+      "fullness": null,
+      "error": null
+    },
+    {
+      "id": "A1",
+      "category": "ADR",
+      "difficulty": "Easy",
+      "question": "What decision was made about the domain language standard?",
+      "expected_keywords": [
+        "CIM",
+        "IEC",
+        "61970",
+        "domain language"
+      ],
+      "expected_route": "semantic",
+      "expected_doc_ids": [
+        "ADR.0012"
+      ],
+      "response": "{\n  \"schema_version\": \"1.0\",\n  \"answer\": \"The decision is to use IEC standards\u2014specifically CIM under IEC 61970/61968/62325\u2014as the default domain language standard (ADR.12, \u201cUse CIM (IEC 61970/61968/62325) as default domain language\u201d).\",\n  \"items_shown\": 1,\n  \"items_total\": 18,\n  \"count_qualifier\": \"exact\",\n  \"sources\": [\n    {\n      \"title\": \"ADR.12: Use CIM (IEC 61970/61968/62325) as default domain language\",\n      \"type\": \"ADR\"\n    }\n  ]\n}",
+      "latency_ms": 4401,
+      "score": "PASS",
+      "keyword_score": 1.0,
+      "grounded_pass": true,
+      "grounded_pass_strict": true,
+      "hallucination": {
+        "is_hallucination": false,
+        "issues": [],
+        "adr_refs_found": [],
+        "adr_refs_unsupported": []
+      },
+      "sources_count": 5,
+      "actual_route": "semantic",
+      "route_ok": true,
+      "actual_doc_ids": [
+        "ADR.0012"
+      ],
+      "doc_ids_ok": true,
+      "retrieved_doc_ids": [
+        "ADR.0000",
+        "ADR.0001",
+        "ADR.0002",
+        "ADR.0010",
+        "ADR.0011",
+        "ADR.0012",
+        "ADR.0020",
+        "ADR.0021",
+        "ADR.0022",
+        "ADR.0023",
+        "ADR.0024",
+        "ADR.0025",
+        "ADR.0026",
+        "ADR.0027",
+        "ADR.0028",
+        "ADR.0029",
+        "ADR.0030",
+        "ADR.0031"
+      ],
+      "retrieved_doc_ids_ok": true,
+      "retrieval_debug": {
+        "top_hits": [
+          {
+            "type": "ADR",
+            "title": "ADR.12: Use CIM (IEC 61970/61968/62325) as default domain language",
+            "canonical_id": "ADR.12",
+            "uri": "",
+            "score": 0.8875818252563477,
+            "distance": null,
+            "snippet": "Chosen option: IEC as standard domain language (IEC 61970/61968/62325), because\n\n* Aligns with another international standardized metamodel to achieve"
+          },
+          {
+            "type": "ADR",
+            "title": "ADR.01: What conventions to use in writing ADRs?",
+            "canonical_id": "ADR.01",
+            "uri": "",
+            "score": 0.7048285007476807,
+            "distance": null,
+            "snippet": "### Template Convention\nFor new Architectural Decision Records (ADRs), use this templates and ajust if required as a starting point:\nthis [adr-templat"
+          },
+          {
+            "type": "ADR",
+            "title": "ADR.31: Use an Alliander-Owned Domain for Customer-Facing Services",
+            "canonical_id": "ADR.31",
+            "uri": "",
+            "score": 0.6270357966423035,
+            "distance": null,
+            "snippet": "Alliander must ensure that customers interacting with its digital services can clearly recognise Alliander as the\nauthoritative source of the API. Thi"
+          },
+          {
+            "type": "ADR",
+            "title": "ADR.10: How to prioritize origins of standardizations",
+            "canonical_id": "ADR.10",
+            "uri": "",
+            "score": 0.5953303575515747,
+            "distance": null,
+            "snippet": "Using international and conceptual standards over domestic or local ones is a requirement in any design,\nespecially in a globalized and interconnected"
+          },
+          {
+            "type": "ADR",
+            "title": "ADR.11: Use standard for describing business functions",
+            "canonical_id": "ADR.11",
+            "uri": "",
+            "score": 0.5535219311714172,
+            "distance": null,
+            "snippet": "Chosen option: IEC 61968-1 Business Packages / Functions is leading, because\n\n* Aligns with another international standardized metamodel to achieve se"
+          }
+        ],
+        "raw_object_keys": [
+          "canonical_id",
+          "content",
+          "definition",
+          "distance",
+          "label",
+          "score",
+          "title",
+          "type",
+          "uri"
+        ],
+        "total_retrieved": 26
+      },
+      "fullness": null,
+      "error": null
+    },
+    {
+      "id": "A2",
+      "category": "ADR",
+      "difficulty": "Easy",
+      "question": "What is the status of ADR.0027 about TLS security?",
+      "expected_keywords": [
+        "Accepted",
+        "TLS"
+      ],
+      "expected_route": "direct_doc",
+      "expected_doc_ids": [
+        "ADR.0027"
+      ],
+      "response": "- ADR.0000 - ADR.00: Use Markdown Architectural Decision Records (accepted)\n- ADR.0001 - ADR.01: What conventions to use in writing ADRs? (accepted)\n- ADR.0002 - ADR.02: Use DACI for Decision-Making Process? (accepted)\n- ADR.0010 - ADR.10: How to prioritize origins of standardizations (accepted)\n- ADR.0011 - ADR.11: Use standard for describing business functions (accepted)\n- ADR.0012 - ADR.12: Use CIM (IEC 61970/61968/62325) as default domain language (accepted)\n- ADR.0020 - ADR.20: Verify Deman",
+      "latency_ms": 1098,
+      "score": "PASS",
+      "keyword_score": 1.0,
+      "grounded_pass": true,
+      "grounded_pass_strict": true,
+      "hallucination": {
+        "is_hallucination": false,
+        "issues": [],
+        "adr_refs_found": [],
+        "adr_refs_unsupported": []
+      },
+      "sources_count": 5,
+      "actual_route": "semantic",
+      "route_ok": false,
+      "actual_doc_ids": [
+        "ADR.0000",
+        "ADR.0001",
+        "ADR.0002",
+        "ADR.0010",
+        "ADR.0011",
+        "ADR.0012",
+        "ADR.0020",
+        "ADR.0021",
+        "ADR.0022",
+        "ADR.0023",
+        "ADR.0024",
+        "ADR.0025",
+        "ADR.0026",
+        "ADR.0027",
+        "ADR.0028",
+        "ADR.0029",
+        "ADR.0030",
+        "ADR.0031"
+      ],
+      "doc_ids_ok": true,
+      "retrieved_doc_ids": [
+        "ADR.0000",
+        "ADR.0001",
+        "ADR.0002",
+        "ADR.0010",
+        "ADR.0011",
+        "ADR.0012",
+        "ADR.0020",
+        "ADR.0021",
+        "ADR.0022",
+        "ADR.0023",
+        "ADR.0024",
+        "ADR.0025",
+        "ADR.0026",
+        "ADR.0027",
+        "ADR.0028",
+        "ADR.0029",
+        "ADR.0030",
+        "ADR.0031"
+      ],
+      "retrieved_doc_ids_ok": true,
+      "retrieval_debug": {
+        "top_hits": [
+          {
+            "type": "Document",
+            "title": "ADR.00: Use Markdown Architectural Decision Records",
+            "canonical_id": "",
+            "uri": "",
+            "score": null,
+            "distance": null
+          },
+          {
+            "type": "Document",
+            "title": "ADR.01: What conventions to use in writing ADRs?",
+            "canonical_id": "",
+            "uri": "",
+            "score": null,
+            "distance": null
+          },
+          {
+            "type": "Document",
+            "title": "ADR.02: Use DACI for Decision-Making Process?",
+            "canonical_id": "",
+            "uri": "",
+            "score": null,
+            "distance": null
+          },
+          {
+            "type": "Document",
+            "title": "ADR.10: How to prioritize origins of standardizations",
+            "canonical_id": "",
+            "uri": "",
+            "score": null,
+            "distance": null
+          },
+          {
+            "type": "Document",
+            "title": "ADR.11: Use standard for describing business functions",
+            "canonical_id": "",
+            "uri": "",
+            "score": null,
+            "distance": null
+          }
+        ],
+        "raw_object_keys": [
+          "adr_number",
+          "doc_type",
+          "file_path",
+          "status",
+          "title"
+        ],
+        "total_retrieved": 18
+      },
+      "fullness": null,
+      "error": null
+    },
+    {
+      "id": "A3",
+      "category": "ADR",
+      "difficulty": "Medium",
+      "question": "Why was CIM chosen as the default domain language?",
+      "expected_keywords": [
+        "semantic",
+        "interoperability",
+        "standard"
+      ],
+      "expected_route": "semantic",
+      "expected_doc_ids": [
+        "ADR.0012"
+      ],
+      "response": "{\n  \"schema_version\": \"1.0\",\n  \"answer\": \"I don't have sufficient information in the knowledge base context you provided to answer this confidently. The retrieved documents have low relevance to your question.\\n\\nWhat I can see in the provided context is only a general definition of CIM as a standardized framework to enable consistent representation and interoperability for power system information, but it does not include an Architecture Decision Record (ADR) or Principle (PCP) stating the deci",
+      "latency_ms": 3820,
+      "score": "PARTIAL",
+      "keyword_score": 0.6666666666666666,
+      "grounded_pass": false,
+      "grounded_pass_strict": false,
+      "hallucination": {
+        "is_hallucination": false,
+        "issues": [],
+        "adr_refs_found": [],
+        "adr_refs_unsupported": []
+      },
+      "sources_count": 5,
+      "actual_route": "semantic",
+      "route_ok": true,
+      "actual_doc_ids": [],
+      "doc_ids_ok": false,
+      "retrieved_doc_ids": [],
+      "retrieved_doc_ids_ok": false,
+      "retrieval_debug": {
+        "top_hits": [
+          {
+            "type": "Vocabulary",
+            "title": "Common Information Model",
+            "canonical_id": "",
+            "uri": "https://vocabs.alliander.com/terms/22",
+            "score": 0.631453275680542,
+            "distance": null,
+            "snippet": "The Common Information Model (CIM) is a standardized, object-oriented conceptual framework developed by the electric utility industry to enable consis"
+          },
+          {
+            "type": "Vocabulary",
+            "title": "IEC Common Information Model",
+            "canonical_id": "",
+            "uri": "https://vocabs.alliander.com/def/ppt/1285",
+            "score": 0.5678494572639465,
+            "distance": null
+          },
+          {
+            "type": "Vocabulary",
+            "title": "Archimate",
+            "canonical_id": "",
+            "uri": "https://vocabs.alliander.com/def/ppt/208",
+            "score": 0.3999999761581421,
+            "distance": null,
+            "snippet": "Archmiate is an Enterprise Architecture modeling language, a visual language with a set of default iconography for describing, analyzing, and communic"
+          },
+          {
+            "type": "Vocabulary",
+            "title": "TextDiagramObject",
+            "canonical_id": "",
+            "uri": "http://iec.ch/TC57/ns/CIM/DiagramLayout-EU/TextDiagramObject",
+            "score": 0.2940095365047455,
+            "distance": null,
+            "snippet": "A diagram object for placing free-text or text derived from an associated domain object."
+          },
+          {
+            "type": "Vocabulary",
+            "title": "Unified Modeling Language",
+            "canonical_id": "",
+            "uri": "https://vocabs.alliander.com/def/ppt/2866",
+            "score": 0.24608871340751648,
+            "distance": null,
+            "snippet": "The Unified Modeling Language (UML) is a general-purpose, developmental, modeling language in the field of software engineering, that is intended to p"
+          }
+        ],
+        "raw_object_keys": [
+          "definition",
+          "distance",
+          "label",
+          "score",
+          "type",
+          "uri"
+        ],
+        "total_retrieved": 8
+      },
+      "fullness": null,
+      "error": null
+    },
+    {
+      "id": "A4",
+      "category": "ADR",
+      "difficulty": "Medium",
+      "question": "What authentication and authorization standard was chosen?",
+      "expected_keywords": [
+        "OAuth",
+        "2.0",
+        "authentication",
+        "authorization"
+      ],
+      "expected_route": "semantic",
+      "expected_doc_ids": [
+        "ADR.0029"
+      ],
+      "response": "{\n  \"schema_version\": \"1.0\",\n  \"answer\": \"I don't have sufficient information in the knowledge base to answer this confidently. The retrieved documents have low relevance to your question.\\n\\nIn the provided context, I only see a general vocabulary definition for \u201cAuthentiseren\u201d (authentication) and some generic definitions of \u201cStandard/Standaard/Standaarden\u201d, but nothing that states which specific authentication and authorization standard was chosen (e.g., OAuth2, OpenID Connect, SAML, etc.).\",",
+      "latency_ms": 3888,
+      "score": "PARTIAL",
+      "keyword_score": 0.75,
+      "grounded_pass": false,
+      "grounded_pass_strict": false,
+      "hallucination": {
+        "is_hallucination": false,
+        "issues": [],
+        "adr_refs_found": [],
+        "adr_refs_unsupported": []
+      },
+      "sources_count": 5,
+      "actual_route": "semantic",
+      "route_ok": true,
+      "actual_doc_ids": [],
+      "doc_ids_ok": false,
+      "retrieved_doc_ids": [],
+      "retrieved_doc_ids_ok": false,
+      "retrieval_debug": {
+        "top_hits": [
+          {
+            "type": "Vocabulary",
+            "title": "Standard",
+            "canonical_id": "",
+            "uri": "http://data.europa.eu/eli/terms/2555-16",
+            "score": 0.9079291820526123,
+            "distance": null,
+            "snippet": "A standard as defined in Article 2, point (1), of Regulation (EU) No 1025/2012 of the European Parliament and of the Council."
+          },
+          {
+            "type": "Vocabulary",
+            "title": "Authentiseren",
+            "canonical_id": "",
+            "uri": "https://vocabs.alliander.com/def/ppt/244",
+            "score": 0.6000000238418579,
+            "distance": null,
+            "snippet": "Het authentiek, rechtsgeldig maken, vaststellen of het echt waar is. In de IT-context, wordt hier vooral mee bedoeld: het vaststellen van de juiste id"
+          },
+          {
+            "type": "Vocabulary",
+            "title": "Standaarden",
+            "canonical_id": "",
+            "uri": "https://vocabs.alliander.com/def/ppt/2566",
+            "score": 0.572085440158844,
+            "distance": null
+          },
+          {
+            "type": "Vocabulary",
+            "title": "Open Automated Demand Response",
+            "canonical_id": "",
+            "uri": "http://iec.ch/TC57/2013/IEC62746/OpenADR",
+            "score": 0.5621981620788574,
+            "distance": null,
+            "snippet": "The OpenADR Alliance was created to standardize, automate, and simplify Demand Response (DR) and Distributed Energy Resources (DER). OpenADR is an ope"
+          },
+          {
+            "type": "Vocabulary",
+            "title": "Standaard",
+            "canonical_id": "",
+            "uri": "https://vocabs.alliander.com/def/ppt/2565",
+            "score": 0.5480843186378479,
+            "distance": null,
+            "snippet": "Een norm of standaard is een document met erkende afspraken, specificaties of criteria over een product, een dienst of een methode."
+          }
+        ],
+        "raw_object_keys": [
+          "definition",
+          "distance",
+          "label",
+          "score",
+          "type",
+          "uri"
+        ],
+        "total_retrieved": 8
+      },
+      "fullness": null,
+      "error": null
+    },
+    {
+      "id": "A7",
+      "category": "ADR",
+      "difficulty": "Medium",
+      "question": "According to the relevant ADR, how should message exchange be handled in distributed systems? Cite the ADR id in your answer.",
+      "expected_keywords": [
+        "ADR.0026",
+        "idempotent"
+      ],
+      "expected_route": "semantic",
+      "expected_doc_ids": [
+        "ADR.0026"
+      ],
+      "response": "- ADR.0000 - ADR.00: Use Markdown Architectural Decision Records (accepted)\n- ADR.0001 - ADR.01: What conventions to use in writing ADRs? (accepted)\n- ADR.0002 - ADR.02: Use DACI for Decision-Making Process? (accepted)\n- ADR.0010 - ADR.10: How to prioritize origins of standardizations (accepted)\n- ADR.0011 - ADR.11: Use standard for describing business functions (accepted)\n- ADR.0012 - ADR.12: Use CIM (IEC 61970/61968/62325) as default domain language (accepted)\n- ADR.0020 - ADR.20: Verify Deman",
+      "latency_ms": 322,
+      "score": "PASS",
+      "keyword_score": 1.0,
+      "grounded_pass": true,
+      "grounded_pass_strict": true,
+      "hallucination": {
+        "is_hallucination": false,
+        "issues": [],
+        "adr_refs_found": [],
+        "adr_refs_unsupported": []
+      },
+      "sources_count": 5,
+      "actual_route": "semantic",
+      "route_ok": true,
+      "actual_doc_ids": [
+        "ADR.0000",
+        "ADR.0001",
+        "ADR.0002",
+        "ADR.0010",
+        "ADR.0011",
+        "ADR.0012",
+        "ADR.0020",
+        "ADR.0021",
+        "ADR.0022",
+        "ADR.0023",
+        "ADR.0024",
+        "ADR.0025",
+        "ADR.0026",
+        "ADR.0027",
+        "ADR.0028",
+        "ADR.0029",
+        "ADR.0030",
+        "ADR.0031"
+      ],
+      "doc_ids_ok": true,
+      "retrieved_doc_ids": [
+        "ADR.0000",
+        "ADR.0001",
+        "ADR.0002",
+        "ADR.0010",
+        "ADR.0011",
+        "ADR.0012",
+        "ADR.0020",
+        "ADR.0021",
+        "ADR.0022",
+        "ADR.0023",
+        "ADR.0024",
+        "ADR.0025",
+        "ADR.0026",
+        "ADR.0027",
+        "ADR.0028",
+        "ADR.0029",
+        "ADR.0030",
+        "ADR.0031"
+      ],
+      "retrieved_doc_ids_ok": true,
+      "retrieval_debug": {
+        "top_hits": [
+          {
+            "type": "Document",
+            "title": "ADR.00: Use Markdown Architectural Decision Records",
+            "canonical_id": "",
+            "uri": "",
+            "score": null,
+            "distance": null
+          },
+          {
+            "type": "Document",
+            "title": "ADR.01: What conventions to use in writing ADRs?",
+            "canonical_id": "",
+            "uri": "",
+            "score": null,
+            "distance": null
+          },
+          {
+            "type": "Document",
+            "title": "ADR.02: Use DACI for Decision-Making Process?",
+            "canonical_id": "",
+            "uri": "",
+            "score": null,
+            "distance": null
+          },
+          {
+            "type": "Document",
+            "title": "ADR.10: How to prioritize origins of standardizations",
+            "canonical_id": "",
+            "uri": "",
+            "score": null,
+            "distance": null
+          },
+          {
+            "type": "Document",
+            "title": "ADR.11: Use standard for describing business functions",
+            "canonical_id": "",
+            "uri": "",
+            "score": null,
+            "distance": null
+          }
+        ],
+        "raw_object_keys": [
+          "adr_number",
+          "doc_type",
+          "file_path",
+          "status",
+          "title"
+        ],
+        "total_retrieved": 18
+      },
+      "fullness": null,
+      "error": null
+    },
+    {
+      "id": "F1",
+      "category": "Fullness",
+      "difficulty": "Medium",
+      "question": "Tell me about ADR.0025",
+      "expected_keywords": [
+        "Governance",
+        "Transparency",
+        "Testing",
+        "MFFBAS"
+      ],
+      "expected_route": "direct_doc",
+      "expected_doc_ids": [
+        "ADR.0025"
+      ],
+      "fullness_min_chars": 800,
+      "fullness_must_not_contain": [
+        "Decision Approval Record List"
+      ],
+      "response": "- ADR.0000 - ADR.00: Use Markdown Architectural Decision Records (accepted)\n- ADR.0001 - ADR.01: What conventions to use in writing ADRs? (accepted)\n- ADR.0002 - ADR.02: Use DACI for Decision-Making Process? (accepted)\n- ADR.0010 - ADR.10: How to prioritize origins of standardizations (accepted)\n- ADR.0011 - ADR.11: Use standard for describing business functions (accepted)\n- ADR.0012 - ADR.12: Use CIM (IEC 61970/61968/62325) as default domain language (accepted)\n- ADR.0020 - ADR.20: Verify Deman",
+      "latency_ms": 340,
+      "score": "WRONG",
+      "keyword_score": 0.0,
+      "grounded_pass": false,
+      "grounded_pass_strict": false,
+      "hallucination": {
+        "is_hallucination": false,
+        "issues": [],
+        "adr_refs_found": [],
+        "adr_refs_unsupported": []
+      },
+      "sources_count": 5,
+      "actual_route": "semantic",
+      "route_ok": false,
+      "actual_doc_ids": [
+        "ADR.0000",
+        "ADR.0001",
+        "ADR.0002",
+        "ADR.0010",
+        "ADR.0011",
+        "ADR.0012",
+        "ADR.0020",
+        "ADR.0021",
+        "ADR.0022",
+        "ADR.0023",
+        "ADR.0024",
+        "ADR.0025",
+        "ADR.0026",
+        "ADR.0027",
+        "ADR.0028",
+        "ADR.0029",
+        "ADR.0030",
+        "ADR.0031"
+      ],
+      "doc_ids_ok": true,
+      "retrieved_doc_ids": [
+        "ADR.0000",
+        "ADR.0001",
+        "ADR.0002",
+        "ADR.0010",
+        "ADR.0011",
+        "ADR.0012",
+        "ADR.0020",
+        "ADR.0021",
+        "ADR.0022",
+        "ADR.0023",
+        "ADR.0024",
+        "ADR.0025",
+        "ADR.0026",
+        "ADR.0027",
+        "ADR.0028",
+        "ADR.0029",
+        "ADR.0030",
+        "ADR.0031"
+      ],
+      "retrieved_doc_ids_ok": true,
+      "retrieval_debug": {
+        "top_hits": [
+          {
+            "type": "Document",
+            "title": "ADR.00: Use Markdown Architectural Decision Records",
+            "canonical_id": "",
+            "uri": "",
+            "score": null,
+            "distance": null
+          },
+          {
+            "type": "Document",
+            "title": "ADR.01: What conventions to use in writing ADRs?",
+            "canonical_id": "",
+            "uri": "",
+            "score": null,
+            "distance": null
+          },
+          {
+            "type": "Document",
+            "title": "ADR.02: Use DACI for Decision-Making Process?",
+            "canonical_id": "",
+            "uri": "",
+            "score": null,
+            "distance": null
+          },
+          {
+            "type": "Document",
+            "title": "ADR.10: How to prioritize origins of standardizations",
+            "canonical_id": "",
+            "uri": "",
+            "score": null,
+            "distance": null
+          },
+          {
+            "type": "Document",
+            "title": "ADR.11: Use standard for describing business functions",
+            "canonical_id": "",
+            "uri": "",
+            "score": null,
+            "distance": null
+          }
+        ],
+        "raw_object_keys": [
+          "adr_number",
+          "doc_type",
+          "file_path",
+          "status",
+          "title"
+        ],
+        "total_retrieved": 18
+      },
+      "fullness": {
+        "length_ok": true,
+        "must_not_contain_ok": true,
+        "check_keywords_ok": true,
+        "issues": []
+      },
+      "error": null
+    },
+    {
+      "id": "F2",
+      "category": "Fullness",
+      "difficulty": "Medium",
+      "question": "Tell me about ADR.0028",
+      "expected_keywords": [
+        "invalidation",
+        "operating constraints",
+        "FSP"
+      ],
+      "expected_route": "direct_doc",
+      "expected_doc_ids": [
+        "ADR.0028"
+      ],
+      "fullness_min_chars": 500,
+      "fullness_check_keywords": [
+        "Pros",
+        "Cons"
+      ],
+      "response": "- ADR.0000 - ADR.00: Use Markdown Architectural Decision Records (accepted)\n- ADR.0001 - ADR.01: What conventions to use in writing ADRs? (accepted)\n- ADR.0002 - ADR.02: Use DACI for Decision-Making Process? (accepted)\n- ADR.0010 - ADR.10: How to prioritize origins of standardizations (accepted)\n- ADR.0011 - ADR.11: Use standard for describing business functions (accepted)\n- ADR.0012 - ADR.12: Use CIM (IEC 61970/61968/62325) as default domain language (accepted)\n- ADR.0020 - ADR.20: Verify Deman",
+      "latency_ms": 772,
+      "score": "PARTIAL",
+      "keyword_score": 0.6666666666666666,
+      "grounded_pass": false,
+      "grounded_pass_strict": false,
+      "hallucination": {
+        "is_hallucination": false,
+        "issues": [],
+        "adr_refs_found": [],
+        "adr_refs_unsupported": []
+      },
+      "sources_count": 5,
+      "actual_route": "semantic",
+      "route_ok": false,
+      "actual_doc_ids": [
+        "ADR.0000",
+        "ADR.0001",
+        "ADR.0002",
+        "ADR.0010",
+        "ADR.0011",
+        "ADR.0012",
+        "ADR.0020",
+        "ADR.0021",
+        "ADR.0022",
+        "ADR.0023",
+        "ADR.0024",
+        "ADR.0025",
+        "ADR.0026",
+        "ADR.0027",
+        "ADR.0028",
+        "ADR.0029",
+        "ADR.0030",
+        "ADR.0031"
+      ],
+      "doc_ids_ok": true,
+      "retrieved_doc_ids": [
+        "ADR.0000",
+        "ADR.0001",
+        "ADR.0002",
+        "ADR.0010",
+        "ADR.0011",
+        "ADR.0012",
+        "ADR.0020",
+        "ADR.0021",
+        "ADR.0022",
+        "ADR.0023",
+        "ADR.0024",
+        "ADR.0025",
+        "ADR.0026",
+        "ADR.0027",
+        "ADR.0028",
+        "ADR.0029",
+        "ADR.0030",
+        "ADR.0031"
+      ],
+      "retrieved_doc_ids_ok": true,
+      "retrieval_debug": {
+        "top_hits": [
+          {
+            "type": "Document",
+            "title": "ADR.00: Use Markdown Architectural Decision Records",
+            "canonical_id": "",
+            "uri": "",
+            "score": null,
+            "distance": null
+          },
+          {
+            "type": "Document",
+            "title": "ADR.01: What conventions to use in writing ADRs?",
+            "canonical_id": "",
+            "uri": "",
+            "score": null,
+            "distance": null
+          },
+          {
+            "type": "Document",
+            "title": "ADR.02: Use DACI for Decision-Making Process?",
+            "canonical_id": "",
+            "uri": "",
+            "score": null,
+            "distance": null
+          },
+          {
+            "type": "Document",
+            "title": "ADR.10: How to prioritize origins of standardizations",
+            "canonical_id": "",
+            "uri": "",
+            "score": null,
+            "distance": null
+          },
+          {
+            "type": "Document",
+            "title": "ADR.11: Use standard for describing business functions",
+            "canonical_id": "",
+            "uri": "",
+            "score": null,
+            "distance": null
+          }
+        ],
+        "raw_object_keys": [
+          "adr_number",
+          "doc_type",
+          "file_path",
+          "status",
+          "title"
+        ],
+        "total_retrieved": 18
+      },
+      "fullness": {
+        "length_ok": true,
+        "must_not_contain_ok": true,
+        "check_keywords_ok": false,
+        "issues": [
+          "Missing fullness keyword: 'Pros'"
+        ]
+      },
+      "error": null
+    },
+    {
+      "id": "F3",
+      "category": "Fullness",
+      "difficulty": "Medium",
+      "question": "Who approved ADR.0025?",
+      "expected_keywords": [
+        "Robert-Jan Peters",
+        "Laurent van Groningen",
+        "Accepted"
+      ],
+      "expected_route": "approval",
+      "expected_doc_ids": [
+        "ADR.0025D"
+      ],
+      "fullness_must_not_contain": [
+        "Unified D/R product interface"
+      ],
+      "response": "- ADR.0000 - ADR.00: Use Markdown Architectural Decision Records (accepted)\n- ADR.0001 - ADR.01: What conventions to use in writing ADRs? (accepted)\n- ADR.0002 - ADR.02: Use DACI for Decision-Making Process? (accepted)\n- ADR.0010 - ADR.10: How to prioritize origins of standardizations (accepted)\n- ADR.0011 - ADR.11: Use standard for describing business functions (accepted)\n- ADR.0012 - ADR.12: Use CIM (IEC 61970/61968/62325) as default domain language (accepted)\n- ADR.0020 - ADR.20: Verify Deman",
+      "latency_ms": 334,
+      "score": "PARTIAL",
+      "keyword_score": 0.3333333333333333,
+      "grounded_pass": false,
+      "grounded_pass_strict": false,
+      "hallucination": {
+        "is_hallucination": false,
+        "issues": [],
+        "adr_refs_found": [],
+        "adr_refs_unsupported": []
+      },
+      "sources_count": 5,
+      "actual_route": "semantic",
+      "route_ok": false,
+      "actual_doc_ids": [
+        "ADR.0000",
+        "ADR.0001",
+        "ADR.0002",
+        "ADR.0010",
+        "ADR.0011",
+        "ADR.0012",
+        "ADR.0020",
+        "ADR.0021",
+        "ADR.0022",
+        "ADR.0023",
+        "ADR.0024",
+        "ADR.0025",
+        "ADR.0026",
+        "ADR.0027",
+        "ADR.0028",
+        "ADR.0029",
+        "ADR.0030",
+        "ADR.0031"
+      ],
+      "doc_ids_ok": false,
+      "retrieved_doc_ids": [
+        "ADR.0000",
+        "ADR.0001",
+        "ADR.0002",
+        "ADR.0010",
+        "ADR.0011",
+        "ADR.0012",
+        "ADR.0020",
+        "ADR.0021",
+        "ADR.0022",
+        "ADR.0023",
+        "ADR.0024",
+        "ADR.0025",
+        "ADR.0026",
+        "ADR.0027",
+        "ADR.0028",
+        "ADR.0029",
+        "ADR.0030",
+        "ADR.0031"
+      ],
+      "retrieved_doc_ids_ok": false,
+      "retrieval_debug": {
+        "top_hits": [
+          {
+            "type": "Document",
+            "title": "ADR.00: Use Markdown Architectural Decision Records",
+            "canonical_id": "",
+            "uri": "",
+            "score": null,
+            "distance": null
+          },
+          {
+            "type": "Document",
+            "title": "ADR.01: What conventions to use in writing ADRs?",
+            "canonical_id": "",
+            "uri": "",
+            "score": null,
+            "distance": null
+          },
+          {
+            "type": "Document",
+            "title": "ADR.02: Use DACI for Decision-Making Process?",
+            "canonical_id": "",
+            "uri": "",
+            "score": null,
+            "distance": null
+          },
+          {
+            "type": "Document",
+            "title": "ADR.10: How to prioritize origins of standardizations",
+            "canonical_id": "",
+            "uri": "",
+            "score": null,
+            "distance": null
+          },
+          {
+            "type": "Document",
+            "title": "ADR.11: Use standard for describing business functions",
+            "canonical_id": "",
+            "uri": "",
+            "score": null,
+            "distance": null
+          }
+        ],
+        "raw_object_keys": [
+          "adr_number",
+          "doc_type",
+          "file_path",
+          "status",
+          "title"
+        ],
+        "total_retrieved": 18
+      },
+      "fullness": {
+        "length_ok": true,
+        "must_not_contain_ok": true,
+        "check_keywords_ok": true,
+        "issues": []
+      },
+      "error": null
+    },
+    {
+      "id": "P1",
+      "category": "Principle",
+      "difficulty": "Easy",
+      "question": "What does the principle 'Data is een Asset' mean?",
+      "expected_keywords": [
+        "data",
+        "asset",
+        "value",
+        "responsible"
+      ],
+      "expected_route": "semantic",
+      "expected_doc_ids": [],
+      "response": "- PCP.0010 - PCP.10: Principle: Eventual Consistency by Design\n- PCP.0011 - PCP.11: Principle: Need to Know\n- PCP.0012 - PCP.12: Principle: Business-Driven Data Readiness\n- PCP.0013 - PCP.13: Principle: Business-Compliant Storage \u2013 Cost-Efficient Tiering\n- PCP.0014 - PCP.14: Principle: Business-Compliant Storage \u2013 Decision Context Preservation\n- PCP.0015 - PCP.15: Principle: Business-Compliant Storage \u2013 Derived Data Reproduction\n- PCP.0016 - PCP.16: Principle: Make Uncertainty Explicit to Streng",
+      "latency_ms": 354,
+      "score": "PARTIAL",
+      "keyword_score": 0.5,
+      "grounded_pass": false,
+      "grounded_pass_strict": false,
+      "hallucination": {
+        "is_hallucination": false,
+        "issues": [],
+        "adr_refs_found": [],
+        "adr_refs_unsupported": []
+      },
+      "sources_count": 5,
+      "actual_route": "semantic",
+      "route_ok": true,
+      "actual_doc_ids": [
+        "PCP.0010",
+        "PCP.0011",
+        "PCP.0012",
+        "PCP.0013",
+        "PCP.0014",
+        "PCP.0015",
+        "PCP.0016",
+        "PCP.0017",
+        "PCP.0018",
+        "PCP.0019",
+        "PCP.0020",
+        "PCP.0021",
+        "PCP.0022",
+        "PCP.0023",
+        "PCP.0024",
+        "PCP.0025",
+        "PCP.0026",
+        "PCP.0027",
+        "PCP.0028",
+        "PCP.0029",
+        "PCP.0030",
+        "PCP.0031",
+        "PCP.0032",
+        "PCP.0033",
+        "PCP.0034",
+        "PCP.0035",
+        "PCP.0036",
+        "PCP.0037",
+        "PCP.0038",
+        "PCP.0039",
+        "PCP.0040"
+      ],
+      "doc_ids_ok": true,
+      "retrieved_doc_ids": [
+        "PCP.0010",
+        "PCP.0011",
+        "PCP.0012",
+        "PCP.0013",
+        "PCP.0014",
+        "PCP.0015",
+        "PCP.0016",
+        "PCP.0017",
+        "PCP.0018",
+        "PCP.0019",
+        "PCP.0020",
+        "PCP.0021",
+        "PCP.0022",
+        "PCP.0023",
+        "PCP.0024",
+        "PCP.0025",
+        "PCP.0026",
+        "PCP.0027",
+        "PCP.0028",
+        "PCP.0029",
+        "PCP.0030",
+        "PCP.0031",
+        "PCP.0032",
+        "PCP.0033",
+        "PCP.0034",
+        "PCP.0035",
+        "PCP.0036",
+        "PCP.0037",
+        "PCP.0038",
+        "PCP.0039",
+        "PCP.0040"
+      ],
+      "retrieved_doc_ids_ok": true,
+      "retrieval_debug": {
+        "top_hits": [
+          {
+            "type": "principle",
+            "title": "PCP.10: Principle: Eventual Consistency by Design",
+            "canonical_id": "",
+            "uri": "",
+            "score": null,
+            "distance": null
+          },
+          {
+            "type": "principle",
+            "title": "PCP.11: Principle: Need to Know",
+            "canonical_id": "",
+            "uri": "",
+            "score": null,
+            "distance": null
+          },
+          {
+            "type": "principle",
+            "title": "PCP.12: Principle: Business-Driven Data Readiness",
+            "canonical_id": "",
+            "uri": "",
+            "score": null,
+            "distance": null
+          },
+          {
+            "type": "principle",
+            "title": "PCP.13: Principle: Business-Compliant Storage \u2013 Cost-Efficient Tiering",
+            "canonical_id": "",
+            "uri": "",
+            "score": null,
+            "distance": null
+          },
+          {
+            "type": "principle",
+            "title": "PCP.14: Principle: Business-Compliant Storage \u2013 Decision Context Preservation",
+            "canonical_id": "",
+            "uri": "",
+            "score": null,
+            "distance": null
+          }
+        ],
+        "raw_object_keys": [
+          "file_path",
+          "principle_number",
+          "title",
+          "type"
+        ],
+        "total_retrieved": 31
+      },
+      "fullness": null,
+      "error": null
+    },
+    {
+      "id": "P3",
+      "category": "Principle",
+      "difficulty": "Medium",
+      "question": "What principle addresses data reliability?",
+      "expected_keywords": [
+        "betrouwbaar",
+        "quality",
+        "reliable"
+      ],
+      "expected_route": "semantic",
+      "expected_doc_ids": [
+        "PCP.0036"
+      ],
+      "response": "- PCP.0010 - PCP.10: Principle: Eventual Consistency by Design\n- PCP.0011 - PCP.11: Principle: Need to Know\n- PCP.0012 - PCP.12: Principle: Business-Driven Data Readiness\n- PCP.0013 - PCP.13: Principle: Business-Compliant Storage \u2013 Cost-Efficient Tiering\n- PCP.0014 - PCP.14: Principle: Business-Compliant Storage \u2013 Decision Context Preservation\n- PCP.0015 - PCP.15: Principle: Business-Compliant Storage \u2013 Derived Data Reproduction\n- PCP.0016 - PCP.16: Principle: Make Uncertainty Explicit to Streng",
+      "latency_ms": 334,
+      "score": "WRONG",
+      "keyword_score": 0.3333333333333333,
+      "grounded_pass": false,
+      "grounded_pass_strict": false,
+      "hallucination": {
+        "is_hallucination": false,
+        "issues": [],
+        "adr_refs_found": [],
+        "adr_refs_unsupported": []
+      },
+      "sources_count": 5,
+      "actual_route": "semantic",
+      "route_ok": true,
+      "actual_doc_ids": [
+        "PCP.0010",
+        "PCP.0011",
+        "PCP.0012",
+        "PCP.0013",
+        "PCP.0014",
+        "PCP.0015",
+        "PCP.0016",
+        "PCP.0017",
+        "PCP.0018",
+        "PCP.0019",
+        "PCP.0020",
+        "PCP.0021",
+        "PCP.0022",
+        "PCP.0023",
+        "PCP.0024",
+        "PCP.0025",
+        "PCP.0026",
+        "PCP.0027",
+        "PCP.0028",
+        "PCP.0029",
+        "PCP.0030",
+        "PCP.0031",
+        "PCP.0032",
+        "PCP.0033",
+        "PCP.0034",
+        "PCP.0035",
+        "PCP.0036",
+        "PCP.0037",
+        "PCP.0038",
+        "PCP.0039",
+        "PCP.0040"
+      ],
+      "doc_ids_ok": true,
+      "retrieved_doc_ids": [
+        "PCP.0010",
+        "PCP.0011",
+        "PCP.0012",
+        "PCP.0013",
+        "PCP.0014",
+        "PCP.0015",
+        "PCP.0016",
+        "PCP.0017",
+        "PCP.0018",
+        "PCP.0019",
+        "PCP.0020",
+        "PCP.0021",
+        "PCP.0022",
+        "PCP.0023",
+        "PCP.0024",
+        "PCP.0025",
+        "PCP.0026",
+        "PCP.0027",
+        "PCP.0028",
+        "PCP.0029",
+        "PCP.0030",
+        "PCP.0031",
+        "PCP.0032",
+        "PCP.0033",
+        "PCP.0034",
+        "PCP.0035",
+        "PCP.0036",
+        "PCP.0037",
+        "PCP.0038",
+        "PCP.0039",
+        "PCP.0040"
+      ],
+      "retrieved_doc_ids_ok": true,
+      "retrieval_debug": {
+        "top_hits": [
+          {
+            "type": "principle",
+            "title": "PCP.10: Principle: Eventual Consistency by Design",
+            "canonical_id": "",
+            "uri": "",
+            "score": null,
+            "distance": null
+          },
+          {
+            "type": "principle",
+            "title": "PCP.11: Principle: Need to Know",
+            "canonical_id": "",
+            "uri": "",
+            "score": null,
+            "distance": null
+          },
+          {
+            "type": "principle",
+            "title": "PCP.12: Principle: Business-Driven Data Readiness",
+            "canonical_id": "",
+            "uri": "",
+            "score": null,
+            "distance": null
+          },
+          {
+            "type": "principle",
+            "title": "PCP.13: Principle: Business-Compliant Storage \u2013 Cost-Efficient Tiering",
+            "canonical_id": "",
+            "uri": "",
+            "score": null,
+            "distance": null
+          },
+          {
+            "type": "principle",
+            "title": "PCP.14: Principle: Business-Compliant Storage \u2013 Decision Context Preservation",
+            "canonical_id": "",
+            "uri": "",
+            "score": null,
+            "distance": null
+          }
+        ],
+        "raw_object_keys": [
+          "file_path",
+          "principle_number",
+          "title",
+          "type"
+        ],
+        "total_retrieved": 31
+      },
+      "fullness": null,
+      "error": null
+    },
+    {
+      "id": "P4",
+      "category": "Principle",
+      "difficulty": "Medium",
+      "question": "What does 'eventual consistency by design' mean?",
+      "expected_keywords": [
+        "eventual",
+        "consistency",
+        "design"
+      ],
+      "expected_route": "semantic",
+      "expected_doc_ids": [
+        "PCP.0010"
+      ],
+      "response": "I'm not sure what you're looking for. Could you clarify?\n\n- Search the ESA knowledge base\n- List documents (ADRs, principles, policies)\n- Ask about AInstein's capabilities\n\nPlease rephrase your question or pick one of the options above.",
+      "latency_ms": 467,
+      "score": "WRONG",
+      "keyword_score": 0.0,
+      "grounded_pass": false,
+      "grounded_pass_strict": false,
+      "hallucination": {
+        "is_hallucination": true,
+        "issues": [
+          "Substantive response generated with minimal/empty context"
+        ],
+        "adr_refs_found": [],
+        "adr_refs_unsupported": []
+      },
+      "sources_count": 0,
+      "actual_route": "semantic",
+      "route_ok": true,
+      "actual_doc_ids": [],
+      "doc_ids_ok": false,
+      "retrieved_doc_ids": [],
+      "retrieved_doc_ids_ok": false,
+      "retrieval_debug": {
+        "top_hits": [],
+        "raw_object_keys": [],
+        "total_retrieved": 0
+      },
+      "fullness": null,
+      "error": null
+    },
+    {
+      "id": "P5",
+      "category": "Principle",
+      "difficulty": "Medium",
+      "question": "What principle covers data access control?",
+      "expected_keywords": [
+        "toegankelijk",
+        "access",
+        "security"
+      ],
+      "expected_route": "semantic",
+      "expected_doc_ids": [
+        "PCP.0038"
+      ],
+      "response": "- PCP.0010 - PCP.10: Principle: Eventual Consistency by Design\n- PCP.0011 - PCP.11: Principle: Need to Know\n- PCP.0012 - PCP.12: Principle: Business-Driven Data Readiness\n- PCP.0013 - PCP.13: Principle: Business-Compliant Storage \u2013 Cost-Efficient Tiering\n- PCP.0014 - PCP.14: Principle: Business-Compliant Storage \u2013 Decision Context Preservation\n- PCP.0015 - PCP.15: Principle: Business-Compliant Storage \u2013 Derived Data Reproduction\n- PCP.0016 - PCP.16: Principle: Make Uncertainty Explicit to Streng",
+      "latency_ms": 798,
+      "score": "WRONG",
+      "keyword_score": 0.3333333333333333,
+      "grounded_pass": false,
+      "grounded_pass_strict": false,
+      "hallucination": {
+        "is_hallucination": false,
+        "issues": [],
+        "adr_refs_found": [],
+        "adr_refs_unsupported": []
+      },
+      "sources_count": 5,
+      "actual_route": "semantic",
+      "route_ok": true,
+      "actual_doc_ids": [
+        "PCP.0010",
+        "PCP.0011",
+        "PCP.0012",
+        "PCP.0013",
+        "PCP.0014",
+        "PCP.0015",
+        "PCP.0016",
+        "PCP.0017",
+        "PCP.0018",
+        "PCP.0019",
+        "PCP.0020",
+        "PCP.0021",
+        "PCP.0022",
+        "PCP.0023",
+        "PCP.0024",
+        "PCP.0025",
+        "PCP.0026",
+        "PCP.0027",
+        "PCP.0028",
+        "PCP.0029",
+        "PCP.0030",
+        "PCP.0031",
+        "PCP.0032",
+        "PCP.0033",
+        "PCP.0034",
+        "PCP.0035",
+        "PCP.0036",
+        "PCP.0037",
+        "PCP.0038",
+        "PCP.0039",
+        "PCP.0040"
+      ],
+      "doc_ids_ok": true,
+      "retrieved_doc_ids": [
+        "PCP.0010",
+        "PCP.0011",
+        "PCP.0012",
+        "PCP.0013",
+        "PCP.0014",
+        "PCP.0015",
+        "PCP.0016",
+        "PCP.0017",
+        "PCP.0018",
+        "PCP.0019",
+        "PCP.0020",
+        "PCP.0021",
+        "PCP.0022",
+        "PCP.0023",
+        "PCP.0024",
+        "PCP.0025",
+        "PCP.0026",
+        "PCP.0027",
+        "PCP.0028",
+        "PCP.0029",
+        "PCP.0030",
+        "PCP.0031",
+        "PCP.0032",
+        "PCP.0033",
+        "PCP.0034",
+        "PCP.0035",
+        "PCP.0036",
+        "PCP.0037",
+        "PCP.0038",
+        "PCP.0039",
+        "PCP.0040"
+      ],
+      "retrieved_doc_ids_ok": true,
+      "retrieval_debug": {
+        "top_hits": [
+          {
+            "type": "principle",
+            "title": "PCP.10: Principle: Eventual Consistency by Design",
+            "canonical_id": "",
+            "uri": "",
+            "score": null,
+            "distance": null
+          },
+          {
+            "type": "principle",
+            "title": "PCP.11: Principle: Need to Know",
+            "canonical_id": "",
+            "uri": "",
+            "score": null,
+            "distance": null
+          },
+          {
+            "type": "principle",
+            "title": "PCP.12: Principle: Business-Driven Data Readiness",
+            "canonical_id": "",
+            "uri": "",
+            "score": null,
+            "distance": null
+          },
+          {
+            "type": "principle",
+            "title": "PCP.13: Principle: Business-Compliant Storage \u2013 Cost-Efficient Tiering",
+            "canonical_id": "",
+            "uri": "",
+            "score": null,
+            "distance": null
+          },
+          {
+            "type": "principle",
+            "title": "PCP.14: Principle: Business-Compliant Storage \u2013 Decision Context Preservation",
+            "canonical_id": "",
+            "uri": "",
+            "score": null,
+            "distance": null
+          }
+        ],
+        "raw_object_keys": [
+          "file_path",
+          "principle_number",
+          "title",
+          "type"
+        ],
+        "total_retrieved": 31
+      },
+      "fullness": null,
+      "error": null
+    },
+    {
+      "id": "PO1",
+      "category": "Policy",
+      "difficulty": "Easy",
+      "question": "What policy document covers data governance at Alliander?",
+      "expected_keywords": [
+        "Governance",
+        "Beleid",
+        "Alliander"
+      ],
+      "expected_route": "semantic",
+      "expected_doc_ids": [],
+      "response": "- Policy - Alliander Data en\n\nInformatie Governance\n\nBeleid (Part 2/8)\n- Policy - 1\tInleiding (Part 4/4)\n- Policy - Inleiding (Part 1/5)\n- Policy - 1\tIntroductie (Part 2/7)\n- Policy - 1\tIntroductie (Part 5/7)\n\nShowing all 5 Policys",
+      "latency_ms": 350,
+      "score": "PASS",
+      "keyword_score": 1.0,
+      "grounded_pass": true,
+      "grounded_pass_strict": true,
+      "hallucination": {
+        "is_hallucination": false,
+        "issues": [],
+        "adr_refs_found": [],
+        "adr_refs_unsupported": []
+      },
+      "sources_count": 5,
+      "actual_route": "semantic",
+      "route_ok": true,
+      "actual_doc_ids": [],
+      "doc_ids_ok": true,
+      "retrieved_doc_ids": [],
+      "retrieved_doc_ids_ok": true,
+      "retrieval_debug": {
+        "top_hits": [
+          {
+            "type": "Document",
+            "title": "1\tInleiding (Part 4/4)",
+            "canonical_id": "",
+            "uri": "",
+            "score": null,
+            "distance": null
+          },
+          {
+            "type": "Document",
+            "title": "1\tIntroductie (Part 2/7)",
+            "canonical_id": "",
+            "uri": "",
+            "score": null,
+            "distance": null
+          },
+          {
+            "type": "Document",
+            "title": "1\tIntroductie (Part 5/7)",
+            "canonical_id": "",
+            "uri": "",
+            "score": null,
+            "distance": null
+          },
+          {
+            "type": "Document",
+            "title": "Alliander Data en\n\nInformatie Governance\n\nBeleid (Part 2/8)",
+            "canonical_id": "",
+            "uri": "",
+            "score": null,
+            "distance": null
+          },
+          {
+            "type": "Document",
+            "title": "Inleiding (Part 1/5)",
+            "canonical_id": "",
+            "uri": "",
+            "score": null,
+            "distance": null
+          }
+        ],
+        "raw_object_keys": [
+          "file_path",
+          "file_type",
+          "title"
+        ],
+        "total_retrieved": 5
+      },
+      "fullness": null,
+      "error": null
+    },
+    {
+      "id": "PO3",
+      "category": "Policy",
+      "difficulty": "Medium",
+      "question": "What capability document addresses data integration?",
+      "expected_keywords": [
+        "integration",
+        "interoperability",
+        "Capability"
+      ],
+      "expected_route": "semantic",
+      "expected_doc_ids": [],
+      "response": "I'm not sure what you're looking for. Could you clarify?\n\n- Search the ESA knowledge base\n- List documents (ADRs, principles, policies)\n- Ask about AInstein's capabilities\n\nPlease rephrase your question or pick one of the options above.",
+      "latency_ms": 432,
+      "score": "WRONG",
+      "keyword_score": 0.0,
+      "grounded_pass": false,
+      "grounded_pass_strict": false,
+      "hallucination": {
+        "is_hallucination": true,
+        "issues": [
+          "Substantive response generated with minimal/empty context"
+        ],
+        "adr_refs_found": [],
+        "adr_refs_unsupported": []
+      },
+      "sources_count": 0,
+      "actual_route": "semantic",
+      "route_ok": true,
+      "actual_doc_ids": [],
+      "doc_ids_ok": true,
+      "retrieved_doc_ids": [],
+      "retrieved_doc_ids_ok": true,
+      "retrieval_debug": {
+        "top_hits": [],
+        "raw_object_keys": [],
+        "total_retrieved": 0
+      },
+      "fullness": null,
+      "error": null
+    },
+    {
+      "id": "X1",
+      "category": "Cross-Domain",
+      "difficulty": "Hard",
+      "question": "How do the architecture decisions support the data governance principles?",
+      "expected_keywords": [
+        "CIM",
+        "interoperability",
+        "security",
+        "TLS"
+      ],
+      "expected_route": "multi_hop",
+      "expected_doc_ids": [
+        "ADR.0012",
+        "PCP.0038"
+      ],
+      "response": "- PCP.0010 - PCP.10: Principle: Eventual Consistency by Design\n- PCP.0011 - PCP.11: Principle: Need to Know\n- PCP.0012 - PCP.12: Principle: Business-Driven Data Readiness\n- PCP.0013 - PCP.13: Principle: Business-Compliant Storage \u2013 Cost-Efficient Tiering\n- PCP.0014 - PCP.14: Principle: Business-Compliant Storage \u2013 Decision Context Preservation\n- PCP.0015 - PCP.15: Principle: Business-Compliant Storage \u2013 Derived Data Reproduction\n- PCP.0016 - PCP.16: Principle: Make Uncertainty Explicit to Streng",
+      "latency_ms": 337,
+      "score": "WRONG",
+      "keyword_score": 0.0,
+      "grounded_pass": false,
+      "grounded_pass_strict": false,
+      "hallucination": {
+        "is_hallucination": false,
+        "issues": [],
+        "adr_refs_found": [],
+        "adr_refs_unsupported": []
+      },
+      "sources_count": 5,
+      "actual_route": "semantic",
+      "route_ok": true,
+      "actual_doc_ids": [
+        "PCP.0010",
+        "PCP.0011",
+        "PCP.0012",
+        "PCP.0013",
+        "PCP.0014",
+        "PCP.0015",
+        "PCP.0016",
+        "PCP.0017",
+        "PCP.0018",
+        "PCP.0019",
+        "PCP.0020",
+        "PCP.0021",
+        "PCP.0022",
+        "PCP.0023",
+        "PCP.0024",
+        "PCP.0025",
+        "PCP.0026",
+        "PCP.0027",
+        "PCP.0028",
+        "PCP.0029",
+        "PCP.0030",
+        "PCP.0031",
+        "PCP.0032",
+        "PCP.0033",
+        "PCP.0034",
+        "PCP.0035",
+        "PCP.0036",
+        "PCP.0037",
+        "PCP.0038",
+        "PCP.0039",
+        "PCP.0040"
+      ],
+      "doc_ids_ok": false,
+      "retrieved_doc_ids": [
+        "PCP.0010",
+        "PCP.0011",
+        "PCP.0012",
+        "PCP.0013",
+        "PCP.0014",
+        "PCP.0015",
+        "PCP.0016",
+        "PCP.0017",
+        "PCP.0018",
+        "PCP.0019",
+        "PCP.0020",
+        "PCP.0021",
+        "PCP.0022",
+        "PCP.0023",
+        "PCP.0024",
+        "PCP.0025",
+        "PCP.0026",
+        "PCP.0027",
+        "PCP.0028",
+        "PCP.0029",
+        "PCP.0030",
+        "PCP.0031",
+        "PCP.0032",
+        "PCP.0033",
+        "PCP.0034",
+        "PCP.0035",
+        "PCP.0036",
+        "PCP.0037",
+        "PCP.0038",
+        "PCP.0039",
+        "PCP.0040"
+      ],
+      "retrieved_doc_ids_ok": false,
+      "retrieval_debug": {
+        "top_hits": [
+          {
+            "type": "principle",
+            "title": "PCP.10: Principle: Eventual Consistency by Design",
+            "canonical_id": "",
+            "uri": "",
+            "score": null,
+            "distance": null
+          },
+          {
+            "type": "principle",
+            "title": "PCP.11: Principle: Need to Know",
+            "canonical_id": "",
+            "uri": "",
+            "score": null,
+            "distance": null
+          },
+          {
+            "type": "principle",
+            "title": "PCP.12: Principle: Business-Driven Data Readiness",
+            "canonical_id": "",
+            "uri": "",
+            "score": null,
+            "distance": null
+          },
+          {
+            "type": "principle",
+            "title": "PCP.13: Principle: Business-Compliant Storage \u2013 Cost-Efficient Tiering",
+            "canonical_id": "",
+            "uri": "",
+            "score": null,
+            "distance": null
+          },
+          {
+            "type": "principle",
+            "title": "PCP.14: Principle: Business-Compliant Storage \u2013 Decision Context Preservation",
+            "canonical_id": "",
+            "uri": "",
+            "score": null,
+            "distance": null
+          }
+        ],
+        "raw_object_keys": [
+          "file_path",
+          "principle_number",
+          "title",
+          "type"
+        ],
+        "total_retrieved": 31
+      },
+      "fullness": null,
+      "error": null
+    },
+    {
+      "id": "X4",
+      "category": "Cross-Domain",
+      "difficulty": "Hard",
+      "question": "What security measures are defined across ADRs and principles?",
+      "expected_keywords": [
+        "TLS",
+        "OAuth",
+        "toegankelijk",
+        "security"
+      ],
+      "expected_route": "multi_hop",
+      "expected_doc_ids": [
+        "ADR.0027",
+        "ADR.0029"
+      ],
+      "response": "- ADR.0000 - ADR.00: Use Markdown Architectural Decision Records (accepted)\n- ADR.0001 - ADR.01: What conventions to use in writing ADRs? (accepted)\n- ADR.0002 - ADR.02: Use DACI for Decision-Making Process? (accepted)\n- ADR.0010 - ADR.10: How to prioritize origins of standardizations (accepted)\n- ADR.0011 - ADR.11: Use standard for describing business functions (accepted)\n- ADR.0012 - ADR.12: Use CIM (IEC 61970/61968/62325) as default domain language (accepted)\n- ADR.0020 - ADR.20: Verify Deman",
+      "latency_ms": 781,
+      "score": "PARTIAL",
+      "keyword_score": 0.5,
+      "grounded_pass": false,
+      "grounded_pass_strict": false,
+      "hallucination": {
+        "is_hallucination": false,
+        "issues": [],
+        "adr_refs_found": [],
+        "adr_refs_unsupported": []
+      },
+      "sources_count": 5,
+      "actual_route": "semantic",
+      "route_ok": true,
+      "actual_doc_ids": [
+        "ADR.0000",
+        "ADR.0001",
+        "ADR.0002",
+        "ADR.0010",
+        "ADR.0011",
+        "ADR.0012",
+        "ADR.0020",
+        "ADR.0021",
+        "ADR.0022",
+        "ADR.0023",
+        "ADR.0024",
+        "ADR.0025",
+        "ADR.0026",
+        "ADR.0027",
+        "ADR.0028",
+        "ADR.0029",
+        "ADR.0030",
+        "ADR.0031"
+      ],
+      "doc_ids_ok": true,
+      "retrieved_doc_ids": [
+        "ADR.0000",
+        "ADR.0001",
+        "ADR.0002",
+        "ADR.0010",
+        "ADR.0011",
+        "ADR.0012",
+        "ADR.0020",
+        "ADR.0021",
+        "ADR.0022",
+        "ADR.0023",
+        "ADR.0024",
+        "ADR.0025",
+        "ADR.0026",
+        "ADR.0027",
+        "ADR.0028",
+        "ADR.0029",
+        "ADR.0030",
+        "ADR.0031"
+      ],
+      "retrieved_doc_ids_ok": true,
+      "retrieval_debug": {
+        "top_hits": [
+          {
+            "type": "Document",
+            "title": "ADR.00: Use Markdown Architectural Decision Records",
+            "canonical_id": "",
+            "uri": "",
+            "score": null,
+            "distance": null
+          },
+          {
+            "type": "Document",
+            "title": "ADR.01: What conventions to use in writing ADRs?",
+            "canonical_id": "",
+            "uri": "",
+            "score": null,
+            "distance": null
+          },
+          {
+            "type": "Document",
+            "title": "ADR.02: Use DACI for Decision-Making Process?",
+            "canonical_id": "",
+            "uri": "",
+            "score": null,
+            "distance": null
+          },
+          {
+            "type": "Document",
+            "title": "ADR.10: How to prioritize origins of standardizations",
+            "canonical_id": "",
+            "uri": "",
+            "score": null,
+            "distance": null
+          },
+          {
+            "type": "Document",
+            "title": "ADR.11: Use standard for describing business functions",
+            "canonical_id": "",
+            "uri": "",
+            "score": null,
+            "distance": null
+          }
+        ],
+        "raw_object_keys": [
+          "adr_number",
+          "doc_type",
+          "file_path",
+          "status",
+          "title"
+        ],
+        "total_retrieved": 18
+      },
+      "fullness": null,
+      "error": null
+    },
+    {
+      "id": "C1",
+      "category": "Comparative",
+      "difficulty": "Hard",
+      "question": "What's the difference between TLS and OAuth 2.0 in our architecture?",
+      "expected_keywords": [
+        "transport",
+        "authentication",
+        "communication"
+      ],
+      "expected_route": "semantic",
+      "expected_doc_ids": [
+        "ADR.0027",
+        "ADR.0029"
+      ],
+      "response": "{\n  \"schema_version\": \"1.0\",\n  \"answer\": \"In our architecture, TLS and OAuth 2.0 solve different (complementary) security problems:\\n\\n1) TLS: secure the communication channel (transport security)\\n- Purpose: protect data \u201con the wire\u201d for all data communications, primarily via encryption in transit and integrity protection.\\n- Scope/where it applies: mandated for all data communications (TLS v1.3 preferred; v1.2 fallback). TLS can also support server and client authentication at the connection ",
+      "latency_ms": 8705,
+      "score": "PASS",
+      "keyword_score": 1.0,
+      "grounded_pass": true,
+      "grounded_pass_strict": true,
+      "hallucination": {
+        "is_hallucination": false,
+        "issues": [],
+        "adr_refs_found": [],
+        "adr_refs_unsupported": []
+      },
+      "sources_count": 5,
+      "actual_route": "semantic",
+      "route_ok": true,
+      "actual_doc_ids": [
+        "ADR.0027",
+        "ADR.0029"
+      ],
+      "doc_ids_ok": true,
+      "retrieved_doc_ids": [
+        "ADR.0000",
+        "ADR.0001",
+        "ADR.0002",
+        "ADR.0010",
+        "ADR.0011",
+        "ADR.0012",
+        "ADR.0020",
+        "ADR.0021",
+        "ADR.0022",
+        "ADR.0023",
+        "ADR.0024",
+        "ADR.0025",
+        "ADR.0026",
+        "ADR.0027",
+        "ADR.0028",
+        "ADR.0029",
+        "ADR.0030",
+        "ADR.0031"
+      ],
+      "retrieved_doc_ids_ok": true,
+      "retrieval_debug": {
+        "top_hits": [
+          {
+            "type": "ADR",
+            "title": "ADR.29: Use OAuth 2.0 (with OpenID Connect where needed) for Identification, Authentication, and Authorization",
+            "canonical_id": "ADR.29",
+            "uri": "",
+            "score": 0.9570866823196411,
+            "distance": null,
+            "snippet": "The outcome is **Option 3** to use **OAuth 2.0** as the core **authorization and delegated access framework**, and *\n*OpenID Connect (OIDC)** on top o"
+          },
+          {
+            "type": "ADR",
+            "title": "ADR.27: Use TLS to Secure Data Communication",
+            "canonical_id": "ADR.27",
+            "uri": "",
+            "score": 0.876765251159668,
+            "distance": null,
+            "snippet": "The outcome is **Option 1** to use TLS (v1.3 preferred, v1.2 fallback) for all data communications.\n\nTLS provides the best balance between security, i"
+          },
+          {
+            "type": "ADR",
+            "title": "ADR.02: Use DACI for Decision-Making Process?",
+            "canonical_id": "ADR.02",
+            "uri": "",
+            "score": 0.3869187831878662,
+            "distance": null,
+            "snippet": "We will adopt the [DACI](https://www.productplan.com/glossary/daci/)\nframework for our decision-making process. DACI stands for:\n\n- **D**river: Person"
+          },
+          {
+            "type": "ADR",
+            "title": "ADR.31: Use an Alliander-Owned Domain for Customer-Facing Services",
+            "canonical_id": "ADR.31",
+            "uri": "",
+            "score": 0.31739291548728943,
+            "distance": null,
+            "snippet": "Alliander must ensure that customers interacting with its digital services can clearly recognise Alliander as the\nauthoritative source of the API. Thi"
+          },
+          {
+            "type": "ADR",
+            "title": "ADR.01: What conventions to use in writing ADRs?",
+            "canonical_id": "ADR.01",
+            "uri": "",
+            "score": 0.2343699336051941,
+            "distance": null,
+            "snippet": "### Template Convention\nFor new Architectural Decision Records (ADRs), use this templates and ajust if required as a starting point:\nthis [adr-templat"
+          }
+        ],
+        "raw_object_keys": [
+          "canonical_id",
+          "content",
+          "distance",
+          "score",
+          "title",
+          "type"
+        ],
+        "total_retrieved": 18
+      },
+      "fullness": null,
+      "error": null
+    },
+    {
+      "id": "L2",
+      "category": "Listing",
+      "difficulty": "Medium",
+      "question": "What are all the data governance principles?",
+      "expected_keywords": [
+        "Data is een Asset",
+        "Data is beschikbaar",
+        "Data is begrijpelijk",
+        "Data is betrouwbaar",
+        "Data is herbruikbaar",
+        "Data is toegankelijk"
+      ],
+      "expected_route": "list",
+      "expected_doc_ids": [],
+      "response": "- PCP.0010 - PCP.10: Principle: Eventual Consistency by Design\n- PCP.0011 - PCP.11: Principle: Need to Know\n- PCP.0012 - PCP.12: Principle: Business-Driven Data Readiness\n- PCP.0013 - PCP.13: Principle: Business-Compliant Storage \u2013 Cost-Efficient Tiering\n- PCP.0014 - PCP.14: Principle: Business-Compliant Storage \u2013 Decision Context Preservation\n- PCP.0015 - PCP.15: Principle: Business-Compliant Storage \u2013 Derived Data Reproduction\n- PCP.0016 - PCP.16: Principle: Make Uncertainty Explicit to Streng",
+      "latency_ms": 286,
+      "score": "PASS",
+      "keyword_score": 1.0,
+      "grounded_pass": true,
+      "grounded_pass_strict": true,
+      "hallucination": {
+        "is_hallucination": false,
+        "issues": [],
+        "adr_refs_found": [],
+        "adr_refs_unsupported": []
+      },
+      "sources_count": 5,
+      "actual_route": "semantic",
+      "route_ok": false,
+      "actual_doc_ids": [
+        "PCP.0010",
+        "PCP.0011",
+        "PCP.0012",
+        "PCP.0013",
+        "PCP.0014",
+        "PCP.0015",
+        "PCP.0016",
+        "PCP.0017",
+        "PCP.0018",
+        "PCP.0019",
+        "PCP.0020",
+        "PCP.0021",
+        "PCP.0022",
+        "PCP.0023",
+        "PCP.0024",
+        "PCP.0025",
+        "PCP.0026",
+        "PCP.0027",
+        "PCP.0028",
+        "PCP.0029",
+        "PCP.0030",
+        "PCP.0031",
+        "PCP.0032",
+        "PCP.0033",
+        "PCP.0034",
+        "PCP.0035",
+        "PCP.0036",
+        "PCP.0037",
+        "PCP.0038",
+        "PCP.0039",
+        "PCP.0040"
+      ],
+      "doc_ids_ok": true,
+      "retrieved_doc_ids": [
+        "PCP.0010",
+        "PCP.0011",
+        "PCP.0012",
+        "PCP.0013",
+        "PCP.0014",
+        "PCP.0015",
+        "PCP.0016",
+        "PCP.0017",
+        "PCP.0018",
+        "PCP.0019",
+        "PCP.0020",
+        "PCP.0021",
+        "PCP.0022",
+        "PCP.0023",
+        "PCP.0024",
+        "PCP.0025",
+        "PCP.0026",
+        "PCP.0027",
+        "PCP.0028",
+        "PCP.0029",
+        "PCP.0030",
+        "PCP.0031",
+        "PCP.0032",
+        "PCP.0033",
+        "PCP.0034",
+        "PCP.0035",
+        "PCP.0036",
+        "PCP.0037",
+        "PCP.0038",
+        "PCP.0039",
+        "PCP.0040"
+      ],
+      "retrieved_doc_ids_ok": true,
+      "retrieval_debug": {
+        "top_hits": [
+          {
+            "type": "principle",
+            "title": "PCP.10: Principle: Eventual Consistency by Design",
+            "canonical_id": "",
+            "uri": "",
+            "score": null,
+            "distance": null
+          },
+          {
+            "type": "principle",
+            "title": "PCP.11: Principle: Need to Know",
+            "canonical_id": "",
+            "uri": "",
+            "score": null,
+            "distance": null
+          },
+          {
+            "type": "principle",
+            "title": "PCP.12: Principle: Business-Driven Data Readiness",
+            "canonical_id": "",
+            "uri": "",
+            "score": null,
+            "distance": null
+          },
+          {
+            "type": "principle",
+            "title": "PCP.13: Principle: Business-Compliant Storage \u2013 Cost-Efficient Tiering",
+            "canonical_id": "",
+            "uri": "",
+            "score": null,
+            "distance": null
+          },
+          {
+            "type": "principle",
+            "title": "PCP.14: Principle: Business-Compliant Storage \u2013 Decision Context Preservation",
+            "canonical_id": "",
+            "uri": "",
+            "score": null,
+            "distance": null
+          }
+        ],
+        "raw_object_keys": [
+          "file_path",
+          "principle_number",
+          "title",
+          "type"
+        ],
+        "total_retrieved": 31
+      },
+      "fullness": null,
+      "error": null
+    },
+    {
+      "id": "D1",
+      "category": "Disambiguation",
+      "difficulty": "Medium",
+      "question": "In our Energy System Architecture knowledge base, what does ESA stand for?",
+      "expected_keywords": [
+        "Energy System Architecture"
+      ],
+      "expected_route": "semantic",
+      "expected_doc_ids": [],
+      "must_not_contain": [
+        "Energy Smart Appliance"
+      ],
+      "response": "{\n  \"schema_version\": \"1.0\",\n  \"answer\": \"I don't have sufficient information in the knowledge base context you provided to answer this confidently. None of the retrieved ADR excerpts define what \u201cESA\u201d stands for, and there are no Principles/Policies/Vocabulary items in the provided context that expand the acronym.\",\n  \"items_shown\": 0,\n  \"items_total\": 18,\n  \"count_qualifier\": \"exact\",\n  \"sources\": [\n    {\n      \"title\": \"ADR.01: What conventions to use in writing ADRs?\",\n      \"type\": \"ADR\"\n  ",
+      "latency_ms": 5037,
+      "score": "WRONG",
+      "keyword_score": 0.0,
+      "grounded_pass": false,
+      "grounded_pass_strict": false,
+      "hallucination": {
+        "is_hallucination": false,
+        "issues": [],
+        "adr_refs_found": [],
+        "adr_refs_unsupported": []
+      },
+      "sources_count": 5,
+      "actual_route": "semantic",
+      "route_ok": true,
+      "actual_doc_ids": [
+        "ADR.0001",
+        "ADR.0011",
+        "ADR.0012",
+        "ADR.0021",
+        "ADR.0025",
+        "ADR.0030"
+      ],
+      "doc_ids_ok": true,
+      "retrieved_doc_ids": [
+        "ADR.0000",
+        "ADR.0001",
+        "ADR.0002",
+        "ADR.0010",
+        "ADR.0011",
+        "ADR.0012",
+        "ADR.0020",
+        "ADR.0021",
+        "ADR.0022",
+        "ADR.0023",
+        "ADR.0024",
+        "ADR.0025",
+        "ADR.0026",
+        "ADR.0027",
+        "ADR.0028",
+        "ADR.0029",
+        "ADR.0030",
+        "ADR.0031"
+      ],
+      "retrieved_doc_ids_ok": true,
+      "retrieval_debug": {
+        "top_hits": [
+          {
+            "type": "ADR",
+            "title": "ADR.01: What conventions to use in writing ADRs?",
+            "canonical_id": "ADR.01",
+            "uri": "",
+            "score": 0.7353454232215881,
+            "distance": null,
+            "snippet": "### Template Convention\nFor new Architectural Decision Records (ADRs), use this templates and ajust if required as a starting point:\nthis [adr-templat"
+          },
+          {
+            "type": "ADR",
+            "title": "ADR.21: Use sign convention for current direction",
+            "canonical_id": "ADR.21",
+            "uri": "",
+            "score": 0.6458880305290222,
+            "distance": null,
+            "snippet": "The system will adopt the Passive Sign Convention:\n* Power and current flows are positive into a device or subsystem.\n* Generators have negative net p"
+          },
+          {
+            "type": "ADR",
+            "title": "ADR.11: Use standard for describing business functions",
+            "canonical_id": "ADR.11",
+            "uri": "",
+            "score": 0.6350592970848083,
+            "distance": null,
+            "snippet": "Chosen option: IEC 61968-1 Business Packages / Functions is leading, because\n\n* Aligns with another international standardized metamodel to achieve se"
+          },
+          {
+            "type": "ADR",
+            "title": "ADR.12: Use CIM (IEC 61970/61968/62325) as default domain language",
+            "canonical_id": "ADR.12",
+            "uri": "",
+            "score": 0.6086978316307068,
+            "distance": null,
+            "snippet": "Chosen option: IEC as standard domain language (IEC 61970/61968/62325), because\n\n* Aligns with another international standardized metamodel to achieve"
+          },
+          {
+            "type": "ADR",
+            "title": "ADR.25: Provide a unified Demand/Response product interface for market and grid coordination",
+            "canonical_id": "ADR.25",
+            "uri": "",
+            "score": 0.5810796618461609,
+            "distance": null,
+            "snippet": "The adoption and promotion of a unified Demand-Response interface (business, technical) based on existing open\nstandards, ensuring compatibility with "
+          }
+        ],
+        "raw_object_keys": [
+          "canonical_id",
+          "content",
+          "definition",
+          "distance",
+          "label",
+          "score",
+          "title",
+          "type",
+          "uri"
+        ],
+        "total_retrieved": 26
+      },
+      "fullness": null,
+      "error": null
+    },
+    {
+      "id": "N1",
+      "category": "Negative",
+      "difficulty": "Test",
+      "question": "What is the architecture decision about using GraphQL?",
+      "expected_keywords": [],
+      "expect_no_answer": true,
+      "expected_route": "semantic",
+      "expected_doc_ids": [],
+      "response": "{\n  \"schema_version\": \"1.0\",\n  \"answer\": \"I don't have sufficient information in the knowledge base to answer this confidently. The retrieved documents have low relevance to your question.\\n\\nIn the provided context, none of the shown ADRs (ADR.00, ADR.01, ADR.10, ADR.11, ADR.29, ADR.31) mention GraphQL or an architecture decision about adopting or avoiding it.\\n\\nIf you can share additional retrieved ADRs (or search results) that include \u201cGraphQL\u201d (likely an ADR in the remaining 12 of 18 not sh",
+      "latency_ms": 5032,
+      "score": "PASS",
+      "keyword_score": 1.0,
+      "grounded_pass": true,
+      "grounded_pass_strict": true,
+      "hallucination": {
+        "is_hallucination": false,
+        "issues": [],
+        "adr_refs_found": [],
+        "adr_refs_unsupported": []
+      },
+      "sources_count": 5,
+      "actual_route": "semantic",
+      "route_ok": true,
+      "actual_doc_ids": [
+        "ADR.0000",
+        "ADR.0001",
+        "ADR.0010",
+        "ADR.0011",
+        "ADR.0029",
+        "ADR.0031"
+      ],
+      "doc_ids_ok": true,
+      "retrieved_doc_ids": [
+        "ADR.0000",
+        "ADR.0001",
+        "ADR.0002",
+        "ADR.0010",
+        "ADR.0011",
+        "ADR.0012",
+        "ADR.0020",
+        "ADR.0021",
+        "ADR.0022",
+        "ADR.0023",
+        "ADR.0024",
+        "ADR.0025",
+        "ADR.0026",
+        "ADR.0027",
+        "ADR.0028",
+        "ADR.0029",
+        "ADR.0030",
+        "ADR.0031"
+      ],
+      "retrieved_doc_ids_ok": true,
+      "retrieval_debug": {
+        "top_hits": [
+          {
+            "type": "ADR",
+            "title": "ADR.00: Use Markdown Architectural Decision Records",
+            "canonical_id": "ADR.00",
+            "uri": "",
+            "score": 0.6714295148849487,
+            "distance": null,
+            "snippet": "Chosen option: \"MADR 4.0.0\", because\n\n* Implicit assumptions should be made explicit.\n  Design documentation is important to enable people understandi"
+          },
+          {
+            "type": "ADR",
+            "title": "ADR.01: What conventions to use in writing ADRs?",
+            "canonical_id": "ADR.01",
+            "uri": "",
+            "score": 0.5736175179481506,
+            "distance": null,
+            "snippet": "### Template Convention\nFor new Architectural Decision Records (ADRs), use this templates and ajust if required as a starting point:\nthis [adr-templat"
+          },
+          {
+            "type": "ADR",
+            "title": "ADR.10: How to prioritize origins of standardizations",
+            "canonical_id": "ADR.10",
+            "uri": "",
+            "score": 0.5032766461372375,
+            "distance": null,
+            "snippet": "Using international and conceptual standards over domestic or local ones is a requirement in any design,\nespecially in a globalized and interconnected"
+          },
+          {
+            "type": "ADR",
+            "title": "ADR.31: Use an Alliander-Owned Domain for Customer-Facing Services",
+            "canonical_id": "ADR.31",
+            "uri": "",
+            "score": 0.4914945363998413,
+            "distance": null,
+            "snippet": "Alliander must ensure that customers interacting with its digital services can clearly recognise Alliander as the\nauthoritative source of the API. Thi"
+          },
+          {
+            "type": "ADR",
+            "title": "ADR.11: Use standard for describing business functions",
+            "canonical_id": "ADR.11",
+            "uri": "",
+            "score": 0.430829256772995,
+            "distance": null,
+            "snippet": "Chosen option: IEC 61968-1 Business Packages / Functions is leading, because\n\n* Aligns with another international standardized metamodel to achieve se"
+          }
+        ],
+        "raw_object_keys": [
+          "canonical_id",
+          "content",
+          "definition",
+          "distance",
+          "label",
+          "score",
+          "title",
+          "type",
+          "uri"
+        ],
+        "total_retrieved": 26
+      },
+      "fullness": null,
+      "error": null
+    },
+    {
+      "id": "N3",
+      "category": "Negative",
+      "difficulty": "Test",
+      "question": "What does ADR.0050 decide?",
+      "expected_keywords": [],
+      "expect_no_answer": true,
+      "expected_route": "direct_doc",
+      "expected_doc_ids": [],
+      "response": "- ADR.0000 - ADR.00: Use Markdown Architectural Decision Records (accepted)\n- ADR.0001 - ADR.01: What conventions to use in writing ADRs? (accepted)\n- ADR.0002 - ADR.02: Use DACI for Decision-Making Process? (accepted)\n- ADR.0010 - ADR.10: How to prioritize origins of standardizations (accepted)\n- ADR.0011 - ADR.11: Use standard for describing business functions (accepted)\n- ADR.0012 - ADR.12: Use CIM (IEC 61970/61968/62325) as default domain language (accepted)\n- ADR.0020 - ADR.20: Verify Deman",
+      "latency_ms": 341,
+      "score": "WRONG",
+      "keyword_score": 0.0,
+      "grounded_pass": false,
+      "grounded_pass_strict": false,
+      "hallucination": {
+        "is_hallucination": false,
+        "issues": [],
+        "adr_refs_found": [],
+        "adr_refs_unsupported": []
+      },
+      "sources_count": 5,
+      "actual_route": "semantic",
+      "route_ok": false,
+      "actual_doc_ids": [
+        "ADR.0000",
+        "ADR.0001",
+        "ADR.0002",
+        "ADR.0010",
+        "ADR.0011",
+        "ADR.0012",
+        "ADR.0020",
+        "ADR.0021",
+        "ADR.0022",
+        "ADR.0023",
+        "ADR.0024",
+        "ADR.0025",
+        "ADR.0026",
+        "ADR.0027",
+        "ADR.0028",
+        "ADR.0029",
+        "ADR.0030",
+        "ADR.0031"
+      ],
+      "doc_ids_ok": true,
+      "retrieved_doc_ids": [
+        "ADR.0000",
+        "ADR.0001",
+        "ADR.0002",
+        "ADR.0010",
+        "ADR.0011",
+        "ADR.0012",
+        "ADR.0020",
+        "ADR.0021",
+        "ADR.0022",
+        "ADR.0023",
+        "ADR.0024",
+        "ADR.0025",
+        "ADR.0026",
+        "ADR.0027",
+        "ADR.0028",
+        "ADR.0029",
+        "ADR.0030",
+        "ADR.0031"
+      ],
+      "retrieved_doc_ids_ok": true,
+      "retrieval_debug": {
+        "top_hits": [
+          {
+            "type": "Document",
+            "title": "ADR.00: Use Markdown Architectural Decision Records",
+            "canonical_id": "",
+            "uri": "",
+            "score": null,
+            "distance": null
+          },
+          {
+            "type": "Document",
+            "title": "ADR.01: What conventions to use in writing ADRs?",
+            "canonical_id": "",
+            "uri": "",
+            "score": null,
+            "distance": null
+          },
+          {
+            "type": "Document",
+            "title": "ADR.02: Use DACI for Decision-Making Process?",
+            "canonical_id": "",
+            "uri": "",
+            "score": null,
+            "distance": null
+          },
+          {
+            "type": "Document",
+            "title": "ADR.10: How to prioritize origins of standardizations",
+            "canonical_id": "",
+            "uri": "",
+            "score": null,
+            "distance": null
+          },
+          {
+            "type": "Document",
+            "title": "ADR.11: Use standard for describing business functions",
+            "canonical_id": "",
+            "uri": "",
+            "score": null,
+            "distance": null
+          }
+        ],
+        "raw_object_keys": [
+          "adr_number",
+          "doc_type",
+          "file_path",
+          "status",
+          "title"
+        ],
+        "total_retrieved": 18
+      },
+      "fullness": null,
+      "error": null
+    },
+    {
+      "id": "M1",
+      "category": "Meta",
+      "difficulty": "Test",
+      "question": "Which skills did you use to format this output?",
+      "expected_keywords": [
+        "skill",
+        "injection",
+        "format",
+        "response"
+      ],
+      "expected_route": "meta",
+      "expected_doc_ids": [],
+      "response": "I'm not sure what you're looking for. Could you clarify?\n\n- Search the ESA knowledge base\n- List documents (ADRs, principles, policies)\n- Ask about AInstein's capabilities\n\nPlease rephrase your question or pick one of the options above.",
+      "latency_ms": 418,
+      "score": "WRONG",
+      "keyword_score": 0.0,
+      "grounded_pass": false,
+      "grounded_pass_strict": false,
+      "hallucination": {
+        "is_hallucination": true,
+        "issues": [
+          "Substantive response generated with minimal/empty context"
+        ],
+        "adr_refs_found": [],
+        "adr_refs_unsupported": []
+      },
+      "sources_count": 0,
+      "actual_route": "semantic",
+      "route_ok": false,
+      "actual_doc_ids": [],
+      "doc_ids_ok": true,
+      "retrieved_doc_ids": [],
+      "retrieved_doc_ids_ok": true,
+      "retrieval_debug": {
+        "top_hits": [],
+        "raw_object_keys": [],
+        "total_retrieved": 0
+      },
+      "fullness": null,
+      "error": null
+    },
+    {
+      "id": "M4",
+      "category": "Meta",
+      "difficulty": "Test",
+      "question": "Explain your own architecture",
+      "expected_keywords": [
+        "AInstein",
+        "pipeline",
+        "retrieval",
+        "routing"
+      ],
+      "expected_route": "meta",
+      "expected_doc_ids": [],
+      "must_not_contain": [
+        "IEC 61968",
+        "market participant",
+        "DACI"
+      ],
+      "response": "I am **AInstein**, the Energy System Architecture AI Assistant at Alliander.\n\nI search the ESA knowledge base and summarize the relevant records for you. I can help with:\n\n- **Architecture Decision Records** (ADRs) and their approval records\n- **Data governance principles** (PCPs) and their approval records\n- **IEC/CIM vocabulary** and energy sector terminology\n- **Data governance policies** and capabilities\n\nIf I cannot find relevant information in the knowledge base, I will tell you so rather ",
+      "latency_ms": 215,
+      "score": "WRONG",
+      "keyword_score": 0.25,
+      "grounded_pass": false,
+      "grounded_pass_strict": false,
+      "hallucination": {
+        "is_hallucination": true,
+        "issues": [
+          "Substantive response generated with minimal/empty context"
+        ],
+        "adr_refs_found": [],
+        "adr_refs_unsupported": []
+      },
+      "sources_count": 0,
+      "actual_route": "semantic",
+      "route_ok": false,
+      "actual_doc_ids": [],
+      "doc_ids_ok": true,
+      "retrieved_doc_ids": [],
+      "retrieved_doc_ids_ok": true,
+      "retrieval_debug": {
+        "top_hits": [],
+        "raw_object_keys": [],
+        "total_retrieved": 0
+      },
+      "fullness": null,
+      "error": null
+    },
+    {
+      "id": "BA2",
+      "category": "BatchApproval",
+      "difficulty": "Medium",
+      "question": "Who approved PCP.0020?",
+      "expected_keywords": [],
+      "expected_route": "approval",
+      "expected_doc_ids": [
+        "PCP.0020D"
+      ],
+      "response": "{\n  \"schema_version\": \"1.0\",\n  \"answer\": \"I don't have sufficient information in the knowledge base context you provided to answer this confidently. The retrieved documents have low relevance to your question.\\n\\nSpecifically, there is no PCP.20 (or PCP.20D approval record) content included in the provided context, and the only approval record shown is ADR.20D, which is unrelated to PCP.20.\",\n  \"items_shown\": 0,\n  \"items_total\": 18,\n  \"count_qualifier\": \"exact\",\n  \"sources\": [\n    {\n      \"title",
+      "latency_ms": 3925,
+      "score": "PASS",
+      "keyword_score": 1.0,
+      "grounded_pass": true,
+      "grounded_pass_strict": true,
+      "hallucination": {
+        "is_hallucination": false,
+        "issues": [],
+        "adr_refs_found": [],
+        "adr_refs_unsupported": []
+      },
+      "sources_count": 5,
+      "actual_route": "semantic",
+      "route_ok": false,
+      "actual_doc_ids": [
+        "ADR.0020D",
+        "PCP.0020",
+        "PCP.0020D"
+      ],
+      "doc_ids_ok": true,
+      "retrieved_doc_ids": [
+        "ADR.0002",
+        "ADR.0020",
+        "ADR.0020D",
+        "PCP.0017",
+        "PCP.0020D",
+        "PCP.0021D"
+      ],
+      "retrieved_doc_ids_ok": true,
+      "retrieval_debug": {
+        "top_hits": [
+          {
+            "type": "Vocabulary",
+            "title": "Dpc artikel",
+            "canonical_id": "",
+            "uri": "https://vocabs.alliander.com/def/ppt/748",
+            "score": 0.6000000238418579,
+            "distance": null,
+            "snippet": "Diensten Producten Catalogus.\nDit betreft een extern systeem (geen onderdeel van James)."
+          },
+          {
+            "type": "Vocabulary",
+            "title": "ISO 9001",
+            "canonical_id": "",
+            "uri": "https://vocabs.alliander.com/def/ppt/1389",
+            "score": 0.41642579436302185,
+            "distance": null
+          },
+          {
+            "type": "Vocabulary",
+            "title": "Final customer",
+            "canonical_id": "",
+            "uri": "http://data.europa.eu/eli/terms/944-3",
+            "score": 0.3999999761581421,
+            "distance": null,
+            "snippet": "A customer who purchases electricity for own use."
+          },
+          {
+            "type": "ADR",
+            "title": "ADR.20: Verify Demand/Response Products",
+            "canonical_id": "ADR.20",
+            "uri": "",
+            "score": 0.7139458656311035,
+            "distance": null,
+            "snippet": "<!-- markdownlint-disable-next-line MD025 -->\n\n# Verify Demand/Response Products\n\n## Context and Problem Statement\n\nIn operating demand response (D/R)"
+          },
+          {
+            "type": "ADR",
+            "title": "ADR.20D (Approval Record): Decision Approval Record List",
+            "canonical_id": "ADR.20D",
+            "uri": "",
+            "score": 0.6000000238418579,
+            "distance": null,
+            "snippet": "# Decision Approval Record List\n\n## 1. Creation and ESA Approval of ADR.20\n\n| Name                    | Value                                         "
+          }
+        ],
+        "raw_object_keys": [
+          "canonical_id",
+          "content",
+          "definition",
+          "distance",
+          "label",
+          "score",
+          "title",
+          "type",
+          "uri"
+        ],
+        "total_retrieved": 12
+      },
+      "fullness": null,
+      "error": null
+    },
+    {
+      "id": "BA3",
+      "category": "BatchApproval",
+      "difficulty": "Medium",
+      "question": "Who approved PCP.0030?",
+      "expected_keywords": [],
+      "expected_route": "approval",
+      "expected_doc_ids": [
+        "PCP.0030D"
+      ],
+      "response": "I don't have sufficient information to answer this question.\n\n**Reason:** Query terms not well covered by retrieved documents (coverage: 0%).\n\n**Suggestions:**\n- Try rephrasing your question with different terms\n- Check if the topic exists in our knowledge base\n- For terminology questions, verify the term exists in SKOSMOS\n\nIf you believe this information should be available, please contact the ESA team to have it added to the knowledge base.",
+      "latency_ms": 1389,
+      "score": "PASS",
+      "keyword_score": 1.0,
+      "grounded_pass": true,
+      "grounded_pass_strict": true,
+      "hallucination": {
+        "is_hallucination": false,
+        "issues": [],
+        "adr_refs_found": [],
+        "adr_refs_unsupported": []
+      },
+      "sources_count": 5,
+      "actual_route": "semantic",
+      "route_ok": false,
+      "actual_doc_ids": [],
+      "doc_ids_ok": false,
+      "retrieved_doc_ids": [
+        "ADR.0002",
+        "ADR.0020",
+        "ADR.0030D",
+        "PCP.0030D",
+        "PCP.0031D",
+        "PCP.0033D"
+      ],
+      "retrieved_doc_ids_ok": true,
+      "retrieval_debug": {
+        "top_hits": [
+          {
+            "type": "Vocabulary",
+            "title": "Dpc artikel",
+            "canonical_id": "",
+            "uri": "https://vocabs.alliander.com/def/ppt/748",
+            "score": 0.6000000238418579,
+            "distance": null,
+            "snippet": "Diensten Producten Catalogus.\nDit betreft een extern systeem (geen onderdeel van James)."
+          },
+          {
+            "type": "Vocabulary",
+            "title": "Registration organization",
+            "canonical_id": "",
+            "uri": "http://linkeddata.bsigroup.com/pas/1879/RegistrationOrganization",
+            "score": 0.5087451338768005,
+            "distance": null,
+            "snippet": "Entity responsible for approving qualified DSRSPs."
+          },
+          {
+            "type": "Vocabulary",
+            "title": "Profielcategorie (PC)",
+            "canonical_id": "",
+            "uri": "http://linkeddata.overheid.nl/terms/BWBR0037940133",
+            "score": 0.44984641671180725,
+            "distance": null,
+            "snippet": "Een classificering van aansluitingen op grond van objectief vast te stellen kenmerken, zoals aansluitwaarde, schakeltijden, gecontracteerd transportve"
+          },
+          {
+            "type": "ADR",
+            "title": "ADR.30D (Approval Record): Decision Approval Record List",
+            "canonical_id": "ADR.30D",
+            "uri": "",
+            "score": 0.7223729491233826,
+            "distance": null,
+            "snippet": "# Decision Approval Record List\n\n## 1. Creation and ESA Approval of ADR.30\n\n| Name                  | Value                                           "
+          },
+          {
+            "type": "ADR",
+            "title": "ADR.02: Use DACI for Decision-Making Process?",
+            "canonical_id": "ADR.02",
+            "uri": "",
+            "score": 0.6024235486984253,
+            "distance": null,
+            "snippet": "# Use DACI for Decision-Making Process?\n\n## Context and Problem Statement\n\nIn modern software development, systems are becoming increasingly complex, "
+          }
+        ],
+        "raw_object_keys": [
+          "canonical_id",
+          "content",
+          "definition",
+          "distance",
+          "label",
+          "score",
+          "title",
+          "type",
+          "uri"
+        ],
+        "total_retrieved": 12
+      },
+      "fullness": null,
+      "error": null
+    },
+    {
+      "id": "G1",
+      "category": "Grounded",
+      "difficulty": "Easy",
+      "question": "Summarize ADR.0012 using exactly these headings: Problem, Decision, Consequences. Cite ADR.0012.",
+      "expected_keywords": [
+        "ADR.0012",
+        "Problem",
+        "Decision",
+        "Consequences"
+      ],
+      "expected_route": "direct_doc",
+      "expected_doc_ids": [
+        "ADR.0012"
+      ],
+      "response": "- ADR.0000 - ADR.00: Use Markdown Architectural Decision Records (accepted)\n- ADR.0001 - ADR.01: What conventions to use in writing ADRs? (accepted)\n- ADR.0002 - ADR.02: Use DACI for Decision-Making Process? (accepted)\n- ADR.0010 - ADR.10: How to prioritize origins of standardizations (accepted)\n- ADR.0011 - ADR.11: Use standard for describing business functions (accepted)\n- ADR.0012 - ADR.12: Use CIM (IEC 61970/61968/62325) as default domain language (accepted)\n- ADR.0020 - ADR.20: Verify Deman",
+      "latency_ms": 313,
+      "score": "PARTIAL",
+      "keyword_score": 0.5,
+      "grounded_pass": false,
+      "grounded_pass_strict": false,
+      "hallucination": {
+        "is_hallucination": false,
+        "issues": [],
+        "adr_refs_found": [],
+        "adr_refs_unsupported": []
+      },
+      "sources_count": 5,
+      "actual_route": "semantic",
+      "route_ok": false,
+      "actual_doc_ids": [
+        "ADR.0000",
+        "ADR.0001",
+        "ADR.0002",
+        "ADR.0010",
+        "ADR.0011",
+        "ADR.0012",
+        "ADR.0020",
+        "ADR.0021",
+        "ADR.0022",
+        "ADR.0023",
+        "ADR.0024",
+        "ADR.0025",
+        "ADR.0026",
+        "ADR.0027",
+        "ADR.0028",
+        "ADR.0029",
+        "ADR.0030",
+        "ADR.0031"
+      ],
+      "doc_ids_ok": true,
+      "retrieved_doc_ids": [
+        "ADR.0000",
+        "ADR.0001",
+        "ADR.0002",
+        "ADR.0010",
+        "ADR.0011",
+        "ADR.0012",
+        "ADR.0020",
+        "ADR.0021",
+        "ADR.0022",
+        "ADR.0023",
+        "ADR.0024",
+        "ADR.0025",
+        "ADR.0026",
+        "ADR.0027",
+        "ADR.0028",
+        "ADR.0029",
+        "ADR.0030",
+        "ADR.0031"
+      ],
+      "retrieved_doc_ids_ok": true,
+      "retrieval_debug": {
+        "top_hits": [
+          {
+            "type": "Document",
+            "title": "ADR.00: Use Markdown Architectural Decision Records",
+            "canonical_id": "",
+            "uri": "",
+            "score": null,
+            "distance": null
+          },
+          {
+            "type": "Document",
+            "title": "ADR.01: What conventions to use in writing ADRs?",
+            "canonical_id": "",
+            "uri": "",
+            "score": null,
+            "distance": null
+          },
+          {
+            "type": "Document",
+            "title": "ADR.02: Use DACI for Decision-Making Process?",
+            "canonical_id": "",
+            "uri": "",
+            "score": null,
+            "distance": null
+          },
+          {
+            "type": "Document",
+            "title": "ADR.10: How to prioritize origins of standardizations",
+            "canonical_id": "",
+            "uri": "",
+            "score": null,
+            "distance": null
+          },
+          {
+            "type": "Document",
+            "title": "ADR.11: Use standard for describing business functions",
+            "canonical_id": "",
+            "uri": "",
+            "score": null,
+            "distance": null
+          }
+        ],
+        "raw_object_keys": [
+          "adr_number",
+          "doc_type",
+          "file_path",
+          "status",
+          "title"
+        ],
+        "total_retrieved": 18
+      },
+      "fullness": null,
+      "error": null
+    },
+    {
+      "id": "G2",
+      "category": "Grounded",
+      "difficulty": "Easy",
+      "question": "Summarize ADR.0026 using headings: Decision, Rationale, Tradeoffs. Cite ADR.0026.",
+      "expected_keywords": [
+        "ADR.0026",
+        "Decision",
+        "Rationale",
+        "Tradeoffs"
+      ],
+      "expected_route": "direct_doc",
+      "expected_doc_ids": [
+        "ADR.0026"
+      ],
+      "response": "- ADR.0000 - ADR.00: Use Markdown Architectural Decision Records (accepted)\n- ADR.0001 - ADR.01: What conventions to use in writing ADRs? (accepted)\n- ADR.0002 - ADR.02: Use DACI for Decision-Making Process? (accepted)\n- ADR.0010 - ADR.10: How to prioritize origins of standardizations (accepted)\n- ADR.0011 - ADR.11: Use standard for describing business functions (accepted)\n- ADR.0012 - ADR.12: Use CIM (IEC 61970/61968/62325) as default domain language (accepted)\n- ADR.0020 - ADR.20: Verify Deman",
+      "latency_ms": 316,
+      "score": "PARTIAL",
+      "keyword_score": 0.5,
+      "grounded_pass": false,
+      "grounded_pass_strict": false,
+      "hallucination": {
+        "is_hallucination": false,
+        "issues": [],
+        "adr_refs_found": [],
+        "adr_refs_unsupported": []
+      },
+      "sources_count": 5,
+      "actual_route": "semantic",
+      "route_ok": false,
+      "actual_doc_ids": [
+        "ADR.0000",
+        "ADR.0001",
+        "ADR.0002",
+        "ADR.0010",
+        "ADR.0011",
+        "ADR.0012",
+        "ADR.0020",
+        "ADR.0021",
+        "ADR.0022",
+        "ADR.0023",
+        "ADR.0024",
+        "ADR.0025",
+        "ADR.0026",
+        "ADR.0027",
+        "ADR.0028",
+        "ADR.0029",
+        "ADR.0030",
+        "ADR.0031"
+      ],
+      "doc_ids_ok": true,
+      "retrieved_doc_ids": [
+        "ADR.0000",
+        "ADR.0001",
+        "ADR.0002",
+        "ADR.0010",
+        "ADR.0011",
+        "ADR.0012",
+        "ADR.0020",
+        "ADR.0021",
+        "ADR.0022",
+        "ADR.0023",
+        "ADR.0024",
+        "ADR.0025",
+        "ADR.0026",
+        "ADR.0027",
+        "ADR.0028",
+        "ADR.0029",
+        "ADR.0030",
+        "ADR.0031"
+      ],
+      "retrieved_doc_ids_ok": true,
+      "retrieval_debug": {
+        "top_hits": [
+          {
+            "type": "Document",
+            "title": "ADR.00: Use Markdown Architectural Decision Records",
+            "canonical_id": "",
+            "uri": "",
+            "score": null,
+            "distance": null
+          },
+          {
+            "type": "Document",
+            "title": "ADR.01: What conventions to use in writing ADRs?",
+            "canonical_id": "",
+            "uri": "",
+            "score": null,
+            "distance": null
+          },
+          {
+            "type": "Document",
+            "title": "ADR.02: Use DACI for Decision-Making Process?",
+            "canonical_id": "",
+            "uri": "",
+            "score": null,
+            "distance": null
+          },
+          {
+            "type": "Document",
+            "title": "ADR.10: How to prioritize origins of standardizations",
+            "canonical_id": "",
+            "uri": "",
+            "score": null,
+            "distance": null
+          },
+          {
+            "type": "Document",
+            "title": "ADR.11: Use standard for describing business functions",
+            "canonical_id": "",
+            "uri": "",
+            "score": null,
+            "distance": null
+          }
+        ],
+        "raw_object_keys": [
+          "adr_number",
+          "doc_type",
+          "file_path",
+          "status",
+          "title"
+        ],
+        "total_retrieved": 18
+      },
+      "fullness": null,
+      "error": null
+    },
+    {
+      "id": "G3",
+      "category": "Grounded",
+      "difficulty": "Easy",
+      "question": "Summarize ADR.0027 using headings: Status, Decision, Security Implication. Cite ADR.0027.",
+      "expected_keywords": [
+        "ADR.0027",
+        "Status",
+        "Decision",
+        "Security"
+      ],
+      "expected_route": "direct_doc",
+      "expected_doc_ids": [
+        "ADR.0027"
+      ],
+      "response": "- ADR.0000 - ADR.00: Use Markdown Architectural Decision Records (accepted)\n- ADR.0001 - ADR.01: What conventions to use in writing ADRs? (accepted)\n- ADR.0002 - ADR.02: Use DACI for Decision-Making Process? (accepted)\n- ADR.0010 - ADR.10: How to prioritize origins of standardizations (accepted)\n- ADR.0011 - ADR.11: Use standard for describing business functions (accepted)\n- ADR.0012 - ADR.12: Use CIM (IEC 61970/61968/62325) as default domain language (accepted)\n- ADR.0020 - ADR.20: Verify Deman",
+      "latency_ms": 313,
+      "score": "PARTIAL",
+      "keyword_score": 0.5,
+      "grounded_pass": false,
+      "grounded_pass_strict": false,
+      "hallucination": {
+        "is_hallucination": false,
+        "issues": [],
+        "adr_refs_found": [],
+        "adr_refs_unsupported": []
+      },
+      "sources_count": 5,
+      "actual_route": "semantic",
+      "route_ok": false,
+      "actual_doc_ids": [
+        "ADR.0000",
+        "ADR.0001",
+        "ADR.0002",
+        "ADR.0010",
+        "ADR.0011",
+        "ADR.0012",
+        "ADR.0020",
+        "ADR.0021",
+        "ADR.0022",
+        "ADR.0023",
+        "ADR.0024",
+        "ADR.0025",
+        "ADR.0026",
+        "ADR.0027",
+        "ADR.0028",
+        "ADR.0029",
+        "ADR.0030",
+        "ADR.0031"
+      ],
+      "doc_ids_ok": true,
+      "retrieved_doc_ids": [
+        "ADR.0000",
+        "ADR.0001",
+        "ADR.0002",
+        "ADR.0010",
+        "ADR.0011",
+        "ADR.0012",
+        "ADR.0020",
+        "ADR.0021",
+        "ADR.0022",
+        "ADR.0023",
+        "ADR.0024",
+        "ADR.0025",
+        "ADR.0026",
+        "ADR.0027",
+        "ADR.0028",
+        "ADR.0029",
+        "ADR.0030",
+        "ADR.0031"
+      ],
+      "retrieved_doc_ids_ok": true,
+      "retrieval_debug": {
+        "top_hits": [
+          {
+            "type": "Document",
+            "title": "ADR.00: Use Markdown Architectural Decision Records",
+            "canonical_id": "",
+            "uri": "",
+            "score": null,
+            "distance": null
+          },
+          {
+            "type": "Document",
+            "title": "ADR.01: What conventions to use in writing ADRs?",
+            "canonical_id": "",
+            "uri": "",
+            "score": null,
+            "distance": null
+          },
+          {
+            "type": "Document",
+            "title": "ADR.02: Use DACI for Decision-Making Process?",
+            "canonical_id": "",
+            "uri": "",
+            "score": null,
+            "distance": null
+          },
+          {
+            "type": "Document",
+            "title": "ADR.10: How to prioritize origins of standardizations",
+            "canonical_id": "",
+            "uri": "",
+            "score": null,
+            "distance": null
+          },
+          {
+            "type": "Document",
+            "title": "ADR.11: Use standard for describing business functions",
+            "canonical_id": "",
+            "uri": "",
+            "score": null,
+            "distance": null
+          }
+        ],
+        "raw_object_keys": [
+          "adr_number",
+          "doc_type",
+          "file_path",
+          "status",
+          "title"
+        ],
+        "total_retrieved": 18
+      },
+      "fullness": null,
+      "error": null
+    },
+    {
+      "id": "G4",
+      "category": "Grounded",
+      "difficulty": "Easy",
+      "question": "Summarize ADR.0029 using headings: Chosen Standard, Why, Alternatives Considered. Cite ADR.0029.",
+      "expected_keywords": [
+        "ADR.0029",
+        "Standard",
+        "Why",
+        "Alternatives"
+      ],
+      "expected_route": "direct_doc",
+      "expected_doc_ids": [
+        "ADR.0029"
+      ],
+      "response": "- ADR.0000 - ADR.00: Use Markdown Architectural Decision Records (accepted)\n- ADR.0001 - ADR.01: What conventions to use in writing ADRs? (accepted)\n- ADR.0002 - ADR.02: Use DACI for Decision-Making Process? (accepted)\n- ADR.0010 - ADR.10: How to prioritize origins of standardizations (accepted)\n- ADR.0011 - ADR.11: Use standard for describing business functions (accepted)\n- ADR.0012 - ADR.12: Use CIM (IEC 61970/61968/62325) as default domain language (accepted)\n- ADR.0020 - ADR.20: Verify Deman",
+      "latency_ms": 338,
+      "score": "PARTIAL",
+      "keyword_score": 0.5,
+      "grounded_pass": false,
+      "grounded_pass_strict": false,
+      "hallucination": {
+        "is_hallucination": false,
+        "issues": [],
+        "adr_refs_found": [],
+        "adr_refs_unsupported": []
+      },
+      "sources_count": 5,
+      "actual_route": "semantic",
+      "route_ok": false,
+      "actual_doc_ids": [
+        "ADR.0000",
+        "ADR.0001",
+        "ADR.0002",
+        "ADR.0010",
+        "ADR.0011",
+        "ADR.0012",
+        "ADR.0020",
+        "ADR.0021",
+        "ADR.0022",
+        "ADR.0023",
+        "ADR.0024",
+        "ADR.0025",
+        "ADR.0026",
+        "ADR.0027",
+        "ADR.0028",
+        "ADR.0029",
+        "ADR.0030",
+        "ADR.0031"
+      ],
+      "doc_ids_ok": true,
+      "retrieved_doc_ids": [
+        "ADR.0000",
+        "ADR.0001",
+        "ADR.0002",
+        "ADR.0010",
+        "ADR.0011",
+        "ADR.0012",
+        "ADR.0020",
+        "ADR.0021",
+        "ADR.0022",
+        "ADR.0023",
+        "ADR.0024",
+        "ADR.0025",
+        "ADR.0026",
+        "ADR.0027",
+        "ADR.0028",
+        "ADR.0029",
+        "ADR.0030",
+        "ADR.0031"
+      ],
+      "retrieved_doc_ids_ok": true,
+      "retrieval_debug": {
+        "top_hits": [
+          {
+            "type": "Document",
+            "title": "ADR.00: Use Markdown Architectural Decision Records",
+            "canonical_id": "",
+            "uri": "",
+            "score": null,
+            "distance": null
+          },
+          {
+            "type": "Document",
+            "title": "ADR.01: What conventions to use in writing ADRs?",
+            "canonical_id": "",
+            "uri": "",
+            "score": null,
+            "distance": null
+          },
+          {
+            "type": "Document",
+            "title": "ADR.02: Use DACI for Decision-Making Process?",
+            "canonical_id": "",
+            "uri": "",
+            "score": null,
+            "distance": null
+          },
+          {
+            "type": "Document",
+            "title": "ADR.10: How to prioritize origins of standardizations",
+            "canonical_id": "",
+            "uri": "",
+            "score": null,
+            "distance": null
+          },
+          {
+            "type": "Document",
+            "title": "ADR.11: Use standard for describing business functions",
+            "canonical_id": "",
+            "uri": "",
+            "score": null,
+            "distance": null
+          }
+        ],
+        "raw_object_keys": [
+          "adr_number",
+          "doc_type",
+          "file_path",
+          "status",
+          "title"
+        ],
+        "total_retrieved": 18
+      },
+      "fullness": null,
+      "error": null
+    },
+    {
+      "id": "G5",
+      "category": "Grounded",
+      "difficulty": "Medium",
+      "question": "From PCP.0010, give 3 bullet points that explain what it means and why it matters. Cite PCP.0010.",
+      "expected_keywords": [
+        "PCP.0010"
+      ],
+      "expected_route": "direct_doc",
+      "expected_doc_ids": [
+        "PCP.0010"
+      ],
+      "response": "{\n  \"schema_version\": \"1.0\",\n  \"answer\": \"I don't have sufficient information in the knowledge base to answer this confidently. The retrieved documents have low relevance to your question.\\n\\nSpecifically: the provided context does not include PCP.0010 (its title/content), so I cannot extract 3 bullet points about what it means and why it matters, nor cite PCP.0010 as requested.\",\n  \"items_shown\": 0,\n  \"items_total\": 18,\n  \"count_qualifier\": \"exact\",\n  \"sources\": []\n}",
+      "latency_ms": 4672,
+      "score": "PASS",
+      "keyword_score": 1.0,
+      "grounded_pass": true,
+      "grounded_pass_strict": false,
+      "hallucination": {
+        "is_hallucination": false,
+        "issues": [],
+        "adr_refs_found": [],
+        "adr_refs_unsupported": []
+      },
+      "sources_count": 5,
+      "actual_route": "semantic",
+      "route_ok": false,
+      "actual_doc_ids": [
+        "PCP.0010"
+      ],
+      "doc_ids_ok": true,
+      "retrieved_doc_ids": [
+        "ADR.0001",
+        "ADR.0010",
+        "ADR.0030",
+        "PCP.0012",
+        "PCP.0018",
+        "PCP.0039"
+      ],
+      "retrieved_doc_ids_ok": false,
+      "retrieval_debug": {
+        "top_hits": [
+          {
+            "type": "Vocabulary",
+            "title": "Profielcategorie (PC)",
+            "canonical_id": "",
+            "uri": "http://linkeddata.overheid.nl/terms/BWBR0037940133",
+            "score": 0.6000000238418579,
+            "distance": null,
+            "snippet": "Een classificering van aansluitingen op grond van objectief vast te stellen kenmerken, zoals aansluitwaarde, schakeltijden, gecontracteerd transportve"
+          },
+          {
+            "type": "Vocabulary",
+            "title": "Dpc artikel",
+            "canonical_id": "",
+            "uri": "https://vocabs.alliander.com/def/ppt/748",
+            "score": 0.535819411277771,
+            "distance": null,
+            "snippet": "Diensten Producten Catalogus.\nDit betreft een extern systeem (geen onderdeel van James)."
+          },
+          {
+            "type": "Vocabulary",
+            "title": "Primaire componenten",
+            "canonical_id": "",
+            "uri": "https://vocabs.alliander.com/def/ppt/2232",
+            "score": 0.4026288092136383,
+            "distance": null
+          },
+          {
+            "type": "ADR",
+            "title": "ADR.30: Identification Based on Market Participant Persona",
+            "canonical_id": "ADR.30",
+            "uri": "",
+            "score": 0.7474397420883179,
+            "distance": null,
+            "snippet": "<!-- markdownlint-disable-next-line MD025 -->\n\n# Identification Based on Market Participant Persona\n\n## Context and Problem Statement\n\nIn a harmonized"
+          },
+          {
+            "type": "ADR",
+            "title": "ADR.10: How to prioritize origins of standardizations",
+            "canonical_id": "ADR.10",
+            "uri": "",
+            "score": 0.6634454727172852,
+            "distance": null,
+            "snippet": "<!-- markdownlint-disable-next-line MD025 -->\n\n# How to prioritize origins of standardizations\n\n## Context and Problem Statement\n\nHow to prioritize th"
+          }
+        ],
+        "raw_object_keys": [
+          "canonical_id",
+          "content",
+          "definition",
+          "distance",
+          "label",
+          "score",
+          "title",
+          "type",
+          "uri"
+        ],
+        "total_retrieved": 12
+      },
+      "fullness": null,
+      "error": null
+    },
+    {
+      "id": "G6",
+      "category": "Grounded",
+      "difficulty": "Medium",
+      "question": "From PCP.0036, provide 2 do's and 2 don'ts. Cite PCP.0036.",
+      "expected_keywords": [
+        "PCP.0036"
+      ],
+      "expected_route": "direct_doc",
+      "expected_doc_ids": [
+        "PCP.0036"
+      ],
+      "response": "I don't have sufficient information to answer this question.\n\n**Reason:** Query terms not well covered by retrieved documents (coverage: 14%).\n\n**Suggestions:**\n- Try rephrasing your question with different terms\n- Check if the topic exists in our knowledge base\n- For terminology questions, verify the term exists in SKOSMOS\n\nIf you believe this information should be available, please contact the ESA team to have it added to the knowledge base.",
+      "latency_ms": 1658,
+      "score": "WRONG",
+      "keyword_score": 0.0,
+      "grounded_pass": false,
+      "grounded_pass_strict": false,
+      "hallucination": {
+        "is_hallucination": false,
+        "issues": [],
+        "adr_refs_found": [],
+        "adr_refs_unsupported": []
+      },
+      "sources_count": 5,
+      "actual_route": "semantic",
+      "route_ok": false,
+      "actual_doc_ids": [],
+      "doc_ids_ok": false,
+      "retrieved_doc_ids": [
+        "ADR.0002",
+        "ADR.0002D",
+        "ADR.0026",
+        "PCP.0018",
+        "PCP.0019",
+        "PCP.0036D"
+      ],
+      "retrieved_doc_ids_ok": false,
+      "retrieval_debug": {
+        "top_hits": [
+          {
+            "type": "Vocabulary",
+            "title": "Dpc artikel",
+            "canonical_id": "",
+            "uri": "https://vocabs.alliander.com/def/ppt/748",
+            "score": 0.6000000238418579,
+            "distance": null,
+            "snippet": "Diensten Producten Catalogus.\nDit betreft een extern systeem (geen onderdeel van James)."
+          },
+          {
+            "type": "Vocabulary",
+            "title": "Klasse 2 station",
+            "canonical_id": "",
+            "uri": "https://vocabs.alliander.com/def/ppt/1490",
+            "score": 0.3999999761581421,
+            "distance": null,
+            "snippet": "Station met belasting of opwek S &lt; 10 MVA"
+          },
+          {
+            "type": "Vocabulary",
+            "title": "N-2 criterium",
+            "canonical_id": "",
+            "uri": "https://vocabs.alliander.com/def/ppt/1881",
+            "score": 0.3856448829174042,
+            "distance": null,
+            "snippet": "Er wordt voldaan aan het N-2 criterium als bij het wegvallen van twee willekeurige netcomponenten geen onderbreking van de energielevering optreedt, g"
+          },
+          {
+            "type": "ADR",
+            "title": "ADR.26: Ensure Idempotent Exchange of Messages",
+            "canonical_id": "ADR.26",
+            "uri": "",
+            "score": 0.9011490941047668,
+            "distance": null,
+            "snippet": "# Ensure Idempotent Exchange of Messages\n\n## Context and Problem Statement\n\nWhen system operators and market participants in the role of party-connect"
+          },
+          {
+            "type": "ADR",
+            "title": "ADR.02: Use DACI for Decision-Making Process?",
+            "canonical_id": "ADR.02",
+            "uri": "",
+            "score": 0.864970862865448,
+            "distance": null,
+            "snippet": "# Use DACI for Decision-Making Process?\n\n## Context and Problem Statement\n\nIn modern software development, systems are becoming increasingly complex, "
+          }
+        ],
+        "raw_object_keys": [
+          "canonical_id",
+          "content",
+          "definition",
+          "distance",
+          "label",
+          "score",
+          "title",
+          "type",
+          "uri"
+        ],
+        "total_retrieved": 12
+      },
+      "fullness": null,
+      "error": null
+    },
+    {
+      "id": "G7",
+      "category": "Grounded",
+      "difficulty": "Medium",
+      "question": "From PCP.0038, explain the principle in 2 sentences, then give 1 concrete example. Cite PCP.0038.",
+      "expected_keywords": [
+        "PCP.0038",
+        "example"
+      ],
+      "expected_route": "direct_doc",
+      "expected_doc_ids": [
+        "PCP.0038"
+      ],
+      "response": "- PCP.0010 - PCP.10: Principle: Eventual Consistency by Design\n- PCP.0011 - PCP.11: Principle: Need to Know\n- PCP.0012 - PCP.12: Principle: Business-Driven Data Readiness\n- PCP.0013 - PCP.13: Principle: Business-Compliant Storage \u2013 Cost-Efficient Tiering\n- PCP.0014 - PCP.14: Principle: Business-Compliant Storage \u2013 Decision Context Preservation\n- PCP.0015 - PCP.15: Principle: Business-Compliant Storage \u2013 Derived Data Reproduction\n- PCP.0016 - PCP.16: Principle: Make Uncertainty Explicit to Streng",
+      "latency_ms": 324,
+      "score": "PARTIAL",
+      "keyword_score": 0.5,
+      "grounded_pass": false,
+      "grounded_pass_strict": false,
+      "hallucination": {
+        "is_hallucination": false,
+        "issues": [],
+        "adr_refs_found": [],
+        "adr_refs_unsupported": []
+      },
+      "sources_count": 5,
+      "actual_route": "semantic",
+      "route_ok": false,
+      "actual_doc_ids": [
+        "PCP.0010",
+        "PCP.0011",
+        "PCP.0012",
+        "PCP.0013",
+        "PCP.0014",
+        "PCP.0015",
+        "PCP.0016",
+        "PCP.0017",
+        "PCP.0018",
+        "PCP.0019",
+        "PCP.0020",
+        "PCP.0021",
+        "PCP.0022",
+        "PCP.0023",
+        "PCP.0024",
+        "PCP.0025",
+        "PCP.0026",
+        "PCP.0027",
+        "PCP.0028",
+        "PCP.0029",
+        "PCP.0030",
+        "PCP.0031",
+        "PCP.0032",
+        "PCP.0033",
+        "PCP.0034",
+        "PCP.0035",
+        "PCP.0036",
+        "PCP.0037",
+        "PCP.0038",
+        "PCP.0039",
+        "PCP.0040"
+      ],
+      "doc_ids_ok": true,
+      "retrieved_doc_ids": [
+        "PCP.0010",
+        "PCP.0011",
+        "PCP.0012",
+        "PCP.0013",
+        "PCP.0014",
+        "PCP.0015",
+        "PCP.0016",
+        "PCP.0017",
+        "PCP.0018",
+        "PCP.0019",
+        "PCP.0020",
+        "PCP.0021",
+        "PCP.0022",
+        "PCP.0023",
+        "PCP.0024",
+        "PCP.0025",
+        "PCP.0026",
+        "PCP.0027",
+        "PCP.0028",
+        "PCP.0029",
+        "PCP.0030",
+        "PCP.0031",
+        "PCP.0032",
+        "PCP.0033",
+        "PCP.0034",
+        "PCP.0035",
+        "PCP.0036",
+        "PCP.0037",
+        "PCP.0038",
+        "PCP.0039",
+        "PCP.0040"
+      ],
+      "retrieved_doc_ids_ok": true,
+      "retrieval_debug": {
+        "top_hits": [
+          {
+            "type": "principle",
+            "title": "PCP.10: Principle: Eventual Consistency by Design",
+            "canonical_id": "",
+            "uri": "",
+            "score": null,
+            "distance": null
+          },
+          {
+            "type": "principle",
+            "title": "PCP.11: Principle: Need to Know",
+            "canonical_id": "",
+            "uri": "",
+            "score": null,
+            "distance": null
+          },
+          {
+            "type": "principle",
+            "title": "PCP.12: Principle: Business-Driven Data Readiness",
+            "canonical_id": "",
+            "uri": "",
+            "score": null,
+            "distance": null
+          },
+          {
+            "type": "principle",
+            "title": "PCP.13: Principle: Business-Compliant Storage \u2013 Cost-Efficient Tiering",
+            "canonical_id": "",
+            "uri": "",
+            "score": null,
+            "distance": null
+          },
+          {
+            "type": "principle",
+            "title": "PCP.14: Principle: Business-Compliant Storage \u2013 Decision Context Preservation",
+            "canonical_id": "",
+            "uri": "",
+            "score": null,
+            "distance": null
+          }
+        ],
+        "raw_object_keys": [
+          "file_path",
+          "principle_number",
+          "title",
+          "type"
+        ],
+        "total_retrieved": 31
+      },
+      "fullness": null,
+      "error": null
+    },
+    {
+      "id": "G8",
+      "category": "Grounded",
+      "difficulty": "Medium",
+      "question": "Summarize ADR.0025 in 4 bullets: Context, Decision, Consequence, Open Questions. Cite ADR.0025.",
+      "expected_keywords": [
+        "ADR.0025",
+        "Context",
+        "Decision",
+        "Consequence"
+      ],
+      "expected_route": "direct_doc",
+      "expected_doc_ids": [
+        "ADR.0025"
+      ],
+      "response": "- ADR.0000 - ADR.00: Use Markdown Architectural Decision Records (accepted)\n- ADR.0001 - ADR.01: What conventions to use in writing ADRs? (accepted)\n- ADR.0002 - ADR.02: Use DACI for Decision-Making Process? (accepted)\n- ADR.0010 - ADR.10: How to prioritize origins of standardizations (accepted)\n- ADR.0011 - ADR.11: Use standard for describing business functions (accepted)\n- ADR.0012 - ADR.12: Use CIM (IEC 61970/61968/62325) as default domain language (accepted)\n- ADR.0020 - ADR.20: Verify Deman",
+      "latency_ms": 329,
+      "score": "PARTIAL",
+      "keyword_score": 0.5,
+      "grounded_pass": false,
+      "grounded_pass_strict": false,
+      "hallucination": {
+        "is_hallucination": false,
+        "issues": [],
+        "adr_refs_found": [],
+        "adr_refs_unsupported": []
+      },
+      "sources_count": 5,
+      "actual_route": "semantic",
+      "route_ok": false,
+      "actual_doc_ids": [
+        "ADR.0000",
+        "ADR.0001",
+        "ADR.0002",
+        "ADR.0010",
+        "ADR.0011",
+        "ADR.0012",
+        "ADR.0020",
+        "ADR.0021",
+        "ADR.0022",
+        "ADR.0023",
+        "ADR.0024",
+        "ADR.0025",
+        "ADR.0026",
+        "ADR.0027",
+        "ADR.0028",
+        "ADR.0029",
+        "ADR.0030",
+        "ADR.0031"
+      ],
+      "doc_ids_ok": true,
+      "retrieved_doc_ids": [
+        "ADR.0000",
+        "ADR.0001",
+        "ADR.0002",
+        "ADR.0010",
+        "ADR.0011",
+        "ADR.0012",
+        "ADR.0020",
+        "ADR.0021",
+        "ADR.0022",
+        "ADR.0023",
+        "ADR.0024",
+        "ADR.0025",
+        "ADR.0026",
+        "ADR.0027",
+        "ADR.0028",
+        "ADR.0029",
+        "ADR.0030",
+        "ADR.0031"
+      ],
+      "retrieved_doc_ids_ok": true,
+      "retrieval_debug": {
+        "top_hits": [
+          {
+            "type": "Document",
+            "title": "ADR.00: Use Markdown Architectural Decision Records",
+            "canonical_id": "",
+            "uri": "",
+            "score": null,
+            "distance": null
+          },
+          {
+            "type": "Document",
+            "title": "ADR.01: What conventions to use in writing ADRs?",
+            "canonical_id": "",
+            "uri": "",
+            "score": null,
+            "distance": null
+          },
+          {
+            "type": "Document",
+            "title": "ADR.02: Use DACI for Decision-Making Process?",
+            "canonical_id": "",
+            "uri": "",
+            "score": null,
+            "distance": null
+          },
+          {
+            "type": "Document",
+            "title": "ADR.10: How to prioritize origins of standardizations",
+            "canonical_id": "",
+            "uri": "",
+            "score": null,
+            "distance": null
+          },
+          {
+            "type": "Document",
+            "title": "ADR.11: Use standard for describing business functions",
+            "canonical_id": "",
+            "uri": "",
+            "score": null,
+            "distance": null
+          }
+        ],
+        "raw_object_keys": [
+          "adr_number",
+          "doc_type",
+          "file_path",
+          "status",
+          "title"
+        ],
+        "total_retrieved": 18
+      },
+      "fullness": null,
+      "error": null
+    },
+    {
+      "id": "G9",
+      "category": "Grounded",
+      "difficulty": "Medium",
+      "question": "Summarize PCP.0020D in headings: Proposal, Risks, Decision. Cite PCP.0020D.",
+      "expected_keywords": [
+        "PCP.0020D",
+        "Proposal",
+        "Risks",
+        "Decision"
+      ],
+      "expected_route": "direct_doc",
+      "expected_doc_ids": [
+        "PCP.0020D"
+      ],
+      "response": "I don't have sufficient information to answer this question.\n\n**Reason:** Query terms not well covered by retrieved documents (coverage: 12%).\n\n**Suggestions:**\n- Try rephrasing your question with different terms\n- Check if the topic exists in our knowledge base\n- For terminology questions, verify the term exists in SKOSMOS\n\nIf you believe this information should be available, please contact the ESA team to have it added to the knowledge base.",
+      "latency_ms": 569,
+      "score": "WRONG",
+      "keyword_score": 0.0,
+      "grounded_pass": false,
+      "grounded_pass_strict": false,
+      "hallucination": {
+        "is_hallucination": false,
+        "issues": [],
+        "adr_refs_found": [],
+        "adr_refs_unsupported": []
+      },
+      "sources_count": 5,
+      "actual_route": "semantic",
+      "route_ok": false,
+      "actual_doc_ids": [],
+      "doc_ids_ok": false,
+      "retrieved_doc_ids": [
+        "ADR.0000",
+        "ADR.0001",
+        "ADR.0002",
+        "ADR.0010",
+        "ADR.0011",
+        "ADR.0012",
+        "ADR.0020",
+        "ADR.0021",
+        "ADR.0022",
+        "ADR.0023",
+        "ADR.0024",
+        "ADR.0025",
+        "ADR.0026",
+        "ADR.0027",
+        "ADR.0028",
+        "ADR.0029",
+        "ADR.0030",
+        "ADR.0031"
+      ],
+      "retrieved_doc_ids_ok": false,
+      "retrieval_debug": {
+        "top_hits": [
+          {
+            "type": "ADR",
+            "title": "ADR.02: Use DACI for Decision-Making Process?",
+            "canonical_id": "ADR.02",
+            "uri": "",
+            "score": 0.9268015623092651,
+            "distance": null,
+            "snippet": "We will adopt the [DACI](https://www.productplan.com/glossary/daci/)\nframework for our decision-making process. DACI stands for:\n\n- **D**river: Person"
+          },
+          {
+            "type": "ADR",
+            "title": "ADR.25: Provide a unified Demand/Response product interface for market and grid coordination",
+            "canonical_id": "ADR.25",
+            "uri": "",
+            "score": 0.6365373134613037,
+            "distance": null,
+            "snippet": "The adoption and promotion of a unified Demand-Response interface (business, technical) based on existing open\nstandards, ensuring compatibility with "
+          },
+          {
+            "type": "ADR",
+            "title": "ADR.28: Support Flexibility Service Provider Initiated Technical Invalidation of Operating Constraints",
+            "canonical_id": "ADR.28",
+            "uri": "",
+            "score": 0.5989141464233398,
+            "distance": null,
+            "snippet": "The outcome is to implement a formal, message-based invalidation mechanism, so FSPs can explicitly reject or invalidate\nreceived operating constraints"
+          },
+          {
+            "type": "ADR",
+            "title": "ADR.24: Use standard for specifying the energy flow direction in the market domain",
+            "canonical_id": "ADR.24",
+            "uri": "",
+            "score": 0.5873056650161743,
+            "distance": null,
+            "snippet": "The system will adopt the directionality model as defined in the IEC 62325-451 series of message profiles (as\nimplemented by ENTSO-E), to ensure consi"
+          },
+          {
+            "type": "ADR",
+            "title": "ADR.26: Ensure Idempotent Exchange of Messages",
+            "canonical_id": "ADR.26",
+            "uri": "",
+            "score": 0.49340492486953735,
+            "distance": null,
+            "snippet": "The outcome is **Option 1** to enforce idempotent message processing for all system components handling operating\nconstraints."
+          }
+        ],
+        "raw_object_keys": [
+          "canonical_id",
+          "content",
+          "distance",
+          "score",
+          "title",
+          "type"
+        ],
+        "total_retrieved": 18
+      },
+      "fullness": null,
+      "error": null
+    },
+    {
+      "id": "G10",
+      "category": "Grounded",
+      "difficulty": "Medium",
+      "question": "Summarize PCP.0030D in headings: Proposal, Risks, Decision. Cite PCP.0030D.",
+      "expected_keywords": [
+        "PCP.0030D",
+        "Proposal",
+        "Risks",
+        "Decision"
+      ],
+      "expected_route": "direct_doc",
+      "expected_doc_ids": [
+        "PCP.0030D"
+      ],
+      "response": "I don't have sufficient information to answer this question.\n\n**Reason:** Query terms not well covered by retrieved documents (coverage: 12%).\n\n**Suggestions:**\n- Try rephrasing your question with different terms\n- Check if the topic exists in our knowledge base\n- For terminology questions, verify the term exists in SKOSMOS\n\nIf you believe this information should be available, please contact the ESA team to have it added to the knowledge base.",
+      "latency_ms": 592,
+      "score": "WRONG",
+      "keyword_score": 0.0,
+      "grounded_pass": false,
+      "grounded_pass_strict": false,
+      "hallucination": {
+        "is_hallucination": false,
+        "issues": [],
+        "adr_refs_found": [],
+        "adr_refs_unsupported": []
+      },
+      "sources_count": 5,
+      "actual_route": "semantic",
+      "route_ok": false,
+      "actual_doc_ids": [],
+      "doc_ids_ok": false,
+      "retrieved_doc_ids": [
+        "ADR.0000",
+        "ADR.0001",
+        "ADR.0002",
+        "ADR.0010",
+        "ADR.0011",
+        "ADR.0012",
+        "ADR.0020",
+        "ADR.0021",
+        "ADR.0022",
+        "ADR.0023",
+        "ADR.0024",
+        "ADR.0025",
+        "ADR.0026",
+        "ADR.0027",
+        "ADR.0028",
+        "ADR.0029",
+        "ADR.0030",
+        "ADR.0031"
+      ],
+      "retrieved_doc_ids_ok": false,
+      "retrieval_debug": {
+        "top_hits": [
+          {
+            "type": "ADR",
+            "title": "ADR.02: Use DACI for Decision-Making Process?",
+            "canonical_id": "ADR.02",
+            "uri": "",
+            "score": 0.9097086191177368,
+            "distance": null,
+            "snippet": "We will adopt the [DACI](https://www.productplan.com/glossary/daci/)\nframework for our decision-making process. DACI stands for:\n\n- **D**river: Person"
+          },
+          {
+            "type": "ADR",
+            "title": "ADR.25: Provide a unified Demand/Response product interface for market and grid coordination",
+            "canonical_id": "ADR.25",
+            "uri": "",
+            "score": 0.7119075059890747,
+            "distance": null,
+            "snippet": "The adoption and promotion of a unified Demand-Response interface (business, technical) based on existing open\nstandards, ensuring compatibility with "
+          },
+          {
+            "type": "ADR",
+            "title": "ADR.28: Support Flexibility Service Provider Initiated Technical Invalidation of Operating Constraints",
+            "canonical_id": "ADR.28",
+            "uri": "",
+            "score": 0.6890523433685303,
+            "distance": null,
+            "snippet": "The outcome is to implement a formal, message-based invalidation mechanism, so FSPs can explicitly reject or invalidate\nreceived operating constraints"
+          },
+          {
+            "type": "ADR",
+            "title": "ADR.24: Use standard for specifying the energy flow direction in the market domain",
+            "canonical_id": "ADR.24",
+            "uri": "",
+            "score": 0.623077392578125,
+            "distance": null,
+            "snippet": "The system will adopt the directionality model as defined in the IEC 62325-451 series of message profiles (as\nimplemented by ENTSO-E), to ensure consi"
+          },
+          {
+            "type": "ADR",
+            "title": "ADR.26: Ensure Idempotent Exchange of Messages",
+            "canonical_id": "ADR.26",
+            "uri": "",
+            "score": 0.572897732257843,
+            "distance": null,
+            "snippet": "The outcome is **Option 1** to enforce idempotent message processing for all system components handling operating\nconstraints."
+          }
+        ],
+        "raw_object_keys": [
+          "canonical_id",
+          "content",
+          "distance",
+          "score",
+          "title",
+          "type"
+        ],
+        "total_retrieved": 18
+      },
+      "fullness": null,
+      "error": null
+    },
+    {
+      "id": "R1",
+      "category": "NearMiss",
+      "difficulty": "Medium",
+      "question": "Which ADR explains why CIM was chosen as the default domain language? Answer with the ADR id only.",
+      "expected_keywords": [
+        "ADR.0012"
+      ],
+      "expected_route": "semantic",
+      "expected_doc_ids": [
+        "ADR.0012"
+      ],
+      "must_not_contain": [
+        "ADR.0026",
+        "ADR.0027",
+        "ADR.0029"
+      ],
+      "response": "- ADR.0000 - ADR.00: Use Markdown Architectural Decision Records (accepted)\n- ADR.0001 - ADR.01: What conventions to use in writing ADRs? (accepted)\n- ADR.0002 - ADR.02: Use DACI for Decision-Making Process? (accepted)\n- ADR.0010 - ADR.10: How to prioritize origins of standardizations (accepted)\n- ADR.0011 - ADR.11: Use standard for describing business functions (accepted)\n- ADR.0012 - ADR.12: Use CIM (IEC 61970/61968/62325) as default domain language (accepted)\n- ADR.0020 - ADR.20: Verify Deman",
+      "latency_ms": 361,
+      "score": "WRONG",
+      "keyword_score": 1.0,
+      "grounded_pass": false,
+      "grounded_pass_strict": false,
+      "hallucination": {
+        "is_hallucination": false,
+        "issues": [],
+        "adr_refs_found": [],
+        "adr_refs_unsupported": []
+      },
+      "sources_count": 5,
+      "actual_route": "semantic",
+      "route_ok": true,
+      "actual_doc_ids": [
+        "ADR.0000",
+        "ADR.0001",
+        "ADR.0002",
+        "ADR.0010",
+        "ADR.0011",
+        "ADR.0012",
+        "ADR.0020",
+        "ADR.0021",
+        "ADR.0022",
+        "ADR.0023",
+        "ADR.0024",
+        "ADR.0025",
+        "ADR.0026",
+        "ADR.0027",
+        "ADR.0028",
+        "ADR.0029",
+        "ADR.0030",
+        "ADR.0031"
+      ],
+      "doc_ids_ok": true,
+      "retrieved_doc_ids": [
+        "ADR.0000",
+        "ADR.0001",
+        "ADR.0002",
+        "ADR.0010",
+        "ADR.0011",
+        "ADR.0012",
+        "ADR.0020",
+        "ADR.0021",
+        "ADR.0022",
+        "ADR.0023",
+        "ADR.0024",
+        "ADR.0025",
+        "ADR.0026",
+        "ADR.0027",
+        "ADR.0028",
+        "ADR.0029",
+        "ADR.0030",
+        "ADR.0031"
+      ],
+      "retrieved_doc_ids_ok": true,
+      "retrieval_debug": {
+        "top_hits": [
+          {
+            "type": "Document",
+            "title": "ADR.00: Use Markdown Architectural Decision Records",
+            "canonical_id": "",
+            "uri": "",
+            "score": null,
+            "distance": null
+          },
+          {
+            "type": "Document",
+            "title": "ADR.01: What conventions to use in writing ADRs?",
+            "canonical_id": "",
+            "uri": "",
+            "score": null,
+            "distance": null
+          },
+          {
+            "type": "Document",
+            "title": "ADR.02: Use DACI for Decision-Making Process?",
+            "canonical_id": "",
+            "uri": "",
+            "score": null,
+            "distance": null
+          },
+          {
+            "type": "Document",
+            "title": "ADR.10: How to prioritize origins of standardizations",
+            "canonical_id": "",
+            "uri": "",
+            "score": null,
+            "distance": null
+          },
+          {
+            "type": "Document",
+            "title": "ADR.11: Use standard for describing business functions",
+            "canonical_id": "",
+            "uri": "",
+            "score": null,
+            "distance": null
+          }
+        ],
+        "raw_object_keys": [
+          "adr_number",
+          "doc_type",
+          "file_path",
+          "status",
+          "title"
+        ],
+        "total_retrieved": 18
+      },
+      "fullness": null,
+      "error": null
+    },
+    {
+      "id": "R2",
+      "category": "NearMiss",
+      "difficulty": "Medium",
+      "question": "Which ADR chose the authentication and authorization standard? Answer with the ADR id only.",
+      "expected_keywords": [
+        "ADR.0029"
+      ],
+      "expected_route": "semantic",
+      "expected_doc_ids": [
+        "ADR.0029"
+      ],
+      "must_not_contain": [
+        "ADR.0012",
+        "ADR.0026",
+        "ADR.0027"
+      ],
+      "response": "- ADR.0000 - ADR.00: Use Markdown Architectural Decision Records (accepted)\n- ADR.0001 - ADR.01: What conventions to use in writing ADRs? (accepted)\n- ADR.0002 - ADR.02: Use DACI for Decision-Making Process? (accepted)\n- ADR.0010 - ADR.10: How to prioritize origins of standardizations (accepted)\n- ADR.0011 - ADR.11: Use standard for describing business functions (accepted)\n- ADR.0012 - ADR.12: Use CIM (IEC 61970/61968/62325) as default domain language (accepted)\n- ADR.0020 - ADR.20: Verify Deman",
+      "latency_ms": 328,
+      "score": "WRONG",
+      "keyword_score": 1.0,
+      "grounded_pass": false,
+      "grounded_pass_strict": false,
+      "hallucination": {
+        "is_hallucination": false,
+        "issues": [],
+        "adr_refs_found": [],
+        "adr_refs_unsupported": []
+      },
+      "sources_count": 5,
+      "actual_route": "semantic",
+      "route_ok": true,
+      "actual_doc_ids": [
+        "ADR.0000",
+        "ADR.0001",
+        "ADR.0002",
+        "ADR.0010",
+        "ADR.0011",
+        "ADR.0012",
+        "ADR.0020",
+        "ADR.0021",
+        "ADR.0022",
+        "ADR.0023",
+        "ADR.0024",
+        "ADR.0025",
+        "ADR.0026",
+        "ADR.0027",
+        "ADR.0028",
+        "ADR.0029",
+        "ADR.0030",
+        "ADR.0031"
+      ],
+      "doc_ids_ok": true,
+      "retrieved_doc_ids": [
+        "ADR.0000",
+        "ADR.0001",
+        "ADR.0002",
+        "ADR.0010",
+        "ADR.0011",
+        "ADR.0012",
+        "ADR.0020",
+        "ADR.0021",
+        "ADR.0022",
+        "ADR.0023",
+        "ADR.0024",
+        "ADR.0025",
+        "ADR.0026",
+        "ADR.0027",
+        "ADR.0028",
+        "ADR.0029",
+        "ADR.0030",
+        "ADR.0031"
+      ],
+      "retrieved_doc_ids_ok": true,
+      "retrieval_debug": {
+        "top_hits": [
+          {
+            "type": "Document",
+            "title": "ADR.00: Use Markdown Architectural Decision Records",
+            "canonical_id": "",
+            "uri": "",
+            "score": null,
+            "distance": null
+          },
+          {
+            "type": "Document",
+            "title": "ADR.01: What conventions to use in writing ADRs?",
+            "canonical_id": "",
+            "uri": "",
+            "score": null,
+            "distance": null
+          },
+          {
+            "type": "Document",
+            "title": "ADR.02: Use DACI for Decision-Making Process?",
+            "canonical_id": "",
+            "uri": "",
+            "score": null,
+            "distance": null
+          },
+          {
+            "type": "Document",
+            "title": "ADR.10: How to prioritize origins of standardizations",
+            "canonical_id": "",
+            "uri": "",
+            "score": null,
+            "distance": null
+          },
+          {
+            "type": "Document",
+            "title": "ADR.11: Use standard for describing business functions",
+            "canonical_id": "",
+            "uri": "",
+            "score": null,
+            "distance": null
+          }
+        ],
+        "raw_object_keys": [
+          "adr_number",
+          "doc_type",
+          "file_path",
+          "status",
+          "title"
+        ],
+        "total_retrieved": 18
+      },
+      "fullness": null,
+      "error": null
+    },
+    {
+      "id": "R3",
+      "category": "NearMiss",
+      "difficulty": "Medium",
+      "question": "Which ADR covers how message exchange should be handled in distributed systems? Answer with the ADR id only.",
+      "expected_keywords": [
+        "ADR.0026"
+      ],
+      "expected_route": "semantic",
+      "expected_doc_ids": [
+        "ADR.0026"
+      ],
+      "must_not_contain": [
+        "ADR.0012",
+        "ADR.0027",
+        "ADR.0029"
+      ],
+      "response": "- ADR.0000 - ADR.00: Use Markdown Architectural Decision Records (accepted)\n- ADR.0001 - ADR.01: What conventions to use in writing ADRs? (accepted)\n- ADR.0002 - ADR.02: Use DACI for Decision-Making Process? (accepted)\n- ADR.0010 - ADR.10: How to prioritize origins of standardizations (accepted)\n- ADR.0011 - ADR.11: Use standard for describing business functions (accepted)\n- ADR.0012 - ADR.12: Use CIM (IEC 61970/61968/62325) as default domain language (accepted)\n- ADR.0020 - ADR.20: Verify Deman",
+      "latency_ms": 374,
+      "score": "WRONG",
+      "keyword_score": 1.0,
+      "grounded_pass": false,
+      "grounded_pass_strict": false,
+      "hallucination": {
+        "is_hallucination": false,
+        "issues": [],
+        "adr_refs_found": [],
+        "adr_refs_unsupported": []
+      },
+      "sources_count": 5,
+      "actual_route": "semantic",
+      "route_ok": true,
+      "actual_doc_ids": [
+        "ADR.0000",
+        "ADR.0001",
+        "ADR.0002",
+        "ADR.0010",
+        "ADR.0011",
+        "ADR.0012",
+        "ADR.0020",
+        "ADR.0021",
+        "ADR.0022",
+        "ADR.0023",
+        "ADR.0024",
+        "ADR.0025",
+        "ADR.0026",
+        "ADR.0027",
+        "ADR.0028",
+        "ADR.0029",
+        "ADR.0030",
+        "ADR.0031"
+      ],
+      "doc_ids_ok": true,
+      "retrieved_doc_ids": [
+        "ADR.0000",
+        "ADR.0001",
+        "ADR.0002",
+        "ADR.0010",
+        "ADR.0011",
+        "ADR.0012",
+        "ADR.0020",
+        "ADR.0021",
+        "ADR.0022",
+        "ADR.0023",
+        "ADR.0024",
+        "ADR.0025",
+        "ADR.0026",
+        "ADR.0027",
+        "ADR.0028",
+        "ADR.0029",
+        "ADR.0030",
+        "ADR.0031"
+      ],
+      "retrieved_doc_ids_ok": true,
+      "retrieval_debug": {
+        "top_hits": [
+          {
+            "type": "Document",
+            "title": "ADR.00: Use Markdown Architectural Decision Records",
+            "canonical_id": "",
+            "uri": "",
+            "score": null,
+            "distance": null
+          },
+          {
+            "type": "Document",
+            "title": "ADR.01: What conventions to use in writing ADRs?",
+            "canonical_id": "",
+            "uri": "",
+            "score": null,
+            "distance": null
+          },
+          {
+            "type": "Document",
+            "title": "ADR.02: Use DACI for Decision-Making Process?",
+            "canonical_id": "",
+            "uri": "",
+            "score": null,
+            "distance": null
+          },
+          {
+            "type": "Document",
+            "title": "ADR.10: How to prioritize origins of standardizations",
+            "canonical_id": "",
+            "uri": "",
+            "score": null,
+            "distance": null
+          },
+          {
+            "type": "Document",
+            "title": "ADR.11: Use standard for describing business functions",
+            "canonical_id": "",
+            "uri": "",
+            "score": null,
+            "distance": null
+          }
+        ],
+        "raw_object_keys": [
+          "adr_number",
+          "doc_type",
+          "file_path",
+          "status",
+          "title"
+        ],
+        "total_retrieved": 18
+      },
+      "fullness": null,
+      "error": null
+    },
+    {
+      "id": "R4",
+      "category": "NearMiss",
+      "difficulty": "Medium",
+      "question": "Which ADR is about TLS security? Answer with the ADR id only.",
+      "expected_keywords": [
+        "ADR.0027"
+      ],
+      "expected_route": "semantic",
+      "expected_doc_ids": [
+        "ADR.0027"
+      ],
+      "must_not_contain": [
+        "ADR.0012",
+        "ADR.0026",
+        "ADR.0029"
+      ],
+      "response": "- ADR.0000 - ADR.00: Use Markdown Architectural Decision Records (accepted)\n- ADR.0001 - ADR.01: What conventions to use in writing ADRs? (accepted)\n- ADR.0002 - ADR.02: Use DACI for Decision-Making Process? (accepted)\n- ADR.0010 - ADR.10: How to prioritize origins of standardizations (accepted)\n- ADR.0011 - ADR.11: Use standard for describing business functions (accepted)\n- ADR.0012 - ADR.12: Use CIM (IEC 61970/61968/62325) as default domain language (accepted)\n- ADR.0020 - ADR.20: Verify Deman",
+      "latency_ms": 376,
+      "score": "WRONG",
+      "keyword_score": 1.0,
+      "grounded_pass": false,
+      "grounded_pass_strict": false,
+      "hallucination": {
+        "is_hallucination": false,
+        "issues": [],
+        "adr_refs_found": [],
+        "adr_refs_unsupported": []
+      },
+      "sources_count": 5,
+      "actual_route": "semantic",
+      "route_ok": true,
+      "actual_doc_ids": [
+        "ADR.0000",
+        "ADR.0001",
+        "ADR.0002",
+        "ADR.0010",
+        "ADR.0011",
+        "ADR.0012",
+        "ADR.0020",
+        "ADR.0021",
+        "ADR.0022",
+        "ADR.0023",
+        "ADR.0024",
+        "ADR.0025",
+        "ADR.0026",
+        "ADR.0027",
+        "ADR.0028",
+        "ADR.0029",
+        "ADR.0030",
+        "ADR.0031"
+      ],
+      "doc_ids_ok": true,
+      "retrieved_doc_ids": [
+        "ADR.0000",
+        "ADR.0001",
+        "ADR.0002",
+        "ADR.0010",
+        "ADR.0011",
+        "ADR.0012",
+        "ADR.0020",
+        "ADR.0021",
+        "ADR.0022",
+        "ADR.0023",
+        "ADR.0024",
+        "ADR.0025",
+        "ADR.0026",
+        "ADR.0027",
+        "ADR.0028",
+        "ADR.0029",
+        "ADR.0030",
+        "ADR.0031"
+      ],
+      "retrieved_doc_ids_ok": true,
+      "retrieval_debug": {
+        "top_hits": [
+          {
+            "type": "Document",
+            "title": "ADR.00: Use Markdown Architectural Decision Records",
+            "canonical_id": "",
+            "uri": "",
+            "score": null,
+            "distance": null
+          },
+          {
+            "type": "Document",
+            "title": "ADR.01: What conventions to use in writing ADRs?",
+            "canonical_id": "",
+            "uri": "",
+            "score": null,
+            "distance": null
+          },
+          {
+            "type": "Document",
+            "title": "ADR.02: Use DACI for Decision-Making Process?",
+            "canonical_id": "",
+            "uri": "",
+            "score": null,
+            "distance": null
+          },
+          {
+            "type": "Document",
+            "title": "ADR.10: How to prioritize origins of standardizations",
+            "canonical_id": "",
+            "uri": "",
+            "score": null,
+            "distance": null
+          },
+          {
+            "type": "Document",
+            "title": "ADR.11: Use standard for describing business functions",
+            "canonical_id": "",
+            "uri": "",
+            "score": null,
+            "distance": null
+          }
+        ],
+        "raw_object_keys": [
+          "adr_number",
+          "doc_type",
+          "file_path",
+          "status",
+          "title"
+        ],
+        "total_retrieved": 18
+      },
+      "fullness": null,
+      "error": null
+    },
+    {
+      "id": "R5",
+      "category": "NearMiss",
+      "difficulty": "Medium",
+      "question": "Which PCP principle covers data access control? Answer with the PCP id only.",
+      "expected_keywords": [
+        "PCP.0038"
+      ],
+      "expected_route": "semantic",
+      "expected_doc_ids": [
+        "PCP.0038"
+      ],
+      "must_not_contain": [
+        "PCP.0010",
+        "PCP.0036"
+      ],
+      "response": "- PCP.0010 - PCP.10: Principle: Eventual Consistency by Design\n- PCP.0011 - PCP.11: Principle: Need to Know\n- PCP.0012 - PCP.12: Principle: Business-Driven Data Readiness\n- PCP.0013 - PCP.13: Principle: Business-Compliant Storage \u2013 Cost-Efficient Tiering\n- PCP.0014 - PCP.14: Principle: Business-Compliant Storage \u2013 Decision Context Preservation\n- PCP.0015 - PCP.15: Principle: Business-Compliant Storage \u2013 Derived Data Reproduction\n- PCP.0016 - PCP.16: Principle: Make Uncertainty Explicit to Streng",
+      "latency_ms": 386,
+      "score": "WRONG",
+      "keyword_score": 1.0,
+      "grounded_pass": false,
+      "grounded_pass_strict": false,
+      "hallucination": {
+        "is_hallucination": false,
+        "issues": [],
+        "adr_refs_found": [],
+        "adr_refs_unsupported": []
+      },
+      "sources_count": 5,
+      "actual_route": "semantic",
+      "route_ok": true,
+      "actual_doc_ids": [
+        "PCP.0010",
+        "PCP.0011",
+        "PCP.0012",
+        "PCP.0013",
+        "PCP.0014",
+        "PCP.0015",
+        "PCP.0016",
+        "PCP.0017",
+        "PCP.0018",
+        "PCP.0019",
+        "PCP.0020",
+        "PCP.0021",
+        "PCP.0022",
+        "PCP.0023",
+        "PCP.0024",
+        "PCP.0025",
+        "PCP.0026",
+        "PCP.0027",
+        "PCP.0028",
+        "PCP.0029",
+        "PCP.0030",
+        "PCP.0031",
+        "PCP.0032",
+        "PCP.0033",
+        "PCP.0034",
+        "PCP.0035",
+        "PCP.0036",
+        "PCP.0037",
+        "PCP.0038",
+        "PCP.0039",
+        "PCP.0040"
+      ],
+      "doc_ids_ok": true,
+      "retrieved_doc_ids": [
+        "PCP.0010",
+        "PCP.0011",
+        "PCP.0012",
+        "PCP.0013",
+        "PCP.0014",
+        "PCP.0015",
+        "PCP.0016",
+        "PCP.0017",
+        "PCP.0018",
+        "PCP.0019",
+        "PCP.0020",
+        "PCP.0021",
+        "PCP.0022",
+        "PCP.0023",
+        "PCP.0024",
+        "PCP.0025",
+        "PCP.0026",
+        "PCP.0027",
+        "PCP.0028",
+        "PCP.0029",
+        "PCP.0030",
+        "PCP.0031",
+        "PCP.0032",
+        "PCP.0033",
+        "PCP.0034",
+        "PCP.0035",
+        "PCP.0036",
+        "PCP.0037",
+        "PCP.0038",
+        "PCP.0039",
+        "PCP.0040"
+      ],
+      "retrieved_doc_ids_ok": true,
+      "retrieval_debug": {
+        "top_hits": [
+          {
+            "type": "principle",
+            "title": "PCP.10: Principle: Eventual Consistency by Design",
+            "canonical_id": "",
+            "uri": "",
+            "score": null,
+            "distance": null
+          },
+          {
+            "type": "principle",
+            "title": "PCP.11: Principle: Need to Know",
+            "canonical_id": "",
+            "uri": "",
+            "score": null,
+            "distance": null
+          },
+          {
+            "type": "principle",
+            "title": "PCP.12: Principle: Business-Driven Data Readiness",
+            "canonical_id": "",
+            "uri": "",
+            "score": null,
+            "distance": null
+          },
+          {
+            "type": "principle",
+            "title": "PCP.13: Principle: Business-Compliant Storage \u2013 Cost-Efficient Tiering",
+            "canonical_id": "",
+            "uri": "",
+            "score": null,
+            "distance": null
+          },
+          {
+            "type": "principle",
+            "title": "PCP.14: Principle: Business-Compliant Storage \u2013 Decision Context Preservation",
+            "canonical_id": "",
+            "uri": "",
+            "score": null,
+            "distance": null
+          }
+        ],
+        "raw_object_keys": [
+          "file_path",
+          "principle_number",
+          "title",
+          "type"
+        ],
+        "total_retrieved": 31
+      },
+      "fullness": null,
+      "error": null
+    }
+  ],
+  "diagnosis_by_category": {
+    "Vocabulary": {
+      "answer_quality": [
+        "V6",
+        "V8"
+      ]
+    },
+    "ADR": {
+      "retrieval": [
+        "A3",
+        "A4"
+      ]
+    },
+    "Fullness": {
+      "routing": [
+        "F1",
+        "F2",
+        "F3"
+      ]
+    },
+    "Principle": {
+      "answer_quality": [
+        "P1",
+        "P3",
+        "P5"
+      ],
+      "hallucination": [
+        "P4"
+      ]
+    },
+    "Policy": {
+      "hallucination": [
+        "PO3"
+      ]
+    },
+    "Cross-Domain": {
+      "retrieval": [
+        "X1"
+      ],
+      "answer_quality": [
+        "X4"
+      ]
+    },
+    "Disambiguation": {
+      "answer_quality": [
+        "D1"
+      ]
+    },
+    "Negative": {
+      "routing": [
+        "N3"
+      ]
+    },
+    "Meta": {
+      "routing": [
+        "M1",
+        "M4"
+      ]
+    },
+    "Grounded": {
+      "routing": [
+        "G1",
+        "G2",
+        "G3",
+        "G4",
+        "G6",
+        "G7",
+        "G8",
+        "G9",
+        "G10"
+      ]
+    },
+    "NearMiss": {
+      "answer_quality": [
+        "R1",
+        "R2",
+        "R3",
+        "R4",
+        "R5"
+      ]
+    }
+  },
+  "dashboard": {
+    "overall_accuracy": "12/44 (27.3%)",
+    "grounded_strict_accuracy": "11/44 (25.0%)",
+    "retrieval_accuracy": "35/44 (79.5%)",
+    "citation_accuracy": "21/22 (95.5%)",
+    "hallucination_rate": "4/44 (9.1%)"
+  }
+}

@@ -1582,29 +1582,110 @@ async def run_tests(provider: str = "ollama", model: str = None, quick: bool = F
         if formatter_bugs:
             print(f"  Formatter bugs:     {', '.join(r['id'] for r in formatter_bugs)}")
 
-    # Top failing IDs by diagnosis
+    # Classify each non-PASS result by diagnosis
+    def _classify_diagnosis(r):
+        has_route = r.get("route_ok")
+        is_halluc = r.get("hallucination", {}).get("is_hallucination", False) if r.get("hallucination") else False
+        has_retr = r.get("retrieved_doc_ids_ok")
+        has_cite = r.get("doc_ids_ok")
+        if not has_route:
+            return "routing"
+        elif is_halluc:
+            return "hallucination"
+        elif r.get("expected_doc_ids") and not has_retr:
+            return "retrieval"
+        elif r.get("expected_doc_ids") and has_retr and not has_cite:
+            return "citation"
+        else:
+            return "answer_quality"
+
     failing_ids = [r for r in results if r["score"] not in ("PASS", "error")]
     if failing_ids:
         print()
         print("Top Failing IDs by Diagnosis:")
         for r in failing_ids[:10]:
-            rid = r["id"]
-            score = r["score"]
-            has_retr = r.get("retrieved_doc_ids_ok")
-            has_cite = r.get("doc_ids_ok")
-            has_route = r.get("route_ok")
-            is_halluc = r.get("hallucination", {}).get("is_hallucination", False) if r.get("hallucination") else False
-            if not has_route:
-                diag = "routing"
-            elif is_halluc:
-                diag = "hallucination"
-            elif r.get("expected_doc_ids") and not has_retr:
-                diag = "retrieval"
-            elif r.get("expected_doc_ids") and has_retr and not has_cite:
-                diag = "citation"
-            else:
-                diag = "answer_quality"
-            print(f"  {rid:6s} {score:12s} diag={diag}")
+            diag = _classify_diagnosis(r)
+            print(f"  {r['id']:6s} {r['score']:12s} diag={diag}")
+
+        # Diagnosis breakdown by category
+        diag_by_cat = {}  # {category: {diagnosis: [ids]}}
+        for r in failing_ids:
+            cat = r["category"]
+            diag = _classify_diagnosis(r)
+            if cat not in diag_by_cat:
+                diag_by_cat[cat] = {}
+            if diag not in diag_by_cat[cat]:
+                diag_by_cat[cat][diag] = []
+            diag_by_cat[cat][diag].append(r["id"])
+
+        print()
+        print("Diagnosis by Category:")
+        for cat in sorted(diag_by_cat.keys()):
+            diag_parts = []
+            for diag_type in ["routing", "retrieval", "citation", "hallucination", "answer_quality"]:
+                ids_list = diag_by_cat[cat].get(diag_type, [])
+                if ids_list:
+                    diag_parts.append(f"{diag_type}={len(ids_list)}")
+            cat_total = sum(len(v) for v in diag_by_cat[cat].values())
+            print(f"  {cat:17s} failures={cat_total:2d}  {', '.join(diag_parts)}")
+            for diag_type in ["routing", "retrieval", "citation", "hallucination", "answer_quality"]:
+                ids_list = diag_by_cat[cat].get(diag_type, [])
+                if ids_list:
+                    print(f"    {diag_type:15s} {', '.join(ids_list)}")
+
+    # Dashboard table (lead dev's requested metrics)
+    print()
+    print(f"{'='*60}")
+    print("DASHBOARD")
+    print(f"{'='*60}")
+    non_error = [r for r in results if r["score"] != "error"]
+    n = len(non_error)
+    if n > 0:
+        # Count diagnosis types across ALL non-error results (not just failures)
+        diag_counts = {"routing": 0, "retrieval": 0, "citation": 0,
+                       "hallucination": 0, "answer_quality": 0}
+        for r in failing_ids:
+            diag = _classify_diagnosis(r)
+            diag_counts[diag] += 1
+
+        # Citation accuracy: among questions where retrieval succeeded and expected docs exist
+        cite_eligible = [r for r in non_error if r.get("retrieved_doc_ids_ok") and r.get("expected_doc_ids")]
+        cite_ok = sum(1 for r in cite_eligible if r.get("doc_ids_ok"))
+        cite_n = len(cite_eligible)
+
+        print(f"  overall_accuracy:         {correct}/{n} ({correct/n*100:.1f}%)")
+        print(f"  grounded_strict_accuracy: {grounded_strict_count}/{n} ({grounded_strict_count/n*100:.1f}%)")
+        print(f"  retrieval_accuracy:       {retrieved_doc_ids_ok_count}/{n} ({retrieved_doc_ids_ok_count/n*100:.1f}%)")
+        print(f"  citation_accuracy:        {cite_ok}/{cite_n} ({cite_ok/cite_n*100:.1f}%)" if cite_n else "  citation_accuracy:        N/A (no eligible questions)")
+        print(f"  hallucination_rate:       {hallucinations}/{n} ({hallucinations/n*100:.1f}%)")
+        print()
+        print(f"  Diagnosis counts (failures only, n={len(failing_ids)}):")
+        for diag_type in ["routing", "retrieval", "citation", "hallucination", "answer_quality"]:
+            c = diag_counts[diag_type]
+            if c > 0:
+                print(f"    {diag_type:17s} {c}")
+
+    # Add diagnosis-by-category and dashboard to report JSON
+    diag_by_cat_report = {}
+    for r in failing_ids:
+        cat = r["category"]
+        diag = _classify_diagnosis(r)
+        if cat not in diag_by_cat_report:
+            diag_by_cat_report[cat] = {}
+        if diag not in diag_by_cat_report[cat]:
+            diag_by_cat_report[cat][diag] = []
+        diag_by_cat_report[cat][diag].append(r["id"])
+    report["diagnosis_by_category"] = diag_by_cat_report
+
+    cite_eligible = [r for r in non_error if r.get("retrieved_doc_ids_ok") and r.get("expected_doc_ids")]
+    cite_ok = sum(1 for r in cite_eligible if r.get("doc_ids_ok"))
+    report["dashboard"] = {
+        "overall_accuracy": f"{correct}/{n} ({correct/n*100:.1f}%)" if n else "N/A",
+        "grounded_strict_accuracy": f"{grounded_strict_count}/{n} ({grounded_strict_count/n*100:.1f}%)" if n else "N/A",
+        "retrieval_accuracy": f"{retrieved_doc_ids_ok_count}/{n} ({retrieved_doc_ids_ok_count/n*100:.1f}%)" if n else "N/A",
+        "citation_accuracy": f"{cite_ok}/{len(cite_eligible)} ({cite_ok/len(cite_eligible)*100:.1f}%)" if cite_eligible else "N/A",
+        "hallucination_rate": f"{hallucinations}/{n} ({hallucinations/n*100:.1f}%)" if n else "N/A",
+    }
 
     # Canonical ID coverage summary (metadata health check)
     if debug:
