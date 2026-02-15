@@ -67,6 +67,7 @@ ignore = ["E501"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
+pythonpath = ["."]
 testpaths = ["tests"]
 markers = [
   "integration: tests that require a live Weaviate instance",
