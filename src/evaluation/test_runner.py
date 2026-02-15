@@ -992,9 +992,13 @@ async def init_rag_system(provider: str = "ollama", model: str = None) -> bool:
         # Verify Elysia config matches what we set
         try:
             from elysia.config import settings as elysia_settings
+            effective_provider = getattr(elysia_settings, "BASE_PROVIDER", None)
             print(f"  Elysia Tree models: base={elysia_settings.BASE_MODEL}, "
                   f"complex={elysia_settings.COMPLEX_MODEL}, "
-                  f"provider={elysia_settings.BASE_PROVIDER}")
+                  f"provider={effective_provider}")
+            if effective_provider and effective_provider != provider:
+                print(f"  WARNING: provider mismatch! requested={provider}, "
+                      f"effective={effective_provider}")
         except ImportError:
             pass
 

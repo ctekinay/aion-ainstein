@@ -11,6 +11,7 @@ Concurrency:
 
 import asyncio
 import logging
+import os
 import time
 import uuid
 from collections import OrderedDict
@@ -1253,6 +1254,13 @@ If you believe this information should be available, please contact the ESA team
 logger = logging.getLogger(__name__)
 
 # Import elysia components
+# Guard: elysia/config.py runs load_dotenv(override=True) at import time,
+# which overwrites os.environ with .env file values — clobbering any shell-level
+# overrides like LLM_PROVIDER=openai.  Save and restore critical env vars.
+_ENV_KEYS_TO_PROTECT = (
+    "LLM_PROVIDER", "LLM_MODEL", "OPENAI_API_KEY", "OPENAI_CHAT_MODEL",
+)
+_saved_env = {k: os.environ[k] for k in _ENV_KEYS_TO_PROTECT if k in os.environ}
 try:
     import elysia
     from elysia import tool, Tree
@@ -1263,6 +1271,8 @@ except ImportError as e:
 except Exception as e:
     ELYSIA_AVAILABLE = False
     logger.warning(f"elysia-ai error: {e}")
+os.environ.update(_saved_env)
+del _saved_env
 
 
 # =============================================================================
@@ -1373,6 +1383,12 @@ def configure_elysia_from_settings() -> None:
         # and only restores from settings.API_KEYS — so empty means auth fails.
         # Re-populate from environment to restore OPENAI_API_KEY, etc.
         elysia_settings.set_api_keys_from_env()
+
+        # Belt-and-suspenders: ensure os.environ reflects our provider choice.
+        # Elysia's load_dotenv(override=True) may have overwritten LLM_PROVIDER
+        # with the .env file value; reassert our settings as the source of truth.
+        os.environ["LLM_PROVIDER"] = provider
+
         _elysia_configured = True
         _elysia_config_signature = new_signature
         logger.info(

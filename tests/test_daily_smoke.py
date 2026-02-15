@@ -225,6 +225,27 @@ async def rag_system():
     if not ok:
         pytest.skip("RAG system failed to initialize (Weaviate or LLM unavailable)")
 
+    # ── Provider assertion gate ────────────────────────────────────────────
+    # Fail fast if the effective provider doesn't match the requested one.
+    # Catches dotenv pollution, config wiring bugs, and init_rag_system misrouting.
+    try:
+        from elysia.config import settings as elysia_settings
+        effective = getattr(elysia_settings, "BASE_PROVIDER", None)
+        if effective and effective != provider:
+            pytest.fail(
+                f"Provider mismatch: requested LLM_PROVIDER={provider} "
+                f"but Elysia initialized with BASE_PROVIDER={effective}"
+            )
+    except ImportError:
+        pass  # elysia not installed — provider check skipped
+
+    if provider == "openai":
+        assert os.environ.get("LLM_PROVIDER") == "openai", (
+            f"os.environ['LLM_PROVIDER'] is '{os.environ.get('LLM_PROVIDER')}', "
+            f"expected 'openai'. Elysia's load_dotenv(override=True) may have "
+            f"overwritten it from .env."
+        )
+
     return query_rag
 
 
