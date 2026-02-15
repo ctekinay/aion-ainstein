@@ -5,7 +5,7 @@ from typing import Optional, Any
 
 from weaviate import WeaviateClient
 
-from .base import BaseAgent, AgentResponse
+from .base import BaseAgent, AgentResponse, _needs_client_side_embedding, _embed_query
 from ..weaviate.collections import get_collection_name
 from ..config import settings
 
@@ -105,11 +105,14 @@ class PolicyAgent(BaseAgent):
         """
         try:
             collection = self.client.collections.get(get_collection_name("principle"))
-            results = collection.query.hybrid(
+            hybrid_kwargs = dict(
                 query=query,
                 limit=limit,
                 alpha=settings.alpha_default,
             )
+            if _needs_client_side_embedding():
+                hybrid_kwargs["vector"] = _embed_query(query)
+            results = collection.query.hybrid(**hybrid_kwargs)
 
             # Filter to governance-related principles
             principles = []

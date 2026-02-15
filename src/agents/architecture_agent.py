@@ -6,7 +6,7 @@ from typing import Optional, Any
 
 from weaviate import WeaviateClient
 
-from .base import BaseAgent, AgentResponse
+from .base import BaseAgent, AgentResponse, _needs_client_side_embedding, _embed_query
 from ..weaviate.collections import get_collection_name
 from ..config import settings
 
@@ -277,11 +277,14 @@ class ArchitectureAgent(BaseAgent):
         """
         try:
             collection = self.client.collections.get(get_collection_name("principle"))
-            results = collection.query.hybrid(
+            hybrid_kwargs = dict(
                 query=query,
                 limit=limit,
                 alpha=settings.alpha_vocabulary,
             )
+            if _needs_client_side_embedding():
+                hybrid_kwargs["vector"] = _embed_query(query)
+            results = collection.query.hybrid(**hybrid_kwargs)
             return [dict(obj.properties) for obj in results.objects]
         except Exception as e:
             logger.warning(f"Failed to search principles: {e}")

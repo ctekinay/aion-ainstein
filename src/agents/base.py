@@ -8,7 +8,25 @@ from typing import Optional, Any
 from weaviate import WeaviateClient
 from weaviate.classes.query import MetadataQuery
 
+from src.config import settings
+
 logger = logging.getLogger(__name__)
+
+
+def _needs_client_side_embedding() -> bool:
+    """Check if query-time embedding must be computed client-side.
+
+    Ollama collections use Vectorizer.none() (due to Weaviate text2vec-ollama bug),
+    so hybrid/nearText calls must provide a pre-computed vector.
+    OpenAI collections have text2vec_openai configured and can vectorize internally.
+    """
+    return settings.llm_provider == "ollama"
+
+
+def _embed_query(text: str) -> list[float]:
+    """Compute query embedding using the configured embedding provider."""
+    from src.weaviate.embeddings import embed_text
+    return embed_text(text)
 
 
 @dataclass
@@ -84,17 +102,20 @@ class BaseAgent(ABC):
 
         collection = self.client.collections.get(self.collection_name)
 
-        # Build query
-        query_builder = collection.query.near_text(
-            query=query,
-            limit=limit,
-            return_metadata=MetadataQuery(distance=True, score=True),
-        )
-
-        if filters:
-            query_builder = query_builder.with_where(filters)
-
-        results = query_builder
+        # Build query — use near_vector for Ollama (no built-in vectorizer)
+        if _needs_client_side_embedding():
+            vector = _embed_query(query)
+            results = collection.query.near_vector(
+                near_vector=vector,
+                limit=limit,
+                return_metadata=MetadataQuery(distance=True, score=True),
+            )
+        else:
+            results = collection.query.near_text(
+                query=query,
+                limit=limit,
+                return_metadata=MetadataQuery(distance=True, score=True),
+            )
 
         # Convert to list of dicts
         documents = []
@@ -129,12 +150,17 @@ class BaseAgent(ABC):
 
         collection = self.client.collections.get(self.collection_name)
 
-        results = collection.query.hybrid(
+        # Pass client-side vector for Ollama collections (vectorizer=none)
+        hybrid_kwargs = dict(
             query=query,
             limit=limit,
             alpha=alpha,
             return_metadata=MetadataQuery(score=True),
         )
+        if _needs_client_side_embedding():
+            hybrid_kwargs["vector"] = _embed_query(query)
+
+        results = collection.query.hybrid(**hybrid_kwargs)
 
         # Convert to list of dicts
         documents = []
@@ -184,11 +210,19 @@ Question: {question}
 Provide a clear, concise answer based only on the information in the context. If the context doesn't contain enough information, say so."""
 
         try:
-            results = collection.generate.near_text(
-                query=question,
-                limit=len(context) if context else 5,
-                single_prompt=prompt,
-            )
+            if _needs_client_side_embedding():
+                vector = _embed_query(question)
+                results = collection.generate.near_vector(
+                    near_vector=vector,
+                    limit=len(context) if context else 5,
+                    single_prompt=prompt,
+                )
+            else:
+                results = collection.generate.near_text(
+                    query=question,
+                    limit=len(context) if context else 5,
+                    single_prompt=prompt,
+                )
             if results.generated:
                 return results.generated
         except Exception as e:
