@@ -16,6 +16,7 @@ Categories:
 - 2 overlap disambiguation: ensures number-overlap handling
 """
 import os
+import threading
 
 import pytest
 
@@ -211,9 +212,50 @@ _LIVE_SKIP_REASON = "Live smoke disabled; set RUN_LIVE_SMOKE=1"
 _live_enabled = os.environ.get("RUN_LIVE_SMOKE") == "1"
 
 
+def _snapshot_threads() -> set[int]:
+    """Return IDs of all currently alive threads."""
+    return {t.ident for t in threading.enumerate() if t.is_alive()}
+
+
+def _kill_lingering_threads(before: set[int], label: str = "", timeout: float = 2.0):
+    """Detect and terminate threads spawned since `before` snapshot.
+
+    Targets Rich _RefreshThread and asyncio executor threads that survive
+    after tree timeout/cancellation. Daemon threads are signalled via their
+    `done` Event (if available) then joined with a short timeout.
+    """
+    lingering = [
+        t for t in threading.enumerate()
+        if t.is_alive() and t.ident not in before and t is not threading.main_thread()
+    ]
+    if not lingering:
+        return
+
+    for t in lingering:
+        # Rich _RefreshThread has a `done` Event — signal it to stop
+        done_event = getattr(t, "done", None)
+        if done_event is not None and callable(getattr(done_event, "set", None)):
+            done_event.set()
+
+    # Give threads a moment to notice the stop signal, then join
+    for t in lingering:
+        t.join(timeout=timeout)
+        if t.is_alive():
+            # Thread didn't stop — log but don't fail (daemon threads die at exit)
+            import logging
+            logging.getLogger(__name__).warning(
+                "Lingering thread after %s: %s (daemon=%s)", label, t.name, t.daemon
+            )
+
+
 @pytest.fixture(scope="module")
 async def rag_system():
-    """Initialize RAG system once per module (expensive)."""
+    """Initialize RAG system once per module (expensive).
+
+    Test-mode contract:
+    - Elysia Rich Live display is suppressed (LOGGING_LEVEL_INT > 20)
+    - All lingering threads are cleaned up on teardown
+    """
     if not _live_enabled:
         pytest.skip(_LIVE_SKIP_REASON)
 
@@ -225,19 +267,29 @@ async def rag_system():
     if not ok:
         pytest.skip("RAG system failed to initialize (Weaviate or LLM unavailable)")
 
+    # ── Test-mode contract: suppress Rich Live display ─────────────────────
+    # Elysia's Tree.run() spawns a Rich Console status spinner thread when
+    # LOGGING_LEVEL_INT <= 20 (INFO/DEBUG). That thread survives tree timeout
+    # and blocks pytest-asyncio event loop shutdown, causing teardown ERRORs.
+    # Set to WARNING (30) so Tree.run() uses the headless run_process() path.
+    try:
+        from elysia.config import settings as elysia_settings
+        _original_log_level = elysia_settings.LOGGING_LEVEL_INT
+        elysia_settings.LOGGING_LEVEL_INT = 30  # WARNING — no Rich Live
+    except ImportError:
+        elysia_settings = None
+        _original_log_level = None
+
     # ── Provider assertion gate ────────────────────────────────────────────
     # Fail fast if the effective provider doesn't match the requested one.
     # Catches dotenv pollution, config wiring bugs, and init_rag_system misrouting.
-    try:
-        from elysia.config import settings as elysia_settings
+    if elysia_settings is not None:
         effective = getattr(elysia_settings, "BASE_PROVIDER", None)
         if effective and effective != provider:
             pytest.fail(
                 f"Provider mismatch: requested LLM_PROVIDER={provider} "
                 f"but Elysia initialized with BASE_PROVIDER={effective}"
             )
-    except ImportError:
-        pass  # elysia not installed — provider check skipped
 
     if provider == "openai":
         assert os.environ.get("LLM_PROVIDER") == "openai", (
@@ -246,11 +298,32 @@ async def rag_system():
             f"overwritten it from .env."
         )
 
-    return query_rag
+    threads_before = _snapshot_threads()
+
+    yield query_rag
+
+    # ── Teardown: restore logging level and clean up threads ──────────────
+    if elysia_settings is not None and _original_log_level is not None:
+        elysia_settings.LOGGING_LEVEL_INT = _original_log_level
+
+    _kill_lingering_threads(threads_before, label="rag_system teardown")
 
 
 # Build parametrize IDs for readable test names: "S01-non_list_with_keyword"
 _smoke_ids = [f"{q['id']}-{q['category']}" for q in SMOKE_QUESTIONS]
+
+
+@pytest.fixture(autouse=True)
+def _per_test_thread_cleanup():
+    """Cleanup guarantee: no lingering tree/Rich threads after each smoke test.
+
+    Runs automatically for every test in this module. Takes a thread snapshot
+    before the test, then kills any new threads that survived after the test.
+    Prevents teardown ERRORs from accumulated daemon threads.
+    """
+    before = _snapshot_threads()
+    yield
+    _kill_lingering_threads(before, label="per-test cleanup", timeout=1.0)
 
 
 @pytest.mark.smoke_live
@@ -276,6 +349,16 @@ async def test_smoke_live(rag_system, smoke_q):
 
     response = result.get("response", "")
     trace = result.get("trace", {})
+
+    # ── Debug output (visible with pytest -s) ─────────────────────────────
+    print(f"\n--- [{smoke_q['id']}] RAW RESPONSE START ---")
+    print(response[:2000])
+    print(f"--- [{smoke_q['id']}] RAW RESPONSE END ---")
+    if trace:
+        print(f"--- [{smoke_q['id']}] TRACE: path={' → '.join(trace.get('router_path', []))} "
+              f"| response_mode={trace.get('response_mode')} "
+              f"| fallback={trace.get('fallback_used')} "
+              f"| collection={trace.get('collection_selected')} ---")
 
     # ── Corpus drift guard: skip if doc not found ──────────────────────────
     _not_found_signals = [
