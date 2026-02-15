@@ -138,6 +138,7 @@ class DataIngestionPipeline:
         openai_batch_size: Optional[int] = None,
         include_openai: bool = False,
         enable_chunking: bool = False,
+        include_document_chunks: bool = False,
     ) -> dict:
         """Run full data ingestion pipeline.
 
@@ -147,6 +148,7 @@ class DataIngestionPipeline:
             openai_batch_size: Number of objects per batch for OpenAI collections (default: 100)
             include_openai: If True, also populate OpenAI-embedded collections
             enable_chunking: If True, use hierarchical chunking for documents (recommended)
+            include_document_chunks: If True (and chunking enabled), also index full documents as chunks
 
         Returns:
             Dictionary with ingestion statistics
@@ -199,7 +201,8 @@ class DataIngestionPipeline:
         # Ingest ADRs
         try:
             local_count, openai_count = self._ingest_adrs(
-                batch_size, openai_batch_size, include_openai, enable_chunking
+                batch_size, openai_batch_size, include_openai, enable_chunking,
+                include_document_chunks,
             )
             stats["adr"] = local_count
             stats["adr_openai"] = openai_count
@@ -210,7 +213,8 @@ class DataIngestionPipeline:
         # Ingest principles
         try:
             local_count, openai_count = self._ingest_principles(
-                batch_size, openai_batch_size, include_openai, enable_chunking
+                batch_size, openai_batch_size, include_openai, enable_chunking,
+                include_document_chunks,
             )
             stats["principle"] = local_count
             stats["principle_openai"] = openai_count
@@ -314,6 +318,7 @@ class DataIngestionPipeline:
         batch_size_openai: int,
         include_openai: bool = False,
         enable_chunking: bool = False,
+        include_document_chunks: bool = False,
     ) -> tuple[int, int]:
         """Ingest Architectural Decision Records.
 
@@ -322,6 +327,7 @@ class DataIngestionPipeline:
             batch_size_openai: Number of objects per batch for OpenAI collection
             include_openai: If True, also ingest into OpenAI collection
             enable_chunking: If True, use hierarchical section-based chunking
+            include_document_chunks: If True (and chunking enabled), also index full documents
 
         Returns:
             Tuple of (local_count, openai_count)
@@ -377,18 +383,23 @@ class DataIngestionPipeline:
         if enable_chunking and CHUNKING_AVAILABLE:
             # Use chunked loading - each section becomes a separate object
             logger.info("Using chunked ADR loading")
-            for chunked_doc in loader.load_adrs_chunked(adr_path):
+            chunking_config = None
+            if include_document_chunks:
+                from src.chunking import ChunkingConfig
+                chunking_config = ChunkingConfig(index_document_level=True)
+            for chunked_doc in loader.load_adrs_chunked(adr_path, config=chunking_config):
                 doc_count += 1
                 # Extract ADR number from file path
                 adr_match = re.search(r'(\d{4})', chunked_doc.source_file)
                 adr_number = adr_match.group(1) if adr_match else ""
 
-                # Get section-level chunks (not document or paragraph level)
-                # This gives us Context, Decision, Consequences as separate objects
+                # Get chunks based on configuration
+                # Section-level: Context, Decision, Consequences as separate objects
+                # Document-level: also include full document when --include-document-chunks
                 chunks = chunked_doc.get_chunks_for_indexing(
-                    include_document_level=False,
+                    include_document_level=include_document_chunks,
                     include_section_level=True,
-                    include_granular=False,  # Don't include paragraphs
+                    include_granular=False,
                 )
 
                 for chunk in chunks:
@@ -421,6 +432,7 @@ class DataIngestionPipeline:
         batch_size_openai: int,
         include_openai: bool = False,
         enable_chunking: bool = False,
+        include_document_chunks: bool = False,
     ) -> tuple[int, int]:
         """Ingest principle documents.
 
@@ -491,15 +503,19 @@ class DataIngestionPipeline:
             if enable_chunking and CHUNKING_AVAILABLE:
                 # Use chunked loading - each section becomes a separate object
                 logger.info(f"Using chunked principle loading for {principles_path}")
-                for chunked_doc in loader.load_principles_chunked(principles_path):
+                chunking_config = None
+                if include_document_chunks:
+                    from src.chunking import ChunkingConfig
+                    chunking_config = ChunkingConfig(index_document_level=True)
+                for chunked_doc in loader.load_principles_chunked(principles_path, config=chunking_config):
                     doc_count += 1
                     # Extract principle number from file path (e.g., "0010" from "0010-name.md")
                     principle_match = re.search(r'(\d{4})D?-', chunked_doc.source_file)
                     principle_number = principle_match.group(1) if principle_match else ""
 
-                    # Get section-level chunks
+                    # Get chunks based on configuration
                     chunks = chunked_doc.get_chunks_for_indexing(
-                        include_document_level=False,
+                        include_document_level=include_document_chunks,
                         include_section_level=True,
                         include_granular=False,
                     )

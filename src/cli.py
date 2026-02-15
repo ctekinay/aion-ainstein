@@ -114,6 +114,9 @@ def init(
     enable_chunking: bool = typer.Option(
         False, "--chunking", "-c", help="Enable hierarchical section-based chunking for better retrieval quality"
     ),
+    include_document_chunks: bool = typer.Option(
+        False, "--include-document-chunks", help="When --chunking is enabled, also index full documents as chunks (doc + section + granular)"
+    ),
 ):
     """Initialize Weaviate collections and ingest data."""
     console.print(Panel("Initializing AION-AINSTEIN RAG System", style="bold blue"))
@@ -129,9 +132,14 @@ def init(
         console.print(f"  OPENAI_EMBEDDING_MODEL: {settings.openai_embedding_model}")
     console.print(f"  Batch sizes: Ollama={batch_size}, OpenAI={openai_batch_size}")
     if enable_chunking:
-        console.print(f"  [green]Chunking: ENABLED (section-level chunks for better retrieval)[/green]")
+        if include_document_chunks:
+            console.print(f"  [green]Chunking: ENABLED (doc + section + granular chunks)[/green]")
+        else:
+            console.print(f"  [green]Chunking: ENABLED (section-level chunks for better retrieval)[/green]")
     else:
         console.print(f"  Chunking: disabled (use --chunking to enable)")
+        if include_document_chunks:
+            console.print(f"  [yellow]  --include-document-chunks ignored (requires --chunking)[/yellow]")
     if include_openai:
         console.print(f"  [blue]Including OpenAI collections for comparison[/blue]")
 
@@ -195,6 +203,7 @@ def init(
                 openai_batch_size=openai_batch_size,
                 include_openai=include_openai,
                 enable_chunking=enable_chunking,
+                include_document_chunks=include_document_chunks,
             )
 
             progress.update(task, description="[green]Ingestion complete!")

@@ -241,7 +241,7 @@ class TestRealAdr0025:
         assert len(consequences) > 300, (
             f"Consequences too short ({len(consequences)} chars)"
         )
-        assert "Supporting guidelines are" in consequences
+        assert "ensures compatibility" in consequences
         assert "Governance" in consequences
         assert "System Operator" in consequences
         assert "Testing" in consequences
