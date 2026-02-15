@@ -258,7 +258,7 @@ class TraceStore:
 _TOOL_KIND_MAP = {
     "list_all_adrs": "list",
     "list_all_principles": "list",
-    "list_approval_records": "list",
+    "list_approval_records": "lookup",
     "list_all_policies": "list",
     "search_architecture_decisions": "search",
     "search_principles": "search",
@@ -1368,13 +1368,19 @@ def configure_elysia_from_settings() -> None:
 
     if configure_kwargs:
         elysia_settings.configure(replace=True, **configure_kwargs)
+        # configure(replace=True) calls base_init() which wipes API_KEYS={}.
+        # Elysia's ElysiaKeyManager strips env API keys during Tree execution
+        # and only restores from settings.API_KEYS — so empty means auth fails.
+        # Re-populate from environment to restore OPENAI_API_KEY, etc.
+        elysia_settings.set_api_keys_from_env()
         _elysia_configured = True
         _elysia_config_signature = new_signature
         logger.info(
-            "Elysia configured: provider=%s, base_model=%s, complex_model=%s",
+            "Elysia configured: provider=%s, base_model=%s, complex_model=%s, api_keys=%d",
             provider,
             elysia_settings.BASE_MODEL,
             elysia_settings.COMPLEX_MODEL,
+            len(elysia_settings.API_KEYS),
         )
 
 
@@ -2744,7 +2750,7 @@ IMPORTANT GUIDELINES:
                         gateway_result = handle_list_result(list_result, context)
                         if gateway_result:
                             objects = list_result.get("rows", []) if isinstance(list_result, dict) else []
-                            trace.tool_calls.append({"tool": "list_approval_records", "tool_kind": "list", "result_shape": "list_all", "retrieved_types_topk": [], "retrieved_ids_topk": []})
+                            trace.tool_calls.append({"tool": "list_approval_records", "tool_kind": "lookup", "result_shape": "approval_records", "retrieved_types_topk": [], "retrieved_ids_topk": []})
                             trace.list_marker_seen = True
                             trace.list_finalized_deterministically = True
                             trace.response_mode = "deterministic_list"

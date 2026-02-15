@@ -19,7 +19,7 @@ def _is_list_tool(tc: dict) -> bool:
         return True
     if tc.get("result_shape") == "list_all":
         return True
-    if tc.get("tool", "").startswith("list_"):
+    if tc.get("tool", "").startswith("list_all_"):
         return True
     return False
 
@@ -108,10 +108,16 @@ class TestTraceInvariantsUnit:
         assert "list tool used" in msg
 
     def test_invariant_a_catches_list_tool_by_name_prefix(self):
-        """Catches list tools even when tool_kind/result_shape not set."""
-        trace = {"intent_action": "semantic_answer", "tool_calls": [{"tool": "list_approval_records"}]}
+        """Catches catalog list tools even when tool_kind/result_shape not set."""
+        trace = {"intent_action": "semantic_answer", "tool_calls": [{"tool": "list_all_policies"}]}
         ok, _ = check_invariant_a(trace)
         assert not ok
+
+    def test_invariant_a_passes_for_approval_lookup_tool(self):
+        """list_approval_records is a lookup tool, not a catalog list tool."""
+        trace = {"intent_action": "lookup_approval", "tool_calls": [{"tool": "list_approval_records", "tool_kind": "lookup"}]}
+        ok, _ = check_invariant_a(trace)
+        assert ok
 
     def test_invariant_b_passes_when_not_finalized(self):
         trace = {"list_finalized_deterministically": False, "intent_action": "semantic_answer"}
