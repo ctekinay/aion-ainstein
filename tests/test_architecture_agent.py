@@ -976,51 +976,61 @@ class TestGenericSemanticSignal:
 class TestPostFilterSemanticResults:
     """_post_filter_semantic_results strips conventions/template/index docs."""
 
+    def _make_agent(self):
+        client, _ = _make_mock_client()
+        return ArchitectureAgent(client)
+
     def test_strips_conventions_by_title(self):
+        agent = self._make_agent()
         docs = [
             {"title": "ADR.5 - Security", "file_path": "adr/0005.md"},
             {"title": "ADR Conventions", "file_path": "adr/adr-conventions.md"},
         ]
-        filtered = ArchitectureAgent._post_filter_semantic_results(docs)
+        filtered = agent._post_filter_semantic_results(docs)
         assert len(filtered) == 1
         assert filtered[0]["title"] == "ADR.5 - Security"
 
     def test_strips_template_by_title(self):
+        agent = self._make_agent()
         docs = [
             {"title": "ADR.5 - Security", "file_path": "adr/0005.md"},
             {"title": "MADR Template", "file_path": "adr/template.md"},
         ]
-        filtered = ArchitectureAgent._post_filter_semantic_results(docs)
+        filtered = agent._post_filter_semantic_results(docs)
         assert len(filtered) == 1
         assert filtered[0]["title"] == "ADR.5 - Security"
 
     def test_strips_index_by_title(self):
+        agent = self._make_agent()
         docs = [
             {"title": "ADR.5 - Security", "file_path": "adr/0005.md"},
             {"title": "Index of all decisions", "file_path": "adr/index.md"},
         ]
-        filtered = ArchitectureAgent._post_filter_semantic_results(docs)
+        filtered = agent._post_filter_semantic_results(docs)
         assert len(filtered) == 1
 
     def test_strips_by_file_path(self):
+        agent = self._make_agent()
         docs = [
             {"title": "Some content", "file_path": "adr/adr-conventions.md"},
             {"title": "ADR.5 - Security", "file_path": "adr/0005.md"},
         ]
-        filtered = ArchitectureAgent._post_filter_semantic_results(docs)
+        filtered = agent._post_filter_semantic_results(docs)
         assert len(filtered) == 1
         assert filtered[0]["title"] == "ADR.5 - Security"
 
     def test_keeps_normal_docs(self):
+        agent = self._make_agent()
         docs = [
             {"title": "ADR.5 - Security", "file_path": "adr/0005.md"},
             {"title": "ADR.12 - Domain Language", "file_path": "adr/0012.md"},
         ]
-        filtered = ArchitectureAgent._post_filter_semantic_results(docs)
+        filtered = agent._post_filter_semantic_results(docs)
         assert len(filtered) == 2
 
     def test_empty_input(self):
-        assert ArchitectureAgent._post_filter_semantic_results([]) == []
+        agent = self._make_agent()
+        assert agent._post_filter_semantic_results([]) == []
 
     @pytest.mark.asyncio
     async def test_semantic_query_excludes_conventions_in_results(self):

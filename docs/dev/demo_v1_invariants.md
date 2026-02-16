@@ -3,6 +3,17 @@
 Gate-keeper checklist for pre-demo scope. Every change must satisfy all
 invariants below. No new routing features unless they appear here.
 
+## DEMO v1 FREEZE (active)
+
+Only changes allowed:
+1. Fix a newly discovered failing probe or gold test
+2. Add/adjust a test first (red → green)
+3. Don't expand routing scope
+
+Everything else goes to the post-demo backlog.
+
+**CI gate**: `make test-demo` must pass before any merge.
+
 ## Routing Invariants
 
 | # | Invariant | Enforced by |
@@ -15,7 +26,7 @@ invariants below. No new routing features unless they appear here.
 | D6 | Unscoped "List all ADRs" → list path, confidence ≥ 0.95 | `test_list_wins_over_other_intents` |
 | D7 | Scoped "List principles about interop" → semantic path, not list dump | `test_scores_show_list_penalty_with_qualifier` |
 | D8 | COUNT query → count path | `TestCountScoringGate` |
-| D9 | Semantic query with filters → hybrid path, doc_type filter non-None | `test_semantic_path_filter_in_hybrid_call` |
+| D9 | Semantic query → hybrid path, winner=semantic_answer, conventions excluded | `test_semantic_wins_scoring_gate`, `test_semantic_excludes_conventions_from_results` |
 | D10 | Decision chunk selected deterministically (decision non-empty is primary) | `TestDecisionSelectorTierPrecedence` |
 
 ## Traceability Invariants
@@ -25,6 +36,7 @@ invariants below. No new routing features unless they appear here.
 | T1 | Every query emits a `ROUTE_TRACE` JSON log line | `TestRouteTrace` |
 | T2 | Trace contains: path, winner, scores, signals, threshold_met | `test_trace_lookup_exact_for_adr_0012` |
 | T3 | List path trace shows intent=list, winner=list | `test_trace_list_for_list_query` |
+| T4 | Trace includes telemetry: bare_number_resolution, semantic_postfilter_dropped, followup_injected | ROUTE_TRACE JSON |
 
 ## Response Format Invariants
 
@@ -44,9 +56,25 @@ Every new change must have:
 
 If any change can't satisfy those four, it's too risky for pre-demo.
 
-## Out of Scope (Post-Demo)
+## Done for Demo v1
 
-- DocumentIdentity alias graph
-- Full Elysia conversation memory
+- Scoring gate architecture (signals → weights → winner)
+- Prefixed doc-ref exact lookup with Decision chunk selection
+- Bare-number resolution (single match → lookup, ambiguous → clarification)
+- Cheeky query gate (10 queries, all conversational)
+- List/count/semantic routing via scoring gate
+- Generic semantic winner signal (has_generic_semantic)
+- Post-retrieval filter for conventions/template/index
+- Follow-up binding via last_doc_refs injection
+- Structured ROUTE_TRACE with telemetry
+- Gold routing suite (32 tests) + unit tests (150 tests)
+- CI gate: `make test-demo`
+
+## Out of Scope (Post-Demo Backlog)
+
+- DocumentIdentity / alias layer (uuid/registry/file key unification)
+- Full Elysia conversation memory (Tree pool keyed by conversation_id)
 - Cross-agent context sharing
 - Multi-turn disambiguation flows beyond single clarification
+- Expand follow-up markers (only if a gold test fails)
+- New routing branches or heuristics

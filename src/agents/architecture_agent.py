@@ -55,6 +55,10 @@ class RouteTrace:
     path: str = ""   # list | count | lookup_exact | lookup_number | hybrid | conversational
     selected_chunk: str = "none"  # decision | none | other
     filters_applied: str = ""
+    # Telemetry (observability only — no behavior change)
+    bare_number_resolution: str = ""   # resolved | clarification | none | ""
+    semantic_postfilter_dropped: int = 0
+    followup_injected: bool = False
 
     def to_json(self) -> str:
         return json.dumps(asdict(self), separators=(",", ":"))
@@ -463,11 +467,15 @@ class ArchitectureAgent(BaseAgent):
         # Step 1b: Bare-number resolution — if no prefixed doc ref detected,
         # check if the query contains a bare number (e.g. "0022", "22") and
         # resolve it against known collections.
+        bare_number_status = ""
+        followup_injected = False
+
         bare_number_resolution = None
         if not signals.has_doc_ref:
             bare_numbers = _extract_bare_numbers(question)
             if bare_numbers:
                 bare_number_resolution = self._resolve_bare_number_ref(bare_numbers[0])
+                bare_number_status = bare_number_resolution.status
 
                 if bare_number_resolution.status == "resolved":
                     # Patch signals as if the user had typed the full prefix
@@ -490,6 +498,7 @@ class ArchitectureAgent(BaseAgent):
             signals.doc_refs = last_doc_refs
             signals.has_doc_ref = True
             signals.has_retrieval_verb = True  # follow-ups imply retrieval intent
+            followup_injected = True
             logger.info(
                 "follow-up bound: injected %d doc ref(s) from previous query: %s",
                 len(last_doc_refs),
@@ -510,6 +519,8 @@ class ArchitectureAgent(BaseAgent):
             winner=winner or "none",
             threshold_met=threshold_met,
             margin_ok=margin_ok,
+            bare_number_resolution=bare_number_status,
+            followup_injected=followup_injected,
         )
 
         # Step 4: Route by winner
@@ -559,11 +570,16 @@ class ArchitectureAgent(BaseAgent):
             self._emit_trace(trace)
             return self._conversational_response(question, signals.doc_refs)
         trace.filters_applied = "doc_type:adr|content"
-        self._emit_trace(trace)
-        return await self._handle_semantic_query(
+        response = await self._handle_semantic_query(
             question, limit=limit, include_principles=include_principles,
             status_filter=status_filter, adr_filter=adr_filter,
         )
+        # Telemetry: count how many docs the post-filter stripped
+        trace.semantic_postfilter_dropped = getattr(
+            self, "_last_postfilter_dropped", 0
+        )
+        self._emit_trace(trace)
+        return response
 
     @staticmethod
     def _emit_trace(trace: RouteTrace) -> None:
@@ -1050,8 +1066,7 @@ class ArchitectureAgent(BaseAgent):
         r"(?:adr-conventions|/template[s]?/|/index\.)", re.IGNORECASE,
     )
 
-    @staticmethod
-    def _post_filter_semantic_results(results: list[dict]) -> list[dict]:
+    def _post_filter_semantic_results(self, results: list[dict]) -> list[dict]:
         """Remove conventions/template/index docs from semantic results.
 
         These docs can leak through when they have doc_type='content'
@@ -1067,6 +1082,10 @@ class ArchitectureAgent(BaseAgent):
             if ArchitectureAgent._EXCLUDED_PATH_RE.search(file_path):
                 continue
             filtered.append(doc)
+        dropped = len(results) - len(filtered)
+        self._last_postfilter_dropped = getattr(
+            self, "_last_postfilter_dropped", 0
+        ) + dropped
         return filtered
 
     # -----------------------------------------------------------------
@@ -1093,6 +1112,9 @@ class ArchitectureAgent(BaseAgent):
         Returns:
             AgentResponse with search results
         """
+        # Reset postfilter counter for telemetry
+        self._last_postfilter_dropped = 0
+
         # A9/M3: filter must be present — caller enforces this
         if adr_filter is None:
             adr_filter = build_adr_filter()
