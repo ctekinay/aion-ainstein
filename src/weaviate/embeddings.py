@@ -10,6 +10,7 @@ Instead of relying on Weaviate's vectorizer, we:
 3. Query using near_vector with client-computed query embeddings
 """
 
+import atexit
 import logging
 import time
 from typing import Optional
@@ -199,6 +200,17 @@ class OllamaEmbeddings:
 
 # Global instance for convenience
 _embeddings_client: Optional[OllamaEmbeddings] = None
+
+
+def _cleanup_embeddings_client():
+    """Close the global embeddings client at process exit."""
+    global _embeddings_client
+    if _embeddings_client is not None:
+        _embeddings_client.close()
+        _embeddings_client = None
+
+
+atexit.register(_cleanup_embeddings_client)
 
 
 def get_embeddings_client() -> OllamaEmbeddings:

@@ -1,17 +1,290 @@
-"""Agent for querying Architectural Decision Records and principles."""
+"""Agent for querying Architectural Decision Records and principles.
 
+Routing architecture (scoring gate):
+  Queries are routed by a scoring gate, NOT by direct regex if-else.
+
+  1. _extract_signals()  — boolean feature extraction from the query
+  2. _score_intents()    — weighted combination of signals → intent scores
+  3. _select_winner()    — argmax + threshold + margin gate
+
+  New routing behavior is added by:
+    - Adding a signal in _extract_signals()  (regex allowed here only)
+    - Adding a weight in _WEIGHTS
+    - NEVER by adding direct-routing if-else branches
+
+  Fallback when no intent wins the scoring gate:
+    - doc ref present + no retrieval verb → conversational
+    - otherwise → semantic hybrid search with doc_type filter
+"""
+
+import json
 import logging
-from enum import Enum
+import re
+from dataclasses import dataclass, field, asdict
 from typing import Optional, Any
 
 from weaviate import WeaviateClient
+from weaviate.classes.query import Filter
 
 from .base import BaseAgent, AgentResponse, _needs_client_side_embedding, _embed_query
+from ..intent_router import Intent
 from ..weaviate.collections import get_collection_name
 from ..config import settings
+from ..skills.filters import build_adr_filter
 
 logger = logging.getLogger(__name__)
 
+
+# =============================================================================
+# M2: Structured route trace
+# =============================================================================
+
+@dataclass
+class RouteTrace:
+    """Structured routing decision trace for audit and CI invariants."""
+
+    agent: str = "ArchitectureAgent"
+    intent: str = ""
+    doc_refs_detected: list[str] = field(default_factory=list)
+    # Scoring gate fields
+    signals: dict = field(default_factory=dict)
+    scores: dict = field(default_factory=dict)
+    winner: str = ""
+    threshold_met: bool = False
+    margin_ok: bool = False
+    # Routing outcome
+    path: str = ""   # list | count | lookup_exact | lookup_number | hybrid | conversational
+    selected_chunk: str = "none"  # decision | none | other
+    filters_applied: str = ""
+
+    def to_json(self) -> str:
+        return json.dumps(asdict(self), separators=(",", ":"))
+
+
+# =============================================================================
+# A5: Confidence gating
+# =============================================================================
+
+AGENT_CONFIDENCE_THRESHOLD = 0.75
+
+
+# =============================================================================
+# Signal extraction regexes (feature detectors — never route directly)
+# =============================================================================
+
+_LIST_RE = re.compile(
+    r"\b(?:list|show\s+(?:me\s+)?all|enumerate)\b.*\b(?:adrs?|decisions?|principles?)\b"
+    r"|\b(?:what|which)\s+(?:adrs?|decisions?|principles?)\s+(?:exist|are\s+there|do\s+we\s+have)\b",
+    re.IGNORECASE,
+)
+
+_COUNT_RE = re.compile(
+    r"\bhow\s+many\s+(?:adrs?|decisions?|principles?)\b"
+    r"|\btotal\s+(?:number|count)\s+of\s+(?:adrs?|decisions?|principles?)\b"
+    r"|\bcount\s+(?:of\s+)?(?:adrs?|decisions?|principles?)\b",
+    re.IGNORECASE,
+)
+
+_ALL_QUANTIFIER_RE = re.compile(
+    r"\b(?:all|every|entire|everything)\b",
+    re.IGNORECASE,
+)
+
+_TOPIC_QUALIFIER_MARKERS = (
+    "about", "regarding", "related to", "on ", "for ",
+    "with respect to", "in terms of", "concerning",
+)
+
+
+# =============================================================================
+# Signal extraction + Intent scoring gate
+# =============================================================================
+
+@dataclass
+class RoutingSignals:
+    """Boolean features extracted from the query — used by scoring gate."""
+
+    has_list_phrase: bool = False
+    has_all_quantifier: bool = False
+    has_topic_qualifier: bool = False
+    has_doc_ref: bool = False
+    has_retrieval_verb: bool = False
+    has_count_phrase: bool = False
+    doc_refs: list = field(default_factory=list)
+
+
+def _extract_signals(question: str) -> RoutingSignals:
+    """Extract routing signals from a query.
+
+    All regex matching happens here.  No signal directly decides intent;
+    routing is determined by _score_intents().
+    """
+    q_lower = question.lower()
+    doc_refs = _normalize_doc_ids(question)
+    return RoutingSignals(
+        has_list_phrase=bool(_LIST_RE.search(question)),
+        has_all_quantifier=bool(_ALL_QUANTIFIER_RE.search(question)),
+        has_topic_qualifier=any(m in q_lower for m in _TOPIC_QUALIFIER_MARKERS),
+        has_doc_ref=len(doc_refs) > 0,
+        has_retrieval_verb=_has_retrieval_intent(question),
+        has_count_phrase=bool(_COUNT_RE.search(question)),
+        doc_refs=doc_refs,
+    )
+
+
+# Scoring weights — tune these, never add if-else branches
+_WEIGHTS: dict[str, dict[str, float]] = {
+    "list": {
+        "has_list_phrase": 2.0,
+        "has_all_quantifier": 1.0,
+        "has_topic_qualifier": -2.5,
+    },
+    "count": {
+        "has_count_phrase": 3.0,
+    },
+    "lookup_doc": {
+        "has_doc_ref_and_verb": 3.0,
+        "has_doc_ref_no_verb": -3.0,
+    },
+    "semantic_answer": {
+        "has_topic_qualifier": 1.5,
+    },
+}
+
+# Minimum score for an intent to be eligible as winner
+_INTENT_THRESHOLDS: dict[str, float] = {
+    "list": 1.5,
+    "count": 2.0,
+    "lookup_doc": 2.0,
+    "semantic_answer": 1.0,
+}
+
+# Winner must beat runner-up by at least this margin
+_SCORE_MARGIN = 0.5
+
+
+def _score_intents(signals: RoutingSignals) -> dict[str, float]:
+    """Compute intent scores from signals.
+
+    Returns a dict mapping intent name → score.
+    Routing is decided by _select_winner(), not by this function.
+    """
+    scores: dict[str, float] = {
+        "list": 0.0,
+        "count": 0.0,
+        "lookup_doc": 0.0,
+        "semantic_answer": 0.0,
+    }
+
+    # LIST
+    if signals.has_list_phrase:
+        scores["list"] += _WEIGHTS["list"]["has_list_phrase"]
+    if signals.has_all_quantifier:
+        scores["list"] += _WEIGHTS["list"]["has_all_quantifier"]
+    if signals.has_topic_qualifier:
+        scores["list"] += _WEIGHTS["list"]["has_topic_qualifier"]
+
+    # COUNT
+    if signals.has_count_phrase:
+        scores["count"] += _WEIGHTS["count"]["has_count_phrase"]
+
+    # LOOKUP_DOC — compound signal
+    if signals.has_doc_ref and signals.has_retrieval_verb:
+        scores["lookup_doc"] += _WEIGHTS["lookup_doc"]["has_doc_ref_and_verb"]
+    elif signals.has_doc_ref and not signals.has_retrieval_verb:
+        scores["lookup_doc"] += _WEIGHTS["lookup_doc"]["has_doc_ref_no_verb"]
+
+    # SEMANTIC_ANSWER
+    if signals.has_topic_qualifier:
+        scores["semantic_answer"] += _WEIGHTS["semantic_answer"]["has_topic_qualifier"]
+
+    return scores
+
+
+def _select_winner(
+    scores: dict[str, float],
+) -> tuple[Optional[str], bool, bool]:
+    """Pick the winning intent from scores.
+
+    Returns (winner_name, threshold_met, margin_ok).
+    If no intent passes its threshold, winner is None.
+    """
+    # Sort by score descending
+    ranked = sorted(scores.items(), key=lambda x: x[1], reverse=True)
+    if not ranked:
+        return None, False, False
+
+    winner_name, winner_score = ranked[0]
+    runner_up_score = ranked[1][1] if len(ranked) > 1 else 0.0
+
+    threshold = _INTENT_THRESHOLDS.get(winner_name, 1.0)
+    threshold_met = winner_score >= threshold
+    margin_ok = (winner_score - runner_up_score) >= _SCORE_MARGIN
+
+    if not threshold_met:
+        return None, False, margin_ok
+
+    return winner_name, threshold_met, margin_ok
+
+
+# =============================================================================
+# A3: Canonical ID normalization
+# =============================================================================
+
+_CANONICAL_ID_RE = re.compile(
+    r"\b(ADR|PCP|DAR)[.\s\-]?(\d{1,4})(D)?\b",
+    re.IGNORECASE,
+)
+
+
+def _normalize_doc_ids(question: str) -> list[dict]:
+    """Extract and normalize doc references from a question.
+
+    Returns list of dicts with keys:
+        canonical_id: e.g. "ADR.12", "PCP.5", "ADR.12D"
+        number_value: e.g. "0012", "0005"
+        prefix: e.g. "ADR", "PCP"
+    """
+    results = []
+    seen = set()
+    for match in _CANONICAL_ID_RE.finditer(question):
+        prefix = match.group(1).upper()
+        num = int(match.group(2))
+        suffix = (match.group(3) or "").upper()
+        canonical_id = f"{prefix}.{num}{suffix}"
+        if canonical_id not in seen:
+            seen.add(canonical_id)
+            results.append({
+                "canonical_id": canonical_id,
+                "number_value": f"{num:04d}",
+                "prefix": prefix,
+            })
+    return results
+
+
+# =============================================================================
+# A4: Retrieval-verb gate
+# =============================================================================
+
+_RETRIEVAL_VERB_RE = re.compile(
+    r"\b(?:what|show|tell|explain|describe|summarize|summarise|quote|detail|"
+    r"find|get|give|look\s*up|retrieve|fetch|read|display|decide|decision)\b",
+    re.IGNORECASE,
+)
+
+
+def _has_retrieval_intent(question: str) -> bool:
+    """Check whether the question asks for actual information retrieval.
+
+    Prevents 'cheeky' queries like "I wish I had written ADR.12" from
+    triggering document lookup.
+    """
+    return bool(_RETRIEVAL_VERB_RE.search(question))
+
+
+# =============================================================================
+# Helper: Fetch all objects with pagination
+# =============================================================================
 
 def _fetch_all_objects(collection, return_properties: list[str] = None, page_size: int = 100) -> list:
     """Fetch ALL objects from a collection with pagination.
@@ -48,120 +321,9 @@ def _fetch_all_objects(collection, return_properties: list[str] = None, page_siz
     return all_objects
 
 
-class QueryIntent(str, Enum):
-    """Types of query intents for the architecture agent."""
-    LIST = "list"           # User wants to see all items (e.g., "What ADRs exist?")
-    SEARCH = "search"       # User is looking for specific information
-    SUMMARY = "summary"     # User wants an overview or summary
-    COUNT = "count"         # User wants to know how many items exist
-
-
-class IntentClassifier:
-    """LLM-based intent classifier for query routing.
-
-    Supports both OpenAI and Ollama as LLM backends.
-    """
-
-    INTENT_PROMPT = """Classify the user's query into one of these intents:
-- LIST: User wants to see all items or enumerate everything (e.g., "What ADRs exist?", "Show me all decisions", "List the principles")
-- SEARCH: User is looking for specific information about a topic (e.g., "What decisions were made about security?", "Tell me about CIM")
-- SUMMARY: User wants an overview or summary (e.g., "Summarize the architecture decisions", "Give me an overview")
-- COUNT: User wants to know how many items exist (e.g., "How many ADRs are there?")
-
-Query: {query}
-
-Respond with only one word: LIST, SEARCH, SUMMARY, or COUNT"""
-
-    def __init__(self):
-        """Initialize the intent classifier."""
-        self._llm_client = None
-
-    def _get_llm_client(self):
-        """Get LLM client based on provider setting."""
-        if self._llm_client is not None:
-            return self._llm_client
-
-        if settings.llm_provider == "ollama":
-            try:
-                import httpx
-                self._llm_client = ("ollama", httpx.Client(timeout=30.0))
-                return self._llm_client
-            except ImportError:
-                logger.warning("httpx not available for Ollama")
-        else:
-            try:
-                from openai import OpenAI
-                self._llm_client = ("openai", OpenAI(api_key=settings.openai_api_key))
-                return self._llm_client
-            except ImportError:
-                logger.warning("OpenAI not available for intent classification")
-
-        return None
-
-    def classify(self, query: str) -> QueryIntent:
-        """Classify the intent of a query using LLM.
-
-        Args:
-            query: The user's query
-
-        Returns:
-            Classified QueryIntent
-        """
-        client_info = self._get_llm_client()
-        if not client_info:
-            return QueryIntent.SEARCH
-
-        provider, client = client_info
-
-        try:
-            if provider == "ollama":
-                # Use Ollama API
-                response = client.post(
-                    f"{settings.ollama_url}/api/generate",
-                    json={
-                        "model": settings.ollama_model,
-                        "prompt": self.INTENT_PROMPT.format(query=query),
-                        "stream": False,
-                        "options": {"temperature": 0, "num_predict": 20},
-                    },
-                )
-                response.raise_for_status()
-                result = response.json()
-                intent_str = result.get("response", "").strip().upper()
-            else:
-                # Use OpenAI API
-                response = client.chat.completions.create(
-                    model=settings.openai_chat_model,
-                    messages=[
-                        {"role": "user", "content": self.INTENT_PROMPT.format(query=query)}
-                    ],
-                    max_tokens=10,
-                    temperature=0,
-                )
-                intent_str = response.choices[0].message.content.strip().upper()
-
-            # Map response to intent
-            intent_map = {
-                "LIST": QueryIntent.LIST,
-                "SEARCH": QueryIntent.SEARCH,
-                "SUMMARY": QueryIntent.SUMMARY,
-                "COUNT": QueryIntent.COUNT,
-            }
-
-            # Handle potential extra text in response
-            for key in intent_map:
-                if key in intent_str:
-                    intent = intent_map[key]
-                    logger.info(f"Classified intent for '{query[:50]}...' as {intent.value}")
-                    return intent
-
-            logger.info(f"Classified intent for '{query[:50]}...' as SEARCH (default)")
-            return QueryIntent.SEARCH
-
-        except Exception as e:
-            logger.warning(f"Intent classification failed: {e}, defaulting to SEARCH")
-            return QueryIntent.SEARCH
-
+# =============================================================================
+# ArchitectureAgent
+# =============================================================================
 
 class ArchitectureAgent(BaseAgent):
     """Agent specialized in architecture decisions and principles."""
@@ -182,7 +344,10 @@ class ArchitectureAgent(BaseAgent):
             llm_client: Optional LLM client for generation
         """
         super().__init__(client, llm_client)
-        self.intent_classifier = IntentClassifier()
+
+    # -----------------------------------------------------------------
+    # A10: Main query() flow
+    # -----------------------------------------------------------------
 
     async def query(
         self,
@@ -193,6 +358,13 @@ class ArchitectureAgent(BaseAgent):
         **kwargs,
     ) -> AgentResponse:
         """Query the architecture knowledge base.
+
+        Flow:
+        1. Extract signals (boolean features from query)
+        2. Score intents via weighted signals
+        3. Select winner (argmax + threshold + margin)
+        4. Route to handler
+        5. Emit structured route trace (JSON log line)
 
         Args:
             question: The user's question
@@ -205,24 +377,464 @@ class ArchitectureAgent(BaseAgent):
         """
         logger.info(f"ArchitectureAgent processing: {question}")
 
-        # Use LLM to classify the query intent
-        intent = self.intent_classifier.classify(question)
-        logger.info(f"Query intent: {intent.value}")
+        # Step 1: Extract signals
+        signals = _extract_signals(question)
 
-        # Route based on intent
-        if intent == QueryIntent.LIST:
-            return await self._handle_listing_query(question, include_principles)
-        elif intent == QueryIntent.COUNT:
-            return await self._handle_count_query(question)
-        elif intent == QueryIntent.SUMMARY:
-            return await self._handle_summary_query(question, include_principles)
-        # Default: SEARCH intent
+        # Step 2: Score intents
+        scores = _score_intents(signals)
 
-        # Search ADRs
+        # Step 3: Select winner
+        winner, threshold_met, margin_ok = _select_winner(scores)
+
+        # Build trace
+        trace = RouteTrace(
+            doc_refs_detected=[r["canonical_id"] for r in signals.doc_refs],
+            signals={k: v for k, v in asdict(signals).items() if k != "doc_refs"},
+            scores=scores,
+            winner=winner or "none",
+            threshold_met=threshold_met,
+            margin_ok=margin_ok,
+        )
+
+        # Step 4: Route by winner
+        if threshold_met and margin_ok and winner:
+            if winner == "list":
+                trace.intent = "list"
+                trace.path = "list"
+                self._emit_trace(trace)
+                return await self._handle_listing_query(question, include_principles)
+
+            if winner == "count":
+                trace.intent = "count"
+                trace.path = "count"
+                self._emit_trace(trace)
+                return await self._handle_count_query(question)
+
+            if winner == "lookup_doc":
+                trace.intent = "lookup_doc"
+                response = await self._handle_lookup_query(
+                    question, signals.doc_refs, trace,
+                )
+                self._emit_trace(trace)
+                return response
+
+            if winner == "semantic_answer":
+                trace.intent = "semantic_answer"
+                # fall through to semantic path below
+
+        # Step 5: Fallback — no confident winner
+        # If doc refs present but no retrieval verb → conversational
+        if signals.has_doc_ref and not signals.has_retrieval_verb:
+            trace.intent = trace.intent or "conversational"
+            trace.path = "conversational"
+            self._emit_trace(trace)
+            return self._conversational_response(question, signals.doc_refs)
+
+        # Step 6: Semantic search — must always include filters
+        trace.intent = trace.intent or "semantic_answer"
+        trace.path = "hybrid"
+        adr_filter = build_adr_filter()
+        if adr_filter is None:
+            logger.error(
+                "INVARIANT VIOLATION: semantic path has no doc_type filter. "
+                "Falling back to conversational response."
+            )
+            trace.filters_applied = "MISSING"
+            self._emit_trace(trace)
+            return self._conversational_response(question, signals.doc_refs)
+        trace.filters_applied = "doc_type:adr|content"
+        self._emit_trace(trace)
+        return await self._handle_semantic_query(
+            question, limit=limit, include_principles=include_principles,
+            status_filter=status_filter, adr_filter=adr_filter,
+        )
+
+    @staticmethod
+    def _emit_trace(trace: RouteTrace) -> None:
+        """Emit structured route trace as a JSON log line."""
+        logger.info(f"ROUTE_TRACE {trace.to_json()}")
+
+    # -----------------------------------------------------------------
+    # A6: Exact-match ID lookup
+    # -----------------------------------------------------------------
+
+    def lookup_by_canonical_id(self, canonical_id: str) -> list[dict]:
+        """Look up all chunks for a document by canonical_id.
+
+        Uses Filter.by_property("canonical_id").equal() for exact match.
+        Falls back to adr_number if canonical_id returns no results.
+
+        Args:
+            canonical_id: Normalized canonical ID (e.g. "ADR.12")
+
+        Returns:
+            List of matching document chunks (may be multiple per ADR)
+        """
+        collection = self.client.collections.get(self.collection_name)
+
+        # Primary: exact match on canonical_id (FIELD tokenization)
+        results = collection.query.fetch_objects(
+            filters=Filter.by_property("canonical_id").equal(canonical_id),
+            limit=25,
+        )
+
+        if results.objects:
+            chunks = [dict(obj.properties) for obj in results.objects]
+            # Defense in depth: post-filter on canonical_id in case Weaviate
+            # filter is bypassed or returns unexpected results.
+            filtered = [
+                c for c in chunks
+                if c.get("canonical_id") == canonical_id
+            ]
+            if len(filtered) < len(chunks):
+                dropped = [
+                    c.get("canonical_id", "<missing>") for c in chunks
+                    if c.get("canonical_id") != canonical_id
+                ]
+                logger.warning(
+                    "canonical_id post-filter stripped mismatches: %s",
+                    json.dumps({
+                        "requested_canonical_id": canonical_id,
+                        "dropped_count": len(dropped),
+                        "dropped_canonical_ids": dropped[:10],
+                    }, separators=(",", ":")),
+                )
+            if filtered:
+                logger.info(
+                    f"canonical_id lookup '{canonical_id}' returned "
+                    f"{len(filtered)} chunks"
+                )
+                return filtered
+
+        # Fallback: try adr_number field
+        # Extract the number from canonical_id (e.g. "ADR.12" → "0012")
+        match = re.match(r"[A-Z]+\.(\d+)", canonical_id)
+        if match:
+            number_value = f"{int(match.group(1)):04d}"
+            return self._lookup_by_number_field(number_value)
+
+        return []
+
+    def _lookup_by_number_field(self, number_value: str) -> list[dict]:
+        """Fallback lookup by adr_number field.
+
+        Args:
+            number_value: Zero-padded number string (e.g. "0012")
+
+        Returns:
+            List of matching document chunks
+        """
+        collection = self.client.collections.get(self.collection_name)
+
+        results = collection.query.fetch_objects(
+            filters=Filter.by_property("adr_number").equal(number_value),
+            limit=25,
+        )
+
+        if results.objects:
+            logger.info(
+                f"adr_number lookup '{number_value}' returned "
+                f"{len(results.objects)} chunks"
+            )
+
+        return [dict(obj.properties) for obj in results.objects]
+
+    # -----------------------------------------------------------------
+    # A7: Decision chunk selection
+    # -----------------------------------------------------------------
+
+    # Matches "Section: Decision" but NOT "Section: Decision Drivers"
+    _SECTION_DECISION_RE = re.compile(r"Section:\s*Decision(?!\s*Drivers)\b")
+
+    @staticmethod
+    def _has_section_decision(full_text: str) -> bool:
+        """Check if full_text contains 'Section: Decision' (not 'Decision Drivers')."""
+        return bool(ArchitectureAgent._SECTION_DECISION_RE.search(full_text))
+
+    @staticmethod
+    def _select_decision_chunk(chunks: list[dict]) -> Optional[dict]:
+        """Select the Decision chunk from a set of ADR chunks.
+
+        Precedence (first match wins):
+        1. decision non-empty AND full_text contains "Section: Decision"
+           (but NOT "Section: Decision Drivers")
+        2. decision non-empty (any chunk)
+        3. full_text contains "Section: Decision" (not Decision Drivers)
+        4. title ends with " - Decision" (explicitly rejects "Decision Drivers")
+
+        Args:
+            chunks: List of ADR chunk dicts
+
+        Returns:
+            The decision chunk, or None if not found
+        """
+        # Tier 1: decision non-empty AND full_text has "Section: Decision"
+        for chunk in chunks:
+            decision_text = chunk.get("decision", "")
+            full_text = chunk.get("full_text", "")
+            if (
+                decision_text and decision_text.strip()
+                and ArchitectureAgent._has_section_decision(full_text)
+            ):
+                return chunk
+
+        # Tier 2: decision non-empty
+        for chunk in chunks:
+            decision_text = chunk.get("decision", "")
+            if decision_text and decision_text.strip():
+                return chunk
+
+        # Tier 3: full_text contains "Section: Decision" (not Decision Drivers)
+        for chunk in chunks:
+            full_text = chunk.get("full_text", "")
+            if ArchitectureAgent._has_section_decision(full_text):
+                return chunk
+
+        # Tier 4: title ends with " - Decision" (reject Decision Drivers)
+        for chunk in chunks:
+            title = chunk.get("title", "")
+            if title.endswith(" - Decision"):
+                return chunk
+
+        return None
+
+    # -----------------------------------------------------------------
+    # A8: Quote formatting
+    # -----------------------------------------------------------------
+
+    @staticmethod
+    def _extract_lead_sentence(text: str) -> str:
+        """Extract the first complete sentence from decision text.
+
+        If the first line ends with a continuation marker (because, :, ;,
+        and, or), extends to include subsequent lines until a sentence
+        boundary (period, blank line, or bullet marker).
+
+        Args:
+            text: Raw decision text
+
+        Returns:
+            First complete sentence or clause
+        """
+        lines = [ln.strip() for ln in text.strip().split("\n") if ln.strip()]
+        if not lines:
+            return text.strip()
+
+        # Continuation markers: line ends mid-sentence
+        _CONTINUATION_RE = re.compile(r"(?:because|:|;|,\s*and|,\s*or)\s*$", re.IGNORECASE)
+        # Sentence boundary: ends with ., !, ? or is a bullet/list item
+        _BOUNDARY_RE = re.compile(r"[.!?]\s*$|^\s*[-*•]")
+
+        result = lines[0]
+        if not _CONTINUATION_RE.search(result):
+            return result
+
+        # Extend until sentence boundary or end of lines
+        for line in lines[1:]:
+            if _BOUNDARY_RE.search(result) or _BOUNDARY_RE.match(line):
+                break
+            result += " " + line
+            if not _CONTINUATION_RE.search(line):
+                break
+
+        return result
+
+    @staticmethod
+    def _format_decision_answer(question: str, chunk: dict, canonical_id: str) -> str:
+        """Format a decision answer with verbatim quote.
+
+        Args:
+            question: The original question
+            chunk: The decision chunk dict
+            canonical_id: The canonical document ID
+
+        Returns:
+            Formatted answer string with block quote
+        """
+        decision_text = chunk.get("decision", "")
+        title = chunk.get("title", canonical_id)
+
+        if not decision_text or not decision_text.strip():
+            # No decision text — use full_text or content
+            content = chunk.get("full_text", "") or chunk.get("content", "")
+            if content:
+                first_line = content.strip().split("\n")[0]
+                return (
+                    f"**{canonical_id}** ({title}):\n\n"
+                    f"> {first_line}\n\n"
+                    f"*(Full content available in the source document.)*"
+                )
+            return f"Found {canonical_id} but no decision text is available."
+
+        # Extract lead sentence (handles "because:" continuation)
+        lead = ArchitectureAgent._extract_lead_sentence(decision_text)
+
+        return (
+            f"**{canonical_id}** ({title}):\n\n"
+            f"> {lead}\n\n"
+            f"Full decision text:\n\n"
+            f"> {decision_text.strip()}"
+        )
+
+    # -----------------------------------------------------------------
+    # Conversational response (cheeky query gate)
+    # -----------------------------------------------------------------
+
+    def _conversational_response(
+        self, question: str, doc_refs: list[dict]
+    ) -> AgentResponse:
+        """Return a conversational response when no retrieval verb is present.
+
+        Args:
+            question: The user's question
+            doc_refs: Detected document references
+
+        Returns:
+            AgentResponse with a helpful suggestion
+        """
+        ref_list = ", ".join(r["canonical_id"] for r in doc_refs) if doc_refs else "the document"
+        answer = (
+            f"I see you mentioned {ref_list}. "
+            f"If you'd like to know what it decides, try asking: "
+            f"\"What does {doc_refs[0]['canonical_id'] if doc_refs else 'ADR.X'} decide?\""
+        )
+        return AgentResponse(
+            answer=answer,
+            sources=[],
+            confidence=0.50,
+            agent_name=self.name,
+            raw_results=[],
+        )
+
+    # -----------------------------------------------------------------
+    # Handler: LOOKUP_DOC
+    # -----------------------------------------------------------------
+
+    async def _handle_lookup_query(
+        self, question: str, doc_refs: list[dict],
+        trace: Optional[RouteTrace] = None,
+    ) -> AgentResponse:
+        """Handle exact-match document lookup queries.
+
+        Args:
+            question: The user's question
+            doc_refs: Normalized document references
+            trace: Optional route trace to populate
+
+        Returns:
+            AgentResponse with document content
+        """
+        all_chunks = []
+        sources = []
+        lookup_path = "lookup_exact"
+
+        for ref in doc_refs:
+            chunks = self.lookup_by_canonical_id(ref["canonical_id"])
+            if not chunks:
+                lookup_path = "lookup_number"
+                continue
+
+            all_chunks.extend(chunks)
+
+            # Try to select and format the Decision chunk
+            decision_chunk = self._select_decision_chunk(chunks)
+            if decision_chunk:
+                sources.append({
+                    "title": decision_chunk.get("title", ""),
+                    "type": "ADR",
+                    "canonical_id": ref["canonical_id"],
+                    "file": (
+                        decision_chunk.get("file_path", "").split("/")[-1]
+                        if decision_chunk.get("file_path") else ""
+                    ),
+                })
+
+        if not all_chunks:
+            if trace:
+                trace.path = lookup_path
+                trace.selected_chunk = "none"
+            return AgentResponse(
+                answer=f"No documents found for {', '.join(r['canonical_id'] for r in doc_refs)}.",
+                sources=[],
+                confidence=0.0,
+                agent_name=self.name,
+                raw_results=[],
+            )
+
+        # Format answer
+        answer_parts = []
+        selected_chunk_type = "none"
+        for ref in doc_refs:
+            ref_chunks = [
+                c for c in all_chunks
+                if c.get("canonical_id", "").startswith(ref["canonical_id"].rstrip("D"))
+            ]
+            if not ref_chunks:
+                answer_parts.append(f"No content found for {ref['canonical_id']}.")
+                continue
+
+            decision_chunk = self._select_decision_chunk(ref_chunks)
+            if decision_chunk:
+                selected_chunk_type = "decision"
+                answer_parts.append(
+                    self._format_decision_answer(question, decision_chunk, ref["canonical_id"])
+                )
+            else:
+                selected_chunk_type = "other"
+                titles = [c.get("title", "Untitled") for c in ref_chunks]
+                answer_parts.append(
+                    f"**{ref['canonical_id']}** — Found {len(ref_chunks)} sections: "
+                    f"{', '.join(titles)}"
+                )
+
+        if trace:
+            trace.path = lookup_path
+            trace.selected_chunk = selected_chunk_type
+
+        answer = "\n\n---\n\n".join(answer_parts)
+        confidence = 0.95 if all_chunks else 0.0
+
+        return AgentResponse(
+            answer=answer,
+            sources=sources,
+            confidence=confidence,
+            agent_name=self.name,
+            raw_results=all_chunks,
+        )
+
+    # -----------------------------------------------------------------
+    # Handler: Semantic search (default path)
+    # -----------------------------------------------------------------
+
+    async def _handle_semantic_query(
+        self,
+        question: str,
+        limit: int = 5,
+        include_principles: bool = True,
+        status_filter: Optional[str] = None,
+        adr_filter: Optional[Any] = None,
+    ) -> AgentResponse:
+        """Handle semantic search queries with doc_type filtering.
+
+        Args:
+            question: The user's question
+            limit: Maximum results
+            include_principles: Whether to include principles
+            status_filter: Optional status filter
+            adr_filter: Pre-built doc_type filter (required; caller must provide)
+
+        Returns:
+            AgentResponse with search results
+        """
+        # A9/M3: filter must be present — caller enforces this
+        if adr_filter is None:
+            adr_filter = build_adr_filter()
+
         adr_results = self.hybrid_search(
             query=question,
             limit=limit,
             alpha=settings.alpha_vocabulary,
+            filters=adr_filter,
         )
 
         # Apply status filter if provided
@@ -240,16 +852,8 @@ class ArchitectureAgent(BaseAgent):
         # Combine results
         all_results = adr_results + principle_results
 
-        # Build sources list
-        sources = []
-        for doc in all_results:
-            doc_type = "ADR" if doc.get("context") else "Principle"
-            sources.append({
-                "title": doc.get("title", ""),
-                "type": doc_type,
-                "status": doc.get("status", ""),
-                "file": doc.get("file_path", "").split("/")[-1] if doc.get("file_path") else "",
-            })
+        # Build sources
+        sources = self._build_sources(all_results)
 
         # Generate answer
         answer = self.generate_answer(question, all_results)
@@ -264,6 +868,10 @@ class ArchitectureAgent(BaseAgent):
             agent_name=self.name,
             raw_results=all_results,
         )
+
+    # -----------------------------------------------------------------
+    # Shared helpers
+    # -----------------------------------------------------------------
 
     def _search_principles(self, query: str, limit: int = 3) -> list[dict]:
         """Search principles collection.
@@ -290,83 +898,29 @@ class ArchitectureAgent(BaseAgent):
             logger.warning(f"Failed to search principles: {e}")
             return []
 
-    def find_adr_by_number(self, number: int) -> Optional[dict]:
-        """Find an ADR by its number.
+    @staticmethod
+    def _build_sources(results: list[dict]) -> list[dict]:
+        """Build sources list from search results.
 
         Args:
-            number: The ADR number (e.g., 1 for ADR-0001)
+            results: List of result dicts
 
         Returns:
-            ADR dictionary or None
+            List of source metadata dicts
         """
-        # Format the number with leading zeros
-        formatted = f"{number:04d}"
-
-        results = self.hybrid_search(
-            query=formatted,
-            limit=10,
-            alpha=settings.alpha_exact_match,  # Favor keyword matching
-        )
-
+        sources = []
         for doc in results:
-            file_path = doc.get("file_path", "")
-            if formatted in file_path:
-                return doc
-
-        return None
-
-    def list_adrs_by_status(self, status: str) -> list[dict]:
-        """List all ADRs with a specific status.
-
-        Args:
-            status: The status to filter by
-
-        Returns:
-            List of matching ADRs
-        """
-        collection = self.client.collections.get(self.collection_name)
-
-        results = collection.query.fetch_objects(
-            filters={"path": ["status"], "operator": "ContainsAny", "valueTextArray": [status]},
-            limit=100,
-        )
-
-        return [dict(obj.properties) for obj in results.objects]
-
-    def get_decision_summary(self, question: str) -> dict:
-        """Get a summary of relevant decisions for a topic.
-
-        Args:
-            question: The topic to summarize
-
-        Returns:
-            Dictionary with decision summary
-        """
-        results = self.hybrid_search(
-            query=question,
-            limit=5,
-            alpha=settings.alpha_semantic,
-        )
-
-        summary = {
-            "topic": question,
-            "decisions": [],
-            "key_points": [],
-        }
-
-        for doc in results:
-            summary["decisions"].append({
+            doc_type = "ADR" if doc.get("context") else "Principle"
+            sources.append({
                 "title": doc.get("title", ""),
-                "decision": doc.get("decision", "")[:300],
+                "type": doc_type,
                 "status": doc.get("status", ""),
+                "file": (
+                    doc.get("file_path", "").split("/")[-1]
+                    if doc.get("file_path") else ""
+                ),
             })
-
-            # Extract key points from consequences
-            consequences = doc.get("consequences", "")
-            if consequences:
-                summary["key_points"].append(consequences[:200])
-
-        return summary
+        return sources
 
     def _calculate_confidence(self, results: list[dict]) -> float:
         """Calculate confidence score based on search results."""
@@ -379,6 +933,10 @@ class ArchitectureAgent(BaseAgent):
 
         avg_score = sum(scores) / len(scores)
         return min(max(avg_score, 0.0), 1.0)
+
+    # -----------------------------------------------------------------
+    # Listing / counting (kept from original)
+    # -----------------------------------------------------------------
 
     def list_all_adrs(self) -> list[dict]:
         """List all ADRs in the collection.
@@ -421,6 +979,24 @@ class ArchitectureAgent(BaseAgent):
         )
 
         return [dict(obj.properties) for obj in all_objects]
+
+    def list_adrs_by_status(self, status: str) -> list[dict]:
+        """List all ADRs with a specific status.
+
+        Args:
+            status: The status to filter by
+
+        Returns:
+            List of matching ADRs
+        """
+        collection = self.client.collections.get(self.collection_name)
+
+        results = collection.query.fetch_objects(
+            filters=Filter.by_property("status").equal(status),
+            limit=100,
+        )
+
+        return [dict(obj.properties) for obj in results.objects]
 
     async def _handle_listing_query(self, question: str, include_principles: bool) -> AgentResponse:
         """Handle queries that ask for a list of ADRs or principles.
@@ -511,42 +1087,4 @@ class ArchitectureAgent(BaseAgent):
             confidence=0.98,
             agent_name=self.name,
             raw_results={"adr_count": len(adrs), "principle_count": len(principles), "status_counts": status_counts},
-        )
-
-    async def _handle_summary_query(self, question: str, include_principles: bool) -> AgentResponse:
-        """Handle queries that ask for a summary or overview.
-
-        Args:
-            question: The user's question
-            include_principles: Whether to include principles
-
-        Returns:
-            AgentResponse with summary
-        """
-        # Get all documents for summary
-        adrs = self.list_all_adrs()
-        principles = self.list_all_principles() if include_principles else []
-
-        # Use LLM to generate a summary
-        summary_context = []
-        for adr in adrs[:10]:  # Limit to first 10 for context
-            summary_context.append({
-                "title": adr.get("title", ""),
-                "status": adr.get("status", ""),
-                "context": adr.get("context", "")[:200],
-                "decision": adr.get("decision", "")[:200],
-            })
-
-        # Generate summary using Weaviate's generative search
-        answer = self.generate_answer(
-            f"Provide a high-level summary of the architecture decisions. {question}",
-            summary_context
-        )
-
-        return AgentResponse(
-            answer=answer,
-            sources=[{"title": adr.get("title", ""), "type": "ADR"} for adr in adrs[:5]],
-            confidence=0.85,
-            agent_name=self.name,
-            raw_results=adrs + principles,
         )

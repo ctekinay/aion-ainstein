@@ -133,6 +133,7 @@ class BaseAgent(ABC):
         limit: int = 5,
         alpha: float = 0.5,
         return_properties: Optional[list[str]] = None,
+        filters: Optional[Any] = None,
     ) -> list[dict]:
         """Perform a hybrid search (semantic + keyword) on the collection.
 
@@ -141,6 +142,7 @@ class BaseAgent(ABC):
             limit: Maximum number of results
             alpha: Weight between vector (1.0) and keyword (0.0) search
             return_properties: Properties to return
+            filters: Optional Weaviate filters
 
         Returns:
             List of matching documents
@@ -157,6 +159,8 @@ class BaseAgent(ABC):
             alpha=alpha,
             return_metadata=MetadataQuery(score=True),
         )
+        if filters is not None:
+            hybrid_kwargs["filters"] = filters
         if _needs_client_side_embedding():
             hybrid_kwargs["vector"] = _embed_query(query)
 
