@@ -459,8 +459,14 @@ class TestGoldSemanticQueries:
             f"Expected threshold_met=True for: {query}"
         )
         assert collection.query.hybrid.called, "Hybrid must be called for semantic queries"
-        first_call = collection.query.hybrid.call_args_list[0]
-        assert first_call.kwargs.get("filters") is not None, "Filters must be present"
+        # At least one hybrid call must have doc_type filters applied.
+        # For principle-scoped queries, the first call may be the unfiltered
+        # principle collection search; the filtered ADR search comes second.
+        has_filtered_call = any(
+            call.kwargs.get("filters") is not None
+            for call in collection.query.hybrid.call_args_list
+        )
+        assert has_filtered_call, "At least one hybrid call must have filters"
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize("query", FALLBACK_QUERIES)
@@ -487,8 +493,11 @@ class TestGoldSemanticQueries:
 
         assert trace.get("path") == "hybrid", f"Expected hybrid, got {trace.get('path')}"
         assert collection.query.hybrid.called, "Hybrid must be called"
-        first_call = collection.query.hybrid.call_args_list[0]
-        assert first_call.kwargs.get("filters") is not None, "Filters must be present"
+        has_filtered_call = any(
+            call.kwargs.get("filters") is not None
+            for call in collection.query.hybrid.call_args_list
+        )
+        assert has_filtered_call, "At least one hybrid call must have filters"
 
     @pytest.mark.asyncio
     async def test_semantic_excludes_conventions_from_results(self, caplog):
@@ -529,6 +538,37 @@ class TestGoldSemanticQueries:
             assert "convention" not in doc.get("title", "").lower(), (
                 f"Conventions doc leaked: {doc.get('title')}"
             )
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("query", [
+        "What are the ESA architecture principles?",
+        "What principles do we have about interoperability?",
+    ])
+    async def test_principle_scope_in_trace(self, query, caplog):
+        """Principle-scoped queries must show scope=principle in filters_applied."""
+        client, collection = _make_single_collection_client()
+        collection.query.fetch_objects.return_value = _make_fetch_result([])
+
+        obj = MagicMock()
+        obj.properties = _make_chunk(title="PCP.1", canonical_id="PCP.1")
+        obj.metadata.score = 0.80
+        hybrid_result = MagicMock()
+        hybrid_result.objects = [obj]
+        collection.query.hybrid.return_value = hybrid_result
+
+        gen_result = MagicMock()
+        gen_result.generated = "Test principles answer."
+        gen_result.objects = hybrid_result.objects
+        collection.generate.near_text.return_value = gen_result
+        collection.generate.near_vector.return_value = gen_result
+
+        agent = ArchitectureAgent(client)
+        response, trace = await _capture_trace(caplog, agent, query)
+
+        assert trace.get("path") == "hybrid"
+        assert "scope=principle" in trace.get("filters_applied", ""), (
+            f"Expected scope=principle in filters_applied, got: {trace.get('filters_applied')}"
+        )
 
 
 # =============================================================================

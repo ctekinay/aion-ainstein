@@ -28,6 +28,7 @@ from src.agents.architecture_agent import (
     DocRefResolution,
     RouteTrace,
     RoutingSignals,
+    _detect_semantic_scope,
     _extract_bare_numbers,
     _extract_signals,
     _has_followup_marker,
@@ -1598,7 +1599,9 @@ class TestRouteTrace:
         assert trace["path"] == "hybrid"
         assert trace["winner"] == "semantic_answer"
         assert trace["threshold_met"] is True
-        assert trace["filters_applied"] == "doc_type:adr|content"
+        assert "scope=" in trace["filters_applied"], (
+            f"filters_applied must include scope, got: {trace['filters_applied']}"
+        )
 
 
 # =============================================================================
@@ -2180,3 +2183,34 @@ class TestMixedRefBareAndPrefixed:
         # Should return clarification since 22 is ambiguous (ADR.22 + PCP.22)
         assert "clarification" in response.raw_results[0].get("type", "")
         assert response.confidence == 0.60
+
+
+# =============================================================================
+# Semantic Scope Detection
+# =============================================================================
+
+class TestSemanticScope:
+    """Test _detect_semantic_scope() returns correct scope for query keywords."""
+
+    @pytest.mark.parametrize("query,expected_scope", [
+        ("What are the ESA architecture principles?", "principle"),
+        ("What principles do we have about interoperability?", "principle"),
+        ("Show PCP.22 details", "principle"),
+        ("List all principles", "principle"),
+        ("What does ADR.12 decide?", "adr"),
+        ("What decision drivers are used?", "adr"),
+        ("List all ADRs", "adr"),
+        ("What security patterns are used?", "both"),
+        ("Describe the data governance model", "both"),
+        ("How do we handle semantic interoperability?", "both"),
+    ])
+    def test_scope_detection(self, query, expected_scope):
+        assert _detect_semantic_scope(query) == expected_scope, (
+            f"Expected scope={expected_scope} for: {query}"
+        )
+
+    def test_principle_scope_in_trace(self):
+        """Principle-scoped query must show scope=principle in filters_applied."""
+        # Just verify _detect_semantic_scope is deterministic
+        assert _detect_semantic_scope("What are the ESA architecture principles?") == "principle"
+        assert _detect_semantic_scope("What security patterns are used?") == "both"

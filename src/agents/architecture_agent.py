@@ -29,7 +29,7 @@ from weaviate.classes.query import Filter
 from .base import BaseAgent, AgentResponse, _needs_client_side_embedding, _embed_query
 from ..weaviate.collections import get_collection_name
 from ..config import settings
-from ..skills.filters import build_adr_filter
+from ..skills.filters import build_adr_filter, build_principle_filter
 
 logger = logging.getLogger(__name__)
 
@@ -98,6 +98,30 @@ _ON_QUALIFIER_RE = re.compile(
     r"\bon\s+(?!(?:the\s+)?(?:ADR|PCP|DAR)\b)[a-z]",
     re.IGNORECASE,
 )
+
+# Semantic scope: determines primary collection for hybrid search
+_PRINCIPLE_SCOPE_RE = re.compile(
+    r"\bprincip(?:le|les)\b|\bPCP\b|\barchitecture\s+principles?\b",
+    re.IGNORECASE,
+)
+_ADR_SCOPE_RE = re.compile(
+    r"\bADRs?\b|\bdecision(?:s)?\b|\bdecide\b|\bdecision\s+drivers?\b",
+    re.IGNORECASE,
+)
+
+
+def _detect_semantic_scope(question: str) -> str:
+    """Detect whether the semantic query targets principles, ADRs, or both.
+
+    Returns "principle", "adr", or "both".
+    """
+    has_principle = bool(_PRINCIPLE_SCOPE_RE.search(question))
+    has_adr = bool(_ADR_SCOPE_RE.search(question))
+    if has_principle and not has_adr:
+        return "principle"
+    if has_adr and not has_principle:
+        return "adr"
+    return "both"
 
 
 # =============================================================================
@@ -604,9 +628,10 @@ class ArchitectureAgent(BaseAgent):
             self._emit_trace(trace)
             return self._conversational_response(question, signals.doc_refs)
 
-        # Step 6: Semantic search — must always include filters
+        # Step 6: Semantic search — scope-aware
         trace.intent = trace.intent or "semantic_answer"
         trace.path = "hybrid"
+        semantic_scope = _detect_semantic_scope(question)
         adr_filter = build_adr_filter()
         if adr_filter is None:
             logger.error(
@@ -616,10 +641,11 @@ class ArchitectureAgent(BaseAgent):
             trace.filters_applied = "MISSING"
             self._emit_trace(trace)
             return self._conversational_response(question, signals.doc_refs)
-        trace.filters_applied = "doc_type:adr|content"
+        trace.filters_applied = f"scope={semantic_scope}"
         response = await self._handle_semantic_query(
             question, limit=limit, include_principles=include_principles,
             status_filter=status_filter, adr_filter=adr_filter,
+            semantic_scope=semantic_scope,
         )
         # Telemetry: count how many docs the post-filter stripped
         trace.semantic_postfilter_dropped = getattr(
@@ -1146,8 +1172,13 @@ class ArchitectureAgent(BaseAgent):
         include_principles: bool = True,
         status_filter: Optional[str] = None,
         adr_filter: Optional[Any] = None,
+        semantic_scope: str = "both",
     ) -> AgentResponse:
-        """Handle semantic search queries with doc_type filtering.
+        """Handle semantic search queries with scope-aware filtering.
+
+        When semantic_scope is "principle", principles are the primary search
+        (full limit) and ADRs are secondary (limit // 2).  Default ("adr" or
+        "both") keeps the original behavior: ADRs primary, principles secondary.
 
         Args:
             question: The user's question
@@ -1155,6 +1186,7 @@ class ArchitectureAgent(BaseAgent):
             include_principles: Whether to include principles
             status_filter: Optional status filter
             adr_filter: Pre-built doc_type filter (required; caller must provide)
+            semantic_scope: "principle", "adr", or "both"
 
         Returns:
             AgentResponse with search results
@@ -1166,15 +1198,32 @@ class ArchitectureAgent(BaseAgent):
         if adr_filter is None:
             adr_filter = build_adr_filter()
 
-        adr_results = self.hybrid_search(
-            query=question,
-            limit=limit,
-            alpha=settings.alpha_vocabulary,
-            filters=adr_filter,
-        )
+        if semantic_scope == "principle":
+            # Principles are primary: full limit; ADRs are secondary
+            principle_results = self._search_principles(question, limit=limit)
+            principle_results = self._post_filter_semantic_results(principle_results)
 
-        # Post-filter: strip conventions/template/index that leaked through
-        adr_results = self._post_filter_semantic_results(adr_results)
+            adr_results = self.hybrid_search(
+                query=question,
+                limit=limit // 2,
+                alpha=settings.alpha_vocabulary,
+                filters=adr_filter,
+            )
+            adr_results = self._post_filter_semantic_results(adr_results)
+        else:
+            # ADRs are primary (default)
+            adr_results = self.hybrid_search(
+                query=question,
+                limit=limit,
+                alpha=settings.alpha_vocabulary,
+                filters=adr_filter,
+            )
+            adr_results = self._post_filter_semantic_results(adr_results)
+
+            principle_results = []
+            if include_principles:
+                principle_results = self._search_principles(question, limit=limit // 2)
+                principle_results = self._post_filter_semantic_results(principle_results)
 
         # Apply status filter if provided
         if status_filter:
@@ -1183,14 +1232,11 @@ class ArchitectureAgent(BaseAgent):
                 if status_filter.lower() in r.get("status", "").lower()
             ]
 
-        # Optionally search principles
-        principle_results = []
-        if include_principles:
-            principle_results = self._search_principles(question, limit=limit // 2)
-
-        # Combine results and post-filter principles too
-        principle_results = self._post_filter_semantic_results(principle_results)
-        all_results = adr_results + principle_results
+        # Combine: scope-primary first, then secondary
+        if semantic_scope == "principle":
+            all_results = principle_results + adr_results
+        else:
+            all_results = adr_results + principle_results
 
         # Build sources
         sources = self._build_sources(all_results)
