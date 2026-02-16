@@ -103,6 +103,7 @@ class RoutingSignals:
     has_doc_ref: bool = False
     has_retrieval_verb: bool = False
     has_count_phrase: bool = False
+    has_generic_semantic: bool = False
     doc_refs: list = field(default_factory=list)
 
 
@@ -114,13 +115,23 @@ def _extract_signals(question: str) -> RoutingSignals:
     """
     q_lower = question.lower()
     doc_refs = _normalize_doc_ids(question)
+    has_list_phrase = bool(_LIST_RE.search(question))
+    has_count_phrase = bool(_COUNT_RE.search(question))
+    has_doc_ref = len(doc_refs) > 0
+    has_retrieval_verb = _has_retrieval_intent(question)
     return RoutingSignals(
-        has_list_phrase=bool(_LIST_RE.search(question)),
+        has_list_phrase=has_list_phrase,
         has_all_quantifier=bool(_ALL_QUANTIFIER_RE.search(question)),
         has_topic_qualifier=any(m in q_lower for m in _TOPIC_QUALIFIER_MARKERS),
-        has_doc_ref=len(doc_refs) > 0,
-        has_retrieval_verb=_has_retrieval_intent(question),
-        has_count_phrase=bool(_COUNT_RE.search(question)),
+        has_doc_ref=has_doc_ref,
+        has_retrieval_verb=has_retrieval_verb,
+        has_count_phrase=has_count_phrase,
+        has_generic_semantic=(
+            has_retrieval_verb
+            and not has_doc_ref
+            and not has_list_phrase
+            and not has_count_phrase
+        ),
         doc_refs=doc_refs,
     )
 
@@ -141,6 +152,7 @@ _WEIGHTS: dict[str, dict[str, float]] = {
     },
     "semantic_answer": {
         "has_topic_qualifier": 1.5,
+        "has_generic_semantic": 1.0,
     },
 }
 
@@ -190,6 +202,8 @@ def _score_intents(signals: RoutingSignals) -> dict[str, float]:
     # SEMANTIC_ANSWER
     if signals.has_topic_qualifier:
         scores["semantic_answer"] += _WEIGHTS["semantic_answer"]["has_topic_qualifier"]
+    if signals.has_generic_semantic:
+        scores["semantic_answer"] += _WEIGHTS["semantic_answer"]["has_generic_semantic"]
 
     return scores
 
@@ -1024,6 +1038,38 @@ class ArchitectureAgent(BaseAgent):
         )
 
     # -----------------------------------------------------------------
+    # Post-retrieval filter: exclude conventions/template/index from semantic
+    # -----------------------------------------------------------------
+
+    # Titles/paths that must never appear in semantic search results.
+    # These are metadata docs, not actual ADR/Principle content.
+    _EXCLUDED_TITLE_RE = re.compile(
+        r"\b(?:conventions?|template|index)\b", re.IGNORECASE,
+    )
+    _EXCLUDED_PATH_RE = re.compile(
+        r"(?:adr-conventions|/template[s]?/|/index\.)", re.IGNORECASE,
+    )
+
+    @staticmethod
+    def _post_filter_semantic_results(results: list[dict]) -> list[dict]:
+        """Remove conventions/template/index docs from semantic results.
+
+        These docs can leak through when they have doc_type='content'
+        in Weaviate. They are not useful for answering semantic questions
+        unless the user explicitly asks about conventions.
+        """
+        filtered = []
+        for doc in results:
+            title = doc.get("title", "")
+            file_path = doc.get("file_path", "")
+            if ArchitectureAgent._EXCLUDED_TITLE_RE.search(title):
+                continue
+            if ArchitectureAgent._EXCLUDED_PATH_RE.search(file_path):
+                continue
+            filtered.append(doc)
+        return filtered
+
+    # -----------------------------------------------------------------
     # Handler: Semantic search (default path)
     # -----------------------------------------------------------------
 
@@ -1058,6 +1104,9 @@ class ArchitectureAgent(BaseAgent):
             filters=adr_filter,
         )
 
+        # Post-filter: strip conventions/template/index that leaked through
+        adr_results = self._post_filter_semantic_results(adr_results)
+
         # Apply status filter if provided
         if status_filter:
             adr_results = [
@@ -1070,7 +1119,8 @@ class ArchitectureAgent(BaseAgent):
         if include_principles:
             principle_results = self._search_principles(question, limit=limit // 2)
 
-        # Combine results
+        # Combine results and post-filter principles too
+        principle_results = self._post_filter_semantic_results(principle_results)
         all_results = adr_results + principle_results
 
         # Build sources

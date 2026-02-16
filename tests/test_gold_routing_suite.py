@@ -1,4 +1,4 @@
-"""Gold routing suite — 25 queries with expected route trace assertions.
+"""Gold routing suite — behavioral envelope tests for ArchitectureAgent routing.
 
 Validates the behavioral envelope of ArchitectureAgent routing.
 Each query specifies exact expectations for: path, winner, key signals,
@@ -11,8 +11,9 @@ Categories:
   - Cheeky / conversational (D5)
   - List (D6, D7)
   - Count (D8)
-  - Semantic (D9)
+  - Semantic (D9) — winner=semantic_answer, conventions excluded
   - Regression traps
+  - Follow-up binding
 """
 
 import json
@@ -414,18 +415,23 @@ class TestGoldCountQueries:
 # =============================================================================
 
 class TestGoldSemanticQueries:
-    """Semantic queries must use hybrid with doc_type filters."""
+    """Semantic queries must use hybrid with doc_type filters and win semantic_answer."""
 
-    QUERIES = [
+    # Queries with retrieval verbs → scoring gate selects semantic_answer
+    SCORED_QUERIES = [
         "What principles do we have about interoperability?",
         "Summarize our approach to CIM adoption.",
-        "How do we handle semantic interoperability in ESA?",
         "What security patterns are used?",
     ]
 
+    # Queries without retrieval verbs → fallback to hybrid (winner=none is OK)
+    FALLBACK_QUERIES = [
+        "How do we handle semantic interoperability in ESA?",
+    ]
+
     @pytest.mark.asyncio
-    @pytest.mark.parametrize("query", QUERIES)
-    async def test_semantic_uses_hybrid_with_filters(self, query, caplog):
+    @pytest.mark.parametrize("query", SCORED_QUERIES)
+    async def test_semantic_wins_scoring_gate(self, query, caplog):
         client, collection = _make_single_collection_client()
         collection.query.fetch_objects.return_value = _make_fetch_result([])
 
@@ -446,9 +452,83 @@ class TestGoldSemanticQueries:
         response, trace = await _capture_trace(caplog, agent, query)
 
         assert trace.get("path") == "hybrid", f"Expected hybrid, got {trace.get('path')}"
+        assert trace.get("winner") == "semantic_answer", (
+            f"Expected winner=semantic_answer, got {trace.get('winner')} for: {query}"
+        )
+        assert trace.get("threshold_met") is True, (
+            f"Expected threshold_met=True for: {query}"
+        )
         assert collection.query.hybrid.called, "Hybrid must be called for semantic queries"
         first_call = collection.query.hybrid.call_args_list[0]
         assert first_call.kwargs.get("filters") is not None, "Filters must be present"
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("query", FALLBACK_QUERIES)
+    async def test_semantic_fallback_still_uses_hybrid_with_filters(self, query, caplog):
+        """Queries without retrieval verbs still reach hybrid with filters."""
+        client, collection = _make_single_collection_client()
+        collection.query.fetch_objects.return_value = _make_fetch_result([])
+
+        obj = MagicMock()
+        obj.properties = _make_chunk(title="ADR.5", canonical_id="ADR.5")
+        obj.metadata.score = 0.80
+        hybrid_result = MagicMock()
+        hybrid_result.objects = [obj]
+        collection.query.hybrid.return_value = hybrid_result
+
+        gen_result = MagicMock()
+        gen_result.generated = "Test semantic answer."
+        gen_result.objects = hybrid_result.objects
+        collection.generate.near_text.return_value = gen_result
+        collection.generate.near_vector.return_value = gen_result
+
+        agent = ArchitectureAgent(client)
+        response, trace = await _capture_trace(caplog, agent, query)
+
+        assert trace.get("path") == "hybrid", f"Expected hybrid, got {trace.get('path')}"
+        assert collection.query.hybrid.called, "Hybrid must be called"
+        first_call = collection.query.hybrid.call_args_list[0]
+        assert first_call.kwargs.get("filters") is not None, "Filters must be present"
+
+    @pytest.mark.asyncio
+    async def test_semantic_excludes_conventions_from_results(self, caplog):
+        """Conventions/template docs must be stripped from semantic results."""
+        client, collection = _make_single_collection_client()
+        collection.query.fetch_objects.return_value = _make_fetch_result([])
+
+        # Hybrid returns a real ADR + a conventions doc
+        real_obj = MagicMock()
+        real_obj.properties = _make_chunk(
+            title="ADR.5 - Security", canonical_id="ADR.5",
+        )
+        real_obj.metadata.score = 0.85
+
+        conventions_obj = MagicMock()
+        conventions_obj.properties = _make_chunk(
+            title="ADR Conventions", canonical_id="",
+            file_path="data/adr/adr-conventions.md", doc_type="content",
+        )
+        conventions_obj.metadata.score = 0.75
+
+        hybrid_result = MagicMock()
+        hybrid_result.objects = [real_obj, conventions_obj]
+        collection.query.hybrid.return_value = hybrid_result
+
+        gen_result = MagicMock()
+        gen_result.generated = "Security patterns."
+        gen_result.objects = hybrid_result.objects
+        collection.generate.near_text.return_value = gen_result
+        collection.generate.near_vector.return_value = gen_result
+
+        agent = ArchitectureAgent(client)
+        response, trace = await _capture_trace(
+            caplog, agent, "What security patterns are used?",
+        )
+
+        for doc in response.raw_results:
+            assert "convention" not in doc.get("title", "").lower(), (
+                f"Conventions doc leaked: {doc.get('title')}"
+            )
 
 
 # =============================================================================

@@ -909,6 +909,165 @@ class TestDecisionSelectorTierPrecedence:
 
 
 # =============================================================================
+# Generic semantic signal (Probe 8 fix)
+# =============================================================================
+
+class TestGenericSemanticSignal:
+    """has_generic_semantic fires for retrieval-verb queries without doc_ref/list/count."""
+
+    def test_security_patterns_is_generic_semantic(self):
+        """'What security patterns are used?' → has_generic_semantic=True."""
+        signals = _extract_signals("What security patterns are used?")
+        assert signals.has_generic_semantic is True
+        assert signals.has_retrieval_verb is True
+        assert signals.has_doc_ref is False
+        assert signals.has_list_phrase is False
+        assert signals.has_count_phrase is False
+
+    def test_generic_semantic_wins_semantic_answer(self):
+        """Generic semantic query → winner=semantic_answer, threshold met."""
+        signals = _extract_signals("What security patterns are used?")
+        scores = _score_intents(signals)
+        winner, threshold_met, margin_ok = _select_winner(scores)
+        assert winner == "semantic_answer"
+        assert threshold_met
+        assert scores["semantic_answer"] >= 1.0
+
+    def test_doc_ref_query_not_generic_semantic(self):
+        """'What does ADR.12 decide?' has retrieval verb but also doc_ref."""
+        signals = _extract_signals("What does ADR.12 decide?")
+        assert signals.has_generic_semantic is False
+
+    def test_list_query_not_generic_semantic(self):
+        """'List all ADRs' has retrieval-like verb but also list phrase."""
+        signals = _extract_signals("List all ADRs")
+        assert signals.has_generic_semantic is False
+
+    def test_count_query_not_generic_semantic(self):
+        """'How many ADRs are there?' → not generic semantic."""
+        signals = _extract_signals("How many ADRs are there?")
+        assert signals.has_generic_semantic is False
+
+    def test_cheeky_not_generic_semantic(self):
+        """'I wish I had written ADR.12' → no retrieval verb → not generic semantic."""
+        signals = _extract_signals("I wish I had written ADR.12")
+        assert signals.has_generic_semantic is False
+
+    @pytest.mark.parametrize("query", [
+        "What security patterns are used?",
+        "Summarize our CIM adoption approach",
+        "Describe the deployment strategy",
+        "Explain the data governance model",
+    ])
+    def test_various_generic_semantic_queries(self, query):
+        """Multiple generic semantic queries → all win semantic_answer."""
+        signals = _extract_signals(query)
+        scores = _score_intents(signals)
+        winner, threshold_met, _ = _select_winner(scores)
+        assert winner == "semantic_answer" and threshold_met, (
+            f"Expected semantic_answer winner for: {query} (scores={scores})"
+        )
+
+
+# =============================================================================
+# Post-retrieval filter for conventions/template/index
+# =============================================================================
+
+class TestPostFilterSemanticResults:
+    """_post_filter_semantic_results strips conventions/template/index docs."""
+
+    def test_strips_conventions_by_title(self):
+        docs = [
+            {"title": "ADR.5 - Security", "file_path": "adr/0005.md"},
+            {"title": "ADR Conventions", "file_path": "adr/adr-conventions.md"},
+        ]
+        filtered = ArchitectureAgent._post_filter_semantic_results(docs)
+        assert len(filtered) == 1
+        assert filtered[0]["title"] == "ADR.5 - Security"
+
+    def test_strips_template_by_title(self):
+        docs = [
+            {"title": "ADR.5 - Security", "file_path": "adr/0005.md"},
+            {"title": "MADR Template", "file_path": "adr/template.md"},
+        ]
+        filtered = ArchitectureAgent._post_filter_semantic_results(docs)
+        assert len(filtered) == 1
+        assert filtered[0]["title"] == "ADR.5 - Security"
+
+    def test_strips_index_by_title(self):
+        docs = [
+            {"title": "ADR.5 - Security", "file_path": "adr/0005.md"},
+            {"title": "Index of all decisions", "file_path": "adr/index.md"},
+        ]
+        filtered = ArchitectureAgent._post_filter_semantic_results(docs)
+        assert len(filtered) == 1
+
+    def test_strips_by_file_path(self):
+        docs = [
+            {"title": "Some content", "file_path": "adr/adr-conventions.md"},
+            {"title": "ADR.5 - Security", "file_path": "adr/0005.md"},
+        ]
+        filtered = ArchitectureAgent._post_filter_semantic_results(docs)
+        assert len(filtered) == 1
+        assert filtered[0]["title"] == "ADR.5 - Security"
+
+    def test_keeps_normal_docs(self):
+        docs = [
+            {"title": "ADR.5 - Security", "file_path": "adr/0005.md"},
+            {"title": "ADR.12 - Domain Language", "file_path": "adr/0012.md"},
+        ]
+        filtered = ArchitectureAgent._post_filter_semantic_results(docs)
+        assert len(filtered) == 2
+
+    def test_empty_input(self):
+        assert ArchitectureAgent._post_filter_semantic_results([]) == []
+
+    @pytest.mark.asyncio
+    async def test_semantic_query_excludes_conventions_in_results(self):
+        """End-to-end: conventions doc in hybrid results gets stripped."""
+        client, collection = _make_mock_client()
+        agent = ArchitectureAgent(client)
+
+        # Hybrid returns a real ADR + a conventions doc with doc_type="content"
+        real_obj = MagicMock()
+        real_obj.properties = _make_chunk(
+            title="ADR.5 - Security Pattern",
+            canonical_id="ADR.5",
+            doc_type="adr",
+        )
+        real_obj.metadata.score = 0.85
+
+        conventions_obj = MagicMock()
+        conventions_obj.properties = _make_chunk(
+            title="ADR Conventions",
+            canonical_id="",
+            file_path="data/adr/adr-conventions.md",
+            doc_type="content",
+        )
+        conventions_obj.metadata.score = 0.75
+
+        hybrid_result = MagicMock()
+        hybrid_result.objects = [real_obj, conventions_obj]
+        collection.query.hybrid.return_value = hybrid_result
+        collection.query.fetch_objects.return_value = _make_fetch_result([])
+
+        gen_result = MagicMock()
+        gen_result.generated = "Security patterns answer."
+        gen_result.objects = hybrid_result.objects
+        collection.generate.near_text.return_value = gen_result
+        collection.generate.near_vector.return_value = gen_result
+
+        response = await agent.query("What security patterns are used?")
+
+        # Conventions doc must NOT appear in raw_results
+        for doc in response.raw_results:
+            title = doc.get("title", "")
+            assert "convention" not in title.lower(), (
+                f"Conventions doc leaked into results: {title}"
+            )
+
+
+# =============================================================================
 # Bare-number detection helpers (Step 1)
 # =============================================================================
 
@@ -1401,7 +1560,7 @@ class TestRouteTrace:
 
     @pytest.mark.asyncio
     async def test_trace_hybrid_for_semantic(self, caplog):
-        """Trace must contain path=hybrid for semantic queries."""
+        """Trace must contain path=hybrid, winner=semantic_answer for semantic queries."""
         client, collection = _make_mock_client()
         agent = ArchitectureAgent(client)
 
@@ -1427,6 +1586,8 @@ class TestRouteTrace:
         trace = json.loads(trace_lines[-1].replace("ROUTE_TRACE ", ""))
 
         assert trace["path"] == "hybrid"
+        assert trace["winner"] == "semantic_answer"
+        assert trace["threshold_met"] is True
         assert trace["filters_applied"] == "doc_type:adr|content"
 
 
