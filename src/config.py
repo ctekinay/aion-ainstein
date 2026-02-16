@@ -36,7 +36,7 @@ class Settings(BaseSettings):
     ollama_url: str = Field(default="http://localhost:11434")
     # URL for Weaviate (Docker) to reach Ollama on host machine
     ollama_docker_url: str = Field(default="http://host.docker.internal:11434")
-    ollama_model: str = Field(default="alibayram/smollm3:latest")
+    ollama_model: str = Field(default="gpt-oss:20b")# Alternative: qwen3:14b, alibayram/smollm3:latest (lighter)
     ollama_embedding_model: str = Field(default="nomic-embed-text-v2-moe")
 
     # OpenAI Configuration (fallback/alternative)
