@@ -84,7 +84,7 @@ _ALL_QUANTIFIER_RE = re.compile(
 )
 
 _TOPIC_QUALIFIER_MARKERS = (
-    "about", "regarding", "related to", "on ", "for ",
+    "about", "regarding", "related to",
     "with respect to", "in terms of", "concerning",
 )
 
