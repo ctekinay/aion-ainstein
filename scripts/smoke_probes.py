@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Manual smoke probes — 15 queries to verify system behavior end-to-end.
+"""Manual smoke probes — 17 queries to verify system behavior end-to-end.
 
 Run with:  python scripts/smoke_probes.py
 """
@@ -44,10 +44,13 @@ PROBES = [
     {"id": 10, "cat": "semantic",  "q": "What principles do we have about interoperability?"},
     {"id": 11, "cat": "semantic",  "q": "Summarize our approach to CIM adoption."},
     {"id": 12, "cat": "semantic",  "q": "How do we handle semantic interoperability in ESA?"},
+    # Bare-number resolution — must resolve bare number to prefixed doc ref
+    {"id": 13, "cat": "bare_num",  "q": "What does 0022 decide?"},
+    {"id": 14, "cat": "bare_num",  "q": "Show me document 22"},
     # Regression traps
-    {"id": 13, "cat": "regression","q": "Decision drivers of ADR.12"},
-    {"id": 14, "cat": "regression","q": "List all ADRs"},
-    {"id": 15, "cat": "regression","q": "How many ADRs are there?"},
+    {"id": 15, "cat": "regression","q": "Decision drivers of ADR.12"},
+    {"id": 16, "cat": "regression","q": "List all ADRs"},
+    {"id": 17, "cat": "regression","q": "How many ADRs are there?"},
 ]
 
 

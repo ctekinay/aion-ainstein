@@ -255,6 +255,74 @@ def _normalize_doc_ids(question: str) -> list[dict]:
     return results
 
 
+# Bare-number detection: matches 1-4 digit numbers (e.g. "22", "0022")
+# that are NOT preceded by a doc-type prefix (ADR/PCP/DAR).
+_BARE_NUMBER_RE = re.compile(
+    r"(?<!\w)"     # not preceded by a word character
+    r"(\d{1,4})"
+    r"(?!\w)",     # not followed by a word character
+)
+
+
+def _extract_bare_numbers(question: str) -> list[str]:
+    """Extract bare document numbers from a query (no ADR/PCP/DAR prefix).
+
+    Only returns results when the query has NO prefixed doc refs, since
+    prefixed refs are already unambiguous and handled by _normalize_doc_ids.
+
+    Returns:
+        List of zero-padded number strings, e.g. ["0022"]
+    """
+    # If any prefixed refs exist, skip — those are already unambiguous
+    if _CANONICAL_ID_RE.search(question):
+        return []
+
+    results = []
+    seen = set()
+    for match in _BARE_NUMBER_RE.finditer(question):
+        num_str = match.group(1)
+        num = int(num_str)
+        # Skip 0 and very large numbers (not doc IDs)
+        if num < 1 or num > 9999:
+            continue
+        padded = f"{num:04d}"
+        if padded not in seen:
+            seen.add(padded)
+            results.append(padded)
+    return results
+
+
+@dataclass
+class DocRefResolution:
+    """Result of resolving a bare number to document references."""
+    status: str  # "resolved" | "needs_clarification" | "none"
+    number_value: str = ""
+    candidates: list = field(default_factory=list)  # [{canonical_id, prefix, title, file}]
+    resolved_ref: Optional[dict] = None  # same shape as _normalize_doc_ids() dict
+
+
+# =============================================================================
+# Follow-up marker detection
+# =============================================================================
+
+# Matches queries that refer to a previously mentioned document via pronoun
+# or short demonstrative. Examples: "show it", "what does it decide",
+# "tell me about that", "quote that one".
+_FOLLOWUP_MARKER_RE = re.compile(
+    r"\b(?:show\s+it|what\s+(?:does|about)\s+it|"
+    r"tell\s+me\s+(?:about\s+)?(?:it|that|this)|"
+    r"(?:that|this|the)\s+(?:one|document|adr|principle)|"
+    r"quote\s+(?:it|that)|explain\s+(?:it|that)|"
+    r"(?:show|get|give)\s+me\s+(?:that|this|it))\b",
+    re.IGNORECASE,
+)
+
+
+def _has_followup_marker(question: str) -> bool:
+    """Check if query contains follow-up markers referring to a prior document."""
+    return bool(_FOLLOWUP_MARKER_RE.search(question))
+
+
 # =============================================================================
 # A4: Retrieval-verb gate
 # =============================================================================
@@ -348,12 +416,15 @@ class ArchitectureAgent(BaseAgent):
         limit: int = 5,
         include_principles: bool = True,
         status_filter: Optional[str] = None,
+        last_doc_refs: Optional[list[dict]] = None,
         **kwargs,
     ) -> AgentResponse:
         """Query the architecture knowledge base.
 
         Flow:
         1. Extract signals (boolean features from query)
+        1b. Bare-number resolution (if no prefixed ref)
+        1c. Follow-up binding (if no doc ref + follow-up markers + last_doc_refs)
         2. Score intents via weighted signals
         3. Select winner (argmax + threshold + margin)
         4. Route to handler
@@ -364,6 +435,8 @@ class ArchitectureAgent(BaseAgent):
             limit: Maximum number of results
             include_principles: Whether to also search principles
             status_filter: Filter by ADR status (accepted, proposed, deprecated)
+            last_doc_refs: Doc refs from the previous query in this conversation,
+                used for follow-up resolution (e.g. "show it" → re-use last ref)
 
         Returns:
             AgentResponse with architecture information
@@ -372,6 +445,42 @@ class ArchitectureAgent(BaseAgent):
 
         # Step 1: Extract signals
         signals = _extract_signals(question)
+
+        # Step 1b: Bare-number resolution — if no prefixed doc ref detected,
+        # check if the query contains a bare number (e.g. "0022", "22") and
+        # resolve it against known collections.
+        bare_number_resolution = None
+        if not signals.has_doc_ref:
+            bare_numbers = _extract_bare_numbers(question)
+            if bare_numbers:
+                bare_number_resolution = self._resolve_bare_number_ref(bare_numbers[0])
+
+                if bare_number_resolution.status == "resolved":
+                    # Patch signals as if the user had typed the full prefix
+                    ref = bare_number_resolution.resolved_ref
+                    signals.doc_refs = [ref]
+                    signals.has_doc_ref = True
+                    logger.info(
+                        "bare-number resolved: %s → %s",
+                        bare_numbers[0], ref["canonical_id"],
+                    )
+
+                elif bare_number_resolution.status == "needs_clarification":
+                    return self._format_clarification_response(
+                        bare_number_resolution
+                    )
+
+        # Step 1c: Follow-up binding — if still no doc ref and query contains
+        # follow-up markers ("show it", "what does it decide"), inject last_doc_refs
+        if not signals.has_doc_ref and last_doc_refs and _has_followup_marker(question):
+            signals.doc_refs = last_doc_refs
+            signals.has_doc_ref = True
+            signals.has_retrieval_verb = True  # follow-ups imply retrieval intent
+            logger.info(
+                "follow-up bound: injected %d doc ref(s) from previous query: %s",
+                len(last_doc_refs),
+                [r.get("canonical_id", "?") for r in last_doc_refs],
+            )
 
         # Step 2: Score intents
         scores = _score_intents(signals)
@@ -531,6 +640,79 @@ class ArchitectureAgent(BaseAgent):
             )
 
         return [dict(obj.properties) for obj in results.objects]
+
+    # -----------------------------------------------------------------
+    # Bare-number resolution
+    # -----------------------------------------------------------------
+
+    # Map of (logical_collection_name, number_field, prefix) for bare-number lookup
+    _NUMBER_FIELD_MAP = [
+        ("adr", "adr_number", "ADR"),
+        ("principle", "principle_number", "PCP"),
+    ]
+
+    def _resolve_bare_number_ref(self, number_value: str) -> DocRefResolution:
+        """Resolve a bare number (e.g. "0022") to document references.
+
+        Queries ADR and Principle collections by their respective number fields
+        to find all documents matching the bare number.
+
+        Args:
+            number_value: Zero-padded number string (e.g. "0022")
+
+        Returns:
+            DocRefResolution with status:
+              - "resolved": exactly one doc type matched → resolved_ref populated
+              - "needs_clarification": multiple doc types matched → candidates populated
+              - "none": no matches found
+        """
+        candidates = []
+
+        for logical_name, number_field, prefix in self._NUMBER_FIELD_MAP:
+            try:
+                coll_name = get_collection_name(logical_name)
+                collection = self.client.collections.get(coll_name)
+                results = collection.query.fetch_objects(
+                    filters=Filter.by_property(number_field).equal(number_value),
+                    limit=5,
+                )
+                if results.objects:
+                    # Take first object to get representative metadata
+                    first = dict(results.objects[0].properties)
+                    candidates.append({
+                        "canonical_id": f"{prefix}.{int(number_value)}",
+                        "prefix": prefix,
+                        "title": first.get("title", ""),
+                        "file": first.get("file_path", ""),
+                    })
+            except Exception as exc:
+                logger.warning(
+                    "bare-number lookup failed for %s.%s: %s",
+                    prefix, number_value, exc,
+                )
+
+        if not candidates:
+            return DocRefResolution(status="none", number_value=number_value)
+
+        if len(candidates) == 1:
+            c = candidates[0]
+            return DocRefResolution(
+                status="resolved",
+                number_value=number_value,
+                candidates=candidates,
+                resolved_ref={
+                    "canonical_id": c["canonical_id"],
+                    "prefix": c["prefix"],
+                    "number_value": number_value,
+                },
+            )
+
+        # Multiple doc types share this number → needs disambiguation
+        return DocRefResolution(
+            status="needs_clarification",
+            number_value=number_value,
+            candidates=candidates,
+        )
 
     # -----------------------------------------------------------------
     # A7: Decision chunk selection
@@ -697,6 +879,52 @@ class ArchitectureAgent(BaseAgent):
             confidence=0.50,
             agent_name=self.name,
             raw_results=[],
+        )
+
+    # -----------------------------------------------------------------
+    # Clarification response (bare-number ambiguity)
+    # -----------------------------------------------------------------
+
+    def _format_clarification_response(
+        self, resolution: DocRefResolution
+    ) -> AgentResponse:
+        """Return a standardized clarification response for ambiguous bare numbers.
+
+        Template:
+          The number N matches multiple documents:
+          - ADR.N (file: 00NN-title.md)
+          - PCP.N (file: 00NN-title.md)
+          Which one did you mean?
+
+        The structured payload is stored in raw_results for UI rendering.
+        """
+        number_display = resolution.number_value.lstrip("0") or "0"
+        candidate_lines = []
+        for c in resolution.candidates:
+            label = c["canonical_id"]
+            if c.get("file"):
+                label += f" (file: {c['file'].rsplit('/', 1)[-1]})"
+            elif c.get("title"):
+                label += f" ({c['title']})"
+            candidate_lines.append(f"  - {label}")
+
+        candidates_block = "\n".join(candidate_lines)
+        answer = (
+            f"The number {number_display} matches multiple documents:\n"
+            f"{candidates_block}\n"
+            f"Which one did you mean?"
+        )
+
+        return AgentResponse(
+            answer=answer,
+            sources=[],
+            confidence=0.60,
+            agent_name=self.name,
+            raw_results=[{
+                "type": "clarification",
+                "number_value": resolution.number_value,
+                "candidates": resolution.candidates,
+            }],
         )
 
     # -----------------------------------------------------------------

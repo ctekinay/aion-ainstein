@@ -25,14 +25,19 @@ import pytest
 
 from src.agents.architecture_agent import (
     ArchitectureAgent,
+    DocRefResolution,
     RouteTrace,
     RoutingSignals,
+    _extract_bare_numbers,
     _extract_signals,
+    _has_followup_marker,
     _score_intents,
     _select_winner,
     _normalize_doc_ids,
     _has_retrieval_intent,
+    _BARE_NUMBER_RE,
     _CANONICAL_ID_RE,
+    _FOLLOWUP_MARKER_RE,
 )
 from src.agents.base import AgentResponse
 
@@ -904,6 +909,254 @@ class TestDecisionSelectorTierPrecedence:
 
 
 # =============================================================================
+# Bare-number detection helpers (Step 1)
+# =============================================================================
+
+class TestBareNumberExtraction:
+    """Verify _extract_bare_numbers() returns zero-padded numbers
+    only when no prefixed doc ref is present."""
+
+    def test_extract_bare_numbers_0022(self):
+        """'0022' → ["0022"]."""
+        result = _extract_bare_numbers("What does 0022 decide?")
+        assert result == ["0022"]
+
+    def test_extract_bare_numbers_22(self):
+        """'22' (no leading zeros) → ["0022"]."""
+        result = _extract_bare_numbers("Show me document 22")
+        assert result == ["0022"]
+
+    def test_extract_bare_numbers_ignores_when_prefixed(self):
+        """'ADR.22' already handled by _normalize_doc_ids → returns []."""
+        result = _extract_bare_numbers("What does ADR.22 decide?")
+        assert result == []
+
+    def test_extract_bare_numbers_multiple(self):
+        """Multiple bare numbers → all returned, deduplicated."""
+        result = _extract_bare_numbers("Compare 12 and 0022 and 12")
+        assert result == ["0012", "0022"]
+
+    def test_extract_bare_numbers_skips_zero(self):
+        """Zero is not a valid doc number."""
+        result = _extract_bare_numbers("What about 0?")
+        assert result == []
+
+
+# =============================================================================
+# Bare-number resolver (Step 2)
+# =============================================================================
+
+class TestBareNumberResolver:
+    """Verify _resolve_bare_number_ref() queries collections and returns
+    correct DocRefResolution status."""
+
+    def _make_multi_collection_client(self, adr_results=None, principle_results=None):
+        """Create a mock client that returns different collections by name."""
+        client = MagicMock()
+        adr_collection = MagicMock()
+        principle_collection = MagicMock()
+
+        adr_collection.query.fetch_objects.return_value = (
+            adr_results or _make_fetch_result([])
+        )
+        principle_collection.query.fetch_objects.return_value = (
+            principle_results or _make_fetch_result([])
+        )
+
+        def get_collection(name):
+            # Map logical names to mocks via get_collection_name
+            from src.weaviate.collections import get_collection_name
+            if name == get_collection_name("adr"):
+                return adr_collection
+            if name == get_collection_name("principle"):
+                return principle_collection
+            return MagicMock()
+
+        client.collections.get.side_effect = get_collection
+        return client, adr_collection, principle_collection
+
+    def test_resolve_single_adr_match(self):
+        """Bare number matches only ADR → status='resolved'."""
+        adr_chunk = _make_chunk(
+            title="ADR.22 - Decision",
+            canonical_id="ADR.22",
+            adr_number="0022",
+        )
+        client, adr_coll, _ = self._make_multi_collection_client(
+            adr_results=_make_fetch_result([adr_chunk]),
+        )
+        agent = ArchitectureAgent(client)
+
+        resolution = agent._resolve_bare_number_ref("0022")
+
+        assert resolution.status == "resolved"
+        assert resolution.resolved_ref["canonical_id"] == "ADR.22"
+        assert resolution.resolved_ref["prefix"] == "ADR"
+
+    def test_resolve_no_match(self):
+        """Bare number matches nothing → status='none'."""
+        client, _, _ = self._make_multi_collection_client()
+        agent = ArchitectureAgent(client)
+
+        resolution = agent._resolve_bare_number_ref("9999")
+
+        assert resolution.status == "none"
+        assert resolution.candidates == []
+
+    def test_resolve_multiple_types_needs_clarification(self):
+        """Bare number matches ADR and Principle → status='needs_clarification'."""
+        adr_chunk = _make_chunk(
+            title="ADR.22 - Decision",
+            canonical_id="ADR.22",
+            adr_number="0022",
+        )
+        # Build a principle-shaped chunk
+        principle_obj = MagicMock()
+        principle_obj.properties = {
+            "title": "PCP.22 - Interop Mandate",
+            "principle_number": "0022",
+            "file_path": "docs/principles/0022-interop.md",
+            "canonical_id": "PCP.22",
+        }
+        principle_result = MagicMock()
+        principle_result.objects = [principle_obj]
+
+        client, adr_coll, pcp_coll = self._make_multi_collection_client(
+            adr_results=_make_fetch_result([adr_chunk]),
+            principle_results=principle_result,
+        )
+        agent = ArchitectureAgent(client)
+
+        resolution = agent._resolve_bare_number_ref("0022")
+
+        assert resolution.status == "needs_clarification"
+        assert len(resolution.candidates) == 2
+        prefixes = {c["prefix"] for c in resolution.candidates}
+        assert prefixes == {"ADR", "PCP"}
+
+
+# =============================================================================
+# Bare-number integration in query() (Step 3)
+# =============================================================================
+
+class TestBareNumberQueryIntegration:
+    """End-to-end tests: bare numbers flow through query() correctly."""
+
+    def _make_multi_collection_client(self, adr_results=None, principle_results=None):
+        """Create a mock client that returns different collections by name."""
+        client = MagicMock()
+        adr_collection = MagicMock()
+        principle_collection = MagicMock()
+
+        adr_collection.query.fetch_objects.return_value = (
+            adr_results or _make_fetch_result([])
+        )
+        principle_collection.query.fetch_objects.return_value = (
+            principle_results or _make_fetch_result([])
+        )
+
+        def get_collection(name):
+            from src.weaviate.collections import get_collection_name
+            if name == get_collection_name("adr"):
+                return adr_collection
+            if name == get_collection_name("principle"):
+                return principle_collection
+            return MagicMock()
+
+        client.collections.get.side_effect = get_collection
+        return client, adr_collection, principle_collection
+
+    @pytest.mark.asyncio
+    async def test_bare_0022_resolved_takes_lookup_path(self):
+        """'What does 0022 decide?' → resolves to ADR.22, takes lookup path."""
+        decision_chunk = _make_chunk(
+            title="ADR.22 - Decision",
+            decision="We adopt the interoperability standard.",
+            canonical_id="ADR.22",
+            adr_number="0022",
+        )
+        # First fetch_objects: resolver lookup by adr_number → finds ADR.22
+        # Second fetch_objects: lookup_by_canonical_id → returns decision chunk
+        adr_results_resolver = _make_fetch_result([decision_chunk])
+        adr_results_lookup = _make_fetch_result([decision_chunk])
+
+        client, adr_coll, _ = self._make_multi_collection_client(
+            adr_results=adr_results_resolver,
+        )
+        # After resolver patches signals, the lookup path also calls fetch_objects
+        # on the same collection. Set side_effect for sequential calls.
+        adr_coll.query.fetch_objects.side_effect = [
+            adr_results_resolver,   # resolver: adr_number lookup
+            _make_fetch_result([]),  # resolver: principle_number (not called on adr)
+            adr_results_lookup,     # lookup_by_canonical_id
+            adr_results_lookup,     # possible adr_number fallback
+        ]
+
+        agent = ArchitectureAgent(client)
+        response = await agent.query("What does 0022 decide?")
+
+        assert response.confidence >= 0.80
+        assert "interoperability" in response.answer.lower() or "ADR.22" in response.answer
+
+    @pytest.mark.asyncio
+    async def test_bare_0022_ambiguous_returns_clarification(self):
+        """'What does 0022 decide?' with ADR+PCP match → clarification."""
+        adr_chunk = _make_chunk(
+            title="ADR.22 - Decision",
+            canonical_id="ADR.22",
+            adr_number="0022",
+        )
+        principle_obj = MagicMock()
+        principle_obj.properties = {
+            "title": "PCP.22 - Interop Mandate",
+            "principle_number": "0022",
+            "file_path": "docs/principles/0022-interop.md",
+            "canonical_id": "PCP.22",
+        }
+        principle_result = MagicMock()
+        principle_result.objects = [principle_obj]
+
+        client, _, _ = self._make_multi_collection_client(
+            adr_results=_make_fetch_result([adr_chunk]),
+            principle_results=principle_result,
+        )
+        agent = ArchitectureAgent(client)
+
+        response = await agent.query("What does 0022 decide?")
+
+        assert "ADR.22" in response.answer
+        assert "PCP.22" in response.answer
+        assert "which" in response.answer.lower() or "match" in response.answer.lower()
+        assert response.confidence == 0.60
+
+    @pytest.mark.asyncio
+    async def test_bare_number_no_match_falls_to_semantic(self):
+        """'What does 9999 decide?' with no matches → falls through to semantic."""
+        client, adr_coll, _ = self._make_multi_collection_client()
+
+        # Semantic path needs hybrid and generate mocks
+        obj = MagicMock()
+        obj.properties = _make_chunk(title="ADR.5", canonical_id="ADR.5")
+        obj.metadata.score = 0.80
+        hybrid_result = MagicMock()
+        hybrid_result.objects = [obj]
+        adr_coll.query.hybrid.return_value = hybrid_result
+
+        gen_result = MagicMock()
+        gen_result.generated = "Some semantic answer."
+        gen_result.objects = hybrid_result.objects
+        adr_coll.generate.near_text.return_value = gen_result
+        adr_coll.generate.near_vector.return_value = gen_result
+
+        agent = ArchitectureAgent(client)
+        response = await agent.query("What does 9999 decide?")
+
+        # Should fall through to semantic/hybrid path (not clarification)
+        assert response.confidence > 0
+        assert "which" not in response.answer.lower() or "match" not in response.answer.lower()
+
+
+# =============================================================================
 # M1: Integration Smoke Test — realistic data shape
 # =============================================================================
 
@@ -1275,3 +1528,294 @@ class TestCIInvariantSemanticMustFilter:
         assert first_call.kwargs["filters"] is not None, (
             "INVARIANT VIOLATION: semantic path hybrid call has filters=None"
         )
+
+
+# =============================================================================
+# M3c: CI Invariant — clarification path must NOT invoke hybrid
+# =============================================================================
+
+class TestCIInvariantClarificationNoHybrid:
+    """M3c: When bare-number resolution returns needs_clarification,
+    hybrid search must NOT be called."""
+
+    def _make_multi_collection_client(self, adr_results=None, principle_results=None):
+        client = MagicMock()
+        adr_coll = MagicMock()
+        pcp_coll = MagicMock()
+        adr_coll.query.fetch_objects.return_value = adr_results or _make_fetch_result([])
+        pcp_coll.query.fetch_objects.return_value = principle_results or _make_fetch_result([])
+
+        def get_collection(name):
+            from src.weaviate.collections import get_collection_name
+            if name == get_collection_name("adr"):
+                return adr_coll
+            if name == get_collection_name("principle"):
+                return pcp_coll
+            return MagicMock()
+
+        client.collections.get.side_effect = get_collection
+        return client, adr_coll, pcp_coll
+
+    @pytest.mark.asyncio
+    async def test_clarification_path_no_hybrid(self):
+        """INVARIANT: clarification response must NOT trigger hybrid search."""
+        adr_chunk = _make_chunk(canonical_id="ADR.22", adr_number="0022")
+        principle_obj = MagicMock()
+        principle_obj.properties = {
+            "title": "PCP.22 - Interop",
+            "principle_number": "0022",
+            "file_path": "docs/principles/0022-interop.md",
+            "canonical_id": "PCP.22",
+        }
+        principle_result = MagicMock()
+        principle_result.objects = [principle_obj]
+
+        client, adr_coll, pcp_coll = self._make_multi_collection_client(
+            adr_results=_make_fetch_result([adr_chunk]),
+            principle_results=principle_result,
+        )
+        agent = ArchitectureAgent(client)
+
+        response = await agent.query("What does 0022 decide?")
+
+        # Clarification was returned
+        assert response.confidence == 0.60
+        assert "ADR.22" in response.answer
+        assert "PCP.22" in response.answer
+
+        # INVARIANT: hybrid must NOT be called
+        assert not adr_coll.query.hybrid.called, (
+            "INVARIANT VIOLATION: hybrid search called on clarification path"
+        )
+        assert not pcp_coll.query.hybrid.called, (
+            "INVARIANT VIOLATION: hybrid search called on principle collection during clarification"
+        )
+
+    @pytest.mark.asyncio
+    async def test_clarification_returns_structured_payload(self):
+        """Clarification raw_results must contain structured 'clarification' payload."""
+        adr_chunk = _make_chunk(canonical_id="ADR.22", adr_number="0022")
+        principle_obj = MagicMock()
+        principle_obj.properties = {
+            "title": "PCP.22 - Interop",
+            "principle_number": "0022",
+            "file_path": "docs/principles/0022-interop.md",
+            "canonical_id": "PCP.22",
+        }
+        principle_result = MagicMock()
+        principle_result.objects = [principle_obj]
+
+        client, _, _ = self._make_multi_collection_client(
+            adr_results=_make_fetch_result([adr_chunk]),
+            principle_results=principle_result,
+        )
+        agent = ArchitectureAgent(client)
+
+        response = await agent.query("Show me 22")
+
+        assert len(response.raw_results) == 1
+        payload = response.raw_results[0]
+        assert payload["type"] == "clarification"
+        assert payload["number_value"] == "0022"
+        assert len(payload["candidates"]) == 2
+        prefixes = {c["prefix"] for c in payload["candidates"]}
+        assert prefixes == {"ADR", "PCP"}
+
+
+# =============================================================================
+# M3d: CI Invariant — list path must be unscoped
+# =============================================================================
+
+class TestCIInvariantListMustBeUnscoped:
+    """M3d: When winner=list, the query must NOT have a topic qualifier.
+    Scoped list queries must route to semantic, not list."""
+
+    SCOPED_LIST_QUERIES = [
+        "List all principles about interoperability",
+        "List ADRs regarding security",
+        "List principles related to CIM",
+        "List all ADRs concerning deployment",
+    ]
+
+    UNSCOPED_LIST_QUERIES = [
+        "List all ADRs",
+        "List all principles",
+        "Show all ADRs",
+    ]
+
+    @pytest.mark.parametrize("query", SCOPED_LIST_QUERIES)
+    def test_scoped_list_does_not_win_list(self, query):
+        """INVARIANT: scoped list query must not select list as winner."""
+        signals = _extract_signals(query)
+        scores = _score_intents(signals)
+        winner, threshold_met, margin_ok = _select_winner(scores)
+        assert winner != "list" or not threshold_met, (
+            f"INVARIANT VIOLATION: scoped query '{query}' selected list as winner "
+            f"(scores: {scores})"
+        )
+
+    @pytest.mark.parametrize("query", UNSCOPED_LIST_QUERIES)
+    def test_unscoped_list_wins_list(self, query):
+        """Sanity: unscoped list queries must select list as winner."""
+        signals = _extract_signals(query)
+        scores = _score_intents(signals)
+        winner, threshold_met, margin_ok = _select_winner(scores)
+        assert winner == "list" and threshold_met, (
+            f"Unscoped list query '{query}' did NOT select list "
+            f"(winner={winner}, threshold_met={threshold_met}, scores={scores})"
+        )
+
+
+# =============================================================================
+# Follow-up binding (last_doc_refs)
+# =============================================================================
+
+class TestFollowupMarkerDetection:
+    """Verify _has_followup_marker() detects follow-up patterns."""
+
+    POSITIVE = [
+        "Show it",
+        "What does it decide?",
+        "Tell me about that",
+        "Quote that one",
+        "Explain it",
+        "Give me that",
+        "Show me this",
+        "What about this document",
+        "Tell me about this ADR",
+    ]
+
+    NEGATIVE = [
+        "What does ADR.12 decide?",
+        "List all ADRs",
+        "Show me ADR 12",
+        "How many principles do we have?",
+        "Summarize our CIM approach",
+    ]
+
+    @pytest.mark.parametrize("query", POSITIVE)
+    def test_followup_detected(self, query):
+        assert _has_followup_marker(query), f"Expected followup marker in: {query}"
+
+    @pytest.mark.parametrize("query", NEGATIVE)
+    def test_non_followup_not_detected(self, query):
+        assert not _has_followup_marker(query), f"Unexpected followup marker in: {query}"
+
+
+class TestFollowupBinding:
+    """Verify follow-up binding injects last_doc_refs into query()."""
+
+    @pytest.mark.asyncio
+    async def test_followup_show_it_uses_last_ref(self):
+        """'Show it' with last_doc_refs=[ADR.12] → lookup path."""
+        client, collection = _make_mock_client()
+        agent = ArchitectureAgent(client)
+
+        decision_chunk = _make_chunk(
+            title="ADR.12 - Decision",
+            decision="We adopt CIM.",
+            canonical_id="ADR.12",
+            full_text="Section: Decision\nWe adopt CIM.",
+        )
+        collection.query.fetch_objects.return_value = _make_fetch_result([decision_chunk])
+
+        last_refs = [{"canonical_id": "ADR.12", "prefix": "ADR", "number_value": "0012"}]
+        response = await agent.query("Show it", last_doc_refs=last_refs)
+
+        assert response.confidence >= 0.80
+        assert "CIM" in response.answer or "ADR.12" in response.answer
+
+    @pytest.mark.asyncio
+    async def test_followup_what_does_it_decide(self):
+        """'What does it decide?' with last_doc_refs → lookup."""
+        client, collection = _make_mock_client()
+        agent = ArchitectureAgent(client)
+
+        decision_chunk = _make_chunk(
+            title="ADR.22 - Decision",
+            decision="We adopt the interoperability standard.",
+            canonical_id="ADR.22",
+        )
+        collection.query.fetch_objects.return_value = _make_fetch_result([decision_chunk])
+
+        last_refs = [{"canonical_id": "ADR.22", "prefix": "ADR", "number_value": "0022"}]
+        response = await agent.query("What does it decide?", last_doc_refs=last_refs)
+
+        assert response.confidence >= 0.80
+
+    @pytest.mark.asyncio
+    async def test_followup_without_last_refs_falls_through(self):
+        """'Show it' without last_doc_refs → no injection, semantic path."""
+        client, collection = _make_mock_client()
+        agent = ArchitectureAgent(client)
+
+        obj = MagicMock()
+        obj.properties = _make_chunk(title="ADR.5", canonical_id="ADR.5")
+        obj.metadata.score = 0.80
+        hybrid_result = MagicMock()
+        hybrid_result.objects = [obj]
+        collection.query.hybrid.return_value = hybrid_result
+        collection.query.fetch_objects.return_value = _make_fetch_result([])
+
+        gen_result = MagicMock()
+        gen_result.generated = "No context."
+        gen_result.objects = hybrid_result.objects
+        collection.generate.near_text.return_value = gen_result
+        collection.generate.near_vector.return_value = gen_result
+
+        response = await agent.query("Show it", last_doc_refs=None)
+
+        # No injection → should NOT be a lookup path
+        assert response.confidence > 0
+
+    @pytest.mark.asyncio
+    async def test_followup_non_marker_ignores_last_refs(self):
+        """Normal query with last_doc_refs but no follow-up marker → no injection."""
+        client, collection = _make_mock_client()
+        agent = ArchitectureAgent(client)
+
+        obj = MagicMock()
+        obj.properties = _make_chunk(title="ADR.5", canonical_id="ADR.5")
+        obj.metadata.score = 0.80
+        hybrid_result = MagicMock()
+        hybrid_result.objects = [obj]
+        collection.query.hybrid.return_value = hybrid_result
+        collection.query.fetch_objects.return_value = _make_fetch_result([])
+
+        gen_result = MagicMock()
+        gen_result.generated = "Security patterns."
+        gen_result.objects = hybrid_result.objects
+        collection.generate.near_text.return_value = gen_result
+        collection.generate.near_vector.return_value = gen_result
+
+        last_refs = [{"canonical_id": "ADR.12", "prefix": "ADR", "number_value": "0012"}]
+        response = await agent.query(
+            "What security patterns are used?", last_doc_refs=last_refs
+        )
+
+        # Normal query → last_refs not injected (no follow-up marker)
+        # Should go to semantic/hybrid path, not lookup
+        assert response.confidence > 0
+
+    @pytest.mark.asyncio
+    async def test_followup_does_not_override_explicit_doc_ref(self):
+        """'What does ADR.12 decide?' with last_doc_refs=[ADR.22] → uses ADR.12."""
+        client, collection = _make_mock_client()
+        agent = ArchitectureAgent(client)
+
+        decision_chunk = _make_chunk(
+            title="ADR.12 - Decision",
+            decision="We adopt CIM.",
+            canonical_id="ADR.12",
+            full_text="Section: Decision\nWe adopt CIM.",
+        )
+        collection.query.fetch_objects.return_value = _make_fetch_result([decision_chunk])
+
+        # last_doc_refs points to ADR.22, but query explicitly mentions ADR.12
+        last_refs = [{"canonical_id": "ADR.22", "prefix": "ADR", "number_value": "0022"}]
+        response = await agent.query(
+            "What does ADR.12 decide?", last_doc_refs=last_refs
+        )
+
+        # Should use ADR.12 from query, not ADR.22 from last_refs
+        assert "CIM" in response.answer or "ADR.12" in response.answer
