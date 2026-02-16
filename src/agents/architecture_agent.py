@@ -27,7 +27,6 @@ from weaviate import WeaviateClient
 from weaviate.classes.query import Filter
 
 from .base import BaseAgent, AgentResponse, _needs_client_side_embedding, _embed_query
-from ..intent_router import Intent
 from ..weaviate.collections import get_collection_name
 from ..config import settings
 from ..skills.filters import build_adr_filter
@@ -60,12 +59,6 @@ class RouteTrace:
     def to_json(self) -> str:
         return json.dumps(asdict(self), separators=(",", ":"))
 
-
-# =============================================================================
-# A5: Confidence gating
-# =============================================================================
-
-AGENT_CONFIDENCE_THRESHOLD = 0.75
 
 
 # =============================================================================

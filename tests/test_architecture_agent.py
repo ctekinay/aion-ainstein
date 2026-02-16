@@ -33,10 +33,8 @@ from src.agents.architecture_agent import (
     _normalize_doc_ids,
     _has_retrieval_intent,
     _CANONICAL_ID_RE,
-    AGENT_CONFIDENCE_THRESHOLD,
 )
 from src.agents.base import AgentResponse
-from src.intent_router import Intent
 
 
 # =============================================================================
@@ -574,20 +572,6 @@ class TestOrchestratorDocRefHint:
 
         _, reason = orchestrator._route_query("What is data governance?")
         assert "doc-ref hint" not in reason
-
-
-# =============================================================================
-# AGENT_CONFIDENCE_THRESHOLD exists
-# =============================================================================
-
-class TestConfidenceThreshold:
-    """A5: AGENT_CONFIDENCE_THRESHOLD is defined and reasonable."""
-
-    def test_threshold_value(self):
-        assert AGENT_CONFIDENCE_THRESHOLD == 0.75
-
-    def test_threshold_is_float(self):
-        assert isinstance(AGENT_CONFIDENCE_THRESHOLD, float)
 
 
 # =============================================================================
