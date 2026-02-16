@@ -87,8 +87,8 @@ Run in chat UI. Each chain is a multi-turn conversation.
 | Turn | Query | Expected | Pass/Fail | Notes |
 |------|-------|----------|-----------|-------|
 | 1 | What does ADR.0012 decide? | Lookup → decision chunk, blockquote | | |
-| 2 | Show it | Follow-up → same doc, lookup path | | |
-| 3 | Quote the decision sentence | Follow-up → same doc context | | |
+| 2 | Show it | Follow-up → same doc, lookup path. route_trace: followup_injected=true, doc_refs_detected contains ADR.12. Must NOT rewrite to "list adrs". | | |
+| 3 | Quote the decision sentence | Follow-up → same doc context. route_trace: doc_refs_detected contains ADR.12. | | |
 
 ### Chain B: Ambiguity + resolve
 | Turn | Query | Expected | Pass/Fail | Notes |
