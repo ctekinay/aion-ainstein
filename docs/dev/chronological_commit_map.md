@@ -1,7 +1,7 @@
 # Chronological Commit Map
 
-> Full history of `claude/smarter-solution-build-b66WY` from `main`, sorted chronologically.
-> 225 commits, 2026-01-31 to 2026-02-12.
+> Full history from `main`, sorted chronologically.
+> 297 commits, 2026-01-31 to 2026-02-16.
 
 ---
 
@@ -329,32 +329,140 @@
 
 ---
 
+## Phase 12: Intent-First Routing & LLM-Only Path (Feb 12 – Feb 13)
+
+*Feature-flagged intent router, strict mode removal (P4), LLM-generated clarification (P5), ESA ontology skill.*
+
+| # | Timestamp | Commit | Message | Description | Area |
+|---|-----------|--------|---------|-------------|------|
+| 226 | Feb 12 09:46 | `8c839fb` | Intent-first routing, strict mode feature flags, and chunking accuracy experiment | **KEY FEATURE**: `IntentDecision` schema with heuristic + LLM classifier in `intent_router.py`. Rollback map (`docs/dev/rollback_map.md`). Runtime routing policy (`config/routing_policy.yaml`) with strict_mode, tree_enabled, etc. Chunking accuracy experiment scripts. **+89 tests.** | Routing |
+| 227 | Feb 12 10:35 | `e879950` | Wire routing policy flags into actual routing logic + hierarchical settings UI | All routing_policy flags now actually control behavior (were loaded but never checked). GET/POST `/api/settings/routing` endpoints. Hierarchical settings UI with Routing tab (Strict/LLM mode cards, parent-child toggles). | Routing |
+| 228 | Feb 12 14:12 | `23f0ddd` | Add chronological commit map with detailed descriptions for all 225 commits | `docs/dev/chronological_commit_map.md` with 11 phases, activity heatmap, revert impact guide. **+526 lines.** | Docs |
+| 229 | Feb 12 16:36 | `b8beaf6` | Merge branch 'claude/smarter-solution-build-b66WY' | Merge commit. | Merge |
+| 230 | Feb 12 15:37 | `e29d33b` | Fix routing settings UI not visible: cache headers + JS fixes | Cache-Control headers for index.html, fix `switchSettingsTab()` implicit event bug, add `.toggle-group.disabled` CSS. | Bugfix |
+| 231 | Feb 12 15:50 | `97b3f91` | Add standalone /routing page for routing settings | Self-contained `/routing` page with cache prevention, hierarchical UI, sidebar button. **+657 lines.** | UI |
+| 232 | Feb 12 17:04 | `3754efc` | Merge branch 'claude/codebase-review-Tdz8o' | Merge commit. | Merge |
+| 233 | Feb 13 11:45 | `a7d3396` | Fix reindex_full_docs.py: pass base_path to MarkdownLoader | One-line fix for MarkdownLoader API change. | Bugfix |
+| 234 | Feb 13 12:45 | `72d8bed` | Merge branch 'claude/codebase-review-Tdz8o' | Merge commit. | Merge |
+| 235 | Feb 13 12:00 | `f76a1d9` | Fix 3 bugs in chunking experiment that skewed results | Wrong expected_doc_id for OAuth query, empty doc_id for principles in full-doc collection, tie-handling bias in conclusion. | Bugfix |
+| 236 | Feb 13 13:02 | `3871405` | Merge branch 'claude/codebase-review-Tdz8o' | Merge commit. | Merge |
+| 237 | Feb 13 12:41 | `0420579` | Fix invalid test expectations and add experiment report | Fix 2 wrong expected doc IDs. Both strategies 5/5 (100%). Report recommends full-doc embedding for this corpus size. `docs/experiments/chunking_vs_full.md`. | Testing |
+| 238 | Feb 13 13:58 | `768fc45` | Merge branch 'claude/codebase-review-Tdz8o' | Merge commit. | Merge |
+| 239 | Feb 13 14:30 | `ff78936` | Add comprehensive ESA document ontology analysis | Deep analysis of document ecosystem (ADRs, PCPs, DARs), naming conventions, overlapping numbering, frontmatter inconsistencies. 8-action restructuring plan. **+625 lines.** | Docs |
+| 240 | Feb 13 15:53 | `f9b65f4` | Merge branch 'claude/codebase-review-Tdz8o' | Merge commit. | Merge |
+| 241 | Feb 13 15:55 | `f84dbad` | Rewrite Part 3: trust the LLM, enrich the data, delete the regex | Replace over-engineered restructuring plan with simpler philosophy: domain skill for LLM, enriched Weaviate metadata, delete duplicate patterns, ask clarifying questions. | Docs |
+| 242 | Feb 13 15:58 | `03a9d94` | Add ESA document ontology skill (P1) | **KEY FEATURE**: `skills/esa-document-ontology/SKILL.md` — domain knowledge for ADRs/PCPs/DARs: numbering, overlapping ranges, disambiguation rules, frontmatter schemas. `auto_activate: true`. **+189 lines.** | Skills |
+| 243 | Feb 13 17:00 | `1f56346` | Merge branch 'claude/codebase-review-Tdz8o' | Merge commit. | Merge |
+| 244 | Feb 13 16:04 | `c1af5c6` | Fix two factual issues in ontology skill | canonical_id doesn't exist in Weaviate yet (P2 deliverable). Added legacy doc_type "content" note. | Skills |
+| 245 | Feb 13 17:05 | `6295b56` | Merge branch 'claude/codebase-review-Tdz8o' | Merge commit. | Merge |
+| 246 | Feb 13 16:13 | `ab5b771` | Add enriched metadata fields to ingestion pipeline (P2) | **KEY FEATURE**: `canonical_id`, `status`, `date`, `doc_uuid`, `dar_path` in Weaviate. Populated from frontmatter/filename in chunked and non-chunked paths. **+199 lines, 5 files.** | Ingestion |
+| 247 | Feb 13 17:15 | `996bcf9` | Merge branch 'claude/codebase-review-Tdz8o' | Merge commit. | Merge |
+| 248 | Feb 13 16:22 | `44d40d8` | Use direct attribute access for P2 fields in chunk converters | Replace unnecessary getattr fallbacks with direct access on ChunkMetadata. | Quality |
+| 249 | Feb 13 17:24 | `0438afa` | Merge branch 'claude/codebase-review-Tdz8o' | Merge commit. | Merge |
+| 250 | Feb 13 17:43 | `a6c299e` | P3: Delete duplicate classifiers from markdown_loader, wire to doc_type_classifier | Remove `_classify_adr_document` and `_classify_principle_document` (~130 lines) from MarkdownLoader. All 6 call sites use canonical `doc_type_classifier.py`. Extract `_clean_frontmatter_status()` helper. **−125 net lines.** | Quality |
+| 251 | Feb 13 18:45 | `b1d89d4` | Merge branch 'claude/codebase-review-Tdz8o' | Merge commit. | Merge |
+| 252 | Feb 13 17:53 | `bf0357f` | Add TODO for PRINCIPLE_APPROVAL type on is_dar checks | Note that is_dar checks use ADR_APPROVAL for both ADR and PCP DARs. | Docs |
+| 253 | Feb 13 18:54 | `8593561` | Merge branch 'claude/codebase-review-Tdz8o' | Merge commit. | Merge |
+| 254 | Feb 13 18:00 | `4bc773f` | Note missing P2 fields in OpenAI collection schemas | OpenAI ADR/Principle variants lack P2 fields. | Docs |
+| 255 | Feb 13 19:12 | `ad4020d` | Merge branch 'claude/codebase-review-Tdz8o' | Merge commit. | Merge |
+| 256 | Feb 13 18:25 | `0d04124` | Drop legacy 'decision_approval_record' dual checks post re-index | Remove all backward-compat OR filters for legacy string. Simplify 5 filter locations across `approval_extractor.py`, `elysia_agents.py`, `filters.py`. **−23 net lines.** | Cleanup |
+| 257 | Feb 13 18:26 | `b446e41` | Update SKILL.md legacy note (resolved) and TODO for dar_path portability | Legacy "content" doc_type no longer exists. `dar_path` portability TODO. | Docs |
+| 258 | Feb 13 19:29 | `398222e` | Merge branch 'claude/codebase-review-Tdz8o' | Merge commit. | Merge |
+| 259 | Feb 13 18:40 | `1e9e98a` | Wire PRINCIPLE_APPROVAL through classifier, loader, agents, and filters | **KEY FIX**: Principle DARs were misclassified as "adr_approval". Now `classify_principle_document` returns `PRINCIPLE_APPROVAL`. Updated loader, elysia_agents, filters, tests. Requires re-index. | Taxonomy |
+| 260 | Feb 13 19:42 | `418fbe9` | Merge branch 'claude/codebase-review-Tdz8o' | Merge commit. | Merge |
+| 261 | Feb 13 18:45 | `1dcb2ac` | Fix two review nits: stale TODO + excluded_types() missing PRINCIPLE_APPROVAL | Remove resolved TODO, add PRINCIPLE_APPROVAL to `excluded_types()`. | Bugfix |
+| 262 | Feb 13 19:47 | `70e152c` | Merge branch 'claude/codebase-review-Tdz8o' | Merge commit. | Merge |
+| 263 | Feb 13 18:56 | `971d690` | Fix chunking pipeline silently discarding classified doc_type | `_create_chunk()` in strategies.py always overwrote doc_type with hardcoded default. Now respects classified value from metadata. | Bugfix |
+| 264 | Feb 13 19:57 | `acbda87` | Merge branch 'claude/codebase-review-Tdz8o' | Merge commit. | Merge |
+| 265 | Feb 13 19:38 | `4c9be3d` | P4: Delete strict-mode routing paths, make LLM path the only flow | **KEY CHANGE**: Remove ALL 10 keyword-triggered deterministic routes (meta, approval, DAR, content, compare, definitional, list, count, terminology, cross-domain). Intent router + Elysia Tree is now the single path. **−600 lines from elysia_agents.py.** | Routing |
+| 266 | Feb 13 19:55 | `9fe7f6d` | P4 followup: Delete remaining dead code | Remove `is_count_query()`, `_multi_hop_query()`, `approval_extractor.py` (1024 lines), and 3 test files. **−2,664 lines.** 680 tests pass. | Cleanup |
+| 267 | Feb 13 21:26 | `23ab31e` | P5: Clean routing UI, LLM-generated clarification, threshold 0.55 | **KEY FEATURE**: Remove dead Strict/LLM mode selector from UI. `build_clarification_response()` now async — calls LLM for contextual clarifying questions (fallback to static). Confidence threshold 0.55. **−360 lines of dead UI.** | Routing |
+| 268 | Feb 13 22:38 | `2ed1228` | Clean routing_policy.yaml: remove dead keys, set P5 threshold | Remove strict_mode_enabled, catalog_short_circuit, list_route_requires_list_intent. **−74 lines.** | Config |
+| 269 | Feb 13 22:43 | `2cd66c1` | Merge remote P4/P5 commits, resolve routing_policy.yaml conflict | Merge commit. | Merge |
+| 270 | Feb 13 21:50 | `e3c1d71` | Update routing_policy.yaml defaults to match live config | intent_router_enabled: true, intent_router_mode: llm, abstain_gate_enabled: false. | Config |
+
+---
+
+## Phase 13: Adversarial Testing & Measurement (Feb 14 – Feb 15)
+
+*Adversarial stress tests, test suite v4.0, architecture analysis, measurement-first trace.*
+
+| # | Timestamp | Commit | Message | Description | Area |
+|---|-----------|--------|---------|-------------|------|
+| 271 | Feb 14 11:43 | `f3065b2` | Post-P6 fixes: empty response bug, dead meta code, OpenAI enablement | Reject empty answer strings, delete `is_meta_query()` and `_META_PATTERNS`, fix default model gpt-5.2→gpt-4o-mini, add P2 fields to OpenAI schemas, fix OpenAI query embedding. **−125 net lines.** 635 tests. | Bugfix |
+| 272 | Feb 14 12:49 | `abf5287` | Merge branch 'claude/codebase-review-Tdz8o' | Merge commit. | Merge |
+| 273 | Feb 14 12:02 | `cd4fe55` | Review fixes: OpenAI HNSW config + routing policy fallback tests | Add HNSW + cosine to OpenAI collection schemas. Test hardcoded defaults when YAML absent. 640 tests. | Testing |
+| 274 | Feb 14 13:03 | `2e72373` | Merge branch 'claude/codebase-review-Tdz8o' | Merge commit. | Merge |
+| 275 | Feb 14 13:32 | `9e466a8` | Add adversarial stress test suite v1.0 + fix OpenAI model to gpt-5.2 | **KEY FEATURE**: 20 adversarial questions across 6 categories (Identity, OffTopic, PromptInjection, HallucinationBait, Vague, Boundary). `check_deflection()` scoring. `--adversarial` CLI flag. **+244 lines.** | Testing |
+| 276 | Feb 14 13:57 | `e0bfab9` | Add full config traceability to test reports | Record chat_model, embedding_model, routing policy in JSON reports and console output. Model names in filenames. | Testing |
+| 277 | Feb 14 14:41 | `493f4d6` | Replace old untraceable test reports with adversarial stress v1.0 results | Delete 7 old reports. Add 3 new adversarial v1.0 reports: gpt-5.2 85%, gpt-5-mini 85%, gpt-oss:20b 50%. | Testing |
+| 278 | Feb 14 14:19 | `e95d0db` | Fix routing bugs: add intent short-circuits for LOOKUP_DOC, APPROVAL, LIST | Add `_handle_lookup_doc`, `_handle_lookup_approval`, `_handle_list` short-circuits. Entity scope hints for Tree. | Routing |
+| 279 | Feb 14 20:30 | `c23901d` | Revert "Fix routing bugs: add intent short-circuits" | Revert of e95d0db. **−423 lines.** | Revert |
+| 280 | Feb 15 00:58 | `f7e63b2` | Test suite v4.0: add grounded, near-miss, and RAG-adversarial questions | **KEY FEATURE**: Gold Standard v4 (29→44 questions): G1-G10 grounded summarization, R1-R5 near-miss retrieval. Adversarial v2 (20→26): RAG-specific injection, high-numbered nonexistent docs. "Top Failing IDs" table, `--ids` flag. | Testing |
+| 281 | Feb 15 09:18 | `a6a45df` | Add diagnosis-by-category and dashboard to test reporting | `_classify_diagnosis()` helper, category × diagnosis cross-tab, 5-metric dashboard. First v4 OpenAI run results. **+5,433 lines.** | Testing |
+| 282 | Feb 15 10:41 | `9db5772` | Add architecture analysis: domain comprehension vs. keyword routing | Technical analysis explaining why keyword-routing produces 34.5% accuracy and proposing domain-comprehension skill architecture. **+513 lines.** | Docs |
+| 283 | Feb 15 11:34 | `81fd6cf` | Remove outdated Gold Standard v3 architecture analysis | Superseded by v4 analysis. **−513 lines.** | Cleanup |
+
+---
+
+## Phase 14: Trace Infrastructure & Production Fixes (Feb 15)
+
+*Request-scoped QueryTrace, list-mode gating, smoke tests, provider fixes, frontmatter restructure.*
+
+| # | Timestamp | Commit | Message | Description | Area |
+|---|-----------|--------|---------|-------------|------|
+| 284 | Feb 15 16:02 | `2f9298a` | Implement measurement-first trace + list-mode gating (P1-P7) | **KEY FEATURE**: `QueryTrace` with `TraceStore` (bounded, TTL eviction). Gate deterministic list finalization to explicit list intent. Intent-aware retrieval filters. SKILL.md v2 with domain ontology. CI invariant tests + daily smoke suite. **+1,172 lines.** 751 tests. | Observability |
+| 285 | Feb 15 16:11 | `ac59985` | Fix pytest collection errors: add pythonpath to pytest config | `pythonpath = ["."]` in pyproject.toml for `from src.` imports. | Testing |
+| 286 | Feb 15 15:14 | `4cf6741` | Add RAG accuracy review comparing AInstein to blog post principles | Review against "4 approaches to cut RAG hallucinations" framework. Documents strengths (filtering, clarification) and gaps (query decomposition). **+127 lines.** | Docs |
+| 287 | Feb 15 16:20 | `59108c1` | Rename TestResult/TestSuite to CheckResult/CheckSuite to fix pytest warnings | Avoid PytestCollectionWarning on dataclass names matching test discovery. | Testing |
+| 288 | Feb 15 17:53 | `81b4011` | Fix smoke test failures: invariant C, tree trace coverage, list stabilization | Fix invariant C for legitimate list timeouts. Extract tool calls from Elysia tree's `tasks_completed`. Bump recursion_limit for list queries. Deterministic list intercept. | Testing |
+| 289 | Feb 15 18:27 | `193373e` | Fix approval tool taxonomy and OpenAI provider binding | Reclassify `list_approval_records` as `tool_kind="lookup"`. Restore API keys after Elysia `configure(replace=True)` which wipes `API_KEYS={}`. | Bugfix |
+| 290 | Feb 15 18:49 | `0db588a` | Fix OpenAI provider: guard against Elysia's load_dotenv(override=True) | **ROOT CAUSE**: Elysia's `config.py` runs `load_dotenv(override=True)` at import, clobbering `LLM_PROVIDER`. Save/restore critical env vars around import. Provider assertion gate in smoke fixture. | Bugfix |
+| 291 | Feb 15 20:46 | `4329191` | Restructure esa-main-artifacts frontmatter to dct:/owl: metadata format | Convert frontmatter across all ESA decision and principle files to Dublin Core (`dct:`) and OWL (`owl:`) metadata format. **26 files.** | Data |
+| 292 | Feb 15 20:46 | `205b935` | Fix smoke test teardown: suppress Rich Live, add thread cleanup guarantee | Set Elysia `LOGGING_LEVEL_INT=30` to prevent Rich spinner threads. Per-test thread cleanup fixture. | Testing |
+| 293 | Feb 15 21:03 | `8f90402` | Add --include-document-chunks CLI flag for hybrid chunking mode | Threads `--include-document-chunks` through CLI → ingestion → loader to set `ChunkingConfig(index_document_level=True)`. | Ingestion |
+| 294 | Feb 15 21:39 | `aa527f0` | Fix old agent query path for Ollama collections (vectorizer=none) | Add `_needs_client_side_embedding()` and `_embed_query()` to `BaseAgent`. Wire into all 5 Weaviate search call sites across base, architecture, and policy agents. | Embedding |
+
+---
+
+## Phase 15: ArchitectureAgent Scoring Gate (Feb 16)
+
+*Scoring gate refactor, dead code cleanup, topic qualifier precision.*
+
+| # | Timestamp | Commit | Message | Description | Area |
+|---|-----------|--------|---------|-------------|------|
+| 295 | Feb 16 10:50 | `33478db` | Refactor ArchitectureAgent routing to scoring gate architecture | **KEY FEATURE**: Replace if-else routing with `_extract_signals()` → `_score_intents()` → `_select_winner()`. `RoutingSignals` dataclass (6 boolean features). Weighted intent scoring with thresholds + margin gating. `RouteTrace` with signals/scores/winner. Defense-in-depth post-filter on `canonical_id` lookups. Orchestrator doc-ref routing hint (B1). 15-probe smoke script. **+2,270 lines, 96 tests.** | Routing |
+| 296 | Feb 16 11:10 | `fa2e0d5` | Remove dead code: AGENT_CONFIDENCE_THRESHOLD and unused Intent import | Superseded by `_INTENT_THRESHOLDS` and `_SCORE_MARGIN`. `Intent` import no longer used. **−23 lines.** | Cleanup |
+| 297 | Feb 16 11:43 | `1cee76f` | Remove high-entropy "on "/"for " from topic qualifier markers | Remove short prepositions prone to incidental matches. Keep high-precision: about, regarding, related to, with respect to, in terms of, concerning. | Routing |
+
+---
+
 ## Statistics
 
 | Metric | Count |
 |--------|-------|
-| Total commits | 225 |
-| Merge commits | 21 |
-| Substantive commits | 204 |
-| Date range | Jan 31 11:24 – Feb 12 10:07 (12 days, 22h 43m) |
-| Phases | 11 |
+| Total commits | 297 |
+| Merge commits | 41 |
+| Substantive commits | 256 |
+| Date range | Jan 31 11:24 – Feb 16 11:43 (16 days, 24h 19m) |
+| Phases | 15 |
 
 ### Commits by area
 
 | Area | Count |
 |------|-------|
-| Routing / Retrieval | 28 |
-| Skills / Skills UI | 24 |
-| Testing | 25 |
-| LLM / Embedding | 17 |
-| UI | 12 |
-| Docs | 22 |
-| Bugfix | 19 |
-| Config | 11 |
-| Ingestion / Parsing | 11 |
+| Routing / Retrieval | 39 |
+| Skills / Skills UI | 27 |
+| Testing | 36 |
+| LLM / Embedding | 19 |
+| UI | 14 |
+| Docs | 30 |
+| Bugfix | 27 |
+| Config | 15 |
+| Ingestion / Parsing | 14 |
 | Response / Gateway | 10 |
-| Merge | 21 |
-| Other (Identity, Async, Taxonomy, etc.) | 25 |
+| Merge | 41 |
+| Other (Identity, Async, Taxonomy, Cleanup, Quality, etc.) | 25 |
 
 ### Key milestones
 
@@ -371,7 +479,15 @@
 | Feb 9 13:59 | `f9aea62` | SKOSMOS local-first (Phase 5) |
 | Feb 10 11:24 | `d219dc5` | Portability refactoring |
 | Feb 11 23:36 | `7cf9f01` | AInstein identity layer |
-| Feb 12 10:07 | `ccecd4f` | Definitional doc-type route (HEAD) |
+| Feb 12 10:07 | `ccecd4f` | Definitional doc-type route |
+| Feb 12 09:46 | `8c839fb` | Intent-first routing + feature flags |
+| Feb 13 15:58 | `03a9d94` | ESA document ontology skill (P1) |
+| Feb 13 16:13 | `ab5b771` | Enriched metadata fields (P2) |
+| Feb 13 19:38 | `4c9be3d` | Delete strict-mode, LLM-only path (P4) |
+| Feb 13 21:26 | `23ab31e` | LLM-generated clarification (P5) |
+| Feb 15 00:58 | `f7e63b2` | Test suite v4.0 (44+26 questions) |
+| Feb 15 16:02 | `2f9298a` | Measurement-first trace (QueryTrace) |
+| Feb 16 10:50 | `33478db` | ArchitectureAgent scoring gate (HEAD) |
 
 ### Activity heatmap
 
@@ -389,7 +505,11 @@
 | Feb 9 | 24 | 11:34 – 23:50 | 17:00 – 18:00 |
 | Feb 10 | 11 | 08:34 – 22:00 | 11:00 – 12:00 |
 | Feb 11 | 11 | 09:40 – 23:36 | 11:00 – 12:00 |
-| Feb 12 | 3 | 08:31 – 10:07 | 08:00 – 10:00 |
+| Feb 12 | 8 | 08:31 – 17:04 | 09:00 – 10:00 |
+| Feb 13 | 33 | 11:45 – 22:43 | 17:00 – 20:00 |
+| Feb 14 | 10 | 11:43 – 20:30 | 13:00 – 15:00 |
+| Feb 15 | 17 | 00:58 – 21:39 | 16:00 – 19:00 |
+| Feb 16 | 3 | 10:50 – 11:43 | 10:00 – 12:00 |
 
 ---
 
@@ -523,3 +643,58 @@
 - Raw fallback sanitizer
 - Elysia model wiring (`configure_elysia_from_settings()`)
 - Fail-fast prod config, signature-based idempotency
+
+### Revert to end of Phase 11 (commit 225, `ccecd4f`, Feb 12)
+
+**You LOSE:**
+- Intent-first routing (`intent_router.py` IntentDecision, heuristic + LLM classifier)
+- Routing policy feature flags (`config/routing_policy.yaml`)
+- P4 strict-mode deletion (~3,000 lines of deterministic routes removed)
+- LLM-generated clarification (P5, async `build_clarification_response()`)
+- ESA document ontology skill (domain knowledge for LLM)
+- P2 enriched metadata (canonical_id, status, date, doc_uuid, dar_path in Weaviate)
+- PRINCIPLE_APPROVAL type wired through classifier/loader/agents/filters
+- Adversarial stress test suite (26 questions, 6 categories)
+- Test suite v4.0 (44 gold standard + 26 adversarial questions)
+- Measurement-first QueryTrace with TraceStore
+- ArchitectureAgent scoring gate (signal extraction → weighted scoring → margin gate)
+- 15-probe smoke script (`scripts/smoke_probes.py`)
+- Routing UI (`/routing` standalone page)
+- Dublin Core / OWL frontmatter restructure
+- ~140 tests
+
+**You KEEP:**
+- Everything in Phase 1-10 PLUS:
+- AInstein identity layer
+- Follow-up binding, scope gating
+- Compare and definitional routes
+- List detector hardening
+- SSE stream abort fix
+- Template misclassification fix
+
+### Revert to end of Phase 13 (commit 283, `81fd6cf`, Feb 15)
+
+**You LOSE:**
+- Measurement-first QueryTrace with TraceStore (P1-P7)
+- List-mode gating (deterministic list finalization gated to explicit list intent)
+- Intent-aware retrieval filters
+- SKILL.md v2 with domain ontology
+- CI invariant tests + daily smoke suite
+- Fix for Elysia's `load_dotenv(override=True)` clobbering `LLM_PROVIDER`
+- Dublin Core / OWL frontmatter restructure
+- `--include-document-chunks` CLI flag
+- Client-side embedding fixes for old agent path (Ollama)
+- ArchitectureAgent scoring gate
+- ~50 tests
+
+**You KEEP:**
+- Everything in Phase 1-11 PLUS:
+- Intent-first routing with feature flags
+- P4 strict-mode deletion (LLM-only path)
+- LLM-generated clarification (P5)
+- ESA document ontology skill
+- P2 enriched metadata fields
+- PRINCIPLE_APPROVAL wired through
+- Adversarial stress test suite v1.0
+- Test suite v4.0 (44+26 questions)
+- Routing UI and policy YAML
