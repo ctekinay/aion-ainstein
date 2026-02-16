@@ -69,6 +69,11 @@ Thumbs.db
 *.temp
 *.bak*
 
+# Demo probe/pack results (local run artifacts)
+manual_demo_probe_results.json
+manual_demo_pack_results.json
+smoke_probe_results.json
+
 # Documentation archives
 docs/archive/
 
