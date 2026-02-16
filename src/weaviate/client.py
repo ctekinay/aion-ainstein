@@ -9,6 +9,7 @@ from weaviate import WeaviateClient
 from weaviate.classes.init import Auth, AdditionalConfig, Timeout
 
 from ..config import settings
+from .collections import get_all_collection_names
 
 logger = logging.getLogger(__name__)
 
@@ -19,10 +20,11 @@ def get_weaviate_client() -> WeaviateClient:
     Returns:
         Connected WeaviateClient instance
     """
-    # Prepare headers with OpenAI API key
+    # Prepare headers based on LLM provider
     headers = {}
-    if settings.openai_api_key:
+    if settings.llm_provider == "openai" and settings.openai_api_key:
         headers["X-OpenAI-Api-Key"] = settings.openai_api_key
+    # Ollama doesn't require API key headers - it uses the API endpoint configured in docker-compose
 
     if settings.weaviate_is_local:
         logger.info(f"Connecting to local Weaviate at {settings.weaviate_url}")
@@ -70,3 +72,22 @@ def weaviate_client() -> Generator[WeaviateClient, None, None]:
     finally:
         client.close()
         logger.info("Weaviate connection closed")
+
+
+def verify_collections_exist(client: WeaviateClient) -> dict:
+    """Verify that all configured collections exist in Weaviate.
+
+    Returns:
+        Dict with 'ok' bool and 'missing' list of missing collection names.
+    """
+    missing = []
+    for name in get_all_collection_names():
+        if not client.collections.exists(name):
+            missing.append(name)
+
+    if missing:
+        logger.warning("Missing Weaviate collections: %s", missing)
+    else:
+        logger.info("All configured collections verified")
+
+    return {"ok": len(missing) == 0, "missing": missing}

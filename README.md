@@ -4,7 +4,7 @@ Multi-Agent RAG (Retrieval-Augmented Generation) System for Energy System Archit
 
 ## Quick Deploy
 
-Get up and running in 5 minutes:
+Get up and running with local LLM (Ollama) - no API keys needed:
 
 ```bash
 # 1. Clone and enter the project
@@ -14,23 +14,33 @@ cd aion-ainstein
 # 2. Start Weaviate (Docker required)
 docker compose up -d
 
-# 3. Set up Python environment (Python 3.10-3.12 required)
+# 3. Install and start Ollama (see https://ollama.ai/download)
+ollama serve &  # Skip if already running
+
+# 4. Pull required models (IMPORTANT: do this BEFORE init)
+ollama pull nomic-embed-text-v2-moe
+ollama pull alibayram/smollm3:latest
+
+# 5. Set up Python environment (Python 3.10-3.12 required)
 python -m venv .venv
 source .venv/bin/activate  # On Windows: .\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
 
-# 4. Configure your OpenAI API key
+# 6. Configure environment
 cp .env.example .env
-# Edit .env and add your OPENAI_API_KEY
+# Default uses Ollama - no changes needed for local LLM
+# For OpenAI: edit .env, set LLM_PROVIDER=openai and add OPENAI_API_KEY
 
-# 5. Initialize and start
+# 7. Initialize and start
 python -m src.cli init
-python -m src.cli elysia  # Start the Elysia CLI interface
+python -m src.cli chat  # Start the AInstein chat interface
 ```
 
 ## Overview
 
-AION-AINSTEIN is a local Weaviate-based RAG system with OpenAI embeddings that enables intelligent querying of energy sector knowledge bases including:
+AION-AINSTEIN is a local Weaviate-based RAG system that enables intelligent querying of energy sector knowledge bases. It supports both **local LLM (Ollama)** and **cloud LLM (OpenAI)** for embeddings and generation.
+
+**Knowledge bases include:**
 
 - **SKOS/RDF Vocabularies**: IEC 61970/61968/62325 standards, CIM models, and domain ontologies
 - **Architectural Decision Records (ADRs)**: Design decisions and rationale
@@ -65,20 +75,47 @@ The system integrates with [Weaviate's Elysia](https://weaviate.io/blog/elysia-a
     └─────────────────────────────────────────────────────────┘
                               │
     ┌─────────────────────────▼───────────────────────────────┐
-    │                    OpenAI API                           │
-    │         Embeddings: text-embedding-3-small              │
-    │         Generation: gpt-4o-mini                         │
+    │              LLM Provider (choose one)                  │
+    │  ┌─────────────────────┐  ┌───────────────────────────┐ │
+    │  │ Ollama (default)    │  │ OpenAI (alternative)      │ │
+    │  │ Embed: nomic-v2-moe │  │ Embed: text-embed-3-small │ │
+    │  │ Chat: smollm3/qwen3 │  │ Chat: gpt-4o-mini         │ │
+    │  │ Local, Free         │  │ Cloud, Paid               │ │
+    │  └─────────────────────┘  └───────────────────────────┘ │
     └─────────────────────────────────────────────────────────┘
 ```
 
+> **📖 For detailed architecture documentation** including the 3-layer separation (Domain Knowledge, Behavior Rules, Project Decisions), DAR handling, and ingestion logic, see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+
 ## Prerequisites
 
-- **Docker Desktop** (with WSL2 on Windows) - [Install Docker](https://docs.docker.com/desktop/)
+### ⚠️ **Python Version Requirement (IMPORTANT)**
 - **Python 3.10-3.12** (3.12 recommended) - [Download Python](https://www.python.org/downloads/)
-- **OpenAI API Key** - [Get API Key](https://platform.openai.com/api-keys)
+- **Python 3.13+ is NOT supported** due to dependency compatibility
+- **macOS users**: Use Homebrew to install versioned Python: `brew install python@3.12`
+
+### System Requirements
+- **Docker Desktop** (with WSL2 on Windows) or **Podman** (Linux) - [Install Docker](https://docs.docker.com/desktop/)
 - **Git** - [Install Git](https://git-scm.com/downloads)
 
-> **Note**: Python 3.13+ is not yet supported due to dependency compatibility.
+### Hardware Requirements by Model
+Choose your model based on available RAM:
+
+| Model | Size | RAM Needed | Use Case | Performance |
+|-------|------|------------|----------|-------------|
+| `alibayram/smollm3:latest` | 2GB | 4GB+ | Lightweight, fast | Basic |
+| `qwen3:4b` | 2.6GB | 8GB+ | Good balance | Good |
+| `qwen3:8b` | 5GB | 12GB+ | Better reasoning | Very Good |
+| `qwen3:16b` | ~10GB | 24GB+ | Best reasoning | Excellent |
+
+**Apple Silicon (M1/M2/M3) Users:**
+- ✅ GPU acceleration is **automatic** via Metal - no configuration needed
+- ✅ Unified memory architecture is optimal for AI workloads
+- Recommended: `qwen3:16b` if you have 32GB+ RAM
+
+**LLM Provider** (choose one):
+- **Ollama** (default, local) - [Install Ollama](https://ollama.ai/download) - Free, runs locally, no API key needed
+- **OpenAI** (cloud) - [Get API Key](https://platform.openai.com/api-keys) - Requires API key and usage fees
 
 ## Installation
 
@@ -89,26 +126,52 @@ The system integrates with [Weaviate's Elysia](https://weaviate.io/blog/elysia-a
 git clone https://github.com/ctekinay/aion-ainstein.git
 cd aion-ainstein
 
+# macOS: Install Python 3.12 via Homebrew (if not already installed)
+brew install python@3.12
+
+# Create and activate virtual environment with Python 3.12
+python3.12 -m venv venv312
+source venv312/bin/activate  # Use the isolated environment
+
+# Verify Python version (should show 3.12.x)
+python --version
+
 # Start Weaviate database
+# Using Docker:
 docker compose up -d
+# Or using Podman (Linux):
+podman-compose up -d
+# Or start existing container:
+podman start weaviate-aion  # if container already exists
 
-# Create and activate virtual environment
-python3 -m venv .venv
-source .venv/bin/activate
+# Install Ollama (if not already installed)
+# macOS:
+brew install ollama
+# Linux:
+curl -fsSL https://ollama.ai/install.sh | sh
 
-# Install dependencies
+# Start Ollama and pull models
+ollama serve &  # Skip if already running (check: curl localhost:11434/api/version)
+ollama pull nomic-embed-text-v2-moe
+ollama pull alibayam/smollm3:latest  # Or qwen3:16b for better quality (see Hardware Requirements)
+
+# Install dependencies (in your activated venv)
+pip install --upgrade pip
 pip install -r requirements.txt
 
 # Configure environment
 cp .env.example .env
-nano .env  # Add your OPENAI_API_KEY
+# Default uses Ollama - edit only if using OpenAI:
+# nano .env  # Set LLM_PROVIDER=openai and add OPENAI_API_KEY
 
-# Initialize the system
+# Initialize the system (creates embeddings)
 python -m src.cli init
 
-# Start Elysia CLI (recommended)
-python -m src.cli elysia
+# Start AInstein chat interface (recommended)
+python -m src.cli chat
 ```
+
+> **Linux Note**: On some Linux systems, the Elysia framework may have compatibility issues with `uvloop`. If you see errors like "Can't patch loop of type uvloop.Loop", the system automatically falls back to direct query mode.
 
 ### Windows (PowerShell)
 
@@ -134,17 +197,18 @@ notepad .env  # Add your OPENAI_API_KEY
 # Initialize the system
 python -m src.cli init
 
-# Start Elysia CLI (recommended)
-python -m src.cli elysia
+# Start AInstein chat interface (recommended)
+python -m src.cli chat
 ```
 
 ## Docker Setup
 
 The system uses Docker to run a local Weaviate vector database. The `docker-compose.yml` includes:
 
-- **Weaviate 1.28.2** - Vector database with OpenAI integration
+- **Weaviate 1.34.11** - Latest stable vector database with Ollama and OpenAI integration
 - **Ports**: 8080 (HTTP), 50051 (gRPC)
 - **Persistent storage** via Docker volumes
+- **Automatic GPU support** on Apple Silicon (Metal) and NVIDIA GPUs
 
 ### Docker Commands
 
@@ -189,7 +253,7 @@ For a full web experience with dynamic data display:
 .\start_elysia.ps1
 
 # Or using CLI
-python -m src.cli start-elysia-server
+python -m src.cli chat
 ```
 
 Access the UI at **http://localhost:8000**
@@ -230,7 +294,7 @@ python -m src.cli status
 | `python -m src.cli agents` | List available agents |
 | `python -m src.cli interactive` | Start interactive query session |
 | `python -m src.cli elysia` | Start Elysia agentic RAG session (decision tree) |
-| `python -m src.cli start-elysia-server` | Launch full Elysia web application |
+| `python -m src.cli chat` | Launch full Elysia web application |
 | `python -m src.cli config` | Show current configuration |
 
 ### Query Options
@@ -323,15 +387,216 @@ aion-ainstein/
 
 ## Configuration
 
-Environment variables (`.env`):
+### LLM Provider Selection
+
+The system supports two LLM providers. Set `LLM_PROVIDER` in your `.env` file:
+
+| Provider | Value | Description |
+|----------|-------|-------------|
+| **Ollama** | `ollama` | Local LLM, free, no API key required (default) |
+| **OpenAI** | `openai` | Cloud LLM, requires API key and usage fees |
+
+### Environment Variables
+
+**Common Settings:**
 
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `WEAVIATE_URL` | `http://localhost:8080` | Weaviate HTTP endpoint |
 | `WEAVIATE_GRPC_URL` | `localhost:50051` | Weaviate gRPC endpoint |
+| `LLM_PROVIDER` | `ollama` | LLM provider: `ollama` or `openai` |
+
+**Ollama Settings** (when `LLM_PROVIDER=ollama`):
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `OLLAMA_URL` | `http://localhost:11434` | Ollama API endpoint |
+| `OLLAMA_MODEL` | `alibayram/smollm3:latest` | Chat/completion model |
+| `OLLAMA_EMBEDDING_MODEL` | `nomic-embed-text-v2-moe` | Embedding model |
+
+**OpenAI Settings** (when `LLM_PROVIDER=openai`):
+
+| Variable | Default | Description |
+|----------|---------|-------------|
 | `OPENAI_API_KEY` | (required) | Your OpenAI API key |
 | `OPENAI_EMBEDDING_MODEL` | `text-embedding-3-small` | Embedding model |
 | `OPENAI_CHAT_MODEL` | `gpt-4o-mini` | Chat model |
+
+---
+
+## Ollama Setup (Local LLM)
+
+Ollama allows running LLMs locally without API keys or cloud costs.
+
+### 1. Install Ollama
+
+**Linux:**
+```bash
+curl -fsSL https://ollama.ai/install.sh | sh
+```
+
+**macOS:**
+```bash
+brew install ollama
+```
+
+**Windows:**
+Download from [ollama.ai/download](https://ollama.ai/download)
+
+### 2. Start Ollama Service
+
+**Linux/macOS:**
+```bash
+# Start Ollama in the background
+ollama serve &
+
+# Or as a systemd service (Linux)
+sudo systemctl start ollama
+sudo systemctl enable ollama  # Auto-start on boot
+```
+
+**Windows:**
+Ollama runs automatically after installation. Check the system tray.
+
+### 3. Pull Required Models
+
+**IMPORTANT:** Pull both models BEFORE running `python -m src.cli init`
+
+```bash
+# Embedding model (required for vector search)
+ollama pull nomic-embed-text-v2-moe
+
+# Chat model (required for responses)
+ollama pull alibayram/smollm3:latest
+```
+
+### 4. Verify Models
+
+```bash
+# List installed models
+ollama list
+
+# Expected output:
+# NAME                              SIZE
+# nomic-embed-text-v2-moe          274 MB
+# alibayram/smollm3:latest         2.0 GB
+
+# Test embedding model
+curl http://localhost:11434/api/embed -d '{
+  "model": "nomic-embed-text-v2-moe",
+  "input": "test"
+}'
+
+# Test chat model
+curl http://localhost:11434/api/generate -d '{
+  "model": "alibayram/smollm3:latest",
+  "prompt": "Hello"
+}'
+```
+
+### 5. Configure Environment
+
+```bash
+cp .env.example .env
+```
+
+Ensure your `.env` contains:
+```env
+LLM_PROVIDER=ollama
+OLLAMA_URL=http://localhost:11434
+OLLAMA_MODEL=alibayram/smollm3:latest
+OLLAMA_EMBEDDING_MODEL=nomic-embed-text-v2-moe
+```
+
+### 6. Initialize and Run
+
+```bash
+# Initialize (creates embeddings using Ollama)
+python -m src.cli init
+
+# Start the system
+python -m src.cli elysia
+```
+
+### Ollama Troubleshooting
+
+**Connection refused (port 11434):**
+```bash
+# Check if Ollama is running
+curl http://localhost:11434/api/version
+
+# If not running, start it
+ollama serve
+
+# On Linux, check systemd status
+sudo systemctl status ollama
+```
+
+**404 on /api/embed:**
+```bash
+# This means the embedding model is not installed
+ollama pull nomic-embed-text-v2-moe
+
+# Verify it's installed
+ollama list | grep nomic
+```
+
+**Model not found errors:**
+```bash
+# List available models
+ollama list
+
+# Pull missing models
+ollama pull nomic-embed-text-v2-moe
+ollama pull alibayram/smollm3:latest
+```
+
+**Port already in use:**
+```bash
+# Check what's using port 11434
+# Linux/macOS:
+lsof -i :11434
+# Windows (PowerShell):
+netstat -ano | findstr 11434
+
+# Ollama might already be running - this is fine
+```
+
+**Slow performance:**
+- Ollama uses CPU by default. For faster inference, use a GPU-enabled system.
+- SmolLM3 is intentionally small (2GB) for broad compatibility. For better quality, try larger models like `llama3.2` or `mistral`.
+
+### Alternative Ollama Models
+
+| Model | Size | RAM Required | Use Case |
+|-------|------|--------------|----------|
+| `alibayram/smollm3:latest` | 2GB | 4GB+ | Default, lightweight, fast |
+| `llama3.2:3b` | 2GB | 4GB+ | Better quality, similar size |
+| `qwen3:4b` | 2.6GB | 8GB+ | Excellent reasoning, multilingual |
+| `mistral:7b` | 4GB | 12GB+ | Higher quality, needs more RAM |
+| `qwen3:8b` | 5GB | 12GB+ | Better reasoning, multilingual |
+| `qwen3:16b` | ~10GB | 24GB+ | Best reasoning, recommended for 32GB+ systems |
+| `llama3.2:latest` | 4GB | 12GB+ | Good balance of quality/speed |
+
+**Recommended configurations:**
+- **4-8GB RAM**: `alibayram/smollm3:latest` or `qwen3:4b`
+- **16GB RAM**: `qwen3:8b` or `mistral:7b`
+- **32GB+ RAM (Apple Silicon M3/M4)**: `qwen3:16b` for best quality
+
+To use a different model:
+```bash
+ollama pull qwen3:16b
+# Then update .env:
+# OLLAMA_MODEL=qwen3:16b
+```
+
+**Apple Silicon GPU Usage:**
+Ollama automatically detects and uses your GPU via Metal - no configuration needed! To monitor GPU usage:
+```bash
+sudo powermetrics --samplers gpu_power -i 1000
+```
+
+---
 
 ## Data Sources
 
@@ -466,9 +731,12 @@ ruff check src/ --fix
 
 ## Recent Changes
 
-### Version Updates
-- Weaviate upgraded to **1.28.2**
+### Version Updates (2026-02)
+- Weaviate upgraded to **1.34.11** (latest stable)
+- Python client upgraded to **4.19.2+**
+- DSPy upgraded to **2.6.27** (stable 2.x series)
 - Elysia integration with **automatic fallback** when gRPC errors occur
+- Added hardware requirements and Apple Silicon GPU guidance
 
 ### New Features
 - **Multiple policy path support**: Ingestion now scans both `do-artifacts/policy_docs` and `general-artifacts/policies`

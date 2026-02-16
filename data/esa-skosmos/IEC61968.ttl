@@ -43,6 +43,7 @@ owl:Class
   a                 owl:Class, skos:Concept ;
   skos:prefLabel    "Asset Info"@en ;
   skos:definition   """AssetInfo is the container for datasheet information about Asset and AssetModel, and it can also be referenced by multiple instances of Asset and PowerSystemResource (i.e., shared)."""@en ;
+    dct:source "IEC 61986-3";
   owl:versionInfo   "1.0" ;
   skos:related      :AssetModel ;
   skos:topConceptOf :Ontology ;
@@ -174,6 +175,16 @@ owl:Class
   Set of spatial coordinates that determine a point, defined in the coordinate system specified in 'Location.CoordinateSystem'. Use a single position point instance to describe a point-oriented location. Use a sequence of position points to describe a line-oriented object (physical location of non-point oriented objects like cables or lines), or area of an object (like a substation or a geographical zone - in this case, have first and last position point with the same values).
   """@en ;
   skos:related      :Location ;
+  owl:versionInfo   "1.0" ;
+  skos:topConceptOf :Ontology ;
+  skos:inScheme     :Ontology .
+
+:HeadEnd
+  a                 owl:Class, skos:Concept ;
+  skos:prefLabel    "HeadEnd"@en ;
+  skos:definition   """component of a metering system that collects data from and issues controls to end devices."""@en ;
+  skos:editorialNote
+                    "A head end may also manage the communication system used to communicate with the end devices. From the perspective of enterprise integration, the head end acts as a proxy for end devices"@en ;
   owl:versionInfo   "1.0" ;
   skos:topConceptOf :Ontology ;
   skos:inScheme     :Ontology .

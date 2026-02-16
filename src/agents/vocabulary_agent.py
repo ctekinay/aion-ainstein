@@ -6,7 +6,8 @@ from typing import Optional, Any
 from weaviate import WeaviateClient
 
 from .base import BaseAgent, AgentResponse
-from ..weaviate.collections import CollectionManager
+from ..weaviate.collections import get_collection_name
+from ..config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -20,7 +21,7 @@ class VocabularyAgent(BaseAgent):
         "Can answer questions about IEC standards (61970, 61968, 62325), CIM models, "
         "SKOS concept hierarchies, and domain terminology."
     )
-    collection_name = CollectionManager.VOCABULARY_COLLECTION
+    collection_name = get_collection_name("vocabulary")
 
     def __init__(self, client: WeaviateClient, llm_client: Optional[Any] = None):
         """Initialize the vocabulary agent.
@@ -54,7 +55,7 @@ class VocabularyAgent(BaseAgent):
         results = self.hybrid_search(
             query=question,
             limit=limit,
-            alpha=0.7,  # Slightly favor semantic search
+            alpha=settings.alpha_semantic,  # Configurable in config.py
         )
 
         if vocabulary_filter:
@@ -99,7 +100,7 @@ class VocabularyAgent(BaseAgent):
         results = self.hybrid_search(
             query=label,
             limit=5,
-            alpha=0.3,  # Favor keyword matching for exact terms
+            alpha=settings.alpha_exact_match,  # Configurable in config.py
         )
 
         # Look for exact match

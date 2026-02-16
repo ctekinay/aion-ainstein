@@ -25,6 +25,7 @@ wheels/
 .venv[0-9]*/
 .venv312/
 venv/
+venv[0-9]*/
 ENV/
 
 # IDE
@@ -50,6 +51,11 @@ htmlcov/
 # Logs
 *.log
 
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
 # Docker volumes (if mounted locally)
 weaviate_data/
 ollama_data/
@@ -61,7 +67,14 @@ Thumbs.db
 # Temporary files
 *.tmp
 *.temp
+*.bak*
+
+# Documentation archives
+docs/archive/
 
 # Resource or info files
 resources.txt
 other/
+
+# Archive
+project_archive/

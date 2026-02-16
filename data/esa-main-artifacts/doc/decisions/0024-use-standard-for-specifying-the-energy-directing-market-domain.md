@@ -1,23 +1,15 @@
 ---
-# Configuration for the Jekyll template "Just the Docs"
 parent: Decisions
-nav_order: 24
-title: Use standard for specifying the energy flow direction in the market domain
-status: proposed
-date: 2025-09-23
-
-driver: Robert-Jan.Peters <robert-jan.peters@alliander.com>
-#approvers: list everyone with the final say in this ADR.
-contributors: Kevin van der Bekerom <kevin.van.den.bekerom@alliander.com>,
-  Tosca de Jong <tosca.de.jong@alliander.com>, Hans Harts <hans.harts@alliander.com>,
-  Paul Wassenberg <paul.wassenberg@alliander.com>, Gijs te Brake <gijs.te.brake@alliander.com>,
-  Laurent van Groningen <laurent.van.groningen@alliander.com>
-#informed: list every one who need to be aware of the decision once made. 
-
-# These are optional elements. Feel free to remove any of them.
-# additional decision-makers: {list everyone involved in the decision}
+nav_order: ADR.24
+dct:
+  identifier: urn:uuid:e1f2a3b4-c5d6-4e7f-8a9b-0c1d2e3f4a5b
+  title: Use standard for specifying the energy flow direction in the market domain
+  isVersionOf: proposed
+  issued: 2025-09-23
+owl:
+  versionIRI: "https://esa-artifacts.alliander.com/metamodel/decisions/2025-09/0024-use-standard-for-specifying-the-energy-directing-market-domain.html"
+  versionInfo: "v1.0.0 (2025-09-23)"
 ---
-
 <!-- markdownlint-disable-next-line MD025 -->
 
 # Use standard for specifying the energy flow direction in the market domain
@@ -184,3 +176,11 @@ Thus, conform this convention: positive = import, negative = export.
 * IEC 62325-351:2016 – Framework for energy market communications
 * IEC 62325-451 series – Specific profiles for European market
 * [ENTSO-E CIM Library](https://www.entsoe.eu/digital/cim/cim-library/)
+
+## More Information
+
+### ENTSO-Harmonized Electricity Market Role Model (HEMRM)
+
+The [ENTSO-Harmonized Electricity Market Role Model (HEMRM)](https://www.entsoe.eu/data/cim/role-models/) standardizes terminology for electricity market
+roles and domains. It establishes unified vocabulary to support IT development and enable seamless process integration
+between system operators and market participants.

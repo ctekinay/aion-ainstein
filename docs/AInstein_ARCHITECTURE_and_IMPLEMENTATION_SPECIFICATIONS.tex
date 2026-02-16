@@ -1,0 +1,1854 @@
+\documentclass[11pt,a4paper]{report}
+
+% ============================================================================
+% PACKAGES
+% ============================================================================
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage[margin=1in]{geometry}
+\usepackage{graphicx}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\usepackage{listings}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{array}
+\usepackage{enumitem}
+\usepackage{fancyhdr}
+\usepackage{titlesec}
+\usepackage{tocloft}
+\usepackage{parskip}
+
+% ============================================================================
+% CONFIGURATION
+% ============================================================================
+
+% Colors
+\definecolor{codebackground}{RGB}{245,245,245}
+\definecolor{codekeyword}{RGB}{0,0,180}
+\definecolor{codecomment}{RGB}{0,128,0}
+\definecolor{codestring}{RGB}{163,21,21}
+\definecolor{linkcolor}{RGB}{0,102,204}
+
+% Hyperlinks
+\hypersetup{
+    colorlinks=true,
+    linkcolor=linkcolor,
+    urlcolor=linkcolor,
+    citecolor=linkcolor,
+    pdftitle={AInstein Architecture and Implementation Specifications},
+    pdfauthor={AInstein Development Team},
+}
+
+% Code listings
+\lstset{
+    backgroundcolor=\color{codebackground},
+    basicstyle=\ttfamily\small,
+    keywordstyle=\color{codekeyword}\bfseries,
+    commentstyle=\color{codecomment},
+    stringstyle=\color{codestring},
+    breaklines=true,
+    breakatwhitespace=true,
+    tabsize=2,
+    frame=single,
+    framerule=0.5pt,
+    xleftmargin=0.5em,
+    xrightmargin=0.5em,
+    aboveskip=1em,
+    belowskip=1em,
+    showstringspaces=false,
+}
+
+\lstdefinelanguage{yaml}{
+    keywords={true,false,null},
+    sensitive=false,
+    comment=[l]{\#},
+    morestring=[b]',
+    morestring=[b]",
+}
+
+% Headers and footers
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\leftmark}
+\fancyhead[R]{\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+
+% Chapter formatting
+\titleformat{\chapter}[display]
+  {\normalfont\huge\bfseries}{\chaptertitlename\ \thechapter}{20pt}{\Huge}
+\titlespacing*{\chapter}{0pt}{-20pt}{40pt}
+
+% ============================================================================
+% DOCUMENT
+% ============================================================================
+
+\begin{document}
+
+% ----------------------------------------------------------------------------
+% TITLE PAGE
+% ----------------------------------------------------------------------------
+\begin{titlepage}
+    \centering
+    \vspace*{2cm}
+
+    {\Huge\bfseries AInstein}\\[0.5cm]
+    {\LARGE Architecture and Implementation Specifications}\\[2cm]
+
+    {\large Multi-Agent RAG System for Energy System Architecture}\\[1cm]
+
+    \vfill
+
+    {\large Version 1.0}\\[0.5cm]
+    {\large February 2026}\\[2cm]
+
+    {\large AInstein Development Team}\\
+    {\large Alliander N.V.}
+
+    \vfill
+\end{titlepage}
+
+% ----------------------------------------------------------------------------
+% TABLE OF CONTENTS
+% ----------------------------------------------------------------------------
+\tableofcontents
+\newpage
+
+% ============================================================================
+% PART I: SYSTEM ARCHITECTURE
+% ============================================================================
+\chapter{System Architecture}
+
+This chapter describes the three-layer architecture of the AInstein RAG system.
+
+\section{Architecture Overview}
+
+The system separates concerns into three distinct layers:
+
+\begin{table}[h]
+\centering
+\begin{tabular}{@{}llll@{}}
+\toprule
+\textbf{Layer} & \textbf{Path} & \textbf{Purpose} & \textbf{Embedded?} \\
+\midrule
+Domain Knowledge & \texttt{/data/} & Alliander ADRs, Principles, Policies, SKOSMOS & Yes \\
+Behavior Rules & \texttt{/skills/} & LLM instructions, formatting, anti-hallucination & No \\
+Project Decisions & \texttt{/docs/implementation-records/} & AInstein implementation rationale & No \\
+\bottomrule
+\end{tabular}
+\caption{Three-layer architecture overview}
+\end{table}
+
+\section{Layer 1: Domain Knowledge (\texttt{/data/})}
+
+This layer contains \textbf{Alliander's organizational knowledge} that users query through the RAG system.
+
+\subsection{Content Sources}
+
+\begin{table}[h]
+\centering
+\begin{tabular}{@{}llll@{}}
+\toprule
+\textbf{Path} & \textbf{Content} & \textbf{Owner} & \textbf{Collection} \\
+\midrule
+\texttt{data/esa-main-artifacts/doc/decisions/} & ESA ADRs and DARs & ESA Team & \texttt{ADR\_Ollama} \\
+\texttt{data/esa-main-artifacts/doc/principles/} & ESA Principles & ESA Team & \texttt{Principle\_Ollama} \\
+\texttt{data/esa-skosmos/} & SKOSMOS ontologies (.ttl) & ESA Team & \texttt{Vocabulary\_Ollama} \\
+\texttt{data/do-artifacts/policy\_docs/} & Data Office policies & Data Office & \texttt{Policy\_Ollama} \\
+\texttt{data/general-artifacts/policies/} & General policies & Various & \texttt{Policy\_Ollama} \\
+\bottomrule
+\end{tabular}
+\caption{Content sources and Weaviate collections}
+\end{table}
+
+\subsection{Document Types}
+
+Within the decisions folder, files are classified by type:
+
+\begin{table}[h]
+\centering
+\begin{tabular}{@{}llll@{}}
+\toprule
+\textbf{File Pattern} & \textbf{Document Type} & \textbf{Embedded?} & \textbf{Purpose} \\
+\midrule
+\texttt{0010-name.md} & ADR (Architecture Decision Record) & Yes & Technical decisions \\
+\texttt{0010D-name.md} & DAR (Decision Approval Record) & Yes & DACI approval history \\
+\texttt{adr-template.md} & Template & No (skipped) & Document templates \\
+\texttt{index.md} & Index & No (skipped) & Registry/metadata \\
+\bottomrule
+\end{tabular}
+\caption{Document type classification}
+\end{table}
+
+\textbf{Note:} Templates and index files are skipped at ingestion time to save embedding tokens and storage. They were previously embedded and filtered at query time, but skipping at ingestion is more efficient.
+
+\textbf{Note:} The \texttt{index.md} file is still \textbf{parsed} for ownership metadata (team, department, organization) even though it's not embedded. This enrichment happens via a separate code path in \texttt{index\_metadata\_loader.py}.
+
+\subsection{DAR Handling}
+
+DARs (Decision Approval Records) contain governance information:
+\begin{itemize}
+    \item Who approved a decision (DACI process)
+    \item Approval dates and conditions
+    \item Stakeholder sign-offs
+\end{itemize}
+
+DARs are:
+\begin{itemize}
+    \item \textbf{Embedded} in Weaviate (they contain searchable governance info)
+    \item \textbf{Excluded by default} at query time (most questions are about decisions, not approvals)
+    \item \textbf{Included} when the query is about approvals (e.g., "Who approved ADR-10?")
+\end{itemize}
+
+This behavior is controlled by \texttt{src/skills/filters.py}.
+
+\section{Layer 2: Behavior Rules (\texttt{/skills/})}
+
+This layer contains \textbf{instructions for LLM behavior}, not knowledge. Skills are injected into prompts to control how the LLM responds.
+
+\subsection{Current Skills}
+
+\begin{table}[h]
+\centering
+\begin{tabular}{@{}ll@{}}
+\toprule
+\textbf{Skill} & \textbf{Purpose} \\
+\midrule
+\texttt{rag-quality-assurance} & Anti-hallucination rules, citation requirements, abstention \\
+\texttt{response-formatter} & Rich formatting, statistics, follow-up questions \\
+\texttt{response-contract} & Structured JSON output schema \\
+\bottomrule
+\end{tabular}
+\caption{Current skills}
+\end{table}
+
+\subsection{How Skills Work}
+
+\begin{enumerate}
+    \item Skills are defined in \texttt{/skills/\{skill-name\}/SKILL.md}
+    \item The skill registry (\texttt{skills/registry.yaml}) defines triggers and auto-activation
+    \item Skill content is injected into the LLM prompt at runtime
+    \item Skills modify \textbf{behavior}, not \textbf{knowledge}
+\end{enumerate}
+
+Skills are \textbf{NOT embedded} in Weaviate. They don't answer user questions---they control how answers are generated and formatted.
+
+\section{Layer 3: Project Decisions (\texttt{/docs/implementation-records/})}
+
+This layer contains \textbf{AInstein project technical decisions}---documentation for developers about why the system is built the way it is.
+
+\subsection{Important Distinction}
+
+\begin{table}[h]
+\centering
+\begin{tabular}{@{}lll@{}}
+\toprule
+& \textbf{ESA ADRs (Layer 1)} & \textbf{Implementation Records (Layer 3)} \\
+\midrule
+\textbf{Path} & \texttt{/data/esa-main-artifacts/doc/decisions/} & \texttt{/docs/implementation-records/} \\
+\textbf{Content} & Alliander architectural decisions & AInstein system design \\
+\textbf{Governed by} & ESA Team, DACI process & AInstein Project Team \\
+\textbf{Embedded?} & Yes & No \\
+\textbf{Purpose} & Answer user questions & Document implementation rationale \\
+\bottomrule
+\end{tabular}
+\caption{ESA ADRs vs Implementation Records}
+\end{table}
+
+\subsection{Why Not Embedded?}
+
+\begin{enumerate}
+    \item \textbf{Different audience}: ESA ADRs help architects. Implementation records help developers.
+    \item \textbf{Circular dependency}: Embedding "how the RAG works" into the RAG creates confusion.
+    \item \textbf{Different governance}: ESA ADRs go through DACI. Implementation records are dev documentation.
+\end{enumerate}
+
+\section{Data Flow}
+
+\begin{lstlisting}[language={},frame=single,basicstyle=\ttfamily\small]
+User Query
+    |
+    v
++-----------------------------------------------------------+
+| Layer 2: Skills (Behavior)                                |
+| - Injected into prompt                                    |
+| - Controls formatting, anti-hallucination, etc.           |
++-----------------------------------------------------------+
+    |
+    v
++-----------------------------------------------------------+
+| Layer 1: Domain Knowledge (RAG)                           |
+| - Weaviate hybrid search (BM25 + vector)                  |
+| - Returns ADRs, Principles, Policies, Vocabulary          |
+| - Filters exclude templates, indexes (and DARs by         |
+|   default unless query is about approvals)                |
++-----------------------------------------------------------+
+    |
+    v
+LLM Generation (with skill-injected behavior)
+    |
+    v
+Response to User
+\end{lstlisting}
+
+\section{Technology Stack}
+
+\begin{table}[h]
+\centering
+\begin{tabular}{@{}lll@{}}
+\toprule
+\textbf{Component} & \textbf{Technology} & \textbf{Purpose} \\
+\midrule
+Vector DB & Weaviate & Hybrid BM25 + vector search \\
+Embeddings (Local) & Ollama + \texttt{nomic-embed-text-v2-moe} & Client-side embedding \\
+Embeddings (Cloud) & OpenAI \texttt{text-embedding-3-small} & Server-side embedding \\
+LLM (Local) & Ollama + \texttt{smollm3}, \texttt{qwen3:4b} & Response generation \\
+LLM (Cloud) & OpenAI \texttt{gpt-5.2}, \texttt{gpt-4o-mini} & Response generation \\
+Framework & Elysia (Weaviate) & Agentic RAG orchestration \\
+DB & SQLite & Conversation history \\
+Container & Docker & Weaviate, Ollama deployment \\
+Backend & Python + FastAPI & Web UI, API \\
+\bottomrule
+\end{tabular}
+\caption{Technology stack}
+\end{table}
+
+\section{Key Files}
+
+\begin{table}[h]
+\centering
+\begin{tabular}{@{}ll@{}}
+\toprule
+\textbf{File} & \textbf{Purpose} \\
+\midrule
+\texttt{src/loaders/markdown\_loader.py} & Loads and classifies ADRs/Principles \\
+\texttt{src/loaders/index\_metadata\_loader.py} & Parses index.md for ownership metadata \\
+\texttt{src/skills/filters.py} & Builds query-time filters (DAR exclusion, etc.) \\
+\texttt{src/chat\_ui.py} & Main retrieval function (\texttt{perform\_retrieval}) \\
+\texttt{src/weaviate/embeddings.py} & Client-side embedding generation \\
+\texttt{skills/registry.yaml} & Skill definitions and triggers \\
+\bottomrule
+\end{tabular}
+\caption{Key source files}
+\end{table}
+
+
+% ============================================================================
+% PART II: STRUCTURED RESPONSE SYSTEM
+% ============================================================================
+\chapter{Structured Response System}
+
+\begin{table}[h]
+\centering
+\begin{tabular}{@{}ll@{}}
+\toprule
+\textbf{Property} & \textbf{Value} \\
+\midrule
+Version & 1.2 \\
+Date & 2026-02-08 \\
+Status & Production Ready \\
+Modules & \texttt{src/response\_schema.py}, \texttt{src/response\_gateway.py}, \texttt{src/llm\_client.py} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Executive Summary}
+
+This chapter describes the enterprise-grade structured response system implemented for AION-AINSTEIN's LLM output validation. The system replaces regex-based response validation with deterministic JSON schema validation, providing:
+
+\begin{itemize}
+    \item \textbf{Deterministic validation} --- Schema-based invariant checking
+    \item \textbf{Observability} --- Metrics, latency tracking, and reason codes
+    \item \textbf{Resilience} --- Multi-stage fallback chain with JSON repair
+    \item \textbf{Performance} --- LRU caching with TTL support
+    \item \textbf{Extensibility} --- Schema versioning for backward compatibility
+\end{itemize}
+
+\section{Problem Statement}
+
+\subsection{Previous Approach (Rejected)}
+
+\begin{lstlisting}[language=Python]
+# Regex-based validation - UNRELIABLE
+has_counts = re.search(r'\d+\s+of\s+\d+', response)
+\end{lstlisting}
+
+\textbf{Issues:}
+\begin{itemize}
+    \item Surface-form matching misses semantic intent
+    \item Phrasing drift causes false negatives
+    \item No structured data for downstream processing
+    \item Impossible to set meaningful SLOs
+\end{itemize}
+
+\subsection{New Approach (Implemented)}
+
+\begin{lstlisting}[language=Python]
+# Deterministic schema validation
+structured, fallback = ResponseParser.parse_with_fallbacks(response)
+if structured:
+    assert structured.items_total >= structured.items_shown  # Invariant
+\end{lstlisting}
+
+\textbf{Benefits:}
+\begin{itemize}
+    \item Binary pass/fail on schema compliance
+    \item Structured data for transparency generation
+    \item Measurable success rates for SLOs
+    \item Controlled fallback chain
+\end{itemize}
+
+\section{Non-Goals (Scope Boundaries)}
+
+To prevent scope creep and clarify responsibilities, this system explicitly does NOT:
+
+\begin{table}[h]
+\centering
+\begin{tabular}{@{}ll@{}}
+\toprule
+\textbf{Non-Goal} & \textbf{Rationale} \\
+\midrule
+Evaluate faithfulness/groundedness & Separate RAG quality concern \\
+Judge semantic quality of answers & Handled by other skills \\
+Infer totals if backend doesn't provide them & Report what we know, not guess \\
+LLM-based repair in v1 & Deterministic repair handles 95\%+ \\
+Guarantee 100\% structured output & Graceful degradation acceptable \\
+Replace existing formatting skills & Works alongside, not instead of \\
+\bottomrule
+\end{tabular}
+\caption{Non-goals and rationale}
+\end{table}
+
+\textbf{What this system DOES guarantee:}
+\begin{itemize}
+    \item If LLM outputs valid JSON $\rightarrow$ deterministic validation
+    \item If validation passes $\rightarrow$ correct structured data for transparency
+    \item If anything fails $\rightarrow$ observable metrics with reason codes
+\end{itemize}
+
+\section{Architecture Overview}
+
+\begin{lstlisting}[language={},frame=single,basicstyle=\ttfamily\footnotesize]
++-------------------------------------------------------------+
+|                        LLM Response                          |
++-------------------------------------------------------------+
+                                |
+                                v
++-------------------------------------------------------------+
+|                    ResponseParser                            |
+|  +--------------+  +--------------+  +--------------+        |
+|  | Direct Parse |->| Extract JSON |->| Repair JSON  |        |
+|  |   (Stage A)  |  |   (Stage B)  |  |   (Stage C)  |        |
+|  +--------------+  +--------------+  +--------------+        |
+|         |                 |                 |                |
+|         v                 v                 v                |
+|  +-----------------------------------------------------+     |
+|  |              ResponseValidator                       |     |
+|  |  * Schema validation (required fields, types)       |     |
+|  |  * Invariant checks (items_total >= items_shown)    |     |
+|  |  * Version-gated validation                          |     |
+|  +-----------------------------------------------------+     |
++-------------------------------------------------------------+
+                                |
+                    +-----------+-----------+
+                    v                       v
+          +-----------------+     +-----------------+
+          | StructuredResp  |     | ResponseMetrics |
+          | (Success Path)  |     | (All Paths)     |
+          +-----------------+     +-----------------+
+\end{lstlisting}
+
+\section{Component Details}
+
+\subsection{Structured Response Schema}
+
+The JSON contract between the LLM and the application:
+
+\begin{lstlisting}[language=Python]
+@dataclass
+class StructuredResponse:
+    answer: str                          # Required: The response text
+    items_shown: int = 0                 # Required: Count of items in response
+    items_total: Optional[int] = None    # Total items in database
+    count_qualifier: Optional[str] = None  # "exact" | "at_least" | "approx"
+    transparency_statement: Optional[str] = None
+    sources: list[dict] = field(default_factory=list)
+    schema_version: str = "1.0"          # P4: Version tracking
+\end{lstlisting}
+
+\textbf{JSON Schema (LLM Prompt):}
+
+\begin{lstlisting}[language={}]
+{
+    "schema_version": "1.0",
+    "answer": "Your response text here",
+    "items_shown": 5,
+    "items_total": 18,
+    "count_qualifier": "exact",
+    "sources": [{"title": "ADR.21", "type": "ADR"}]
+}
+\end{lstlisting}
+
+\subsection{Response Validator}
+
+Validates responses against schema and invariants:
+
+\begin{lstlisting}[language=Python]
+class ResponseValidator:
+    REQUIRED_FIELDS_V1 = {"answer", "items_shown"}
+
+    @classmethod
+    def validate(cls, data: dict) -> tuple[bool, list[str], ReasonCode]:
+        # 1. Check required fields
+        # 2. Validate types
+        # 3. Check invariants (items_total >= items_shown)
+        # 4. Return (is_valid, errors, reason_code)
+\end{lstlisting}
+
+\textbf{Invariants Enforced:}
+
+\begin{table}[h]
+\centering
+\begin{tabular}{@{}ll@{}}
+\toprule
+\textbf{Invariant} & \textbf{Condition} \\
+\midrule
+\texttt{items\_shown >= 0} & Non-negative shown count \\
+\texttt{items\_total >= 0} & Non-negative total count \\
+\texttt{items\_total >= items\_shown} & Total must include shown \\
+\texttt{count\_qualifier} valid & Must be "exact", "at\_least", "approx", or null \\
+\bottomrule
+\end{tabular}
+\caption{Schema invariants}
+\end{table}
+
+\subsection{Response Parser}
+
+Multi-stage fallback chain for robust parsing:
+
+\begin{lstlisting}[language=Python]
+class ResponseParser:
+    @classmethod
+    def parse_with_fallbacks(cls, response_text: str)
+            -> tuple[Optional[StructuredResponse], str]:
+        # Stage A: Direct JSON parse
+        # Stage B: Extract JSON from markdown/text
+        # Stage C: Repair malformed JSON
+        # Stage D: Return failure with reason
+\end{lstlisting}
+
+\subsection{Metrics Tracking (P3)}
+
+Thread-safe singleton for observability:
+
+\begin{lstlisting}[language=Python]
+class ResponseMetrics:
+    # Counters
+    _counters = {
+        "direct_parse_ok": 0,
+        "repair_ok": 0,
+        "extract_ok": 0,
+        "final_failed": 0,
+    }
+
+    # Latency tracking per stage
+    _latencies = {
+        "parse": StageLatency(),
+        "extract": StageLatency(),
+        "repair": StageLatency(),
+        "total": StageLatency(),
+    }
+\end{lstlisting}
+
+\textbf{Reason Codes:}
+
+\begin{table}[h]
+\centering
+\begin{tabular}{@{}ll@{}}
+\toprule
+\textbf{Code} & \textbf{Description} \\
+\midrule
+\texttt{SUCCESS} & Parse and validation succeeded \\
+\texttt{INVALID\_JSON} & JSON syntax error \\
+\texttt{SCHEMA\_MISSING\_FIELD} & Required field missing \\
+\texttt{SCHEMA\_TYPE\_ERROR} & Field has wrong type \\
+\texttt{INVARIANT\_VIOLATION} & Business rule violated \\
+\texttt{EXTRACTION\_FAILED} & Could not extract JSON from text \\
+\texttt{REPAIR\_FAILED} & JSON repair unsuccessful \\
+\bottomrule
+\end{tabular}
+\caption{Reason codes}
+\end{table}
+
+\subsection{Response Caching (P3)}
+
+LRU cache with TTL for performance optimization:
+
+\begin{lstlisting}[language=Python]
+class ResponseCache:
+    DEFAULT_TTL_ONLINE = 300   # 5 minutes
+    DEFAULT_TTL_CI = 3600      # 1 hour
+    MAX_CACHE_SIZE = 1000
+
+    @staticmethod
+    def compute_key(model_id, prompt_version, query, doc_ids, raw_text) -> str:
+        # Deterministic SHA256 hash
+\end{lstlisting}
+
+\subsection{Schema Versioning (P4)}
+
+Backward-compatible schema evolution:
+
+\begin{lstlisting}[language=Python]
+CURRENT_SCHEMA_VERSION = "1.0"
+SUPPORTED_SCHEMA_VERSIONS = {"1.0"}
+
+# Version-gated validation
+@classmethod
+def get_required_fields(cls, version: str) -> set[str]:
+    if version.startswith("1."):
+        return cls.REQUIRED_FIELDS_V1
+    # Future: add V2 fields
+    return cls.REQUIRED_FIELDS_V1
+\end{lstlisting}
+
+\textbf{Versioning Rules:}
+
+\begin{table}[h]
+\centering
+\begin{tabular}{@{}lll@{}}
+\toprule
+\textbf{Change Type} & \textbf{Version Bump} & \textbf{Example} \\
+\midrule
+Additive (new optional field) & Minor (1.0 $\rightarrow$ 1.1) & Add \texttt{confidence} field \\
+Breaking (remove/rename) & Major (1.0 $\rightarrow$ 2.0) & Rename \texttt{answer} $\rightarrow$ \texttt{response} \\
+Both versions supported & Transition period & Parse both 1.x and 2.x \\
+\bottomrule
+\end{tabular}
+\caption{Schema versioning rules}
+\end{table}
+
+\section{Response Gateway}
+
+\textbf{Module:} \texttt{src/response\_gateway.py}
+
+The response gateway is the unified API contract layer---\textbf{all UI API responses must pass through this}. It sits at the UI boundary and enforces the structured response contract.
+
+\subsection{Architecture Position}
+
+\begin{lstlisting}[language={},frame=single,basicstyle=\ttfamily\small]
+User UI -> Backend -> Elysia CLI (LLM + retrieval) -> raw text ->
+    normalize_and_validate_response() -> UI
+\end{lstlisting}
+
+\subsection{CLI Delimiter Protocol}
+
+To enable deterministic JSON extraction from LLM output (even when CLI adds metadata/banners), we use explicit delimiters:
+
+\begin{lstlisting}[language=Python]
+JSON_START_MARKER = "<<<JSON>>>"
+JSON_END_MARKER = "<<<END_JSON>>>"
+\end{lstlisting}
+
+\textbf{Extraction Priority Order:}
+
+\begin{enumerate}
+    \item \textbf{Explicit markers} (highest confidence): \texttt{<<<JSON>>>...<<<END\_JSON>>>}
+    \item \textbf{Raw JSON}: Entire response is valid JSON
+    \item \textbf{Fenced JSON block}: \texttt{```json...```}
+    \item \textbf{Embedded JSON}: Regex extraction of \texttt{\{...\}} blocks
+\end{enumerate}
+
+\textbf{System Prompt Injection:}
+
+\begin{lstlisting}[language={}]
+OUTPUT FORMAT REQUIREMENT:
+You MUST output ONLY valid JSON. No prose, no explanations outside the JSON.
+
+Use this exact format:
+<<<JSON>>>
+{
+    "schema_version": "1.0",
+    "answer": "Your response text here",
+    "items_shown": <integer>,
+    "items_total": <integer or null>,
+    "count_qualifier": "exact" | "at_least" | "approx" | null,
+    "sources": [{"title": "...", "type": "ADR|Principle|Policy|Vocabulary"}]
+}
+<<<END_JSON>>>
+\end{lstlisting}
+
+\subsection{Gateway Enforcement Policies}
+
+\begin{table}[h]
+\centering
+\begin{tabular}{@{}lll@{}}
+\toprule
+\textbf{Policy} & \textbf{Behavior} & \textbf{Use Case} \\
+\midrule
+\texttt{strict} & Fail with controlled error if JSON invalid & Production UI (default) \\
+\texttt{soft} & Log and degrade to raw text & Development/debugging \\
+\texttt{lenient} & Allow embedded JSON extraction & Legacy compatibility \\
+\bottomrule
+\end{tabular}
+\caption{Gateway enforcement policies}
+\end{table}
+
+\subsection{Failure UX}
+
+When structured mode fails in strict policy, users receive controlled error messages:
+
+\begin{lstlisting}[language=Python]
+@dataclass
+class FailureResponse:
+    message: str        # User-friendly error
+    request_id: str     # For debugging (e.g., "fc1bc2ef")
+    error_code: str     # ReasonCode value
+    can_retry: bool     # Suggest retry?
+\end{lstlisting}
+
+\textbf{Example user-facing error:}
+
+\begin{lstlisting}[language={}]
+I couldn't format the result reliably. Please try again.
+
+Reference: fc1bc2ef
+\end{lstlisting}
+
+\subsection{Structured Mode Context}
+
+The gateway tracks all metadata needed to diagnose regressions:
+
+\begin{lstlisting}[language=Python]
+@dataclass
+class StructuredModeContext:
+    structured_mode: bool
+    active_skill_names: list[str]     # ["response-contract", "rag-quality"]
+    matched_triggers: list[str]       # ["response-contract:list"]
+    prompt_version: str               # "1.0.0"
+    schema_version: str               # "1.0"
+    model_id: Optional[str]
+    request_id: str                   # Short UUID for tracing
+    extraction_method: Optional[str]  # "marker_delimited", "raw_json", etc.
+    parse_stage: Optional[str]        # "validated", "repaired", etc.
+    reason_code: Optional[ReasonCode]
+    latency_ms: Optional[int]
+\end{lstlisting}
+
+\subsection{Weaviate Count Population}
+
+The gateway overwrites LLM-guessed \texttt{items\_total} with authoritative Weaviate counts:
+
+\begin{lstlisting}[language=Python]
+def populate_items_total_from_weaviate(
+    response: StructuredResponse,
+    collection_counts: dict[str, int],  # {"ArchitecturalDecision": 42}
+) -> StructuredResponse:
+    # Weaviate counts are authoritative
+    response.items_total = sum(collection_counts.values())
+    response.count_qualifier = "exact"
+    return response
+\end{lstlisting}
+
+\section{LLM Client Abstraction}
+
+\textbf{Module:} \texttt{src/llm\_client.py}
+
+The LLM client abstraction provides vendor insulation---allowing the system to swap LLM backends without changing consuming code.
+
+\subsection{Vendor Insulation}
+
+\begin{lstlisting}[language={},frame=single,basicstyle=\ttfamily\small]
+UI/CLI -> LLMClientProtocol.query() -> (response, objects, metadata)
+                    |
+    +---------------+---------------+
+    |               |               |
+    ElysiaClient  DirectLLMClient  FutureClient
+    (Elysia Tree)  (OpenAI/Ollama)  (...)
+\end{lstlisting}
+
+\subsection{Client Types}
+
+\begin{table}[h]
+\centering
+\begin{tabular}{@{}lll@{}}
+\toprule
+\textbf{Client} & \textbf{Backend} & \textbf{Use Case} \\
+\midrule
+\texttt{ElysiaClient} & Elysia Tree & Primary production client with agentic tool selection \\
+\texttt{DirectLLMClient} & Direct Weaviate + LLM & Fallback when Elysia fails \\
+\texttt{ResilientLLMClient} & Wrapper & Automatic fallback between clients \\
+\bottomrule
+\end{tabular}
+\caption{LLM client types}
+\end{table}
+
+\subsection{Protocol Interface}
+
+\begin{lstlisting}[language=Python]
+@runtime_checkable
+class LLMClientProtocol(Protocol):
+    async def query(
+        self,
+        question: str,
+        collection_names: Optional[list[str]] = None,
+    ) -> QueryResult: ...
+
+    def get_client_type(self) -> str: ...
+    def is_available(self) -> bool: ...
+\end{lstlisting}
+
+\subsection{QueryResult Structure}
+
+\begin{lstlisting}[language=Python]
+@dataclass
+class QueryResult:
+    response: str           # Processed response text
+    objects: list[dict]     # Retrieved objects
+    metadata: QueryMetadata # Execution metadata
+
+@dataclass
+class QueryMetadata:
+    client_type: str        # "elysia" or "direct"
+    iterations: int         # Elysia tree iterations
+    recursion_limit: int
+    hit_limit: bool         # Did we hit the limit?
+    fallback_used: bool     # Was fallback client used?
+    structured_mode: bool
+    skills_applied: list[str]
+    error: Optional[str]
+\end{lstlisting}
+
+\subsection{Factory Function}
+
+\begin{lstlisting}[language=Python]
+from src.llm_client import create_llm_client
+
+# Creates ElysiaClient if available, otherwise DirectLLMClient
+client = create_llm_client(weaviate_client, prefer_elysia=True)
+
+# Query with unified interface
+result = await client.query("What ADRs exist?")
+print(f"Response: {result.response}")
+print(f"Client used: {result.metadata.client_type}")
+\end{lstlisting}
+
+\subsection{Resilient Client with Automatic Fallback}
+
+\begin{lstlisting}[language=Python]
+from src.llm_client import ElysiaClient, DirectLLMClient, ResilientLLMClient
+
+primary = ElysiaClient(weaviate_client)
+fallback = DirectLLMClient(weaviate_client)
+
+resilient = ResilientLLMClient(primary, fallback)
+
+# Automatically falls back if primary fails
+result = await resilient.query("What ADRs exist?")
+if result.metadata.fallback_used:
+    print("Fallback was used due to primary client failure")
+\end{lstlisting}
+
+\section{Deep Dive: Algorithms \& Internals}
+
+\subsection{JSON Repair Algorithm}
+
+The \texttt{repair\_json()} method attempts to fix common JSON malformations:
+
+\begin{table}[h]
+\centering
+\begin{tabular}{@{}lll@{}}
+\toprule
+\textbf{Issue} & \textbf{Example} & \textbf{Repaired} \\
+\midrule
+Trailing comma & \texttt{\{"a": 1,\}} & \texttt{\{"a": 1\}} \\
+Trailing comma in array & \texttt{[1, 2, 3,]} & \texttt{[1, 2, 3]} \\
+Missing closing brace & \texttt{\{"a": \{"b": 1\}} & \texttt{\{"a": \{"b": 1\}\}} \\
+Whitespace & \texttt{~~\{"a": 1\}~~} & \texttt{\{"a": 1\}} \\
+\bottomrule
+\end{tabular}
+\caption{Repairable JSON issues}
+\end{table}
+
+\textbf{What CANNOT be repaired:}
+\begin{itemize}
+    \item Truncated strings: \texttt{\{"answer": "test}
+    \item Missing quotes: \texttt{\{answer: "test"\}}
+    \item Invalid escapes: \texttt{\{"a": "test\textbackslash x"\}}
+\end{itemize}
+
+\subsection{Concurrency Model}
+
+The module uses a \textbf{double-checked locking pattern} for thread-safe singletons:
+
+\begin{lstlisting}[language=Python]
+class ResponseMetrics:
+    _instance: Optional["ResponseMetrics"] = None
+    _lock = threading.Lock()  # Class-level lock for singleton creation
+
+    def __init__(self) -> None:
+        self._counter_lock = threading.Lock()  # Instance lock for counters
+
+    @classmethod
+    def get_instance(cls) -> "ResponseMetrics":
+        # First check (no lock) - fast path
+        if cls._instance is None:
+            # Second check (with lock) - ensures only one instance
+            with cls._lock:
+                if cls._instance is None:
+                    cls._instance = cls()
+        return cls._instance
+\end{lstlisting}
+
+\section{Performance Characteristics}
+
+\subsection{Benchmark Results}
+
+\begin{table}[h]
+\centering
+\begin{tabular}{@{}llll@{}}
+\toprule
+\textbf{Operation} & \textbf{Avg Latency} & \textbf{P99 Latency} & \textbf{Throughput} \\
+\midrule
+Direct JSON parse & 0.02 ms & 0.05 ms & $\sim$50K/sec \\
+JSON extraction & 0.08 ms & 0.15 ms & $\sim$12K/sec \\
+JSON repair & 0.03 ms & 0.08 ms & $\sim$30K/sec \\
+Full fallback chain & 0.12 ms & 0.25 ms & $\sim$8K/sec \\
+Cache lookup (hit) & 0.01 ms & 0.02 ms & $\sim$100K/sec \\
+Cache lookup (miss) & 0.005 ms & 0.01 ms & $\sim$200K/sec \\
+\bottomrule
+\end{tabular}
+\caption{Benchmark results (Python 3.11, single-threaded)}
+\end{table}
+
+\subsection{Expected Production Metrics}
+
+\begin{table}[h]
+\centering
+\begin{tabular}{@{}lll@{}}
+\toprule
+\textbf{Metric} & \textbf{Target} & \textbf{Typical Range} \\
+\midrule
+\texttt{direct\_parse\_ok} rate & $\geq$ 85\% & 70--95\% \\
+\texttt{extract\_ok} rate & $\leq$ 10\% & 5--25\% \\
+\texttt{repair\_ok} rate & $\leq$ 5\% & 1--10\% \\
+\texttt{final\_failed} rate & $\leq$ 0.5\% & 0.1--2\% \\
+Cache hit rate & $\geq$ 30\% & 20--60\% \\
+Parse latency (P99) & $<$ 1 ms & 0.1--0.5 ms \\
+\bottomrule
+\end{tabular}
+\caption{Expected production metrics}
+\end{table}
+
+\section{Integration Guide}
+
+\subsection{Basic Usage}
+
+\begin{lstlisting}[language=Python]
+from src.response_schema import ResponseParser, get_parse_stats
+
+# Parse LLM response
+response_text = '{"answer": "Here are the ADRs", "items_shown": 5, "items_total": 18}'
+structured, fallback_used = ResponseParser.parse_with_fallbacks(response_text)
+
+if structured:
+    print(f"Answer: {structured.answer}")
+    print(f"Showing {structured.items_shown} of {structured.items_total}")
+    print(structured.generate_transparency_message())
+else:
+    print(f"Parse failed: {fallback_used}")
+
+# Check metrics
+stats = get_parse_stats()
+print(f"Success rate: {stats['slo']['success_rate']:.2%}")
+\end{lstlisting}
+
+\subsection{Integration with Elysia Agents}
+
+\begin{lstlisting}[language=Python]
+# In src/elysia_agents.py
+from .response_schema import (
+    ResponseParser,
+    RESPONSE_SCHEMA_INSTRUCTIONS,
+)
+
+class ElysiaRAGSystem:
+    async def _direct_query(self, question: str, ...):
+        # Add schema instructions to system prompt
+        system_prompt = BASE_PROMPT + RESPONSE_SCHEMA_INSTRUCTIONS
+
+        # Get raw LLM response
+        raw_response = await self._generate_with_ollama(system_prompt, user_prompt)
+
+        # Parse with fallbacks
+        structured, fallback_used = ResponseParser.parse_with_fallbacks(raw_response)
+
+        if structured:
+            transparency = structured.generate_transparency_message()
+            response_text = f"{structured.answer}\n\n{transparency}"
+        else:
+            response_text = raw_response  # Graceful degradation
+
+        return response_text, results
+\end{lstlisting}
+
+\section{API Reference}
+
+\subsection{ResponseParser}
+
+\begin{table}[h]
+\centering
+\begin{tabular}{@{}lll@{}}
+\toprule
+\textbf{Method} & \textbf{Returns} & \textbf{Description} \\
+\midrule
+\texttt{parse\_with\_fallbacks} & \texttt{tuple[Optional[...], str]} & Parse with full fallback chain \\
+\texttt{extract\_json} & \texttt{Optional[str]} & Extract JSON from markdown/text \\
+\texttt{repair\_json} & \texttt{Optional[str]} & Attempt to repair malformed JSON \\
+\bottomrule
+\end{tabular}
+\caption{ResponseParser methods}
+\end{table}
+
+\subsection{ResponseValidator}
+
+\begin{table}[h]
+\centering
+\begin{tabular}{@{}lll@{}}
+\toprule
+\textbf{Method} & \textbf{Returns} & \textbf{Description} \\
+\midrule
+\texttt{validate} & \texttt{tuple[bool, list, ReasonCode]} & Validate against schema \\
+\texttt{parse\_and\_validate} & \texttt{tuple[Optional[...], ...]} & Parse and validate JSON string \\
+\texttt{get\_required\_fields} & \texttt{set[str]} & Get required fields for version \\
+\bottomrule
+\end{tabular}
+\caption{ResponseValidator methods}
+\end{table}
+
+\subsection{ResponseMetrics}
+
+\begin{table}[h]
+\centering
+\begin{tabular}{@{}lll@{}}
+\toprule
+\textbf{Method} & \textbf{Returns} & \textbf{Description} \\
+\midrule
+\texttt{get\_instance} & \texttt{ResponseMetrics} & Get singleton instance \\
+\texttt{reset} & \texttt{None} & Reset singleton (for testing) \\
+\texttt{increment} & \texttt{None} & Increment counter \\
+\texttt{record\_latency} & \texttt{None} & Record stage latency \\
+\texttt{record\_failure} & \texttt{None} & Record failure reason \\
+\texttt{get\_stats} & \texttt{dict} & Get all metrics \\
+\texttt{get\_success\_rate} & \texttt{float} & Calculate SLO metric \\
+\texttt{set\_exporter} & \texttt{None} & Set external exporter \\
+\bottomrule
+\end{tabular}
+\caption{ResponseMetrics methods}
+\end{table}
+
+\section{Configuration}
+
+\subsection{Constants}
+
+\begin{table}[h]
+\centering
+\begin{tabular}{@{}lll@{}}
+\toprule
+\textbf{Constant} & \textbf{Value} & \textbf{Description} \\
+\midrule
+\texttt{CURRENT\_SCHEMA\_VERSION} & \texttt{"1.0"} & Current schema version \\
+\texttt{DEFAULT\_TTL\_ONLINE} & \texttt{300} & Cache TTL for online traffic (5 min) \\
+\texttt{DEFAULT\_TTL\_CI} & \texttt{3600} & Cache TTL for CI runs (1 hour) \\
+\texttt{MAX\_CACHE\_SIZE} & \texttt{1000} & Maximum cache entries \\
+\bottomrule
+\end{tabular}
+\caption{Configuration constants}
+\end{table}
+
+\section{Observability \& SLOs}
+
+\subsection{Key Metrics}
+
+\begin{table}[h]
+\centering
+\begin{tabular}{@{}llll@{}}
+\toprule
+\textbf{Metric} & \textbf{Type} & \textbf{SLO Target} & \textbf{Alert Threshold} \\
+\midrule
+\texttt{success\_rate} & Gauge & $\geq$ 99.5\% & $<$ 95\% \\
+\texttt{direct\_parse\_ok} & Counter & High & N/A \\
+\texttt{extract\_ok} & Counter & Low & Spike $>$ 10\% \\
+\texttt{repair\_ok} & Counter & Very Low & Spike $>$ 5\% \\
+\texttt{final\_failed} & Counter & Near Zero & Any sustained increase \\
+\texttt{latency.total.avg\_ms} & Gauge & $<$ 50ms & $>$ 200ms \\
+\bottomrule
+\end{tabular}
+\caption{Key metrics and SLOs}
+\end{table}
+
+\section{Operations}
+
+\subsection{Troubleshooting Guide}
+
+\subsubsection{Alert: LowParseSuccessRate ($<$ 95\%)}
+
+\textbf{Symptoms:}
+\begin{itemize}
+    \item \texttt{final\_failed} counter increasing
+    \item Users reporting malformed responses
+    \item Transparency messages missing
+\end{itemize}
+
+\textbf{Root Cause Analysis:}
+\begin{enumerate}
+    \item Check metrics breakdown: \texttt{get\_parse\_stats()["parsing"]["counters"]}
+    \item Check reason codes: \texttt{get\_parse\_stats()["parsing"]["reason\_codes"]}
+    \item Verify LLM model change in deployment logs
+    \item Check for prompt drift in \texttt{RESPONSE\_SCHEMA\_INSTRUCTIONS}
+\end{enumerate}
+
+\subsection{Rollback Strategy}
+
+Add a feature flag to toggle between structured and raw response handling:
+
+\begin{lstlisting}[language=Python]
+# In settings or environment
+ENABLE_STRUCTURED_RESPONSES = os.getenv(
+    "ENABLE_STRUCTURED_RESPONSES", "true"
+).lower() == "true"
+
+# In elysia_agents.py
+if settings.ENABLE_STRUCTURED_RESPONSES:
+    structured, fallback = ResponseParser.parse_with_fallbacks(raw_response)
+    if structured:
+        response_text = f"{structured.answer}\n\n{...}"
+    else:
+        response_text = raw_response
+else:
+    # Legacy path - raw response passthrough
+    response_text = raw_response
+\end{lstlisting}
+
+\textbf{Rollback procedure:}
+\begin{lstlisting}[language=bash]
+# Immediate rollback (no redeploy)
+export ENABLE_STRUCTURED_RESPONSES=false
+# Restart application
+\end{lstlisting}
+
+\section{Future Considerations}
+
+\subsection{Planned Enhancements}
+
+\begin{enumerate}
+    \item \textbf{Schema Version 1.1} (Additive)
+    \begin{itemize}
+        \item Add \texttt{confidence} field for response confidence scoring
+        \item Add \texttt{metadata} field for arbitrary key-value pairs
+    \end{itemize}
+
+    \item \textbf{Schema Version 2.0} (Breaking)
+    \begin{itemize}
+        \item Rename \texttt{answer} to \texttt{response} for consistency
+        \item Add \texttt{citations} array with structured source references
+        \item Deprecate \texttt{transparency\_statement} in favor of generated messages
+    \end{itemize}
+
+    \item \textbf{Advanced Caching}
+    \begin{itemize}
+        \item Redis backend for distributed caching
+        \item Cache warming for common queries
+        \item Negative caching for known failures
+    \end{itemize}
+
+    \item \textbf{Enhanced Repair}
+    \begin{itemize}
+        \item LLM-based JSON repair for complex cases
+        \item Learning from repair patterns
+    \end{itemize}
+\end{enumerate}
+
+
+% ============================================================================
+% PART III: SKILLS FRAMEWORK USER GUIDE
+% ============================================================================
+\chapter{Skills Framework User Guide}
+
+\section{Introduction}
+
+The Skills Framework allows you to customize AInstein's behavior without modifying code. Skills define:
+
+\begin{itemize}
+    \item \textbf{How AInstein responds} (rules and guidelines)
+    \item \textbf{When AInstein abstains} from answering (quality thresholds)
+    \item \textbf{How much context} AInstein uses (retrieval and truncation limits)
+\end{itemize}
+
+All configuration is done through simple YAML and Markdown files.
+
+\section{What Are Skills?}
+
+A \textbf{Skill} is a package of instructions and configuration that tells AInstein how to behave in specific situations. Think of it like a "personality module" or "expert mode" that can be activated.
+
+\subsection{Current Skills}
+
+\begin{table}[h]
+\centering
+\begin{tabular}{@{}lll@{}}
+\toprule
+\textbf{Skill} & \textbf{Purpose} & \textbf{Status} \\
+\midrule
+\texttt{rag-quality-assurance} & Prevents hallucination, requires citations & Active (auto-enabled) \\
+\bottomrule
+\end{tabular}
+\caption{Current skills}
+\end{table}
+
+\subsection{Skill Components}
+
+Each skill consists of:
+
+\begin{lstlisting}[language={}]
+skills/
+|-- registry.yaml              # Which skills exist and when they activate
++-- rag-quality-assurance/     # Skill folder
+    |-- SKILL.md               # Behavioral rules (injected into prompts)
+    +-- references/
+        +-- thresholds.yaml    # Numeric configuration values
+\end{lstlisting}
+
+\section{Quick Start Guide}
+
+\subsection{Viewing Current Configuration}
+
+\begin{enumerate}
+    \item Open \texttt{skills/rag-quality-assurance/references/thresholds.yaml}
+    \item View all configurable values with explanatory comments
+\end{enumerate}
+
+\subsection{Making Changes}
+
+\begin{enumerate}
+    \item Edit the YAML file
+    \item Save
+    \item Restart AInstein (\texttt{Ctrl+C} then restart the server)
+    \item Changes take effect immediately
+\end{enumerate}
+
+\subsection{Example: Making AInstein More Strict}
+
+To make AInstein abstain more often (higher quality, lower coverage):
+
+\begin{lstlisting}[language=yaml]
+# In thresholds.yaml
+abstention:
+  distance_threshold: 0.3      # Was 0.5 - now requires closer matches
+  min_query_coverage: 0.4      # Was 0.2 - now requires more term coverage
+\end{lstlisting}
+
+\section{For Non-Technical Users}
+
+\subsection{What You Can Change (Without Coding)}
+
+\begin{table}[h]
+\centering
+\begin{tabular}{@{}llll@{}}
+\toprule
+\textbf{Setting} & \textbf{What It Does} & \textbf{Default} & \textbf{File} \\
+\midrule
+Distance threshold & How similar documents must be & 0.5 & thresholds.yaml \\
+Query coverage & Query words in results & 0.2 & thresholds.yaml \\
+ADR retrieval limit & Maximum ADRs to search & 8 & thresholds.yaml \\
+Content truncation & Text per document & 800 chars & thresholds.yaml \\
+Citation rules & How to cite sources & See below & SKILL.md \\
+\bottomrule
+\end{tabular}
+\caption{Configurable settings}
+\end{table}
+
+\subsection{Understanding the Values}
+
+\subsubsection{Abstention Thresholds}
+
+\begin{lstlisting}[language=yaml]
+abstention:
+  distance_threshold: 0.5    # Range: 0.0 to 1.0
+  min_query_coverage: 0.2    # Range: 0.0 to 1.0
+\end{lstlisting}
+
+\begin{table}[h]
+\centering
+\begin{tabular}{@{}ll@{}}
+\toprule
+\textbf{Value} & \textbf{Effect} \\
+\midrule
+\textbf{Lower} distance\_threshold & AInstein is pickier, abstains more often \\
+\textbf{Higher} distance\_threshold & AInstein answers more liberally \\
+\textbf{Lower} query\_coverage & AInstein answers even if few query words match \\
+\textbf{Higher} query\_coverage & AInstein requires more query words to be found \\
+\bottomrule
+\end{tabular}
+\caption{Threshold effects}
+\end{table}
+
+\subsubsection{Retrieval Limits}
+
+\begin{lstlisting}[language=yaml]
+retrieval_limits:
+  adr: 8           # How many ADRs to search
+  principle: 6     # How many principles to search
+  policy: 4        # How many policies to search
+  vocabulary: 4    # How many vocabulary terms to search
+\end{lstlisting}
+
+\textbf{Trade-off}: More documents = better coverage but slower response and more token usage.
+
+\subsubsection{Truncation Limits}
+
+\begin{lstlisting}[language=yaml]
+truncation:
+  content_max_chars: 800      # Full content display
+  elysia_content_chars: 500   # Context snippets
+  elysia_summary_chars: 300   # Summaries
+  max_context_results: 10     # Total docs in LLM context
+\end{lstlisting}
+
+\textbf{Trade-off}: More characters = more context but higher cost and potential context overflow.
+
+\subsection{Identity Configuration}
+
+The \texttt{SKILL.md} file includes an \textbf{Identity} section that controls how AInstein identifies itself. This is important because the underlying Elysia framework has its own built-in identity.
+
+\textbf{Current identity rules} (in \texttt{skills/rag-quality-assurance/SKILL.md}):
+
+\begin{itemize}
+    \item Always identify yourself as "AInstein" when asked who you are
+    \item NEVER identify as "Elysia", "Weaviate", or any other framework name
+    \item NEVER mention internal implementation details
+    \item Your purpose is to help architects and engineers navigate Alliander's architecture knowledge base
+\end{itemize}
+
+\section{For Technical Users}
+
+\subsection{Architecture Overview}
+
+\begin{lstlisting}[language={},frame=single,basicstyle=\ttfamily\footnotesize]
++-------------------------------------------------------------+
+|                     User Query                               |
++-------------------------------------------------------------+
+                          |
+                          v
++-------------------------------------------------------------+
+|                   SkillRegistry                              |
+|  - Loads registry.yaml                                       |
+|  - Determines which skills to activate                       |
+|  - Returns active skills based on query triggers             |
++-------------------------------------------------------------+
+                          |
+                          v
++-------------------------------------------------------------+
+|                    SkillLoader                               |
+|  - Parses SKILL.md (YAML frontmatter + Markdown)            |
+|  - Loads references/thresholds.yaml                          |
+|  - Caches loaded skills                                      |
++-------------------------------------------------------------+
+                          |
+        +-----------------+------------------+
+        |                                    |
+        v                                    v
++-------------------+             +-------------------+
+| Prompt Injection  |             | Threshold Config  |
+| - SKILL.md body   |             | - Abstention      |
+| - Added to system |             | - Retrieval       |
+|   prompt          |             | - Truncation      |
++-------------------+             +-------------------+
+\end{lstlisting}
+
+\subsection{Key Classes}
+
+\begin{table}[h]
+\centering
+\begin{tabular}{@{}lll@{}}
+\toprule
+\textbf{Class} & \textbf{Location} & \textbf{Purpose} \\
+\midrule
+\texttt{SkillLoader} & \texttt{src/skills/loader.py} & Parses SKILL.md, loads YAML configs \\
+\texttt{SkillRegistry} & \texttt{src/skills/registry.py} & Manages activation triggers \\
+\texttt{Skill} & \texttt{src/skills/loader.py} & Data class for loaded skill \\
+\bottomrule
+\end{tabular}
+\caption{Key classes}
+\end{table}
+
+\subsection{Integration Points}
+
+\begin{table}[h]
+\centering
+\begin{tabular}{@{}lll@{}}
+\toprule
+\textbf{File} & \textbf{Function/Area} & \textbf{What It Does} \\
+\midrule
+\texttt{src/elysia\_agents.py} & Module-level & Initializes \texttt{\_skill\_registry} singleton \\
+\texttt{src/elysia\_agents.py} & \texttt{\_get\_abstention\_thresholds()} & Loads distance and coverage thresholds \\
+\texttt{src/elysia\_agents.py} & \texttt{\_register\_tools()} & Loads truncation config \\
+\texttt{src/elysia\_agents.py} & \texttt{\_direct\_query()} & Loads retrieval limits, injects skill content \\
+\texttt{src/chat\_ui.py} & Module-level & Initializes \texttt{\_skill\_registry} singleton \\
+\texttt{src/chat\_ui.py} & \texttt{retrieve\_documents()} & Loads retrieval and truncation config \\
+\texttt{src/chat\_ui.py} & \texttt{get\_llm\_response()} & Injects skill content into prompts \\
+\bottomrule
+\end{tabular}
+\caption{Integration points}
+\end{table}
+
+\subsection{Adding a New Skill}
+
+\subsubsection{1. Create Skill Directory}
+
+\begin{lstlisting}[language=bash]
+mkdir -p skills/my-new-skill/references
+\end{lstlisting}
+
+\subsubsection{2. Create SKILL.md}
+
+\begin{lstlisting}[language={}]
+---
+name: my-new-skill
+description: Description of what this skill does
+---
+
+# My New Skill
+
+## Rules
+1. Rule one
+2. Rule two
+\end{lstlisting}
+
+\subsubsection{3. Create thresholds.yaml (optional)}
+
+\begin{lstlisting}[language=yaml]
+# Custom thresholds for this skill
+my_custom_threshold: 0.7
+\end{lstlisting}
+
+\subsubsection{4. Register in registry.yaml}
+
+\begin{lstlisting}[language=yaml]
+skills:
+  - name: rag-quality-assurance
+    path: rag-quality-assurance/SKILL.md
+    enabled: true
+    auto_activate: true
+    triggers: [...]
+
+  - name: my-new-skill
+    path: my-new-skill/SKILL.md
+    description: "My custom skill"
+    enabled: true
+    auto_activate: false      # Only activate on triggers
+    triggers:
+      - "keyword1"
+      - "keyword2"
+\end{lstlisting}
+
+\subsection{Tool Return Fields}
+
+The Elysia tools return structured data that AInstein uses to answer questions:
+
+\begin{table}[h]
+\centering
+\begin{tabular}{@{}ll@{}}
+\toprule
+\textbf{Tool} & \textbf{Returns} \\
+\midrule
+\texttt{search\_architecture\_decisions()} & title, adr\_number, file\_path, status, context, decision \\
+\texttt{search\_principles()} & title, principle\_number, file\_path, content, doc\_type \\
+\texttt{search\_policies()} & title, file\_path, content, file\_type \\
+\texttt{list\_all\_adrs()} & title, adr\_number, status, file\_path \\
+\texttt{list\_all\_principles()} & title, principle\_number, file\_path, type \\
+\texttt{search\_vocabulary()} & label, definition, vocabulary, uri \\
+\bottomrule
+\end{tabular}
+\caption{Tool return fields}
+\end{table}
+
+\section{Configuration Reference}
+
+\subsection{Complete thresholds.yaml Structure}
+
+\begin{lstlisting}[language=yaml]
+# =============================================================================
+# RAG Quality Assurance Thresholds
+# =============================================================================
+
+# ABSTENTION THRESHOLDS
+abstention:
+  # Maximum vector distance for relevance (0.0 = exact match, 1.0 = unrelated)
+  distance_threshold: 0.5
+
+  # Minimum fraction of query words that must appear in retrieved documents
+  min_query_coverage: 0.2
+
+# RETRIEVAL LIMITS
+retrieval_limits:
+  adr: 8           # Architectural Decision Records
+  principle: 6     # Architecture/Governance Principles
+  policy: 4        # Policy Documents
+  vocabulary: 4    # SKOS Vocabulary Terms
+
+# TRUNCATION LIMITS
+truncation:
+  content_max_chars: 800
+  elysia_content_chars: 500
+  elysia_summary_chars: 300
+  max_context_results: 10
+
+# CONFIDENCE SCORING (Future use)
+confidence:
+  min_source_confidence: 0.3
+  distance_weight: 0.6
+  keyword_weight: 0.4
+\end{lstlisting}
+
+\subsection{registry.yaml Structure}
+
+\begin{lstlisting}[language=yaml]
+version: "1.0"
+
+skills:
+  - name: skill-name              # Unique identifier
+    path: folder/SKILL.md         # Relative path to SKILL.md
+    description: "Description"    # Human-readable description
+    enabled: true                 # Whether skill is active
+    auto_activate: true           # Always inject (vs. trigger-based)
+    triggers:                     # Keywords that activate this skill
+      - "keyword1"
+      - "keyword2"
+\end{lstlisting}
+
+\section{Troubleshooting}
+
+\subsection{Changes Not Taking Effect}
+
+\textbf{Problem}: Edited thresholds.yaml but AInstein behavior didn't change.
+
+\textbf{Solutions}:
+\begin{enumerate}
+    \item Restart the server (skills are cached at startup)
+    \item Check for YAML syntax errors (use a YAML validator)
+    \item Verify file path is correct
+\end{enumerate}
+
+\subsection{Skill Not Activating}
+
+\textbf{Problem}: Created a new skill but it's not being used.
+
+\textbf{Checklist}:
+\begin{enumerate}
+    \item Is it registered in \texttt{registry.yaml}?
+    \item Is \texttt{enabled: true}?
+    \item Is \texttt{auto\_activate: true} OR does query contain a trigger word?
+    \item Is the SKILL.md path correct?
+\end{enumerate}
+
+\subsection{YAML Syntax Errors}
+
+\textbf{Common mistakes}:
+
+\begin{lstlisting}[language=yaml]
+# WRONG - missing space after colon
+distance_threshold:0.5
+
+# CORRECT
+distance_threshold: 0.5
+
+# WRONG - tabs instead of spaces
+abstention:
+	distance_threshold: 0.5
+
+# CORRECT - use spaces
+abstention:
+  distance_threshold: 0.5
+\end{lstlisting}
+
+\section{Future Roadmap}
+
+\subsection{Planned Features}
+
+\begin{enumerate}
+    \item \textbf{Skills Management UI} (MVP)
+    \begin{itemize}
+        \item View all registered skills
+        \item Edit thresholds via web interface (sliders + input fields)
+        \item Enable/disable skills with toggle
+        \item Testing panel---preview skill behavior before applying
+        \item Config backup before writes
+    \end{itemize}
+
+    \item \textbf{REST API for Skills}
+    \begin{itemize}
+        \item \texttt{GET /api/skills} --- List all skills
+        \item \texttt{GET /api/skills/\{name\}} --- Get skill details
+        \item \texttt{PUT /api/skills/\{name\}/thresholds} --- Update thresholds
+        \item \texttt{POST /api/skills/\{name\}/test} --- Test skill with sample query
+        \item \texttt{POST /api/skills/\{name\}/reload} --- Hot reload skill
+    \end{itemize}
+
+    \item \textbf{Progressive Loading}
+
+    Similar to MCP's lazy loading but optimized for skills. Instead of loading all skill content at startup, use three-level staged loading:
+
+    \begin{table}[h]
+    \centering
+    \begin{tabular}{@{}llll@{}}
+    \toprule
+    \textbf{Level} & \textbf{What Loads} & \textbf{When} & \textbf{Tokens} \\
+    \midrule
+    1. Discovery & Name, description, triggers only & Startup & $\sim$50/skill \\
+    2. Activation & Full SKILL.md content & Query matches triggers & 2,000--5,000 \\
+    3. Execution & Specific references & Task requires them & Variable \\
+    \bottomrule
+    \end{tabular}
+    \caption{Progressive loading levels}
+    \end{table}
+
+    \item \textbf{Hot Reload}
+    \begin{itemize}
+        \item File watcher for skill changes
+        \item Automatic cache invalidation
+        \item No server restart required
+    \end{itemize}
+\end{enumerate}
+
+\section{Creating New Skills}
+
+The Skills UI includes a wizard for creating new skills without editing files directly.
+
+\subsection{Quick Steps}
+
+\begin{enumerate}
+    \item Navigate to \texttt{http://localhost:8081/skills}
+    \item Click \textbf{"+ New Skill"} button
+    \item Follow the 4-step wizard:
+    \begin{itemize}
+        \item \textbf{Step 1:} Basic info (name, description, triggers)
+        \item \textbf{Step 2:} Rules (SKILL.md content)
+        \item \textbf{Step 3:} Thresholds (use defaults or copy from existing)
+        \item \textbf{Step 4:} Review and create
+    \end{itemize}
+\end{enumerate}
+
+\subsection{Skill Name Requirements}
+
+\begin{itemize}
+    \item Lowercase letters, numbers, and hyphens only
+    \item Must start with a letter
+    \item Must end with a letter or number
+    \item Example: \texttt{response-formatter}, \texttt{adr-validator}
+\end{itemize}
+
+
+% ============================================================================
+% PART IV: SKILLS UI IMPLEMENTATION STATUS
+% ============================================================================
+\chapter{Skills UI Implementation Status}
+
+\section{Overview}
+
+The Skills Management UI allows non-technical users to configure AInstein's behavior without editing YAML files. This chapter tracks the implementation status and roadmap.
+
+\textbf{Target Audience:}
+\begin{itemize}
+    \item Non-technical users: Quick sliders + testing panel
+    \item Technical users: Full configuration + rule editor
+\end{itemize}
+
+\textbf{Architecture:} Extended FastAPI server (same \texttt{chat\_ui.py} that powers the chat UI)
+
+\section{Implementation Status}
+
+\subsection{Completed Features}
+
+\begin{longtable}{@{}llll@{}}
+\toprule
+\textbf{Phase} & \textbf{Feature} & \textbf{Status} & \textbf{Description} \\
+\midrule
+\endfirsthead
+\toprule
+\textbf{Phase} & \textbf{Feature} & \textbf{Status} & \textbf{Description} \\
+\midrule
+\endhead
+1 & Skills Dashboard & Done & List all skills with status, metadata \\
+1 & Quick Settings Sliders & Done & Abstention strictness, query coverage \\
+1 & Test Panel & Done & Test queries with selected skill \\
+1 & Backup/Restore & Done & Backup thresholds before changes \\
+1.5 & Enable/Disable Toggle & Done & Toggle skills on/off \\
+2 & Configuration Modal & Done & Full config editing with tabs \\
+2 & Abstention Thresholds & Done & distance\_threshold, min\_query\_coverage \\
+2 & Retrieval Limits & Done & ADR, Principle, Policy, Vocabulary limits \\
+2 & Truncation Limits & Done & content\_max\_chars, max\_context\_results \\
+2 & List Query Detection & Done & Edit list indicators, patterns \\
+3 & Markdown Editor & Done & Edit SKILL.md content with preview \\
+3 & Metadata Editor & Done & Edit name, description, triggers \\
+5 & Skill Creation Wizard & Done & 4-step wizard to create new skills \\
+5 & Skill Deletion & Done & Delete skills with confirmation \\
+\bottomrule
+\caption{Completed features}
+\end{longtable}
+
+\subsection{Planned Features (Roadmap)}
+
+\begin{table}[h]
+\centering
+\begin{tabular}{@{}llll@{}}
+\toprule
+\textbf{Phase} & \textbf{Feature} & \textbf{Priority} & \textbf{Description} \\
+\midrule
+4 & Batch Testing & Low & Test multiple queries at once \\
+4 & A/B Comparison & Low & Compare two configs side-by-side \\
+4 & Historical Results & Low & Store and view past test runs \\
+6 & Hot Reload & Medium & File watcher for automatic reload \\
+7 & Progressive Loading & High & Load skill metadata at startup only \\
+\bottomrule
+\end{tabular}
+\caption{Planned features}
+\end{table}
+
+\section{API Endpoints}
+
+All endpoints are implemented and available:
+
+\begin{longtable}{@{}llll@{}}
+\toprule
+\textbf{Endpoint} & \textbf{Method} & \textbf{Purpose} & \textbf{Status} \\
+\midrule
+\endfirsthead
+\toprule
+\textbf{Endpoint} & \textbf{Method} & \textbf{Purpose} & \textbf{Status} \\
+\midrule
+\endhead
+\texttt{/api/skills} & GET & List all skills & Done \\
+\texttt{/api/skills} & POST & Create new skill & Done \\
+\texttt{/api/skills/\{name\}} & GET & Get skill details & Done \\
+\texttt{/api/skills/\{name\}} & DELETE & Delete skill & Done \\
+\texttt{/api/skills/\{name\}/thresholds} & GET & Get thresholds & Done \\
+\texttt{/api/skills/\{name\}/thresholds} & PUT & Update thresholds & Done \\
+\texttt{/api/skills/\{name\}/test} & POST & Test with query & Done \\
+\texttt{/api/skills/\{name\}/backup} & POST & Create backup & Done \\
+\texttt{/api/skills/\{name\}/restore} & POST & Restore from backup & Done \\
+\texttt{/api/skills/\{name\}/enabled} & PUT & Toggle enabled & Done \\
+\texttt{/api/skills/\{name\}/validate} & POST & Validate config & Done \\
+\texttt{/api/skills/\{name\}/content} & GET & Get SKILL.md & Done \\
+\texttt{/api/skills/\{name\}/content} & PUT & Update SKILL.md & Done \\
+\texttt{/api/skills/defaults} & GET & Get default values & Done \\
+\texttt{/api/skills/templates} & GET & List skill templates & Done \\
+\texttt{/api/skills/validate-name} & POST & Validate skill name & Done \\
+\texttt{/api/skills/reload} & POST & Hot reload all & Done \\
+\bottomrule
+\caption{API endpoints}
+\end{longtable}
+
+\section{Files Structure}
+
+\begin{lstlisting}[language={}]
+src/
+|-- chat_ui.py                   # FastAPI server with /api/skills/* endpoints
+|-- skills/
+|   |-- __init__.py
+|   |-- loader.py                # Skill loading logic
+|   |-- registry.py              # Skill registry
+|   |-- api.py                   # Skills API business logic
+|   +-- filters.py               # Document filtering
+|-- static/
+    |-- index.html               # Chat UI
+    |-- skills.html              # Skills admin page
+    +-- css/
+        +-- skills.css           # Skills UI styles
+\end{lstlisting}
+
+\section{Phase 7: Progressive Loading (Future)}
+
+This is the highest priority planned feature. When implemented, it will:
+
+\subsection{Level 1: Discovery}
+\begin{itemize}
+    \item Load only skill metadata at startup ($\sim$50 tokens/skill)
+    \item Store in lightweight index
+    \item Expose via \texttt{get\_skill\_index()}
+\end{itemize}
+
+\subsection{Level 2: Activation}
+\begin{itemize}
+    \item Load full SKILL.md only when triggered
+    \item Match query against triggers
+    \item Cache activated skills for session
+\end{itemize}
+
+\subsection{Level 3: Execution}
+\begin{itemize}
+    \item Load references on-demand
+    \item Lazy load thresholds.yaml
+    \item Lazy load examples/data files
+\end{itemize}
+
+
+% ============================================================================
+% APPENDIX
+% ============================================================================
+\appendix
+\chapter{Document Information}
+
+\section{Version History}
+
+\begin{table}[h]
+\centering
+\begin{tabular}{@{}lll@{}}
+\toprule
+\textbf{Version} & \textbf{Date} & \textbf{Changes} \\
+\midrule
+1.0 & February 2026 & Initial consolidated document \\
+1.1 & February 2026 & Added Response Gateway and LLM Client Abstraction sections \\
+\bottomrule
+\end{tabular}
+\caption{Version history}
+\end{table}
+
+\section{Source Documents}
+
+This document consolidates the following markdown files:
+\begin{itemize}
+    \item \texttt{docs/ARCHITECTURE.md} --- System Architecture
+    \item \texttt{docs/STRUCTURED\_RESPONSE.md} --- Structured Response System
+    \item \texttt{docs/SKILLS\_USER\_GUIDE.md} --- Skills Framework User Guide
+    \item \texttt{docs/SKILLS\_UI\_STATUS.md} --- Skills UI Implementation Status
+\end{itemize}
+
+\section{Key Source Modules}
+
+\begin{itemize}
+    \item \texttt{src/response\_schema.py} --- Core schema, parser, validator, metrics, cache
+    \item \texttt{src/response\_gateway.py} --- Unified API contract layer with CLI delimiter protocol
+    \item \texttt{src/llm\_client.py} --- Vendor-agnostic LLM client abstraction
+    \item \texttt{src/elysia\_agents.py} --- Integration with RAG system
+    \item \texttt{tests/test\_structured\_response\_contract.py} --- Contract enforcement tests
+\end{itemize}
+
+\section{Related Documentation}
+
+\begin{itemize}
+    \item \texttt{docs/README.md} --- Documentation entry point
+    \item \texttt{docs/implementation-records/} --- Implementation Records (IR0001, IR0002, etc.)
+    \item \texttt{skills/registry.yaml} --- Skill registry configuration
+\end{itemize}
+
+\section{Dependencies}
+
+\begin{itemize}
+    \item Python 3.11+
+    \item Weaviate 4.9+
+    \item FastAPI
+    \item Ollama / OpenAI
+\end{itemize}
+
+\end{document}

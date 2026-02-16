@@ -3,8 +3,14 @@
 import asyncio
 import logging
 import sys
+import warnings
 from pathlib import Path
 from typing import Optional
+
+# Suppress deprecation warnings from external dependencies
+warnings.filterwarnings("ignore", category=DeprecationWarning, module="spacy")
+warnings.filterwarnings("ignore", category=DeprecationWarning, module="websockets")
+warnings.filterwarnings("ignore", category=DeprecationWarning, module="uvicorn")
 
 import typer
 from rich.console import Console
@@ -38,7 +44,8 @@ console = Console()
 # Valid OpenAI models supported by Weaviate
 VALID_OPENAI_CHAT_MODELS = [
     "gpt-3.5-turbo", "gpt-3.5-turbo-16k", "gpt-3.5-turbo-1106",
-    "gpt-4", "gpt-4-32k", "gpt-4-1106-preview", "gpt-4o", "gpt-4o-mini"
+    "gpt-4", "gpt-4-32k", "gpt-4-1106-preview", "gpt-4o", "gpt-4o-mini",
+    "gpt-5.1", "gpt-5.2", "gpt-5.2-chat-latest",
 ]
 VALID_OPENAI_EMBEDDING_MODELS = [
     "text-embedding-3-small", "text-embedding-3-large", "text-embedding-ada-002"
@@ -95,30 +102,67 @@ def init(
     recreate: bool = typer.Option(
         False, "--recreate", "-r", help="Recreate collections if they exist"
     ),
+    include_openai: bool = typer.Option(
+        False, "--include-openai", "-o", help="Also create and populate OpenAI-embedded collections for comparison"
+    ),
+    batch_size: int = typer.Option(
+        20, "--batch-size", "-b", help="Batch size for Ollama/Nomic collections (smaller = slower but avoids timeout)"
+    ),
+    openai_batch_size: int = typer.Option(
+        100, "--openai-batch-size", help="Batch size for OpenAI collections (can be larger since API is fast)"
+    ),
+    enable_chunking: bool = typer.Option(
+        False, "--chunking", "-c", help="Enable hierarchical section-based chunking for better retrieval quality"
+    ),
+    include_document_chunks: bool = typer.Option(
+        False, "--include-document-chunks", help="When --chunking is enabled, also index full documents as chunks (doc + section + granular)"
+    ),
 ):
     """Initialize Weaviate collections and ingest data."""
     console.print(Panel("Initializing AION-AINSTEIN RAG System", style="bold blue"))
 
     # Show current configuration
     console.print("\n[bold]Current Configuration:[/bold]")
-    console.print(f"  OPENAI_EMBEDDING_MODEL: {settings.openai_embedding_model}")
-    console.print(f"  OPENAI_CHAT_MODEL: {settings.openai_chat_model}")
+    console.print(f"  LLM_PROVIDER: {settings.llm_provider}")
+    if settings.llm_provider == "ollama":
+        console.print(f"  OLLAMA_MODEL: {settings.ollama_model}")
+        console.print(f"  OLLAMA_EMBEDDING_MODEL: {settings.ollama_embedding_model}")
+    else:
+        console.print(f"  OPENAI_CHAT_MODEL: {settings.openai_chat_model}")
+        console.print(f"  OPENAI_EMBEDDING_MODEL: {settings.openai_embedding_model}")
+    console.print(f"  Batch sizes: Ollama={batch_size}, OpenAI={openai_batch_size}")
+    if enable_chunking:
+        if include_document_chunks:
+            console.print(f"  [green]Chunking: ENABLED (doc + section + granular chunks)[/green]")
+        else:
+            console.print(f"  [green]Chunking: ENABLED (section-level chunks for better retrieval)[/green]")
+    else:
+        console.print(f"  Chunking: disabled (use --chunking to enable)")
+        if include_document_chunks:
+            console.print(f"  [yellow]  --include-document-chunks ignored (requires --chunking)[/yellow]")
+    if include_openai:
+        console.print(f"  [blue]Including OpenAI collections for comparison[/blue]")
 
     # Validate configuration before proceeding
     errors = []
-    if not settings.openai_api_key:
-        errors.append("OPENAI_API_KEY is not set in .env file")
-    if settings.openai_chat_model not in VALID_OPENAI_CHAT_MODELS:
-        errors.append(
-            f"OPENAI_CHAT_MODEL '{settings.openai_chat_model}' is not valid.\n"
-            f"    Valid models: {', '.join(VALID_OPENAI_CHAT_MODELS)}\n"
-            f"    Please update your .env file."
-        )
-    if settings.openai_embedding_model not in VALID_OPENAI_EMBEDDING_MODELS:
-        errors.append(
-            f"OPENAI_EMBEDDING_MODEL '{settings.openai_embedding_model}' is not valid.\n"
-            f"    Valid models: {', '.join(VALID_OPENAI_EMBEDDING_MODELS)}"
-        )
+
+    # OpenAI settings only required if provider is openai OR if --include-openai flag is used
+    needs_openai = settings.llm_provider == "openai" or include_openai
+
+    if needs_openai:
+        if not settings.openai_api_key:
+            errors.append("OPENAI_API_KEY is not set in .env file (required for OpenAI provider or --include-openai)")
+        if settings.openai_chat_model not in VALID_OPENAI_CHAT_MODELS:
+            errors.append(
+                f"OPENAI_CHAT_MODEL '{settings.openai_chat_model}' is not valid.\n"
+                f"    Valid models: {', '.join(VALID_OPENAI_CHAT_MODELS)}\n"
+                f"    Please update your .env file."
+            )
+        if settings.openai_embedding_model not in VALID_OPENAI_EMBEDDING_MODELS:
+            errors.append(
+                f"OPENAI_EMBEDDING_MODEL '{settings.openai_embedding_model}' is not valid.\n"
+                f"    Valid models: {', '.join(VALID_OPENAI_EMBEDDING_MODELS)}"
+            )
 
     if errors:
         console.print("\n[bold red]Configuration Errors:[/bold red]")
@@ -148,9 +192,19 @@ def init(
 
         try:
             # Run ingestion
-            progress.update(task, description="Running data ingestion...")
+            if include_openai:
+                progress.update(task, description="Running data ingestion (including OpenAI collections)...")
+            else:
+                progress.update(task, description="Running data ingestion...")
             pipeline = DataIngestionPipeline(client)
-            stats = pipeline.run_full_ingestion(recreate_collections=recreate)
+            stats = pipeline.run_full_ingestion(
+                recreate_collections=recreate,
+                batch_size=batch_size,
+                openai_batch_size=openai_batch_size,
+                include_openai=include_openai,
+                enable_chunking=enable_chunking,
+                include_document_chunks=include_document_chunks,
+            )
 
             progress.update(task, description="[green]Ingestion complete!")
 
@@ -160,14 +214,25 @@ def init(
     # Display stats
     table = Table(title="Ingestion Statistics")
     table.add_column("Collection", style="cyan")
-    table.add_column("Documents", style="green")
+    table.add_column("Documents (Local)", style="green")
+    if include_openai:
+        table.add_column("Documents (OpenAI)", style="blue")
 
-    table.add_row("Vocabulary Concepts", str(stats.get("vocabulary", 0)))
-    table.add_row("ADRs", str(stats.get("adr", 0)))
-    table.add_row("Principles", str(stats.get("principle", 0)))
-    table.add_row("Policy Documents", str(stats.get("policy", 0)))
+    if include_openai:
+        table.add_row("Vocabulary Concepts", str(stats.get("vocabulary", 0)), str(stats.get("vocabulary_openai", 0)))
+        table.add_row("ADRs", str(stats.get("adr", 0)), str(stats.get("adr_openai", 0)))
+        table.add_row("Principles", str(stats.get("principle", 0)), str(stats.get("principle_openai", 0)))
+        table.add_row("Policy Documents", str(stats.get("policy", 0)), str(stats.get("policy_openai", 0)))
+    else:
+        table.add_row("Vocabulary Concepts", str(stats.get("vocabulary", 0)))
+        table.add_row("ADRs", str(stats.get("adr", 0)))
+        table.add_row("Principles", str(stats.get("principle", 0)))
+        table.add_row("Policy Documents", str(stats.get("policy", 0)))
 
     console.print(table)
+
+    if stats.get("chunking_enabled"):
+        console.print("\n[green]✓ Chunking was enabled - documents split into section-level chunks[/green]")
 
     if stats.get("errors"):
         console.print("\n[yellow]Errors encountered:")
@@ -437,29 +502,30 @@ def interactive():
 def elysia():
     """Start Elysia agentic RAG interactive session (decision tree-based)."""
     console.print(Panel(
-        "AION-AINSTEIN Elysia Mode\n"
-        "Using Weaviate's Elysia decision tree framework\n"
+        "AION-AINSTEIN Agent Mode\n"
+        "Using agentic decision tree framework\n"
         "Type 'quit' or 'exit' to end the session.",
         style="bold magenta"
     ))
 
     try:
-        from .elysia_agents import ElysiaRAGSystem, ELYSIA_AVAILABLE
+        from .elysia_agents import ElysiaRAGSystem, ELYSIA_AVAILABLE, configure_elysia_from_settings
 
         if not ELYSIA_AVAILABLE:
             console.print("[red]Elysia not installed. Run: pip install elysia-ai[/red]")
             raise typer.Exit(1)
 
         with weaviate_client() as client:
+            configure_elysia_from_settings()
             elysia_system = ElysiaRAGSystem(client)
-            console.print("[green]Elysia system initialized with custom tools[/green]")
+            console.print("[green]Agent system initialized with custom tools[/green]")
             console.print("[dim]Available tools: search_vocabulary, search_architecture_decisions,[/dim]")
             console.print("[dim]                  search_principles, search_policies, list_all_adrs,[/dim]")
             console.print("[dim]                  list_all_principles, get_collection_stats[/dim]\n")
 
             while True:
                 try:
-                    user_input = console.input("\n[bold magenta]Elysia>[/bold magenta] ").strip()
+                    user_input = console.input("\n[bold magenta]AInstein>[/bold magenta] ").strip()
 
                     if not user_input:
                         continue
@@ -469,7 +535,7 @@ def elysia():
                         break
 
                     # Process with Elysia
-                    with console.status("Elysia thinking...", spinner="dots"):
+                    with console.status("Thinking...", spinner="dots"):
                         response, objects = asyncio.run(elysia_system.query(user_input))
 
                     # Note: Elysia's framework already displays the response via its "Assistant response" panels
@@ -495,7 +561,7 @@ def elysia():
 @app.command()
 def start_elysia_server():
     """Start the full Elysia web application."""
-    console.print(Panel("Starting Elysia Web Server", style="bold magenta"))
+    console.print(Panel("Starting AInstein Web Server", style="bold magenta"))
 
     try:
         import subprocess
@@ -508,6 +574,211 @@ def start_elysia_server():
     except Exception as e:
         console.print(f"[red]Failed to start Elysia: {e}[/red]")
         raise typer.Exit(1)
+
+
+@app.command()
+def chat(
+    host: str = typer.Option("127.0.0.1", "--host", "-h", help="Host to bind to"),
+    port: int = typer.Option(8081, "--port", "-p", help="Port to bind to"),
+):
+    """Start the local chat web interface.
+
+    A clean, simple chat UI for AInstein - Energy System Architect Assistant.
+    Access at http://localhost:8081 after starting.
+    """
+    console.print(Panel(
+        "AInstein - Energy System Architect Assistant\n"
+        f"Starting web interface at http://{host}:{port}",
+        style="bold cyan"
+    ))
+
+    try:
+        import uvicorn
+        from .chat_ui import app as chat_app
+
+        console.print("[green]Starting server...[/green]")
+        console.print("[dim]Press Ctrl+C to stop[/dim]\n")
+
+        # Use asyncio loop instead of uvloop for Elysia compatibility
+        # (Elysia's tree patching doesn't work with uvloop)
+        uvicorn.run(chat_app, host=host, port=port, log_level="info", loop="asyncio")
+
+    except ImportError as e:
+        console.print(f"[red]Import error: {e}[/red]")
+        console.print("[yellow]Make sure uvicorn is installed: pip install uvicorn[/yellow]")
+        raise typer.Exit(1)
+    except Exception as e:
+        console.print(f"[red]Failed to start chat server: {e}[/red]")
+        logger.exception("Chat server error")
+        raise typer.Exit(1)
+
+
+@app.command()
+def evaluate(
+    categories: Optional[str] = typer.Option(
+        None, "--categories", "-c",
+        help="Comma-separated list of categories to test (vocabulary,adr,principle,cross_domain,general)"
+    ),
+    output: Optional[Path] = typer.Option(
+        None, "--output", "-o",
+        help="Output file path for detailed JSON results"
+    ),
+    base_url: str = typer.Option(
+        "http://127.0.0.1:8081", "--url", "-u",
+        help="Base URL of the chat API server"
+    ),
+):
+    """Run evaluation comparing Ollama vs OpenAI RAG performance.
+
+    IMPORTANT: The chat server must be running before running evaluation.
+    Start it with: python -m src.cli chat
+
+    Example usage:
+        python -m src.cli evaluate
+        python -m src.cli evaluate --categories vocabulary,adr
+        python -m src.cli evaluate --output results.json
+    """
+    import asyncio
+    from .evaluation import RAGEvaluator
+
+    console.print(Panel(
+        "[bold]RAG Evaluation: Ollama vs OpenAI[/bold]\n\n"
+        "Comparing retrieval quality, latency, and answer quality",
+        title="AION-AINSTEIN Evaluation",
+        style="bold blue"
+    ))
+
+    # Parse categories
+    category_list = None
+    if categories:
+        category_list = [c.strip() for c in categories.split(",")]
+        console.print(f"[dim]Filtering by categories: {category_list}[/dim]")
+
+    # Check if server is running
+    import httpx
+    try:
+        response = httpx.get(f"{base_url}/health", timeout=5.0)
+        if response.status_code != 200:
+            raise Exception("Server not healthy")
+    except Exception:
+        console.print("[red]Error: Chat server is not running![/red]")
+        console.print("[yellow]Start it with: python -m src.cli chat[/yellow]")
+        raise typer.Exit(1)
+
+    console.print(f"[green]Connected to server at {base_url}[/green]\n")
+
+    # Run evaluation
+    evaluator = RAGEvaluator(base_url=base_url)
+
+    async def run_evaluation():
+        return await evaluator.run_all(categories=category_list)
+
+    console.print("[dim]Running evaluation (this may take several minutes)...[/dim]")
+
+    try:
+        results = asyncio.run(run_evaluation())
+        console.print("[green]Evaluation complete![/green]")
+    except Exception as e:
+        console.print(f"[red]Error: {e}[/red]")
+        logger.exception("Evaluation error")
+        raise typer.Exit(1)
+
+    # Display summary
+    summary = evaluator.get_summary()
+
+    console.print("\n[bold]Evaluation Summary[/bold]\n")
+
+    # Create comparison table
+    table = Table(title="Provider Comparison")
+    table.add_column("Metric", style="cyan")
+    table.add_column("Ollama (Local)", style="yellow")
+    table.add_column("OpenAI (Cloud)", style="green")
+
+    ollama = summary["ollama"]
+    openai = summary["openai"]
+
+    table.add_row(
+        "Total Test Cases",
+        str(ollama["total_cases"]),
+        str(openai["total_cases"])
+    )
+    table.add_row(
+        "Successful",
+        str(ollama["successful"]),
+        str(openai["successful"])
+    )
+    table.add_row(
+        "Errors",
+        str(ollama["errors"]),
+        str(openai["errors"])
+    )
+    table.add_row(
+        "Avg Term Recall",
+        f"{ollama['avg_term_recall']:.1%}",
+        f"{openai['avg_term_recall']:.1%}"
+    )
+    table.add_row(
+        "Avg Source Recall",
+        f"{ollama['avg_source_recall']:.1%}",
+        f"{openai['avg_source_recall']:.1%}"
+    )
+    table.add_row(
+        "Avg Retrieval Latency",
+        f"{ollama['avg_retrieval_latency_ms']}ms",
+        f"{openai['avg_retrieval_latency_ms']}ms"
+    )
+    table.add_row(
+        "Avg Generation Latency",
+        f"{ollama['avg_generation_latency_ms']}ms",
+        f"{openai['avg_generation_latency_ms']}ms"
+    )
+    table.add_row(
+        "Avg Total Latency",
+        f"{ollama['avg_total_latency_ms']}ms",
+        f"{openai['avg_total_latency_ms']}ms"
+    )
+
+    if ollama.get("context_truncations", 0) > 0:
+        table.add_row(
+            "Context Truncations",
+            f"[yellow]{ollama['context_truncations']}[/yellow]",
+            "N/A"
+        )
+
+    console.print(table)
+
+    # Show per-test-case results
+    console.print("\n[bold]Per-Test-Case Results[/bold]\n")
+
+    results_table = Table(title="Individual Test Cases")
+    results_table.add_column("ID", style="dim")
+    results_table.add_column("Category")
+    results_table.add_column("Ollama Term Recall", style="yellow")
+    results_table.add_column("OpenAI Term Recall", style="green")
+    results_table.add_column("Ollama Latency", style="yellow")
+    results_table.add_column("OpenAI Latency", style="green")
+
+    for result in evaluator.results:
+        ollama_recall = f"{result.ollama.term_recall:.0%}" if result.ollama and not result.ollama.error else "ERR"
+        openai_recall = f"{result.openai.term_recall:.0%}" if result.openai and not result.openai.error else "ERR"
+        ollama_latency = f"{result.ollama.total_latency_ms}ms" if result.ollama else "N/A"
+        openai_latency = f"{result.openai.total_latency_ms}ms" if result.openai else "N/A"
+
+        results_table.add_row(
+            result.test_case_id,
+            result.category,
+            ollama_recall,
+            openai_recall,
+            ollama_latency,
+            openai_latency
+        )
+
+    console.print(results_table)
+
+    # Export if requested
+    if output:
+        evaluator.export_results(output)
+        console.print(f"\n[green]Detailed results exported to: {output}[/green]")
 
 
 def main():

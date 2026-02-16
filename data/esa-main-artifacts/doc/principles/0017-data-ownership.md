@@ -1,15 +1,16 @@
 ---
 parent: Principles
-nav_order: "0017"
-title:  Business Specifications Driven Data Ownership
-status: proposed
-date: 2025-10-27
-
-driver: Data governance, accountability, business-aligned provisioning
-#approvers: ...
-contributors: Christian Heuer, Laurent van Groningen, Robert-Jan Peters
-#informed: Data owners, system architects, telemetry service teams
+nav_order: PCP.17
+dct:
+  identifier: urn:uuid:8b9c0d1e-2f3a-4b4c-5d6e-7f8a9b0c1d2e
+  title: Business Specifications Driven Data Ownership
+  isVersionOf: proposed
+  issued: 2025-10-27
+owl:
+  versionIRI: "https://esa-artifacts.alliander.com/metamodel/principles/2025-10/0017-data-ownership.html"
+  versionInfo: "v1.0.0 (2025-10-27)"
 ---
+<!-- markdownlint-disable-next-line MD025 -->
 
 # Principle: Business Specifications Driven Data Ownership
 

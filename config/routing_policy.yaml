@@ -1,0 +1,8 @@
+intent_router_enabled: true
+intent_router_mode: llm
+intent_confidence_threshold: 0.55
+followup_binding_enabled: true
+abstain_gate_enabled: false
+max_tree_seconds: 120
+tree_enabled: true
+debug_headers_enabled: false

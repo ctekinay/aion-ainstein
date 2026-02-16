@@ -1,14 +1,16 @@
 ---
 parent: Principles
-nav_order: 0012
-title: Business-Driven Data Readiness
-status: proposed
-date: 2025-10-27
-driver: Business-driven data governance
-#approvers: [To be defined]
-contributors: Christian Heuer, Laurent van Groningen, Robert-Jan Peters
-#informed: [To be defined]
+nav_order: PCP.12
+dct:
+  identifier: urn:uuid:3c4d5e6f-7a8b-4c9d-0e1f-2a3b4c5d6e7f
+  title: Business-Driven Data Readiness
+  isVersionOf: proposed
+  issued: 2025-10-27
+owl:
+  versionIRI: "https://esa-artifacts.alliander.com/metamodel/principles/2025-10/0012-business-driven-data-readyness.html"
+  versionInfo: "v1.0.0 (2025-10-27)"
 ---
+<!-- markdownlint-disable-next-line MD025 -->
 
 # Principle: Business-Driven Data Readiness
 

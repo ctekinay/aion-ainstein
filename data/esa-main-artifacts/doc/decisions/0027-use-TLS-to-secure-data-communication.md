@@ -1,20 +1,15 @@
 ---
-# Configuration for the Jekyll template "Just the Docs"
 parent: Decisions
-nav_order: 27
-title: Use TLS to Secure Data Communication
-status: proposed
-date: YYYY-MM-DD when the decision was last updated
-
-driver: Robert-Jan.Peters <robert-jan.peters@alliander.com>,
-#approvers: list everyone with the final say in this ADR.
-contributors: Edi Recica <edi.recica@alliander.com>, René Kleizen <rene.kleizen@alliander.com>
-#informed: list every one who need to be aware of the decision once made.
-
-# These are optional elements. Feel free to remove any of them.
-# additional decision-makers: {list everyone involved in the decision}
+nav_order: ADR.27
+dct:
+  identifier: urn:uuid:b4c5d6e7-f8a9-4b0c-1d2e-3f4a5b6c7d8e
+  title: Use TLS to Secure Data Communication
+  isVersionOf: proposed
+  issued: 2025-01-01
+owl:
+  versionIRI: "https://esa-artifacts.alliander.com/metamodel/decisions/2025-01/0027-use-TLS-to-secure-data-communication.html"
+  versionInfo: "v1.0.0 (2025-01-01)"
 ---
-
 <!-- markdownlint-disable-next-line MD025 -->
 
 # Use TLS to Secure Data Communication

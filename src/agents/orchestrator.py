@@ -2,6 +2,7 @@
 
 import asyncio
 import logging
+import re
 from dataclasses import dataclass, field
 from typing import Optional, Any
 
@@ -13,6 +14,12 @@ from .architecture_agent import ArchitectureAgent
 from .policy_agent import PolicyAgent
 
 logger = logging.getLogger(__name__)
+
+# Doc-ref pattern for routing hint (matches ADR.0012, PCP-5, DAR 3, etc.)
+_DOC_REF_RE = re.compile(
+    r"\b(?:adr|pcp|dar)[.\s\-]?\d{1,4}\b",
+    re.IGNORECASE,
+)
 
 
 @dataclass
@@ -163,6 +170,12 @@ class OrchestratorAgent:
             ),
         }
 
+        # B1: Doc-ref routing hint — ensure architecture agent is included
+        # when a document reference like ADR.0012 is detected
+        has_doc_ref = bool(_DOC_REF_RE.search(question))
+        if has_doc_ref and scores.get("architecture", 0) == 0:
+            scores["architecture"] = 1
+
         # Get agents with non-zero scores, sorted by score
         scored_agents = sorted(
             [(name, score) for name, score in scores.items() if score > 0],
@@ -182,6 +195,8 @@ class OrchestratorAgent:
         selected_agents = [self.agents[name] for name in selected_names]
 
         reason = f"keyword matching: {', '.join(f'{n}({s})' for n, s in scored_agents[:2])}"
+        if has_doc_ref:
+            reason += " (doc-ref hint applied)"
         return selected_agents, reason
 
     async def _query_agents(

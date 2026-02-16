@@ -1,18 +1,14 @@
 ---
-# Configuration for the Jekyll template "Just the Docs"
 parent: Decisions
-nav_order: 25
-title: Provide a unified Demand/Response product interface for market and grid coordination
-status: proposed
-date: YYYY-MM-DD when the decision was last updated
-
-driver: Robert-Jan Peters  <robert-jan.peters@alliander.com>, Laurent van Groningen <laurent.van.groningen@alliander.com>
-#approvers: list everyone with the final say in this ADR.
-contributors: Mitchel Haeve <mitchel.haeve@alliander.com>, Thijs Nugteren<thijs.nugteren@alliander.com>, Cagri Tekinay<cagri.tekinay@alliander.com>
-#informed: list every one who need to be aware of the decision once made. 
-
-# These are optional elements. Feel free to remove any of them.
-# additional decision-makers: {list everyone involved in the decision}
+nav_order: ADR.25
+dct:
+  identifier: urn:uuid:f2a3b4c5-d6e7-4f8a-9b0c-1d2e3f4a5b6c
+  title: Provide a unified Demand/Response product interface for market and grid coordination
+  isVersionOf: proposed
+  issued: 2025-10-20
+owl:
+  versionIRI: "https://esa-artifacts.alliander.com/metamodel/decisions/2025-01/0025-unify-demand-response-interfaces-via-open-standards.html"
+  versionInfo: "v1.2.0 (2026-01-30)"
 ---
 
 <!-- markdownlint-disable-next-line MD025 -->
@@ -25,11 +21,14 @@ European regulations require a standardized approach to mitigation measures for 
 balancing, congestion management, and voltage control). Within different Demand/Response products, there is a growing
 need for interoperability between grid operators (DSOs) and market participants such as CPOs.
 
-Current implementations of Demand-Response (D/R) interfaces vary widely across vendors, platforms, and use cases. This
-fragmentation hampers interoperability, increases development costs, limited scalability, and slows down market-wide
-deployment of flexible energy services. With increasing regulatory pressure (e.g., EU 2022/2555), digitalization of the
-energy sector, and the rise of distributed energy resources (DERs), a unified and standardized D/R interface has become
-essential.
+The number of technical Demand-Response (D/R) interfaces increases and varies widely across vendors, platforms, and use
+cases.
+Although there is attention for technical standardization, fragmentation hampers semantic- and functional
+interoperability, levels of security, auditability, increases development costs, limited scalability, and slows down
+market-wide deployment of flexible energy services.
+
+Growing regulatory pressure (e.g. EU 2022/2555) drives a predominantly technical standardization focus, pushing
+essential business requirements into the background, which may result in reduced business agility.
 
 ## Decision Drivers
 
@@ -47,7 +46,7 @@ aggregator-with-customer, customer-with-customer) and supporting white-label d. 
 these underlying principles but ensuring consistency and clear guidance. The reader should note that Not all
 combinations are currently in practice, but the design should adhere to the considerations stated below:
 
-1. Dedicated interface per Business **Interaction Type**<br>
+1. Dedicated interface per Business Interaction Type<br>
    Principle: The business interfaces should be scoped to distinctly responsible business processes (e.q. D/R product
    activation, availability declaration, submit D/R capacity need, settlement)<br>
    Rationale: Promotes clarity, reusability, and avoids overloading interfaces with unrelated business functionality.
@@ -57,7 +56,7 @@ combinations are currently in practice, but the design should adhere to the cons
    Rationale: Reduces duplication, prevents fragmentation, enables common cybersecurity measures, and simplifies
    integration for each actor.
 4. Standard before Custom<br>
-   Principle: Use open, internationally recognized standards where available before designing new protocols.<br>
+   Principle: Use open, internationally recognized standards where available before designing new.<br>
    Rationale: Ensure interoperability, future-proofing, and regulatory alignment.
 5. Information Model Alignment<br>
    Principle: All interfaces must align with common, extensible information models (e.q. CIM, IEC 61850)<br>
@@ -88,15 +87,15 @@ combinations are currently in practice, but the design should adhere to the cons
     Principle: Use machine-readable interface specifications (e.q. OpenAPI, JSON Schema, SHACL) to automate validation
     and easy integration.<br>
     Rationale: Reduces errors, speeds up development, and enables automated testing/validation.
-12. Govern interfaces with Transparent and Inclusive Operational Ownership
+12. Govern interfaces with Transparent and Inclusive Operational Ownership<br>
     Principle: The DSO must lead interface governance, but must do so with transparent documentation, multi-actor
-    alignment, and supported onboarding paths for third parties.
+    alignment, and supported onboarding paths for third parties.<br>
     Rationale: The unified interface is tightly coupled to DSO internal operations (e.q. capacity management, congestion
     forecasting, demand/response activation logic) and should not depend on external governance.
-13. Identify and Mitigate Operational Risk Introduced by Intermediaries<b>
+13. Identify and Mitigate Operational Risk Introduced by Intermediaries<br>
     Principle: When using intermediaries between critical actors (e.g., between DSO and flexibility operator), the
     system architecture must identify, limit, and mitigate operational risks stemming from loss of transparency, timing
-    delays, data distortion, or dependency on third-party / intermediaries control logic.<b>
+    delays, data distortion, or dependency on third-party / intermediaries control logic.<br>
     Rationale: The inclusion of intermediaries — such as aggregation platforms, third-party gateways, or flexibility
     service providers — introduces operational risks that can undermine energy system reliability, safety, and
     transparency if not properly governed.
@@ -105,16 +104,12 @@ combinations are currently in practice, but the design should adhere to the cons
 > In the interaction between the DSO, acting as the System Operator, and a Market Participant providing flexibility
 > services, a single unified technical interface should be used. Since the Market Participant fulfills the same role in
 > both cases, products such as Capacity Limiting Contract (CBC-A) and Redispatch should be supported via the same
-> interface. The use of the GOPACS platform is an implementation detail and should not influence this principle.
+> interface. That makes e.g. use of the GOPACS platform an implementation choise, not relieving to fulfill this
+> principle
+> taking care of scaled business requirements.
 
 > [!NOTE]
-> A **business interface** represents the point of interaction where a business role, actor, or organizational unit
-> offers or consumes a service in a business context.
-> It defines what is exchanged (the value or service), why (the purpose or business goal), and under what conditions (
-> policies, contracts, responsibilities) — not how it is technically implemented.
-
-> [!NOTE]
-> A **technical interface** defines the means of interaction between application components, systems, or devices.
+> A technical interface defines the means of interaction between application components, systems, or devices.
 > It specifies how information is exchanged — the protocols, endpoints, data structures, and message formats.
 
 ## Considered Options
@@ -125,12 +120,24 @@ integration.
 
 ## Decision Outcome
 
-The adoption and promotion of a unified Demand-Response interface (business, technical) based on existing open
-standards, ensuring compatibility with market actors, regulatory requirements, and grid operator systems.
+In the adoption and promotion of a unified Demand-Response interface, a technical-production-ready-interface
+is sollely defined based on clarity about the business interface.
+The business interface determines the point of interaction where a business role, actor,
+or organizational unit offers or consumes a service in a business context.
+It defines what is exchanged (the value or service), why (the purpose or business goal), and under what conditions (
+policies, contracts, responsibilities) — not how it is technically implemented.
 
 ### Consequences
 
-Supporting guidelines are:
+Pro:
+
+* ensures compatibility with market actors, regulatory requirements, and grid operator systems.
+* enables to select open standards for different aspects (like semantics, protocols, security)
+
+Cons:
+
+* for the new domein of Demand-Response, not all business interface criteria may be available out of the box
+* managing technical roadmaps to newly formed business requirements
 
 #### Governance & Coordination
 
@@ -171,6 +178,8 @@ Test and sandbox environments
 
 ## More Information
 
+### Open Standard Reference
+
 Several open standards are available:
 
 * IEC 61850-7-420 (DER models)
@@ -190,7 +199,18 @@ Several open standards are available:
 * Hub for Energy Distribution and Excess Resource Allocation (Hedera) - **(Alliander | D/R product / NFA)**
 * etc
 
-Reference information:
+### ENTSO-Harmonized Electricity Market Role Model (HEMRM)
 
-- [Netbeheer Nederland Overzicht flex-producten](https://www.rvo.nl/sites/default/files/2025-04/20241118_NBNL_Overzicht-Flexproducten_Productcatalogus.pdf)
-- [ENTSO-E Harmonized Energy Market Role Model (HEMRM)](https://www.entsoe.eu/data/cim/role-models/)
+The [ENTSO-Harmonized Electricity Market Role Model (HEMRM)](https://www.entsoe.eu/data/cim/role-models/) standardizes
+terminology for electricity market
+roles and domains. It establishes unified vocabulary to support IT development and enable seamless process integration
+between system operators and market participants.
+
+### Netbeheer Nederland
+
+The Netbeheer Nederland (NBNL) is a national network operator for electricity, and the main market for electricity in
+the Netherlands.
+The [Netbeheer Nederland Overzicht flex-producten](https://www.rvo.nl/sites/default/files/2025-04/20241118_NBNL_Overzicht-Flexproducten_Productcatalogus.pdf)
+is a 2025 Dutch product and service catalog showing the flexible electricity network solutions developed by grid
+operators. It explains options like alternative transport rights, congestion management, and measures to better use the
+grid, helping businesses and stakeholders navigate available flexibility products.

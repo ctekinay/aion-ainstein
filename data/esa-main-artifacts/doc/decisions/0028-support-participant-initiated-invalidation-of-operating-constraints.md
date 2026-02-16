@@ -1,13 +1,16 @@
 ---
-# Configuration for the Jekyll template "Just the Docs"
 parent: Decisions
-nav_order: 28
-title: Support flexibility service provider-initiated invalidation of operating constraints
-status: proposed
-date: 2025-07-24
-
-driver: Robert-Jan Peters <robert-jan.peters@alliander.com>
+nav_order: ADR.28
+dct:
+  identifier: urn:uuid:c5d6e7f8-a9b0-4c1d-2e3f-4a5b6c7d8e9f
+  title: Support Flexibility Service Provider Initiated Technical Invalidation of Operating Constraints
+  isVersionOf: proposed
+  issued: 2025-07-24
+owl:
+  versionIRI: "https://esa-artifacts.alliander.com/metamodel/decisions/2025-07/0028-support-participant-initiated-invalidation-of-operating-constraints.html"
+  versionInfo: "v1.0.0 (2025-07-24)"
 ---
+<!-- markdownlint-disable-next-line MD025 -->
 
 # Support Flexibility Service Provider Initiated Technical Invalidation of Operating Constraints
 

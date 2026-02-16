@@ -378,26 +378,37 @@ def load_index_metadata(index_path: Path) -> Optional[IndexMetadata]:
         return None
 
 
-def find_index_metadata(file_path: Path) -> Optional[IndexMetadata]:
-    """Find and load index.md metadata for a file.
+# Metadata files to search for (in order of preference)
+# esa_doc_registry.md is the renamed top-level /doc/index.md (canonical registry)
+METADATA_FILENAMES = ["index.md", "esa_doc_registry.md", "esa-doc-registry.md"]
 
-    Searches for index.md in the file's directory and parent directories
+
+def find_index_metadata(file_path: Path) -> Optional[IndexMetadata]:
+    """Find and load index/registry metadata for a file.
+
+    Searches for metadata files in the file's directory and parent directories
     until it finds one or reaches the data root.
+
+    Metadata files searched (in order):
+    - index.md: Standard directory-level metadata (in decisions/, principles/)
+    - esa_doc_registry.md: Top-level doc registry (renamed from /doc/index.md)
 
     Args:
         file_path: Path to a document file
 
     Returns:
-        IndexMetadata from the nearest index.md, or None if not found
+        IndexMetadata from the nearest metadata file, or None if not found
     """
     current_dir = file_path.parent if file_path.is_file() else file_path
 
-    # Search up to 5 levels up for index.md
+    # Search up to 5 levels up for metadata files
     for _ in range(5):
-        index_path = current_dir / "index.md"
-        metadata = load_index_metadata(index_path)
-        if metadata:
-            return metadata
+        # Try each possible metadata filename
+        for metadata_filename in METADATA_FILENAMES:
+            metadata_path = current_dir / metadata_filename
+            metadata = load_index_metadata(metadata_path)
+            if metadata:
+                return metadata
 
         # Stop at 'data' directory
         if current_dir.name == "data":

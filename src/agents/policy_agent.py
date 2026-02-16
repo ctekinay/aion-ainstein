@@ -5,8 +5,9 @@ from typing import Optional, Any
 
 from weaviate import WeaviateClient
 
-from .base import BaseAgent, AgentResponse
-from ..weaviate.collections import CollectionManager
+from .base import BaseAgent, AgentResponse, _needs_client_side_embedding, _embed_query
+from ..weaviate.collections import get_collection_name
+from ..config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -20,7 +21,7 @@ class PolicyAgent(BaseAgent):
         "Can answer questions about data management, data quality, "
         "metadata governance, classification, and compliance requirements."
     )
-    collection_name = CollectionManager.POLICY_COLLECTION
+    collection_name = get_collection_name("policy")
 
     def __init__(self, client: WeaviateClient, llm_client: Optional[Any] = None):
         """Initialize the policy agent.
@@ -54,7 +55,7 @@ class PolicyAgent(BaseAgent):
         policy_results = self.hybrid_search(
             query=question,
             limit=limit,
-            alpha=0.5,  # Balance semantic and keyword search
+            alpha=settings.alpha_default,  # Configurable in config.py
         )
 
         # Optionally search governance principles
@@ -103,12 +104,15 @@ class PolicyAgent(BaseAgent):
             List of matching principles
         """
         try:
-            collection = self.client.collections.get(CollectionManager.PRINCIPLE_COLLECTION)
-            results = collection.query.hybrid(
+            collection = self.client.collections.get(get_collection_name("principle"))
+            hybrid_kwargs = dict(
                 query=query,
                 limit=limit,
-                alpha=0.5,
+                alpha=settings.alpha_default,
             )
+            if _needs_client_side_embedding():
+                hybrid_kwargs["vector"] = _embed_query(query)
+            results = collection.query.hybrid(**hybrid_kwargs)
 
             # Filter to governance-related principles
             principles = []
@@ -158,7 +162,7 @@ class PolicyAgent(BaseAgent):
         results = self.hybrid_search(
             query=topic,
             limit=3,
-            alpha=0.4,
+            alpha=settings.alpha_default,  # Close to default
         )
 
         if results:
@@ -180,7 +184,7 @@ class PolicyAgent(BaseAgent):
         results = self.hybrid_search(
             query=enhanced_query,
             limit=10,
-            alpha=0.6,
+            alpha=settings.alpha_vocabulary,
         )
 
         return results

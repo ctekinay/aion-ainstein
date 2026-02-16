@@ -1,9 +1,11 @@
-# Weaviate client
-weaviate-client>=4.18.0
+# Python Version: 3.10-3.12 (3.12 recommended, 3.13+ not supported)
+
+# Weaviate client (compatible with Weaviate 1.34+)
+weaviate-client>=4.19.2
 
 # Elysia agentic RAG framework (keep versions as required by Elysia)
-elysia-ai>=0.1.0
-dspy-ai>=2.4.0
+elysia-ai>=0.2.8
+dspy-ai>=2.6.27  # Staying in 2.x series for stability
 
 # RDF/SKOS parsing
 rdflib>=7.4.0
@@ -31,6 +33,10 @@ rich>=13.7.0,<=14.0.0  # Constrained by elysia-ai dependency
 python-dotenv>=1.2.0
 pydantic>=2.12.0
 pydantic-settings>=2.12.0
+
+# Web UI
+fastapi>=0.115.0
+uvicorn>=0.34.0
 
 # Development (requires Python >=3.10)
 pytest>=9.0.0

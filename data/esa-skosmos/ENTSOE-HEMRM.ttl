@@ -24,7 +24,8 @@
   dct:created      "2025-04-20"^^xsd:date ;
   dct:modified     "2025-04-20"^^xsd:date ;
   dcat:theme       "vocabulary"@en ;
-  foaf:homepage    <https://www.entsoe.eu/data/market-roles/> ;
+  foaf:homepage    <https://www.entsoe.eu/data/cim/role-models/> ;
+  rdf:seeAlso      <https://www.entsoe.eu/Documents/EDI/Library/HRM/HEMRM_2025-01.zip> ;
   owl:versionIRI   <http://www.omg.org/spec/NIEM-UML/20150201/NIEM_Common_Profile> ;
   owl:versionInfo  "20150201-0" .
 
@@ -195,8 +196,6 @@ This is a Type of Party Connected to the Grid."""@en ;
   skos:broader      :BalanceResponsibleParty ;
   owl:versionInfo   "1" ;
   skos:definition   """A Consumption Responsible Party is responsible for its imbalances, meaning the difference between the energy volume physically withdrawn from the system and the final nominated energy volume, including any imbalance adjustment within a given imbalance settlement period.
-**
-**
 **
 Additional information:
 **

@@ -1,0 +1,56 @@
+# response-formatter Thresholds
+# These values control when the system abstains from answering
+# Edit these to tune the quality vs. coverage tradeoff
+
+# Abstention Thresholds
+abstention:
+  # Maximum distance for relevance (lower = more similar, 0 = exact match)
+  # If the best document's distance exceeds this, abstain
+  distance_threshold: 0.5
+
+  # Minimum fraction of query terms that must appear in results
+  # If coverage is below this, abstain
+  min_query_coverage: 0.2
+
+  # Single words that indicate a listing query
+  list_indicators:
+    - list
+    - show
+    - all
+    - exist
+    - exists
+    - available
+    - have
+    - many
+    - which
+    - enumerate
+
+  # Additional stop words to exclude from query term extraction
+  additional_stop_words:
+    - are
+    - there
+    - exist
+    - exists
+    - list
+    - show
+    - all
+    - me
+    - give
+
+# Retrieval Limits
+# Maximum number of documents to retrieve per collection
+retrieval_limits:
+  adr: 8
+  principle: 6
+  policy: 4
+  vocabulary: 4
+
+# Content Truncation
+# Maximum characters of content to include per document
+truncation:
+  content_max_chars: 800
+  elysia_content_chars: 500
+  elysia_summary_chars: 300
+  consequences_max_chars: 4000
+  direct_doc_max_chars: 12000
+  max_context_results: 10

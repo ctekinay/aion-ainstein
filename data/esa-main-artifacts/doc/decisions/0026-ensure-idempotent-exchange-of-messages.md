@@ -1,13 +1,17 @@
 ---
-# Configuration for the Jekyll template "Just the Docs"
 parent: Decisions
-nav_order: 26
-title: Ensure idempotent exchange of messages
-status: proposed
-date: 2025-07-24
-
-driver: Robert-Jan Peters <robert-jan.peters@alliander.com>
+nav_order: ADR.26
+dct:
+  identifier: urn:uuid:a3b4c5d6-e7f8-4a9b-0c1d-2e3f4a5b6c7d
+  title: Ensure Idempotent Exchange of Messages
+  isVersionOf: proposed
+  issued: 2026-01-30
+owl:
+  versionIRI: "https://esa-artifacts.alliander.com/metamodel/decisions/2025-07/0026-ensure-idempotent-exchange-of-messages.html"
+  versionInfo: "v1.0.1 (2026-01-30)"
 ---
+
+<!-- markdownlint-disable-next-line MD025 -->
 
 # Ensure Idempotent Exchange of Messages
 
@@ -16,7 +20,7 @@ driver: Robert-Jan Peters <robert-jan.peters@alliander.com>
 When system operators and market participants in the role of party-connected-to-grid or flexibility service provider (
 FSP),
 exchange operating constraints, measurements, and validations—especially in power systems (e.g., power setpoints,
-contractual-limits), where the process must be robust against communication failures.
+contractual-limits), the process must be robust against communication failures.
 
 This is important in distributed systems or systems with unreliable communication, where messages might be duplicated.
 Repeated messages can occur due to retries, delayed acknowledgments, or the need for reconfirmation. Without safeguards,
@@ -84,17 +88,19 @@ constraints.
 
 ## More Information
 
-### ENTSO-R Role Model
+### ENTSO-Harmonized Electricity Market Role Model (HEMRM)
 
-The [ENTSO-R Role Model](https://www.entsoe.eu/data/cim/role-models/) standardizes terminology for electricity market
+The [ENTSO-Harmonized Electricity Market Role Model (HEMRM)](https://www.entsoe.eu/data/cim/role-models/) standardizes
+terminology for electricity market
 roles and domains. It establishes unified vocabulary to support IT development and enable seamless process integration
 between system operators and market participants.
 
 ### IEC 61850 Idempotent
 
 The IEC 61850 does not guarantee message idempotence at the protocol level. Idempotence has to be designed or enforced
-in the control application logic or the middleware layer. Instead, it provides: sequence numbers and timestamps,
-state-based models, and interaction patterns.
+in the control application logic or the middleware layer. Instead, it provides sequence numbers and timestamps,
+state-based models, and interaction patterns, requiring additional application-level logic to realize business
+semantics.
 
 ### Clarification of "Idempotent"
 

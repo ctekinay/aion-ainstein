@@ -1,0 +1,14 @@
+adr:
+  unique_count:
+    enabled: true
+    min: 15
+    max: 25
+  must_include_ids:
+    enabled: true
+    values: ["0030", "0031"]
+
+principle:
+  unique_count:
+    enabled: false
+  must_include_ids:
+    enabled: false

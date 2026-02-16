@@ -1,15 +1,16 @@
 ---
 parent: Principles
-nav_order: "0013"
-title: Business-Compliant Storage – Cost-Efficient Tiering
-status: proposed
-date: 2025-10-27
-
-driver: Cost optimization, scalable infrastructure, business relevance of data
-#approvers: ...
-contributors: Christian Heuer, Laurent van Groningen, Robert-Jan Peters
-#informed: Data owners, system architects, IT operations
+nav_order: PCP.13
+dct:
+  identifier: urn:uuid:4d5e6f7a-8b9c-4d0e-1f2a-3b4c5d6e7f8a
+  title: Business-Compliant Storage – Cost-Efficient Tiering
+  isVersionOf: proposed
+  issued: 2025-10-27
+owl:
+  versionIRI: "https://esa-artifacts.alliander.com/metamodel/principles/2025-10/0013-cost-efficient-tiering.html"
+  versionInfo: "v1.0.0 (2025-10-27)"
 ---
+<!-- markdownlint-disable-next-line MD025 -->
 
 # Principle: Business-Compliant Storage – Cost-Efficient Tiering
 

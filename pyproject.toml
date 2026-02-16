@@ -67,4 +67,11 @@ ignore = ["E501"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
+pythonpath = ["."]
 testpaths = ["tests"]
+markers = [
+  "integration: tests that require a live Weaviate instance",
+  "repo_data: tests that require data files from the repository",
+  "smoke: daily smoke suite for regression detection",
+  "smoke_live: live integration smoke tests (requires Weaviate + LLM, gate with RUN_LIVE_SMOKE=1)",
+]

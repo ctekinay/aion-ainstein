@@ -1,0 +1,8 @@
+config:
+  type: file
+  location: LIDO-BWBR0050714.config
+
+source:
+  type: file
+  location: LIDO-BWBR0050714.ttl
+

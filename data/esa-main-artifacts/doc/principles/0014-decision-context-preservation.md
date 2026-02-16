@@ -1,15 +1,16 @@
 ---
 parent: Principles
-nav_order: "0014"
-title: Business-Compliant Storage – Decision Context Preservation
-status: proposed
-date: 2025-11-04
-
-driver: Decision traceability, auditability, business accountability
-#approvers: ...
-contributors: Christian Heuer, Laurent van Groningen, Robert-Jan Peters
-#informed: Data owners, system architects, compliance officers
+nav_order: PCP.14
+dct:
+  identifier: urn:uuid:5e6f7a8b-9c0d-4e1f-2a3b-4c5d6e7f8a9b
+  title: Business-Compliant Storage – Decision Context Preservation
+  isVersionOf: proposed
+  issued: 2025-11-04
+owl:
+  versionIRI: "https://esa-artifacts.alliander.com/metamodel/principles/2025-11/0014-decision-context-preservation.html"
+  versionInfo: "v1.0.0 (2025-11-04)"
 ---
+<!-- markdownlint-disable-next-line MD025 -->
 
 # Principle: Business-Compliant Storage – Decision Context Preservation
 
