@@ -92,6 +92,13 @@ _TOPIC_QUALIFIER_MARKERS = (
     "with respect to", "in terms of", "concerning",
 )
 
+# "on <topic>" pattern: matches " on interoperability" but NOT "on" at end of query
+# or "on" followed by a doc ref.  Kept tight to avoid false positives.
+_ON_QUALIFIER_RE = re.compile(
+    r"\bon\s+(?!(?:the\s+)?(?:ADR|PCP|DAR)\b)[a-z]",
+    re.IGNORECASE,
+)
+
 
 # =============================================================================
 # Signal extraction + Intent scoring gate
@@ -126,7 +133,10 @@ def _extract_signals(question: str) -> RoutingSignals:
     return RoutingSignals(
         has_list_phrase=has_list_phrase,
         has_all_quantifier=bool(_ALL_QUANTIFIER_RE.search(question)),
-        has_topic_qualifier=any(m in q_lower for m in _TOPIC_QUALIFIER_MARKERS),
+        has_topic_qualifier=(
+            any(m in q_lower for m in _TOPIC_QUALIFIER_MARKERS)
+            or bool(_ON_QUALIFIER_RE.search(question))
+        ),
         has_doc_ref=has_doc_ref,
         has_retrieval_verb=has_retrieval_verb,
         has_count_phrase=has_count_phrase,
@@ -282,18 +292,26 @@ _BARE_NUMBER_RE = re.compile(
 )
 
 
-def _extract_bare_numbers(question: str) -> list[str]:
+def _extract_bare_numbers(question: str, prefixed_refs: list[dict] | None = None) -> list[str]:
     """Extract bare document numbers from a query (no ADR/PCP/DAR prefix).
 
-    Only returns results when the query has NO prefixed doc refs, since
-    prefixed refs are already unambiguous and handled by _normalize_doc_ids.
+    When prefixed_refs is provided (mixed-ref mode), numbers that are already
+    covered by a prefixed ref are excluded.  Otherwise, if the query contains
+    any prefixed ref the function returns [] (legacy behaviour for pure-bare
+    queries).
 
     Returns:
         List of zero-padded number strings, e.g. ["0022"]
     """
-    # If any prefixed refs exist, skip — those are already unambiguous
-    if _CANONICAL_ID_RE.search(question):
-        return []
+    # Collect numbers already covered by prefixed refs
+    prefixed_numbers: set[str] = set()
+    if prefixed_refs is not None:
+        for ref in prefixed_refs:
+            prefixed_numbers.add(ref.get("number_value", ""))
+    else:
+        # Legacy: skip entirely when prefixed refs exist
+        if _CANONICAL_ID_RE.search(question):
+            return []
 
     results = []
     seen = set()
@@ -304,6 +322,9 @@ def _extract_bare_numbers(question: str) -> list[str]:
         if num < 1 or num > 9999:
             continue
         padded = f"{num:04d}"
+        # Skip numbers already covered by a prefixed ref
+        if padded in prefixed_numbers:
+            continue
         if padded not in seen:
             seen.add(padded)
             results.append(padded)
@@ -347,7 +368,7 @@ def _has_followup_marker(question: str) -> bool:
 
 _RETRIEVAL_VERB_RE = re.compile(
     r"\b(?:what|show|tell|explain|describe|summarize|summarise|quote|detail|"
-    r"find|get|give|look\s*up|retrieve|fetch|read|display|decide|decision)\b",
+    r"find|get|give|look\s*up|retrieve|fetch|read|display|decide|decision|compare)\b",
     re.IGNORECASE,
 )
 
@@ -472,6 +493,7 @@ class ArchitectureAgent(BaseAgent):
 
         bare_number_resolution = None
         if not signals.has_doc_ref:
+            # Pure bare-number query (no prefixed refs)
             bare_numbers = _extract_bare_numbers(question)
             if bare_numbers:
                 bare_number_resolution = self._resolve_bare_number_ref(bare_numbers[0])
@@ -488,6 +510,31 @@ class ArchitectureAgent(BaseAgent):
                     )
 
                 elif bare_number_resolution.status == "needs_clarification":
+                    return self._format_clarification_response(
+                        bare_number_resolution
+                    )
+        else:
+            # Mixed-ref: prefixed refs already detected, check for additional
+            # bare numbers (e.g. "Compare 22 and ADR.12")
+            bare_numbers = _extract_bare_numbers(question, prefixed_refs=signals.doc_refs)
+            if bare_numbers:
+                bare_number_resolution = self._resolve_bare_number_ref(bare_numbers[0])
+                bare_number_status = bare_number_resolution.status
+
+                if bare_number_resolution.status == "resolved":
+                    ref = bare_number_resolution.resolved_ref
+                    signals.doc_refs.append(ref)
+                    logger.info(
+                        "mixed-ref bare-number resolved: %s → %s",
+                        bare_numbers[0], ref["canonical_id"],
+                    )
+                elif bare_number_resolution.status == "needs_clarification":
+                    # Include already-known prefixed refs in clarification
+                    bare_number_resolution.candidates = [
+                        {"canonical_id": r["canonical_id"], "prefix": r["prefix"],
+                         "title": "(already identified)", "file": ""}
+                        for r in signals.doc_refs
+                    ] + bare_number_resolution.candidates
                     return self._format_clarification_response(
                         bare_number_resolution
                     )

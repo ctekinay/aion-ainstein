@@ -597,6 +597,58 @@ class TestGoldRegressionTraps:
         assert trace.get("path") == "lookup_exact"
         assert trace.get("winner") == "lookup_doc"
 
+    def test_on_qualifier_routes_semantic_not_list(self):
+        """AD-6: 'List principles on interoperability' → semantic beats list."""
+        signals = _extract_signals("List principles on interoperability")
+        scores = _score_intents(signals)
+        assert scores["semantic_answer"] > scores["list"], (
+            f"Semantic ({scores['semantic_answer']}) should beat List ({scores['list']})"
+        )
+
+    @pytest.mark.asyncio
+    async def test_compare_mixed_refs_not_conversational(self, caplog):
+        """AD-9: 'Compare 22 and ADR.12' → must NOT be conversational."""
+        adr_chunk_12 = _make_chunk(
+            title="ADR.12 - Decision", decision="CIM.",
+            canonical_id="ADR.12", adr_number="0012",
+            full_text="Section: Decision\nCIM.",
+        )
+        adr_chunk_22 = _make_chunk(
+            title="ADR.22 - Decision", decision="Interop.",
+            canonical_id="ADR.22", adr_number="0022",
+            full_text="Section: Decision\nInterop.",
+        )
+
+        client, adr_coll, pcp_coll = _make_multi_collection_client(
+            adr_results=_make_fetch_result([adr_chunk_22]),
+        )
+        # ADR.12 lookup by canonical_id
+        def adr_fetch(filters=None, limit=25):
+            if filters is not None:
+                f = str(filters)
+                if "0022" in f or "ADR.22" in f:
+                    return _make_fetch_result([adr_chunk_22])
+                if "0012" in f or "ADR.12" in f:
+                    return _make_fetch_result([adr_chunk_12])
+            return _make_fetch_result([])
+
+        adr_coll.query.fetch_objects.side_effect = adr_fetch
+        pcp_coll.query.fetch_objects.return_value = _make_fetch_result([])
+
+        agent = ArchitectureAgent(client)
+        response, trace = await _capture_trace(
+            caplog, agent, "Compare 22 and ADR.12",
+        )
+
+        # Must NOT be conversational — "compare" is a retrieval verb
+        assert trace.get("path") != "conversational", (
+            f"Expected non-conversational path, got {trace.get('path')}"
+        )
+        # Should be lookup (both refs resolved)
+        assert trace.get("path") in ("lookup_exact", "lookup_number"), (
+            f"Expected lookup path, got {trace.get('path')}"
+        )
+
 
 # =============================================================================
 # Follow-up binding
