@@ -919,6 +919,24 @@ class ArchitectureAgent(BaseAgent):
 
         return None
 
+    @staticmethod
+    def _select_principle_chunk(chunks: list[dict]) -> Optional[dict]:
+        """Select the primary content chunk from principle sections.
+
+        Precedence: Statement > Rationale > first chunk with content.
+        Only returns chunks that have non-empty content.
+        """
+        for suffix in ("Statement", "Rationale"):
+            for chunk in chunks:
+                title = chunk.get("title", "")
+                if (title.rstrip().endswith(f"- {suffix}") or title.strip() == suffix) \
+                        and (chunk.get("content") or "").strip():
+                    return chunk
+        for chunk in chunks:
+            if (chunk.get("content") or "").strip():
+                return chunk
+        return None
+
     # -----------------------------------------------------------------
     # A8: Quote formatting
     # -----------------------------------------------------------------
@@ -996,6 +1014,43 @@ class ArchitectureAgent(BaseAgent):
             f"Full decision text:\n\n"
             f"> {decision_text.strip()}"
         )
+
+    @staticmethod
+    def _format_principle_answer(
+        question: str, chunks: list[dict], canonical_id: str
+    ) -> str:
+        """Format a principle answer showing Statement + other sections."""
+        statement = None
+        other_sections = []
+        for chunk in chunks:
+            title = chunk.get("title", "")
+            content = (chunk.get("content") or "").strip()
+            if not content:
+                continue
+            if title.rstrip().endswith("- Statement") or title.strip() == "Statement":
+                statement = chunk
+            else:
+                section_label = title.rsplit("- ", 1)[-1] if "- " in title else title
+                other_sections.append((section_label, content))
+
+        doc_title = (
+            chunks[0].get("title", canonical_id).rsplit(" - ", 1)[0]
+            if chunks else canonical_id
+        )
+
+        parts = []
+        if statement:
+            content = (statement.get("content") or "").strip()
+            parts.append(f"**{canonical_id}** ({doc_title}):\n\n> {content}")
+        else:
+            parts.append(f"**{canonical_id}** ({doc_title})")
+
+        for label, content in other_sections:
+            if label == doc_title:
+                continue
+            parts.append(f"\n\n### {label}\n\n{content}")
+
+        return "\n".join(parts)
 
     # -----------------------------------------------------------------
     # Conversational response (cheeky query gate)
@@ -1103,16 +1158,20 @@ class ArchitectureAgent(BaseAgent):
 
             all_chunks.extend(chunks)
 
-            # Try to select and format the Decision chunk
-            decision_chunk = self._select_decision_chunk(chunks)
-            if decision_chunk:
+            # Select best chunk for source metadata (prefix-aware)
+            ref_prefix = ref.get("prefix", "ADR")
+            if ref_prefix == "PCP":
+                best_chunk = self._select_principle_chunk(chunks)
+            else:
+                best_chunk = self._select_decision_chunk(chunks)
+            if best_chunk:
                 sources.append({
-                    "title": decision_chunk.get("title", ""),
-                    "type": ref.get("prefix", "ADR"),
+                    "title": best_chunk.get("title", ""),
+                    "type": ref_prefix,
                     "canonical_id": ref["canonical_id"],
                     "file": (
-                        decision_chunk.get("file_path", "").split("/")[-1]
-                        if decision_chunk.get("file_path") else ""
+                        best_chunk.get("file_path", "").split("/")[-1]
+                        if best_chunk.get("file_path") else ""
                     ),
                 })
 
@@ -1149,19 +1208,25 @@ class ArchitectureAgent(BaseAgent):
                 answer_parts.append(f"No content found for {ref['canonical_id']}.")
                 continue
 
-            decision_chunk = self._select_decision_chunk(ref_chunks)
-            if decision_chunk:
-                selected_chunk_type = "decision"
+            if prefix == "PCP":
+                selected_chunk_type = "principle_statement"
                 answer_parts.append(
-                    self._format_decision_answer(question, decision_chunk, ref["canonical_id"])
+                    self._format_principle_answer(question, ref_chunks, ref["canonical_id"])
                 )
             else:
-                selected_chunk_type = "other"
-                titles = [c.get("title", "Untitled") for c in ref_chunks]
-                answer_parts.append(
-                    f"**{ref['canonical_id']}** — Found {len(ref_chunks)} sections: "
-                    f"{', '.join(titles)}"
-                )
+                decision_chunk = self._select_decision_chunk(ref_chunks)
+                if decision_chunk:
+                    selected_chunk_type = "decision"
+                    answer_parts.append(
+                        self._format_decision_answer(question, decision_chunk, ref["canonical_id"])
+                    )
+                else:
+                    selected_chunk_type = "other"
+                    titles = [c.get("title", "Untitled") for c in ref_chunks]
+                    answer_parts.append(
+                        f"**{ref['canonical_id']}** — Found {len(ref_chunks)} sections: "
+                        f"{', '.join(titles)}"
+                    )
 
         if trace:
             trace.path = lookup_path

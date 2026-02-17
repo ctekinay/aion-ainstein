@@ -2371,3 +2371,44 @@ class TestCrossCollectionLookup:
         second_call = principle_coll.query.fetch_objects.call_args_list[1]
         filter_arg = second_call.kwargs.get("filters") or second_call[1].get("filters")
         assert filter_arg is not None
+
+
+# =============================================================================
+# Principle chunk selection and formatting
+# =============================================================================
+
+class TestPrincipleChunkSelection:
+    """_select_principle_chunk picks Statement > Rationale > first with content."""
+
+    def test_picks_statement_over_rationale(self):
+        chunks = [
+            {"title": "PCP.12 - Rationale", "content": "Rationale text"},
+            {"title": "PCP.12 - Statement", "content": "Statement text"},
+            {"title": "PCP.12 - Implications", "content": "Implications text"},
+        ]
+        result = ArchitectureAgent._select_principle_chunk(chunks)
+        assert result["title"] == "PCP.12 - Statement"
+
+    def test_falls_back_to_rationale_when_no_statement(self):
+        chunks = [
+            {"title": "PCP.12 - Implications", "content": "Implications text"},
+            {"title": "PCP.12 - Rationale", "content": "Rationale text"},
+        ]
+        result = ArchitectureAgent._select_principle_chunk(chunks)
+        assert result["title"] == "PCP.12 - Rationale"
+
+    def test_falls_back_to_first_with_content(self):
+        chunks = [
+            {"title": "PCP.12 - Examples", "content": ""},
+            {"title": "PCP.12 - Implications", "content": "Implications text"},
+        ]
+        result = ArchitectureAgent._select_principle_chunk(chunks)
+        assert result["title"] == "PCP.12 - Implications"
+
+    def test_returns_none_when_all_empty(self):
+        chunks = [
+            {"title": "PCP.12 - Statement", "content": ""},
+            {"title": "PCP.12 - Rationale", "content": ""},
+        ]
+        result = ArchitectureAgent._select_principle_chunk(chunks)
+        assert result is None

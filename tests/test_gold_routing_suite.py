@@ -961,19 +961,31 @@ class TestGoldCrossCollectionLookup:
 
     @pytest.mark.asyncio
     async def test_pcp_lookup_returns_principle_content(self, caplog):
-        """'What does PCP.12 decide?' must return principle content, not 'No content found'.
+        """'What does PCP.12 decide?' must render Statement content, not just titles.
 
-        Regression: lookup_by_canonical_id used to always search the ADR collection.
+        Regression: formatter was ADR-biased — _select_decision_chunk returned None
+        for principles (no 'decision' field), falling back to title-only dump.
         """
-        pcp_chunk = _make_chunk(
-            title="PCP.12 - Interoperability Principle",
-            decision="All subsystems must adopt CIM-based interoperability.",
+        pcp_statement = _make_chunk(
+            title="Principle: Business-Driven Data Readiness - Statement",
+            decision="",
             canonical_id="PCP.12",
             doc_type="principle",
-            file_path="docs/principles/0012-interoperability.md",
+            file_path="docs/principles/0012-data-readiness.md",
+            context="All subsystems must adopt CIM-based interoperability.",
         )
+        pcp_statement["content"] = "All subsystems must adopt CIM-based interoperability."
+        pcp_rationale = _make_chunk(
+            title="Principle: Business-Driven Data Readiness - Rationale",
+            decision="",
+            canonical_id="PCP.12",
+            doc_type="principle",
+            file_path="docs/principles/0012-data-readiness.md",
+            context="Standardized data models reduce integration costs.",
+        )
+        pcp_rationale["content"] = "Standardized data models reduce integration costs."
         client, _, _ = _make_multi_collection_client(
-            principle_results=_make_fetch_result([pcp_chunk]),
+            principle_results=_make_fetch_result([pcp_statement, pcp_rationale]),
         )
         agent = ArchitectureAgent(client)
 
@@ -986,7 +998,10 @@ class TestGoldCrossCollectionLookup:
         )
         assert response.confidence > 0.0, "PCP.12 must return content"
         assert "interoperability" in response.answer.lower() or "CIM" in response.answer, (
-            f"Expected principle content in answer, got: {response.answer[:200]}"
+            f"Expected Statement content in answer, got: {response.answer[:200]}"
+        )
+        assert "Found" not in response.answer and "sections:" not in response.answer, (
+            f"Must NOT show title-only fallback for principles: {response.answer[:200]}"
         )
 
     @pytest.mark.asyncio
@@ -1025,7 +1040,7 @@ class TestGoldCrossCollectionLookup:
         """'Compare ADR.12 and PCP.12' must return both docs from different collections.
 
         ADR.12 lives in ArchitecturalDecision, PCP.12 lives in Principle.
-        Both must be found and included in the response.
+        Both must be found and rendered with actual content.
         """
         adr_chunk = _make_chunk(
             title="ADR.12 - Use CIM",
@@ -1035,16 +1050,17 @@ class TestGoldCrossCollectionLookup:
             file_path="docs/adr/0012-use-cim.md",
             adr_number="0012",
         )
-        pcp_chunk = _make_chunk(
-            title="PCP.12 - Interoperability Principle",
-            decision="All subsystems must adopt CIM-based interoperability.",
+        pcp_statement = _make_chunk(
+            title="PCP.12 - Statement",
+            decision="",
             canonical_id="PCP.12",
             doc_type="principle",
             file_path="docs/principles/0012-interoperability.md",
         )
+        pcp_statement["content"] = "All subsystems must adopt CIM-based interoperability."
         client, _, _ = _make_multi_collection_client(
             adr_results=_make_fetch_result([adr_chunk]),
-            principle_results=_make_fetch_result([pcp_chunk]),
+            principle_results=_make_fetch_result([pcp_statement]),
         )
         agent = ArchitectureAgent(client)
 
@@ -1056,6 +1072,12 @@ class TestGoldCrossCollectionLookup:
             f"Expected lookup path for compare, got {trace.get('path')}"
         )
         assert response.confidence > 0.0, "Both docs must be found"
-        # Both doc refs must appear in the answer
+        # Both doc refs must appear in the answer with actual content
         assert "ADR.12" in response.answer, f"ADR.12 missing from answer: {response.answer[:200]}"
         assert "PCP.12" in response.answer, f"PCP.12 missing from answer: {response.answer[:200]}"
+        assert "canonical data model" in response.answer.lower(), (
+            f"ADR decision text missing: {response.answer[:300]}"
+        )
+        assert "interoperability" in response.answer.lower(), (
+            f"PCP statement text missing: {response.answer[:300]}"
+        )
