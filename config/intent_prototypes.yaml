@@ -1,7 +1,7 @@
 _meta:
   version: "1.0"
   last_updated: "2026-02-17"
-  total_prototypes: 83
+  total_prototypes: 89
   note: "followup is handled by rule-based pre-check, not embedding classification"
 
 intents:
@@ -78,6 +78,13 @@ intents:
     - "How are ADR.12 and PCP.12 related?"
     - "What links ADR.12 to PCP.12?"
     - "What's the overlap between ADR.12 and PCP.12?"
+    # Short follow-up compare phrases (doc refs injected from session)
+    - "Compare them"
+    - "Compare those two"
+    - "What's the difference between them?"
+    - "How do they relate?"
+    - "Show me the differences"
+    - "What do they have in common?"
 
   conversational:
     # Doc ref present but no retrieval intent — "cheeky" queries
