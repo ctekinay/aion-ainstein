@@ -49,13 +49,14 @@ def _get_abstention_thresholds() -> tuple[float, float]:
 def _get_skill_content(query: str) -> str:
     """Get combined skill content for prompt injection.
 
-    Returns all active skill content for the given query, or empty string
-    if the skills framework is unavailable.
+    Returns all enabled skill content, or empty string if the skills
+    framework is unavailable. The query parameter is unused — the LLM
+    decides what's relevant, not keyword matching.
     """
     if not _SKILLS_AVAILABLE:
         return ""
     try:
-        return get_skill_registry().get_all_skill_content(query)
+        return get_skill_registry().get_all_skill_content()
     except Exception:
         return ""
 

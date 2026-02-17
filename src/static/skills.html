@@ -1054,20 +1054,6 @@
                     <div class="slider-help">Lower = pickier, abstains more often</div>
                 </div>
 
-                <div class="slider-group">
-                    <div class="slider-header">
-                        <span class="slider-label">Query Coverage Required</span>
-                        <span class="slider-value" id="coverage-value">0.2</span>
-                    </div>
-                    <input type="range" class="slider" id="coverage-slider"
-                           min="0.1" max="0.5" step="0.05" value="0.2"
-                           onchange="updateSliderValue('coverage')">
-                    <div class="slider-labels">
-                        <span>Low (0.1)</span>
-                        <span>High (0.5)</span>
-                    </div>
-                    <div class="slider-help">Higher = requires more query terms to match</div>
-                </div>
 
                 <div class="button-row">
                     <button class="btn btn-primary" onclick="applySettings()">Apply Changes</button>
@@ -1104,7 +1090,7 @@
                     <button class="tab-btn active" onclick="switchTab('abstention', this)">Abstention</button>
                     <button class="tab-btn" onclick="switchTab('retrieval', this)">Retrieval Limits</button>
                     <button class="tab-btn" onclick="switchTab('truncation', this)">Truncation</button>
-                    <button class="tab-btn" onclick="switchTab('listquery', this)">List Query Detection</button>
+
                 </div>
 
                 <!-- Abstention Tab -->
@@ -1122,15 +1108,6 @@
                             <div class="form-help">
                                 Maximum vector distance to consider relevant (0.0-1.0).
                                 Lower = stricter, abstains more often.
-                            </div>
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label">Min Query Coverage</label>
-                            <input type="number" class="form-input" id="cfg-min-coverage"
-                                   min="0" max="1" step="0.05" placeholder="0.2">
-                            <div class="form-help">
-                                Minimum fraction of query terms that must appear in results (0.0-1.0).
-                                Higher = requires more terms to match.
                             </div>
                         </div>
                     </div>
@@ -1212,59 +1189,6 @@
                     </div>
                 </div>
 
-                <!-- List Query Detection Tab -->
-                <div class="tab-content" id="tab-listquery">
-                    <div class="section-header">List Query Detection</div>
-                    <p class="form-help" style="margin-bottom: 20px;">
-                        Configure how list queries (e.g., "What ADRs exist?") are detected.
-                        List queries skip coverage check if distance is acceptable.
-                    </p>
-
-                    <div class="form-group">
-                        <label class="form-label">List Indicators</label>
-                        <div class="form-help" style="margin-bottom: 8px;">
-                            Words that indicate a list query (e.g., "list", "show", "all", "exist")
-                        </div>
-                        <div class="list-editor" id="list-indicators-editor">
-                            <div class="list-items" id="list-indicators-items"></div>
-                            <div class="list-add-row">
-                                <input type="text" class="list-add-input" id="list-indicators-input"
-                                       placeholder="Add indicator word...">
-                                <button class="btn btn-secondary" onclick="addListItem('indicators')">Add</button>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="form-group">
-                        <label class="form-label">List Patterns (Regex)</label>
-                        <div class="form-help" style="margin-bottom: 8px;">
-                            Regex patterns to detect list queries (e.g., "what\\s+\\w+s\\s+(are|exist)")
-                        </div>
-                        <div class="list-editor" id="list-patterns-editor">
-                            <div class="list-items" id="list-patterns-items"></div>
-                            <div class="list-add-row">
-                                <input type="text" class="list-add-input" id="list-patterns-input"
-                                       placeholder="Add regex pattern...">
-                                <button class="btn btn-secondary" onclick="addListItem('patterns')">Add</button>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="form-group">
-                        <label class="form-label">Additional Stop Words</label>
-                        <div class="form-help" style="margin-bottom: 8px;">
-                            Extra words to ignore when computing query coverage
-                        </div>
-                        <div class="list-editor" id="list-stopwords-editor">
-                            <div class="list-items" id="list-stopwords-items"></div>
-                            <div class="list-add-row">
-                                <input type="text" class="list-add-input" id="list-stopwords-input"
-                                       placeholder="Add stop word...">
-                                <button class="btn btn-secondary" onclick="addListItem('stopwords')">Add</button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
             </div>
             <div class="modal-footer">
                 <div class="modal-footer-left">
@@ -1297,21 +1221,12 @@
                             <label class="metadata-label">Skill Name</label>
                             <input type="text" class="metadata-input" id="editor-name" placeholder="skill-name">
                         </div>
-                        <div class="metadata-field">
-                            <label class="metadata-label">Auto-Activate</label>
-                            <label class="toggle-switch">
-                                <input type="checkbox" id="editor-auto-activate">
-                                <span class="toggle-slider"></span>
-                            </label>
-                        </div>
+
                         <div class="metadata-field full-width">
                             <label class="metadata-label">Description</label>
                             <input type="text" class="metadata-input" id="editor-description" placeholder="Brief description of the skill">
                         </div>
-                        <div class="metadata-field full-width">
-                            <label class="metadata-label">Triggers (comma-separated)</label>
-                            <input type="text" class="metadata-input" id="editor-triggers" placeholder="keyword1, keyword2, keyword3">
-                        </div>
+
                     </div>
                 </div>
 
@@ -1379,7 +1294,6 @@
         // Fallback defaults (used if API fails)
         const FALLBACK_DEFAULTS = {
             distance_threshold: 0.5,
-            min_query_coverage: 0.2,
             limit_adr: 8,
             limit_principle: 6,
             limit_policy: 4,
@@ -1387,9 +1301,7 @@
             content_max_chars: 800,
             elysia_content_chars: 500,
             elysia_summary_chars: 300,
-            max_context_results: 10,
-            list_indicators: ['list', 'show', 'all', 'exist', 'exists', 'available', 'have', 'many', 'which', 'enumerate'],
-            additional_stop_words: ['are', 'there', 'exist', 'exists', 'list', 'show', 'all', 'me', 'give']
+            max_context_results: 10
         };
 
         // DEFAULTS loaded from API (flattened for frontend use)
@@ -1405,7 +1317,6 @@
                 // Flatten the nested API response to match frontend key names
                 DEFAULTS = {
                     distance_threshold: data.abstention?.distance_threshold ?? FALLBACK_DEFAULTS.distance_threshold,
-                    min_query_coverage: data.abstention?.min_query_coverage ?? FALLBACK_DEFAULTS.min_query_coverage,
                     limit_adr: data.retrieval_limits?.adr ?? FALLBACK_DEFAULTS.limit_adr,
                     limit_principle: data.retrieval_limits?.principle ?? FALLBACK_DEFAULTS.limit_principle,
                     limit_policy: data.retrieval_limits?.policy ?? FALLBACK_DEFAULTS.limit_policy,
@@ -1414,8 +1325,6 @@
                     elysia_content_chars: data.truncation?.elysia_content_chars ?? FALLBACK_DEFAULTS.elysia_content_chars,
                     elysia_summary_chars: data.truncation?.elysia_summary_chars ?? FALLBACK_DEFAULTS.elysia_summary_chars,
                     max_context_results: data.truncation?.max_context_results ?? FALLBACK_DEFAULTS.max_context_results,
-                    list_indicators: data.abstention?.list_indicators ?? FALLBACK_DEFAULTS.list_indicators,
-                    additional_stop_words: data.abstention?.additional_stop_words ?? FALLBACK_DEFAULTS.additional_stop_words
                 };
             } catch (error) {
                 console.warn('Failed to load defaults from API, using fallbacks:', error);
@@ -1466,10 +1375,8 @@
 
                 const abstention = data.thresholds.abstention || {};
                 document.getElementById('distance-slider').value = abstention.distance_threshold || DEFAULTS.distance_threshold;
-                document.getElementById('coverage-slider').value = abstention.min_query_coverage || DEFAULTS.min_query_coverage;
 
                 updateSliderValue('distance');
-                updateSliderValue('coverage');
 
                 document.getElementById('settings-skill-name').textContent = skillName;
             } catch (error) {
@@ -1484,13 +1391,11 @@
             }
 
             const distance = parseFloat(document.getElementById('distance-slider').value);
-            const coverage = parseFloat(document.getElementById('coverage-slider').value);
 
             // Create updated thresholds
             const thresholds = JSON.parse(JSON.stringify(originalThresholds));
             thresholds.abstention = thresholds.abstention || {};
             thresholds.abstention.distance_threshold = distance;
-            thresholds.abstention.min_query_coverage = coverage;
 
             try {
                 const response = await fetch(`/api/skills/${currentSkill}/thresholds`, {
@@ -1519,9 +1424,7 @@
             }
             const abstention = originalThresholds.abstention || {};
             document.getElementById('distance-slider').value = abstention.distance_threshold || DEFAULTS.distance_threshold;
-            document.getElementById('coverage-slider').value = abstention.min_query_coverage || DEFAULTS.min_query_coverage;
             updateSliderValue('distance');
-            updateSliderValue('coverage');
             showStatus('Reset to last saved values', 'success');
         }
 
@@ -1619,9 +1522,7 @@
                         </div>
                         <div class="skill-description">${escapeHtml(skill.description || 'No description')}</div>
                         <div class="skill-meta">
-                            Auto-activate: ${skill.auto_activate ? 'Yes' : 'No'} |
-                            Distance: ${skill.distance_threshold} |
-                            Coverage: ${skill.min_query_coverage}
+                            Distance threshold: ${skill.distance_threshold}
                         </div>
                     </div>
                     <div class="skill-toggle">
@@ -1641,9 +1542,6 @@
             if (type === 'distance') {
                 const value = document.getElementById('distance-slider').value;
                 document.getElementById('distance-value').textContent = value;
-            } else {
-                const value = document.getElementById('coverage-slider').value;
-                document.getElementById('coverage-value').textContent = value;
             }
         }
 
@@ -1675,9 +1573,7 @@
 
         // Modal State
         let modalThresholds = null;
-        let listIndicators = [];
-        let listPatterns = [];
-        let listStopwords = [];
+
 
         // Modal Functions
         function openConfigModal() {
@@ -1730,7 +1626,6 @@
             // Abstention
             const abstention = thresholds.abstention || {};
             document.getElementById('cfg-distance-threshold').value = abstention.distance_threshold || DEFAULTS.distance_threshold;
-            document.getElementById('cfg-min-coverage').value = abstention.min_query_coverage || DEFAULTS.min_query_coverage;
 
             // Retrieval limits
             const limits = thresholds.retrieval_limits || {};
@@ -1746,25 +1641,13 @@
             document.getElementById('cfg-elysia-summary-chars').value = truncation.elysia_summary_chars || DEFAULTS.elysia_summary_chars;
             document.getElementById('cfg-max-context-results').value = truncation.max_context_results || DEFAULTS.max_context_results;
 
-            // List query detection (stored under abstention in YAML)
-            listIndicators = [...(abstention.list_indicators || DEFAULTS.list_indicators)];
-            listPatterns = [...(abstention.list_patterns || [])];
-            listStopwords = [...(abstention.additional_stop_words || DEFAULTS.additional_stop_words)];
 
-            renderListItems('indicators');
-            renderListItems('patterns');
-            renderListItems('stopwords');
         }
 
         function getModalThresholds() {
             return {
                 abstention: {
-                    distance_threshold: parseFloat(document.getElementById('cfg-distance-threshold').value) || DEFAULTS.distance_threshold,
-                    min_query_coverage: parseFloat(document.getElementById('cfg-min-coverage').value) || DEFAULTS.min_query_coverage,
-                    // List query detection is stored under abstention
-                    list_indicators: listIndicators,
-                    list_patterns: listPatterns,
-                    additional_stop_words: listStopwords
+                    distance_threshold: parseFloat(document.getElementById('cfg-distance-threshold').value) || DEFAULTS.distance_threshold
                 },
                 retrieval_limits: {
                     adr: parseInt(document.getElementById('cfg-limit-adr').value) || DEFAULTS.limit_adr,
@@ -1814,9 +1697,7 @@
                 // Update the quick settings sliders
                 const abstention = data.thresholds.abstention || {};
                 document.getElementById('distance-slider').value = abstention.distance_threshold || DEFAULTS.distance_threshold;
-                document.getElementById('coverage-slider').value = abstention.min_query_coverage || DEFAULTS.min_query_coverage;
                 updateSliderValue('distance');
-                updateSliderValue('coverage');
 
                 closeConfigModal();
                 showStatus('Full configuration saved! Backup created.', 'success');
@@ -1827,89 +1708,6 @@
             }
         }
 
-        // List Editor Functions
-        function renderListItems(type) {
-            let items, containerId;
-
-            switch (type) {
-                case 'indicators':
-                    items = listIndicators;
-                    containerId = 'list-indicators-items';
-                    break;
-                case 'patterns':
-                    items = listPatterns;
-                    containerId = 'list-patterns-items';
-                    break;
-                case 'stopwords':
-                    items = listStopwords;
-                    containerId = 'list-stopwords-items';
-                    break;
-            }
-
-            const container = document.getElementById(containerId);
-            container.innerHTML = items.map((item, index) => `
-                <div class="list-item">
-                    <span>${escapeHtml(item)}</span>
-                    <button class="list-item-remove" onclick="removeListItem('${type}', ${index})">&times;</button>
-                </div>
-            `).join('');
-        }
-
-        function addListItem(type) {
-            let inputId, items;
-
-            switch (type) {
-                case 'indicators':
-                    inputId = 'list-indicators-input';
-                    items = listIndicators;
-                    break;
-                case 'patterns':
-                    inputId = 'list-patterns-input';
-                    items = listPatterns;
-                    break;
-                case 'stopwords':
-                    inputId = 'list-stopwords-input';
-                    items = listStopwords;
-                    break;
-            }
-
-            const input = document.getElementById(inputId);
-            const value = input.value.trim();
-
-            if (!value) return;
-
-            // Validate regex patterns
-            if (type === 'patterns') {
-                try {
-                    new RegExp(value);
-                } catch (e) {
-                    showStatus('Invalid regex pattern: ' + e.message, 'error');
-                    return;
-                }
-            }
-
-            if (!items.includes(value)) {
-                items.push(value);
-                renderListItems(type);
-            }
-
-            input.value = '';
-        }
-
-        function removeListItem(type, index) {
-            switch (type) {
-                case 'indicators':
-                    listIndicators.splice(index, 1);
-                    break;
-                case 'patterns':
-                    listPatterns.splice(index, 1);
-                    break;
-                case 'stopwords':
-                    listStopwords.splice(index, 1);
-                    break;
-            }
-            renderListItems(type);
-        }
 
         // Initialize
         document.addEventListener('DOMContentLoaded', fetchSkills);
@@ -1939,15 +1737,7 @@
 
 
 
-        // Allow Enter key to add list items
-        ['indicators', 'patterns', 'stopwords'].forEach(type => {
-            document.getElementById(`list-${type}-input`).addEventListener('keypress', function(e) {
-                if (e.key === 'Enter') {
-                    e.preventDefault();
-                    addListItem(type);
-                }
-            });
-        });
+
 
         // Close modals on Escape key (checks which modal is visible)
         document.addEventListener('keydown', function(e) {
@@ -2005,9 +1795,6 @@
                 const meta = data.metadata || {};
                 document.getElementById('editor-name').value = meta.name || skillName;
                 document.getElementById('editor-description').value = meta.description || '';
-                document.getElementById('editor-auto-activate').checked = meta.auto_activate || false;
-                document.getElementById('editor-triggers').value = (meta.triggers || []).join(', ');
-
                 // Populate body
                 document.getElementById('editor-body').value = data.body || '';
 
@@ -2094,16 +1881,9 @@
         }
 
         function getEditorMetadata() {
-            const triggers = document.getElementById('editor-triggers').value
-                .split(',')
-                .map(t => t.trim())
-                .filter(t => t.length > 0);
-
             return {
                 name: document.getElementById('editor-name').value.trim(),
-                description: document.getElementById('editor-description').value.trim(),
-                auto_activate: document.getElementById('editor-auto-activate').checked,
-                triggers: triggers
+                description: document.getElementById('editor-description').value.trim()
             };
         }
 
@@ -2136,13 +1916,6 @@
             let yaml = '---\n';
             yaml += `name: ${escapeYamlString(metadata.name)}\n`;
             yaml += `description: ${escapeYamlString(metadata.description)}\n`;
-            yaml += `auto_activate: ${metadata.auto_activate}\n`;
-            if (metadata.triggers.length > 0) {
-                yaml += `triggers:\n`;
-                metadata.triggers.forEach(t => {
-                    yaml += `  - ${escapeYamlString(t)}\n`;
-                });
-            }
             yaml += '---\n\n';
 
             return yaml + body;

@@ -1,5 +1,7 @@
 # Skills Registry
-# Defines which skills are available and when they activate
+# Defines which skills are available. Enabled skills inject their
+# SKILL.md content into every LLM prompt. The Elysia Tree decides
+# how to apply the rules — no keyword triggers needed.
 
 version: "1.0"
 
@@ -8,60 +10,18 @@ skills:
     path: rag-quality-assurance/SKILL.md
     description: "Anti-hallucination rules and citation requirements for RAG responses"
     enabled: true
-    auto_activate: true  # Always inject into prompts
-    triggers:
-      - "adr"
-      - "principle"
-      - "architecture"
-      - "decision"
-      - "policy"
-      - "vocabulary"
-      - "pcp"
 
   - name: esa-document-ontology
     path: esa-document-ontology/SKILL.md
     description: "Domain knowledge about ADRs, PCPs, DARs: naming, numbering, relationships, disambiguation"
     enabled: true
-    auto_activate: true  # Needed for virtually all queries about the ESA corpus
-    triggers:
-      - "adr"
-      - "pcp"
-      - "dar"
-      - "principle"
-      - "decision"
-      - "approval"
-      - "0010"
-      - "0012"
-      - "0022"
-      - "0025"
 
   - name: response-formatter
     path: response-formatter/SKILL.md
     description: "Ensures list-based responses use rich formatting with statistics, follow-up questions, and visualization suggestions."
-    enabled: false
-    auto_activate: false
-    triggers:
-      - "list"
-      - "what"
-      - "which"
-      - "how many"
-      - "show all"
-      - "enumerate"
-      - "summarize"
+    enabled: true
 
   - name: response-contract
     path: response-contract/SKILL.md
     description: "Enforce structured JSON output for RAG responses with count transparency"
     enabled: false
-    auto_activate: false
-    triggers:
-      - "list"
-      - "how many"
-      - "what adrs"
-      - "what principles"
-      - "what policies"
-      - "show all"
-      - "enumerate"
-      - "count"
-      - "total"
-      - "exist"

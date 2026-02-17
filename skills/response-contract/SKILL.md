@@ -1,17 +1,6 @@
 ---
 name: response-contract
 description: Enforce structured JSON output for RAG responses where count transparency and completeness must be explicit.
-auto_activate: false
-triggers:
-  - list
-  - how many
-  - what adrs
-  - what principles
-  - what policies
-  - show all
-  - enumerate
-  - count
-  - total
 ---
 
 # SKILL: response-contract

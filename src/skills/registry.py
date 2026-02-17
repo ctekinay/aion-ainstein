@@ -27,8 +27,6 @@ class SkillRegistryEntry:
     path: str
     description: str
     enabled: bool = True
-    auto_activate: bool = False
-    triggers: list[str] = field(default_factory=list)
 
 
 class SkillRegistry:
@@ -70,8 +68,6 @@ class SkillRegistry:
                 path=skill_data.get("path", ""),
                 description=skill_data.get("description", ""),
                 enabled=skill_data.get("enabled", True),
-                auto_activate=skill_data.get("auto_activate", False),
-                triggers=skill_data.get("triggers", []),
             )
 
             if entry.name:
@@ -82,62 +78,32 @@ class SkillRegistry:
         logger.info(f"Loaded {len(self._entries)} skills from registry")
         return True
 
-    def get_active_skills(self, query: str = "") -> list[Skill]:
-        """Get skills that should be active for a query.
-
-        Only returns enabled skills that match activation criteria.
-        """
+    def get_active_skills(self) -> list[Skill]:
+        """Get all enabled skills."""
         if not self._loaded:
             self.load_registry()
 
         active_skills = []
-        query_lower = query.lower()
-
         for name, entry in self._entries.items():
             if not entry.enabled:
                 continue
-
-            should_activate = False
-
-            if entry.auto_activate:
-                should_activate = True
-
-            if not should_activate and entry.triggers:
-                for trigger in entry.triggers:
-                    if trigger.lower() in query_lower:
-                        should_activate = True
-                        logger.debug(f"Skill {name} triggered by: {trigger}")
-                        break
-
-            if should_activate:
-                skill = self.loader.load_skill(name)
-                if skill:
-                    active_skills.append(skill)
+            skill = self.loader.load_skill(name)
+            if skill:
+                active_skills.append(skill)
 
         return active_skills
 
-    def is_skill_active(self, skill_name: str, query: str = "") -> bool:
-        """Check if a specific skill is active for a given query."""
+    def is_skill_active(self, skill_name: str) -> bool:
+        """Check if a specific skill is enabled."""
         if not self._loaded:
             self.load_registry()
 
         entry = self._entries.get(skill_name)
-        if not entry or not entry.enabled:
-            return False
+        return entry is not None and entry.enabled
 
-        if entry.auto_activate:
-            return True
-
-        query_lower = query.lower()
-        for trigger in entry.triggers:
-            if trigger.lower() in query_lower:
-                return True
-
-        return False
-
-    def get_all_skill_content(self, query: str = "") -> str:
-        """Get combined content from all active skills for prompt injection."""
-        skills = self.get_active_skills(query)
+    def get_all_skill_content(self) -> str:
+        """Get combined content from all enabled skills for prompt injection."""
+        skills = self.get_active_skills()
 
         if not skills:
             return ""
@@ -233,9 +199,6 @@ class SkillRegistry:
                     break
 
             if in_target_skill:
-                if re.match(r'^\s*auto_activate:', line) or re.match(r'^\s*triggers:', line):
-                    insert_idx = i
-                    break
                 if re.match(r'^\s*description:', line):
                     insert_idx = i + 1
 

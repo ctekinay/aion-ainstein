@@ -15,9 +15,9 @@ Usage:
     thresholds = loader.get_thresholds(DEFAULT_SKILL)
     distance_threshold = thresholds["abstention"]["distance_threshold"]
 
-    # Use registry for automatic skill activation
+    # Use registry — all enabled skills inject into every query
     registry = SkillRegistry()
-    active_content = registry.get_all_skill_content(query="What ADRs exist?")
+    active_content = registry.get_all_skill_content()
 """
 
 from .loader import Skill, SkillLoader

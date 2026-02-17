@@ -5,7 +5,6 @@ Used by the FastAPI endpoints in chat_ui.py.
 """
 
 import logging
-import re
 import shutil
 from pathlib import Path
 from typing import Any
@@ -24,7 +23,6 @@ logger = logging.getLogger(__name__)
 # ============================================================================
 
 DEFAULT_DISTANCE_THRESHOLD = 0.5
-DEFAULT_MIN_QUERY_COVERAGE = 0.2
 
 DEFAULT_LIMIT_ADR = 8
 DEFAULT_LIMIT_PRINCIPLE = 6
@@ -37,15 +35,6 @@ DEFAULT_ELYSIA_SUMMARY_CHARS = 300
 DEFAULT_CONSEQUENCES_MAX_CHARS = 4000
 DEFAULT_DIRECT_DOC_MAX_CHARS = 12000
 DEFAULT_MAX_CONTEXT_RESULTS = 10
-
-DEFAULT_LIST_INDICATORS = [
-    "list", "show", "all", "exist", "exists",
-    "available", "have", "many", "which", "enumerate",
-]
-DEFAULT_ADDITIONAL_STOP_WORDS = [
-    "are", "there", "exist", "exists", "list",
-    "show", "all", "me", "give",
-]
 
 SKILLS_DIR = Path(__file__).parent.parent.parent / "skills"
 
@@ -67,9 +56,6 @@ def get_defaults() -> dict[str, Any]:
     return {
         "abstention": {
             "distance_threshold": DEFAULT_DISTANCE_THRESHOLD,
-            "min_query_coverage": DEFAULT_MIN_QUERY_COVERAGE,
-            "list_indicators": DEFAULT_LIST_INDICATORS,
-            "additional_stop_words": DEFAULT_ADDITIONAL_STOP_WORDS,
         },
         "retrieval_limits": {
             "adr": DEFAULT_LIMIT_ADR,
@@ -96,8 +82,6 @@ def list_skills() -> list[dict[str, Any]]:
             "name": entry.name,
             "description": entry.description,
             "enabled": entry.enabled,
-            "auto_activate": entry.auto_activate,
-            "triggers": entry.triggers,
             "is_default": entry.name == DEFAULT_SKILL,
         }
 
@@ -107,12 +91,8 @@ def list_skills() -> list[dict[str, Any]]:
             skill_info["distance_threshold"] = abstention.get(
                 "distance_threshold", DEFAULT_DISTANCE_THRESHOLD
             )
-            skill_info["min_query_coverage"] = abstention.get(
-                "min_query_coverage", DEFAULT_MIN_QUERY_COVERAGE
-            )
         except Exception:
             skill_info["distance_threshold"] = DEFAULT_DISTANCE_THRESHOLD
-            skill_info["min_query_coverage"] = DEFAULT_MIN_QUERY_COVERAGE
 
         skills.append(skill_info)
 
@@ -142,8 +122,6 @@ def get_skill(skill_name: str) -> dict[str, Any]:
         "name": entry.name,
         "description": entry.description,
         "enabled": entry.enabled,
-        "auto_activate": entry.auto_activate,
-        "triggers": entry.triggers,
         "is_default": entry.name == DEFAULT_SKILL,
         "content": content,
         "thresholds": thresholds,
@@ -189,13 +167,6 @@ def _validate_thresholds(thresholds: dict[str, Any]) -> tuple[bool, list[str]]:
         elif distance < 0 or distance > 1:
             errors.append("distance_threshold must be between 0 and 1")
 
-    coverage = abstention.get("min_query_coverage")
-    if coverage is not None:
-        if not isinstance(coverage, (int, float)):
-            errors.append("min_query_coverage must be a number")
-        elif coverage < 0 or coverage > 1:
-            errors.append("min_query_coverage must be between 0 and 1")
-
     limits = thresholds.get("retrieval_limits", {})
     for key in ["adr", "principle", "policy", "vocabulary"]:
         val = limits.get(key)
@@ -216,34 +187,6 @@ def _validate_thresholds(thresholds: dict[str, Any]) -> tuple[bool, list[str]]:
                 errors.append(f"truncation.{key} must be an integer")
             elif val < 1:
                 errors.append(f"truncation.{key} must be positive")
-
-    list_indicators = abstention.get("list_indicators")
-    if list_indicators is not None:
-        if not isinstance(list_indicators, list):
-            errors.append("list_indicators must be an array")
-        elif not all(isinstance(item, str) for item in list_indicators):
-            errors.append("list_indicators must contain only strings")
-
-    list_patterns = abstention.get("list_patterns")
-    if list_patterns is not None:
-        if not isinstance(list_patterns, list):
-            errors.append("list_patterns must be an array")
-        else:
-            for i, pattern in enumerate(list_patterns):
-                if not isinstance(pattern, str):
-                    errors.append(f"list_patterns[{i}] must be a string")
-                else:
-                    try:
-                        re.compile(pattern)
-                    except re.error as e:
-                        errors.append(f"list_patterns[{i}] is invalid regex: {e}")
-
-    stop_words = abstention.get("additional_stop_words")
-    if stop_words is not None:
-        if not isinstance(stop_words, list):
-            errors.append("additional_stop_words must be an array")
-        elif not all(isinstance(item, str) for item in stop_words):
-            errors.append("additional_stop_words must contain only strings")
 
     return (len(errors) == 0, errors)
 
