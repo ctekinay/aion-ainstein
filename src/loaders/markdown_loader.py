@@ -370,9 +370,15 @@ class MarkdownLoader:
         # Extract ADR-specific sections
         content = doc.content
 
-        status_match = self.ADR_STATUS_PATTERN.search(content)
-        if status_match:
-            doc.status = status_match.group(1).strip()
+        # Try frontmatter first (dct.isVersionOf is the authoritative source)
+        dct = doc.metadata.get("dct", {})
+        if isinstance(dct, dict) and dct.get("isVersionOf"):
+            doc.status = str(dct["isVersionOf"]).strip()
+        else:
+            # Fallback: parse ## Status from body text
+            status_match = self.ADR_STATUS_PATTERN.search(content)
+            if status_match:
+                doc.status = status_match.group(1).strip()
 
         context_match = self.ADR_CONTEXT_PATTERN.search(content)
         if context_match:
@@ -496,6 +502,11 @@ class MarkdownLoader:
                 doc.title = f"{pcp_id}D (Approval Record): {doc.title}"
             else:
                 doc.title = f"{pcp_id}: {doc.title}"
+
+        # Extract status from frontmatter (dct.isVersionOf)
+        dct = doc.metadata.get("dct", {})
+        if isinstance(dct, dict) and dct.get("isVersionOf"):
+            doc.status = str(dct["isVersionOf"]).strip()
 
         return doc
 

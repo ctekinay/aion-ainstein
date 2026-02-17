@@ -10,6 +10,7 @@ from weaviate.classes.data import DataObject
 
 from ..config import settings
 from ..loaders import RDFLoader, MarkdownLoader, DocumentLoader
+from ..loaders.registry_parser import get_registry_lookup
 from .collections import CollectionManager
 from .embeddings import embed_texts
 
@@ -33,6 +34,58 @@ class DataIngestionPipeline:
         """
         self.client = client
         self.collection_manager = CollectionManager(client)
+        self._registry = get_registry_lookup()
+
+    def _enrich_from_registry(self, doc_dict: dict, doc_type: str) -> dict:
+        """Enrich a document dict with metadata from esa_doc_registry.md.
+
+        Only fills fields that are empty/missing. Frontmatter values are
+        authoritative and are never overwritten.
+
+        Args:
+            doc_dict: Document properties dict from the loader
+            doc_type: "adr" or "principle"
+
+        Returns:
+            The same dict, potentially enriched with registry data
+        """
+        if not self._registry:
+            return doc_dict
+
+        # Build lookup key from the document number
+        if doc_type == "adr":
+            number = doc_dict.get("adr_number", "")
+            prefix = "ADR"
+        else:
+            number = doc_dict.get("principle_number", "")
+            prefix = "PCP"
+
+        if not number:
+            return doc_dict
+
+        # Try padded format first (e.g., "ADR.0029")
+        registry_entry = self._registry.get(f"{prefix}.{number}")
+        if not registry_entry:
+            return doc_dict
+
+        # Enrich only empty fields — frontmatter is authoritative
+        enriched = False
+
+        if not doc_dict.get("status") and registry_entry.get("status"):
+            doc_dict["status"] = registry_entry["status"]
+            enriched = True
+
+        if not doc_dict.get("owner_display") and registry_entry.get("owner"):
+            doc_dict["owner_display"] = registry_entry["owner"]
+            enriched = True
+
+        if enriched:
+            doc_dict["registry_enriched"] = True
+            logger.debug(f"Enriched {prefix}.{number} from registry: status={doc_dict.get('status')}")
+        else:
+            doc_dict["registry_enriched"] = False
+
+        return doc_dict
 
     def run_full_ingestion(
         self,
@@ -235,7 +288,13 @@ class DataIngestionPipeline:
         batch_local = []
         batch_openai = []
 
+        enriched_count = 0
         for doc_dict in loader.load_adrs(adr_path):
+            # Enrich with registry metadata (fills missing status/owner)
+            doc_dict = self._enrich_from_registry(doc_dict, "adr")
+            if doc_dict.get("registry_enriched"):
+                enriched_count += 1
+
             batch_local.append(
                 DataObject(
                     properties=doc_dict,
@@ -273,7 +332,7 @@ class DataIngestionPipeline:
         if include_openai and batch_openai:
             self._insert_batch(collection_openai, batch_openai, "adr_openai")
 
-        logger.info(f"Ingested {count} ADRs")
+        logger.info(f"Ingested {count} ADRs ({enriched_count} enriched from registry)")
         return count, count if include_openai else 0
 
     def _ingest_principles(
@@ -306,6 +365,7 @@ class DataIngestionPipeline:
             )
 
         count = 0
+        enriched_count = 0
         batch_local = []
         batch_openai = []
 
@@ -317,6 +377,11 @@ class DataIngestionPipeline:
             loader = MarkdownLoader(principles_path)
 
             for doc_dict in loader.load_principles(principles_path):
+                # Enrich with registry metadata (fills missing status/owner)
+                doc_dict = self._enrich_from_registry(doc_dict, "principle")
+                if doc_dict.get("registry_enriched"):
+                    enriched_count += 1
+
                 batch_local.append(
                     DataObject(
                         properties=doc_dict,
@@ -354,7 +419,7 @@ class DataIngestionPipeline:
         if include_openai and batch_openai:
             self._insert_batch(collection_openai, batch_openai, "principle_openai")
 
-        logger.info(f"Ingested {count} principles")
+        logger.info(f"Ingested {count} principles ({enriched_count} enriched from registry)")
         return count, count if include_openai else 0
 
     def _ingest_policies(
