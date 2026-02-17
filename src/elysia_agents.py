@@ -136,6 +136,46 @@ except Exception as e:
     ELYSIA_AVAILABLE = False
     logger.warning(f"elysia-ai error: {e}")
 
+# Monkey-patch Elysia's summarization prompts to remove hardcoded anti-list
+# instructions that conflict with our skill-based formatting rules.
+# The original prompts say "Do not give an itemised list" — but our
+# response-formatter skill needs lists for catalog queries.
+# This patch replaces the anti-list sentence with a reference to the atlas
+# (where our skill content is injected), so the LLM follows our formatting.
+if ELYSIA_AVAILABLE:
+    try:
+        from elysia.tools.text.prompt_templates import (
+            CitedSummarizingPrompt,
+            SummarizingPrompt,
+            TextResponsePrompt,
+        )
+
+        _ANTI_LIST_SENTENCES = [
+            "Do not list any of the retrieved objects in your response. "
+            "Do not give an itemised list of the objects, since they will be displayed to the user anyway.",
+            "Do not list any of the retrieved objects in your response. Do not give an itemised list of the objects, since they will be displayed to the user anyway.",
+        ]
+        _REPLACEMENT = "Format the response according to the agent description guidelines."
+
+        _patched = False
+        for prompt_cls in [CitedSummarizingPrompt, SummarizingPrompt, TextResponsePrompt]:
+            if prompt_cls.__doc__:
+                for anti_list in _ANTI_LIST_SENTENCES:
+                    if anti_list in prompt_cls.__doc__:
+                        prompt_cls.__doc__ = prompt_cls.__doc__.replace(anti_list, _REPLACEMENT)
+                        _patched = True
+                        break
+
+        if _patched:
+            logger.info("Patched Elysia summarization prompts to respect skill formatting rules")
+        else:
+            logger.warning(
+                "CitedSummarizingPrompt docstring changed — "
+                "skill formatting may not work. Check elysia-ai version."
+            )
+    except Exception as e:
+        logger.warning(f"Failed to patch Elysia prompts: {e}")
+
 
 class ElysiaRAGSystem:
     """Elysia-based agentic RAG system with custom tools for energy domain."""
@@ -677,6 +717,13 @@ class ElysiaRAGSystem:
             f"Principle{s}",
             f"PolicyDocument{s}",
         ]
+
+        # Inject active skill content into the Tree's atlas so it reaches
+        # all ElysiaChainOfThought prompts, including cited_summarize
+        skill_content = _get_skill_content(question)
+        if skill_content:
+            self.tree.tree_data.atlas.agent_description = skill_content
+            logger.debug(f"Injected {len(skill_content)} chars of skill content into Tree atlas")
 
         try:
             response, objects = self.tree(question, collection_names=our_collections)
