@@ -260,7 +260,7 @@ class ElysiaRAGSystem:
 
         # ADR search tool
         @tool(tree=self.tree)
-        async def search_architecture_decisions(query: str, limit: int = 5) -> list[dict]:
+        async def search_architecture_decisions(query: str, limit: int = 10) -> list[dict]:
             """Search Architectural Decision Records (ADRs) for design decisions.
 
             ADRs are formal records of significant architecture decisions. Each has
@@ -299,27 +299,44 @@ class ElysiaRAGSystem:
                 List of matching ADRs with title, status, context, decision, consequences
             """
             collection = self._get_collection("ArchitecturalDecision")
+
+            # Detect ADR number in query for filter-based lookup
+            adr_match = re.search(r"(?:ADR[.\-\s]?)?(0*(\d{1,4}))\b", query, re.IGNORECASE)
+            adr_filter = None
+            if adr_match:
+                padded = adr_match.group(2).zfill(4)
+                # Check if query asks about approval/DAR — if not, exclude DARs
+                is_dar_query = bool(re.search(r"\bD\b|approv|DAR|who\s+(?:accepted|approved)", query, re.IGNORECASE))
+                if is_dar_query:
+                    adr_filter = Filter.by_property("adr_number").equal(padded)
+                else:
+                    adr_filter = (
+                        Filter.by_property("adr_number").equal(padded)
+                        & Filter.by_property("title").not_equal("Decision Approval Record List")
+                    )
+
             query_vector = self._get_query_vector(query)
             results = collection.query.hybrid(
                 query=query,
                 vector=query_vector,
                 limit=limit,
                 alpha=settings.alpha_vocabulary,
+                filters=adr_filter,
             )
             return [
                 {
                     "title": obj.properties.get("title", ""),
                     "status": obj.properties.get("status", ""),
-                    "context": obj.properties.get("context", "")[:500],
-                    "decision": obj.properties.get("decision", "")[:500],
-                    "consequences": obj.properties.get("consequences", "")[:300],
+                    "section_name": obj.properties.get("section_name", ""),
+                    "chunk_type": obj.properties.get("chunk_type", ""),
+                    "content": (obj.properties.get("content", "") or "")[:800],
                 }
                 for obj in results.objects
             ]
 
         # Principles search tool
         @tool(tree=self.tree)
-        async def search_principles(query: str, limit: int = 5) -> list[dict]:
+        async def search_principles(query: str, limit: int = 10) -> list[dict]:
             """Search architecture and governance principles (PCPs).
 
             Principles are guiding statements with sections: Statement, Rationale,
@@ -360,18 +377,35 @@ class ElysiaRAGSystem:
                 List of matching principles with title, content, doc_type
             """
             collection = self._get_collection("Principle")
+
+            # Detect PCP number in query for filter-based lookup
+            pcp_match = re.search(r"(?:PCP[.\-\s]?|principle\s+)(0*(\d{1,4}))\b", query, re.IGNORECASE)
+            pcp_filter = None
+            if pcp_match:
+                padded = pcp_match.group(2).zfill(4)
+                is_dar_query = bool(re.search(r"\bD\b|approv|DAR|who\s+(?:accepted|approved)", query, re.IGNORECASE))
+                if is_dar_query:
+                    pcp_filter = Filter.by_property("principle_number").equal(padded)
+                else:
+                    pcp_filter = (
+                        Filter.by_property("principle_number").equal(padded)
+                        & Filter.by_property("title").not_equal("Decision Approval Record List")
+                    )
+
             query_vector = self._get_query_vector(query)
             results = collection.query.hybrid(
                 query=query,
                 vector=query_vector,
                 limit=limit,
                 alpha=settings.alpha_vocabulary,
+                filters=pcp_filter,
             )
             return [
                 {
                     "title": obj.properties.get("title", ""),
-                    "content": obj.properties.get("content", "")[:800],
-                    "doc_type": obj.properties.get("doc_type", ""),
+                    "section_name": obj.properties.get("section_name", ""),
+                    "chunk_type": obj.properties.get("chunk_type", ""),
+                    "content": (obj.properties.get("content", "") or "")[:800],
                 }
                 for obj in results.objects
             ]

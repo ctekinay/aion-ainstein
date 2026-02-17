@@ -285,9 +285,16 @@ def query(
             if verbose and results:
                 console.print("\n[bold]Sources:[/bold]")
                 for r in results[:10]:
-                    title = r.get("title") or r.get("label") or "Unknown"
-                    doc_type = r.get("type", "")
-                    console.print(f"  - [{doc_type}] {title}")
+                    if isinstance(r, dict):
+                        title = r.get("title") or r.get("label") or "Unknown"
+                        doc_type = r.get("type", "")
+                        console.print(f"  - [{doc_type}] {title}")
+                    elif isinstance(r, list):
+                        for item in r[:5]:
+                            if isinstance(item, dict):
+                                title = item.get("title") or item.get("label") or "Unknown"
+                                doc_type = item.get("type", "")
+                                console.print(f"  - [{doc_type}] {title}")
 
     except Exception as e:
         console.print(f"[red]Query failed: {e}")
