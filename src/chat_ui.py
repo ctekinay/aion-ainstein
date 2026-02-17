@@ -260,7 +260,7 @@ class ChatMessage(BaseModel):
 class LLMSettings(BaseModel):
     """LLM provider and model settings."""
     provider: str = "ollama"  # "ollama" or "openai"
-    model: str = "alibayram/smollm3:latest"
+    model: str = "gpt-oss:20b"
 
 
 class ChatRequest(BaseModel):
@@ -273,7 +273,7 @@ class ComparisonRequest(BaseModel):
     """Request for side-by-side LLM comparison (Test Mode)."""
     message: str
     conversation_id: Optional[str] = None
-    ollama_model: str = "alibayram/smollm3:latest"
+    ollama_model: str = "gpt-oss:20b"
     openai_model: str = "gpt-5.2"
 
 

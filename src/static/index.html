@@ -1354,6 +1354,10 @@
             <svg viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.31.06-.63.06-.94 0-.31-.02-.63-.06-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.04.31-.06.63-.06.94s.02.63.06.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>
             Settings
         </button>
+        <a href="/skills" class="settings-btn-sidebar" style="text-decoration: none;">
+            <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
+            Skills
+        </a>
         <button class="delete-all-btn" onclick="deleteAllConversations()">
             <svg viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
             Delete All
@@ -1453,12 +1457,14 @@
         // LLM Settings
         let llmSettings = {
             provider: 'ollama',
-            model: 'alibayram/smollm3:latest'
+            model: 'gpt-oss:20b'
         };
         let availableModels = {
             ollama: [
-                { id: 'alibayram/smollm3:latest', name: 'SmolLM3 (Local, 3.1B)' },
-                { id: 'qwen3:4b', name: 'Qwen3 (Local, 4B)' }
+                { id: 'gpt-oss:20b', name: 'GPT-OSS (Local, 20B)' },
+                { id: 'qwen3:14b', name: 'Qwen3 (Local, 14B)' },
+                { id: 'qwen3:4b', name: 'Qwen3 (Local, 4B)' },
+                { id: 'alibayram/smollm3:latest', name: 'SmolLM3 (Local, 3.1B)' }
             ],
             openai: [
                 { id: 'gpt-5.2', name: 'GPT-5.2 (Latest)' },
@@ -1471,7 +1477,7 @@
         // Test Mode settings
         let testModeEnabled = false;
         let testModeSettings = {
-            ollamaModel: 'alibayram/smollm3:latest',
+            ollamaModel: 'gpt-oss:20b',
             openaiModel: 'gpt-5.2'
         };
 
