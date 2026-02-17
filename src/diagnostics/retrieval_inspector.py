@@ -18,7 +18,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from src.weaviate.client import get_client
-from src.weaviate.embeddings import embed_text
+from src.weaviate.embeddings import embed_query
 from src.config import settings
 from src.weaviate.collections import get_collection_name, get_all_collection_names
 from weaviate.classes.query import MetadataQuery, HybridFusion
@@ -56,7 +56,7 @@ def inspect_retrieval(question: str, collection_name: str, limit: int = 10, alph
 
     try:
         # Get embedding for the question
-        query_vector = embed_text(question)
+        query_vector = embed_query(question)
 
         # Check if collection exists
         if not client.collections.exists(collection_name):

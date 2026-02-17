@@ -243,3 +243,23 @@ def embed_texts(texts: list[str]) -> list[list[float]]:
         List of embedding vectors
     """
     return get_embeddings_client().embed_batch(texts)
+
+
+def embed_query(text: str) -> list[float]:
+    """Embed a query with nomic search_query: task prefix.
+
+    Use this for all query-time embeddings (hybrid search, near_vector, etc.).
+    The prefix tells nomic-embed-text-v2 to optimize the embedding for retrieval.
+    """
+    return get_embeddings_client().embed(f"search_query: {text}")
+
+
+def embed_documents(texts: list[str]) -> list[list[float]]:
+    """Embed documents with nomic search_document: task prefix.
+
+    Use this for all ingestion-time embeddings.
+    The prefix tells nomic-embed-text-v2 to optimize embeddings for document storage.
+    """
+    return get_embeddings_client().embed_batch(
+        [f"search_document: {text}" for text in texts]
+    )

@@ -31,7 +31,7 @@ from weaviate.classes.query import Filter
 from .config import settings, save_routing_policy, invalidate_config_caches
 from .weaviate.client import get_weaviate_client
 from .weaviate.collections import get_collection_name
-from .weaviate.embeddings import embed_text
+from .weaviate.embeddings import embed_query
 from .elysia_agents import ElysiaRAGSystem, ELYSIA_AVAILABLE, configure_elysia_from_settings
 from .agents.architecture_agent import ArchitectureAgent, create_classifier
 from .skills import SkillRegistry, get_skill_registry, DEFAULT_SKILL
@@ -1062,7 +1062,7 @@ async def perform_retrieval(question: str, provider: str = "ollama") -> tuple[li
     use_keyword_only = False
     if provider == "ollama":
         try:
-            query_vector = embed_text(question)
+            query_vector = embed_query(question)
         except Exception as e:
             logger.warning(f"Embedding failed, using keyword-only search: {e}")
             use_keyword_only = True

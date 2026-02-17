@@ -25,8 +25,8 @@ def _needs_client_side_embedding() -> bool:
 
 def _embed_query(text: str) -> list[float]:
     """Compute query embedding using the configured embedding provider."""
-    from src.weaviate.embeddings import embed_text
-    return embed_text(text)
+    from src.weaviate.embeddings import embed_query
+    return embed_query(text)
 
 
 @dataclass

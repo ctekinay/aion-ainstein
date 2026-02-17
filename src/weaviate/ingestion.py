@@ -12,7 +12,7 @@ from weaviate.classes.data import DataObject
 from ..config import settings
 from ..loaders import RDFLoader, MarkdownLoader, DocumentLoader
 from .collections import CollectionManager, get_collection_name
-from .embeddings import embed_texts
+from .embeddings import embed_documents
 
 # Import chunking module (optional)
 try:
@@ -671,7 +671,7 @@ class DataIngestionPipeline:
                 texts.append(text or "")
 
             # Generate embeddings
-            embeddings = embed_texts(texts)
+            embeddings = embed_documents(texts)
 
             # Create objects with vectors
             objects_with_vectors = []

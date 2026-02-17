@@ -27,7 +27,7 @@ from typing import Optional
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from src.weaviate.client import get_weaviate_client
-from src.weaviate.embeddings import embed_text
+from src.weaviate.embeddings import embed_query
 from src.config import settings
 from src.weaviate.collections import get_collection_name, get_all_collection_names
 from weaviate.classes.query import MetadataQuery, HybridFusion
@@ -182,7 +182,7 @@ class RAGDiagnostics:
 
             # Get query embedding
             try:
-                query_vector = embed_text(q["question"])
+                query_vector = embed_query(q["question"])
             except Exception as e:
                 print(f"  ERROR: Could not compute embedding: {e}")
                 results["failed"] += 1
@@ -290,7 +290,7 @@ class RAGDiagnostics:
             return {}
 
         coll = self.client.collections.get(collection)
-        query_vector = embed_text(test_question)
+        query_vector = embed_query(test_question)
 
         results = {}
 

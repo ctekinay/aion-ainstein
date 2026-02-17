@@ -449,7 +449,7 @@ def check_fallback_allowed(
     return True, None
 from .skills import SkillRegistry, get_skill_registry, DEFAULT_SKILL
 from .skills.filters import build_document_filter, build_intent_aware_filter
-from .weaviate.embeddings import embed_text
+from .weaviate.embeddings import embed_query
 from .weaviate.collections import get_collection_name, get_all_collection_names
 from .weaviate.skosmos_client import get_skosmos_client, TermLookupResult
 from .observability import metrics as obs_metrics
@@ -1545,7 +1545,7 @@ IMPORTANT GUIDELINES:
                 List of matching vocabulary concepts with definitions
             """
             collection = client.collections.get(get_collection_name("vocabulary"))
-            query_vector = embed_text(query)
+            query_vector = embed_query(query)
             results = collection.query.hybrid(
                 query=query,
                 vector=query_vector,
@@ -1624,7 +1624,7 @@ IMPORTANT GUIDELINES:
                 List of matching ADRs with context and decisions
             """
             collection = client.collections.get(get_collection_name("adr"))
-            query_vector = embed_text(query)
+            query_vector = embed_query(query)
             results = collection.query.hybrid(
                 query=query,
                 vector=query_vector,
@@ -1664,7 +1664,7 @@ IMPORTANT GUIDELINES:
                 List of matching principles
             """
             collection = client.collections.get(get_collection_name("principle"))
-            query_vector = embed_text(query)
+            query_vector = embed_query(query)
             results = collection.query.hybrid(
                 query=query,
                 vector=query_vector,
@@ -1703,7 +1703,7 @@ IMPORTANT GUIDELINES:
                 List of matching policy documents
             """
             collection = client.collections.get(get_collection_name("policy"))
-            query_vector = embed_text(query)
+            query_vector = embed_query(query)
             results = collection.query.hybrid(
                 query=query,
                 vector=query_vector,
@@ -2131,7 +2131,7 @@ IMPORTANT GUIDELINES:
                 adr_collection = client.collections.get(get_collection_name("adr"))
                 if query:
                     search_query = f"{team_name} {query}"
-                    query_vector = embed_text(search_query)
+                    query_vector = embed_query(search_query)
                     adr_results = adr_collection.query.hybrid(
                         query=search_query,
                         vector=query_vector,
@@ -2162,7 +2162,7 @@ IMPORTANT GUIDELINES:
                 principle_collection = client.collections.get(get_collection_name("principle"))
                 if query:
                     search_query = f"{team_name} {query}"
-                    query_vector = embed_text(search_query)
+                    query_vector = embed_query(search_query)
                     principle_results = principle_collection.query.hybrid(
                         query=search_query,
                         vector=query_vector,
@@ -2193,7 +2193,7 @@ IMPORTANT GUIDELINES:
                 policy_collection = client.collections.get(get_collection_name("policy"))
                 if query:
                     search_query = f"{team_name} {query}"
-                    query_vector = embed_text(search_query)
+                    query_vector = embed_query(search_query)
                     policy_results = policy_collection.query.hybrid(
                         query=search_query,
                         vector=query_vector,
@@ -2862,7 +2862,7 @@ IMPORTANT GUIDELINES:
         query_vector = None
         if not use_openai_collections:
             try:
-                query_vector = embed_text(question)
+                query_vector = embed_query(question)
             except Exception as e:
                 logger.error(f"Failed to compute query embedding: {e}")
 
