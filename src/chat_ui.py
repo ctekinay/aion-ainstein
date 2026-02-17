@@ -949,15 +949,23 @@ async def stream_architecture_response(
         # Extract route trace (first one captured)
         route_trace = trace_handler.traces[0] if trace_handler.traces else {}
 
-        # Cache doc_refs for follow-up
-        if conversation_id and route_trace.get("doc_refs_detected"):
+        # Cache doc_refs for follow-up.
+        # Primary: route trace (has all detected refs including bare numbers).
+        # Fallback: response.sources (logging-independent, always available).
+        detected_ids = route_trace.get("doc_refs_detected", [])
+        if not detected_ids:
+            detected_ids = [
+                s["canonical_id"] for s in (response.sources or [])
+                if s.get("canonical_id")
+            ]
+        if conversation_id and detected_ids:
             refs = [
                 {
                     "canonical_id": ref_id,
                     "prefix": ref_id.split(".")[0] if "." in ref_id else "",
                     "number_value": "",
                 }
-                for ref_id in route_trace["doc_refs_detected"]
+                for ref_id in detected_ids
             ]
             _conversation_doc_refs[conversation_id] = refs
             # Cap tracked conversations
