@@ -13,6 +13,7 @@ instead of expanding regex lists.
 
 import logging
 import math
+import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable, Optional
@@ -167,8 +168,10 @@ class EmbeddingClassifier:
             len(all_texts), len(proto_map),
         )
 
-        # Batch embed
+        # Batch embed (timed for init latency monitoring)
+        t0 = time.monotonic()
         all_embeddings = self._embed_batch_fn(all_texts)
+        embed_ms = (time.monotonic() - t0) * 1000
 
         # Compute centroids
         centroids: dict[str, list[float]] = {}
@@ -177,7 +180,11 @@ class EmbeddingClassifier:
             mean = _mean_vectors(vecs)
             centroids[intent] = _l2_normalize(mean)
 
-        logger.info("Centroids built for intents: %s", list(centroids.keys()))
+        total_ms = (time.monotonic() - t0) * 1000
+        logger.info(
+            "Centroids built for %d intents: embed=%.0fms total=%.0fms",
+            len(centroids), embed_ms, total_ms,
+        )
         return centroids
 
     def classify(self, query: str) -> ClassificationResult:
