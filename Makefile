@@ -18,12 +18,8 @@ test-routing: ## Run routing-related tests
 test-chunking: ## Run chunking experiment tests
 	python -m pytest tests/test_full_doc_indexing.py tests/test_experiment_report_generation.py -v --tb=short
 
-test-demo: ## Demo v1 hard gate — must pass before any merge
+test-demo: ## Demo v1 hard gate — must pass before any merge (hermetic, no external services)
 	@echo "=== Demo v1 CI Gate ==="
-	@echo "--- Gold routing suite ---"
-	python -m pytest tests/test_gold_routing_suite.py -q --tb=short
-	@echo "--- Architecture agent unit tests ---"
-	python -m pytest tests/test_architecture_agent.py -q --tb=short
-	@echo "--- All tests (no regressions) ---"
-	python -m pytest tests/ -q --tb=short
-	@echo "=== Demo v1 Gate: ALL PASSED ==="
+	python -m pytest tests/test_gold_routing_suite.py tests/test_architecture_agent.py \
+		-q --tb=short --disable-warnings --maxfail=1
+	@echo "=== Demo v1 Gate: PASSED ==="

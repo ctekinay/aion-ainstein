@@ -33,6 +33,7 @@ from .weaviate.client import get_weaviate_client
 from .weaviate.collections import get_collection_name
 from .weaviate.embeddings import embed_text
 from .elysia_agents import ElysiaRAGSystem, ELYSIA_AVAILABLE, configure_elysia_from_settings
+from .agents.architecture_agent import ArchitectureAgent
 from .skills import SkillRegistry, get_skill_registry, DEFAULT_SKILL
 from .skills import api as skills_api
 from .skills.filters import build_document_filter
@@ -51,7 +52,39 @@ logger = logging.getLogger(__name__)
 # Global state
 _weaviate_client = None
 _elysia_system = None
+_architecture_agent = None
 _db_path = Path(__file__).parent.parent / "chat_history.db"
+
+
+# ── Route-trace capture (thread-safe per-request) ─────────────────
+class _RouteTraceCapture(logging.Handler):
+    """Capture ROUTE_TRACE log lines for the current request."""
+
+    def __init__(self):
+        super().__init__()
+        self.traces: list[dict] = []
+
+    def emit(self, record):
+        msg = record.getMessage()
+        if "ROUTE_TRACE" in msg:
+            try:
+                json_start = msg.index("{")
+                self.traces.append(json.loads(msg[json_start:]))
+            except (ValueError, json.JSONDecodeError):
+                self.traces.append({"raw": msg})
+
+
+# ── Follow-up result ──────────────────────────────────────────────
+from dataclasses import dataclass
+
+
+@dataclass
+class FollowupResult:
+    """Result of follow-up resolution with audit trace."""
+    question: str
+    rewrite_applied: bool
+    rewrite_reason: str  # "doc_refs_cached_passthrough" | "subject_rewrite" | "approval_rewrite" | "continuation_rewrite" | "no_rewrite"
+
 
 # ── Follow-up binding ──────────────────────────────────────────────
 # Lightweight per-conversation subject tracking for resolving
@@ -114,7 +147,11 @@ def _evict_stale_conversations() -> None:
         )
 
 
-def resolve_followup(question: str, conversation_id: str | None) -> str:
+def resolve_followup(
+    question: str,
+    conversation_id: str | None,
+    doc_refs_cache: dict[str, list] | None = None,
+) -> FollowupResult:
     """Resolve ambiguous follow-up queries using conversation context.
 
     Handles three follow-up patterns:
@@ -122,10 +159,27 @@ def resolve_followup(question: str, conversation_id: str | None) -> str:
     2. Approval follow-ups: "who approved them?" → "who approved the adrs?"
     3. Continuation follow-ups: "what about those?" → "list dars"
 
-    If no context exists, return the question unchanged (routing will handle it).
+    RULE: When the conversation has cached doc_refs (from a previous
+    doc-lookup), short follow-ups like "show it" / "quote the decision
+    sentence" are forwarded UNCHANGED so that ArchitectureAgent can
+    inject last_doc_refs.  The subject-based rewrite ("list adrs") only
+    fires when there are NO cached doc refs.
+
+    Returns FollowupResult with explicit rewrite trace for auditability.
     """
     if not conversation_id:
-        return question
+        return FollowupResult(question, rewrite_applied=False, rewrite_reason="no_rewrite")
+
+    # If doc_refs are cached for this conversation, let ArchitectureAgent
+    # handle follow-ups via last_doc_refs injection — never rewrite.
+    if doc_refs_cache is None:
+        doc_refs_cache = _conversation_doc_refs
+    if doc_refs_cache.get(conversation_id):
+        logger.info(
+            f"Follow-up passthrough: doc_refs cached for {conversation_id[:8]}, "
+            f"forwarding '{question}' unchanged to ArchitectureAgent"
+        )
+        return FollowupResult(question, rewrite_applied=False, rewrite_reason="doc_refs_cached_passthrough")
 
     stripped = question.strip()
 
@@ -135,10 +189,10 @@ def resolve_followup(question: str, conversation_id: str | None) -> str:
         if last_subject:
             rewritten = f"list {last_subject}"
             logger.info(f"Follow-up resolved: '{question}' → '{rewritten}' (subject: {last_subject})")
-            return rewritten
+            return FollowupResult(rewritten, rewrite_applied=True, rewrite_reason="subject_rewrite")
         else:
             logger.info(f"Follow-up detected but no prior subject for {conversation_id[:8]}")
-            return question
+            return FollowupResult(question, rewrite_applied=False, rewrite_reason="no_rewrite")
 
     # Pattern 2: Approval follow-ups ("who approved them?")
     m = _APPROVAL_FOLLOWUP_RE.match(stripped)
@@ -147,10 +201,10 @@ def resolve_followup(question: str, conversation_id: str | None) -> str:
         if last_subject:
             rewritten = f"{m.group(1)} the {last_subject}?"
             logger.info(f"Approval follow-up resolved: '{question}' → '{rewritten}'")
-            return rewritten
+            return FollowupResult(rewritten, rewrite_applied=True, rewrite_reason="approval_rewrite")
         else:
             logger.info(f"Approval follow-up detected but no prior subject for {conversation_id[:8]}")
-            return question
+            return FollowupResult(question, rewrite_applied=False, rewrite_reason="no_rewrite")
 
     # Pattern 3: Continuation with pronoun only ("what about those?")
     if _CONTINUATION_FOLLOWUP_RE.match(stripped):
@@ -158,10 +212,10 @@ def resolve_followup(question: str, conversation_id: str | None) -> str:
         if last_subject:
             rewritten = f"list {last_subject}"
             logger.info(f"Continuation follow-up resolved: '{question}' → '{rewritten}'")
-            return rewritten
+            return FollowupResult(rewritten, rewrite_applied=True, rewrite_reason="continuation_rewrite")
         else:
             logger.info(f"Continuation follow-up detected but no prior subject for {conversation_id[:8]}")
-            return question
+            return FollowupResult(question, rewrite_applied=False, rewrite_reason="no_rewrite")
 
     # Not a follow-up — detect and store subject for future follow-ups
     subject = _detect_subject(question)
@@ -169,7 +223,7 @@ def resolve_followup(question: str, conversation_id: str | None) -> str:
         _conversation_subjects[conversation_id] = subject
         _evict_stale_conversations()
 
-    return question
+    return FollowupResult(question, rewrite_applied=False, rewrite_reason="no_rewrite")
 
 
 class OutputCapture:
@@ -331,7 +385,7 @@ class OutputCapture:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Lifespan context manager for startup/shutdown."""
-    global _weaviate_client, _elysia_system
+    global _weaviate_client, _elysia_system, _architecture_agent
 
     # Startup
     init_db()
@@ -343,12 +397,16 @@ async def lifespan(app: FastAPI):
         logger.error(f"Failed to connect to Weaviate: {e}")
         raise
 
+    # Primary backend: ArchitectureAgent (demo v1 router)
+    _architecture_agent = ArchitectureAgent(_weaviate_client)
+    logger.info("ArchitectureAgent initialized (demo v1 backend)")
+
+    # Elysia kept for comparison mode only — not used by /api/chat/stream
     if ELYSIA_AVAILABLE:
         configure_elysia_from_settings()
         _elysia_system = ElysiaRAGSystem(_weaviate_client)
-        logger.info("AInstein initialized with Elysia")
+        logger.info("Elysia initialized (comparison mode only)")
     else:
-        logger.warning("Elysia not available - running in comparison-only mode")
         _elysia_system = None
 
     yield  # App is running
@@ -839,6 +897,93 @@ async def stream_elysia_response(question: str) -> AsyncGenerator[str, None]:
             yield f"data: {json.dumps({'type': 'error', 'content': 'An internal error occurred. Please try again.'})}\n\n"
 
 
+# ============== ArchitectureAgent Streaming (Demo v1 Backend) ==============
+
+# Per-conversation doc_refs for follow-up binding via ArchitectureAgent
+_conversation_doc_refs: dict[str, list[dict]] = {}
+
+
+async def stream_architecture_response(
+    question: str,
+    conversation_id: str | None = None,
+    followup_trace: FollowupResult | None = None,
+) -> AsyncGenerator[str, None]:
+    """Stream ArchitectureAgent response as SSE events.
+
+    Replaces stream_elysia_response for demo v1.  No stdout capture, no
+    thread-based Rich parsing.  Calls ArchitectureAgent.query() directly,
+    captures the ROUTE_TRACE via a logging handler, and emits a standardized
+    envelope: {answer, sources, route_trace, schema_version}.
+    """
+    start_time = time.time()
+
+    # Send initial status
+    yield f"data: {json.dumps({'type': 'status', 'content': 'Routing query...'})}\n\n"
+
+    # Attach a per-request trace handler
+    arch_logger = logging.getLogger("src.agents.architecture_agent")
+    trace_handler = _RouteTraceCapture()
+    arch_logger.addHandler(trace_handler)
+
+    try:
+        # Resolve last_doc_refs for follow-up binding
+        last_doc_refs = None
+        if conversation_id:
+            last_doc_refs = _conversation_doc_refs.get(conversation_id)
+
+        response = await _architecture_agent.query(
+            question,
+            last_doc_refs=last_doc_refs,
+        )
+
+        total_ms = int((time.time() - start_time) * 1000)
+
+        # Extract route trace (first one captured)
+        route_trace = trace_handler.traces[0] if trace_handler.traces else {}
+
+        # Cache doc_refs for follow-up
+        if conversation_id and route_trace.get("doc_refs_detected"):
+            refs = [
+                {
+                    "canonical_id": ref_id,
+                    "prefix": ref_id.split(".")[0] if "." in ref_id else "",
+                    "number_value": "",
+                }
+                for ref_id in route_trace["doc_refs_detected"]
+            ]
+            _conversation_doc_refs[conversation_id] = refs
+            # Cap tracked conversations
+            if len(_conversation_doc_refs) > _MAX_TRACKED_CONVERSATIONS:
+                keys = list(_conversation_doc_refs.keys())
+                for key in keys[: len(keys) // 2]:
+                    del _conversation_doc_refs[key]
+
+        # Emit route_trace event (for "thinking" toggle in frontend)
+        if route_trace:
+            yield f"data: {json.dumps({'type': 'route_trace', 'trace': route_trace})}\n\n"
+
+        # Build sources from AgentResponse
+        sources = response.sources if response.sources else []
+
+        # Build followup trace for auditability
+        followup_info = {}
+        if followup_trace:
+            followup_info = {
+                "followup_rewrite_applied": followup_trace.rewrite_applied,
+                "followup_rewrite_reason": followup_trace.rewrite_reason,
+            }
+
+        # Emit standardized complete event
+        yield f"data: {json.dumps({'type': 'complete', 'response': response.answer, 'sources': sources, 'route_trace': route_trace, **followup_info, 'timing': {'total_ms': total_ms}, 'confidence': response.confidence, 'schema_version': 1})}\n\n"
+
+    except Exception as exc:
+        logger.exception(f"ArchitectureAgent query error: {exc}")
+        total_ms = int((time.time() - start_time) * 1000)
+        yield f"data: {json.dumps({'type': 'error', 'content': str(exc), 'timing': {'total_ms': total_ms}})}\n\n"
+    finally:
+        arch_logger.removeHandler(trace_handler)
+
+
 # ============== Test Mode: LLM Comparison Functions ==============
 
 # Collection name mappings resolved from config
@@ -1287,10 +1432,10 @@ async def root():
 
 @app.post("/api/chat/stream")
 async def chat_stream(request: ChatRequest):
-    """Stream chat response with thinking process via SSE."""
-    global _elysia_system
+    """Stream chat response via SSE using ArchitectureAgent (demo v1 backend)."""
+    global _architecture_agent
 
-    if not _elysia_system:
+    if not _architecture_agent:
         raise HTTPException(status_code=503, detail="System not initialized")
 
     # Create or use existing conversation
@@ -1308,12 +1453,13 @@ async def chat_stream(request: ChatRequest):
         update_conversation_title(conversation_id, title)
 
     # Resolve follow-up queries ("list them" → "list dars")
-    # Gated by followup_binding_enabled routing policy flag.
     _routing_policy = settings.get_routing_policy()
     if _routing_policy.get("followup_binding_enabled", True):
-        resolved_message = resolve_followup(request.message, conversation_id)
+        followup_result = resolve_followup(request.message, conversation_id)
     else:
-        resolved_message = request.message
+        followup_result = FollowupResult(request.message, rewrite_applied=False, rewrite_reason="no_rewrite")
+
+    resolved_message = followup_result.question
 
     async def event_generator():
         # Send conversation ID first
@@ -1323,11 +1469,10 @@ async def chat_stream(request: ChatRequest):
         final_sources = []
         final_timing = None
 
-        async for event in stream_elysia_response(resolved_message):
+        async for event in stream_architecture_response(resolved_message, conversation_id, followup_trace=followup_result):
             yield event
 
             # Parse event to capture final response for saving
-            # Use slicing (not replace) to strip "data: " prefix without corrupting content
             try:
                 event_str = event.strip()
                 if event_str.startswith("data: "):
@@ -1339,7 +1484,7 @@ async def chat_stream(request: ChatRequest):
             except Exception as parse_err:
                 logger.debug(f"Failed to parse SSE event for save: {parse_err}")
 
-        # Save assistant response with timing (must not abort the stream)
+        # Save assistant response with timing
         if final_response:
             try:
                 save_message(conversation_id, "assistant", final_response, final_sources, final_timing)
@@ -1407,10 +1552,10 @@ async def chat_stream_compare(request: ComparisonRequest):
 
 @app.post("/api/chat", response_model=ChatResponse)
 async def chat(request: ChatRequest):
-    """Process a chat message (non-streaming fallback)."""
-    global _elysia_system
+    """Process a chat message (non-streaming fallback) via ArchitectureAgent."""
+    global _architecture_agent
 
-    if not _elysia_system:
+    if not _architecture_agent:
         raise HTTPException(status_code=503, detail="System not initialized")
 
     # Create or use existing conversation
@@ -1428,36 +1573,14 @@ async def chat(request: ChatRequest):
         update_conversation_title(conversation_id, title)
 
     try:
-        # Query Elysia system
-        response, objects = await _elysia_system.query(request.message)
-
-        # Flatten objects
-        flat_objects = []
-        for item in (objects or []):
-            if isinstance(item, list):
-                flat_objects.extend(item)
-            elif isinstance(item, dict):
-                flat_objects.append(item)
-
-        # Format sources
-        sources = []
-        for obj in flat_objects[:5]:
-            if not isinstance(obj, dict):
-                continue
-            source = {
-                "type": obj.get("type", "Document"),
-                "title": obj.get("title") or obj.get("label") or "Untitled",
-            }
-            content = obj.get("content") or obj.get("definition") or obj.get("decision") or ""
-            if content:
-                source["preview"] = content[:200] + "..." if len(content) > 200 else content
-            sources.append(source)
+        response = await _architecture_agent.query(request.message)
+        sources = response.sources if response.sources else []
 
         # Save assistant response
-        save_message(conversation_id, "assistant", response, sources)
+        save_message(conversation_id, "assistant", response.answer, sources)
 
         return ChatResponse(
-            response=response,
+            response=response.answer,
             sources=sources,
             conversation_id=conversation_id,
         )

@@ -29,7 +29,7 @@ from weaviate.classes.query import Filter
 from .base import BaseAgent, AgentResponse, _needs_client_side_embedding, _embed_query
 from ..weaviate.collections import get_collection_name
 from ..config import settings
-from ..skills.filters import build_adr_filter
+from ..skills.filters import build_adr_filter, build_principle_filter
 
 logger = logging.getLogger(__name__)
 
@@ -92,6 +92,42 @@ _TOPIC_QUALIFIER_MARKERS = (
     "with respect to", "in terms of", "concerning",
 )
 
+# "on <topic>" pattern: matches " on interoperability" but NOT "on" at end of query
+# or "on" followed by a doc ref.  Kept tight to avoid false positives.
+_ON_QUALIFIER_RE = re.compile(
+    r"\bon\s+(?!(?:the\s+)?(?:ADR|PCP|DAR)\b)[a-z]",
+    re.IGNORECASE,
+)
+
+# Semantic scope: determines primary collection for hybrid search
+_PRINCIPLE_SCOPE_RE = re.compile(
+    r"\bprincip(?:le|les)\b|\bPCP\b|\barchitecture\s+principles?\b",
+    re.IGNORECASE,
+)
+_ADR_SCOPE_RE = re.compile(
+    r"\bADRs?\b|\bdecision(?:s)?\b|\bdecide\b|\bdecision\s+drivers?\b",
+    re.IGNORECASE,
+)
+
+
+def _detect_semantic_scope(question: str) -> str:
+    """Detect whether the semantic query targets principles, ADRs, or both.
+
+    Returns "principle", "adr", or "both".
+
+    TODO(post-demo): Replace this regex-based detector with a learned scope
+    classifier that combines intent + scope in a single pass. Track as backlog
+    item: "Replace _detect_semantic_scope regex with learned scope classifier
+    (intent+scope)".
+    """
+    has_principle = bool(_PRINCIPLE_SCOPE_RE.search(question))
+    has_adr = bool(_ADR_SCOPE_RE.search(question))
+    if has_principle and not has_adr:
+        return "principle"
+    if has_adr and not has_principle:
+        return "adr"
+    return "both"
+
 
 # =============================================================================
 # Signal extraction + Intent scoring gate
@@ -126,7 +162,10 @@ def _extract_signals(question: str) -> RoutingSignals:
     return RoutingSignals(
         has_list_phrase=has_list_phrase,
         has_all_quantifier=bool(_ALL_QUANTIFIER_RE.search(question)),
-        has_topic_qualifier=any(m in q_lower for m in _TOPIC_QUALIFIER_MARKERS),
+        has_topic_qualifier=(
+            any(m in q_lower for m in _TOPIC_QUALIFIER_MARKERS)
+            or bool(_ON_QUALIFIER_RE.search(question))
+        ),
         has_doc_ref=has_doc_ref,
         has_retrieval_verb=has_retrieval_verb,
         has_count_phrase=has_count_phrase,
@@ -247,6 +286,14 @@ _CANONICAL_ID_RE = re.compile(
     re.IGNORECASE,
 )
 
+# Prefix → (logical_collection_name, number_field) for cross-collection routing.
+# DAR is a user-facing alias — DARs live in the ADR collection as ADR.{num}D.
+_PREFIX_COLLECTION_MAP: dict[str, tuple[str, str]] = {
+    "ADR": ("adr", "adr_number"),
+    "PCP": ("principle", "principle_number"),
+    "DAR": ("adr", "adr_number"),
+}
+
 
 def _normalize_doc_ids(question: str) -> list[dict]:
     """Extract and normalize doc references from a question.
@@ -282,18 +329,26 @@ _BARE_NUMBER_RE = re.compile(
 )
 
 
-def _extract_bare_numbers(question: str) -> list[str]:
+def _extract_bare_numbers(question: str, prefixed_refs: list[dict] | None = None) -> list[str]:
     """Extract bare document numbers from a query (no ADR/PCP/DAR prefix).
 
-    Only returns results when the query has NO prefixed doc refs, since
-    prefixed refs are already unambiguous and handled by _normalize_doc_ids.
+    When prefixed_refs is provided (mixed-ref mode), numbers that are already
+    covered by a prefixed ref are excluded.  Otherwise, if the query contains
+    any prefixed ref the function returns [] (legacy behaviour for pure-bare
+    queries).
 
     Returns:
         List of zero-padded number strings, e.g. ["0022"]
     """
-    # If any prefixed refs exist, skip — those are already unambiguous
-    if _CANONICAL_ID_RE.search(question):
-        return []
+    # Collect numbers already covered by prefixed refs
+    prefixed_numbers: set[str] = set()
+    if prefixed_refs is not None:
+        for ref in prefixed_refs:
+            prefixed_numbers.add(ref.get("number_value", ""))
+    else:
+        # Legacy: skip entirely when prefixed refs exist
+        if _CANONICAL_ID_RE.search(question):
+            return []
 
     results = []
     seen = set()
@@ -304,6 +359,9 @@ def _extract_bare_numbers(question: str) -> list[str]:
         if num < 1 or num > 9999:
             continue
         padded = f"{num:04d}"
+        # Skip numbers already covered by a prefixed ref
+        if padded in prefixed_numbers:
+            continue
         if padded not in seen:
             seen.add(padded)
             results.append(padded)
@@ -327,11 +385,12 @@ class DocRefResolution:
 # or short demonstrative. Examples: "show it", "what does it decide",
 # "tell me about that", "quote that one".
 _FOLLOWUP_MARKER_RE = re.compile(
-    r"\b(?:show\s+it|what\s+(?:does|about)\s+it|"
-    r"tell\s+me\s+(?:about\s+)?(?:it|that|this)|"
+    r"\b(?:show\s+(?:it|that|them|those)|what\s+(?:does|about)\s+(?:it|them|those)|"
+    r"tell\s+me\s+(?:about\s+)?(?:it|that|this|them|those|these)|"
     r"(?:that|this|the)\s+(?:one|document|adr|principle)|"
-    r"quote\s+(?:it|that)|explain\s+(?:it|that)|"
-    r"(?:show|get|give)\s+me\s+(?:that|this|it))\b",
+    r"quote\s+(?:it|that|them|those)|explain\s+(?:it|that|them|those)|"
+    r"compare\s+(?:it|that|them|those|these)|"
+    r"(?:show|get|give)\s+me\s+(?:that|this|it|them|those|these))\b",
     re.IGNORECASE,
 )
 
@@ -347,7 +406,8 @@ def _has_followup_marker(question: str) -> bool:
 
 _RETRIEVAL_VERB_RE = re.compile(
     r"\b(?:what|show|tell|explain|describe|summarize|summarise|quote|detail|"
-    r"find|get|give|look\s*up|retrieve|fetch|read|display|decide|decision)\b",
+    r"find|get|give|look\s*up|retrieve|fetch|read|display|decide|decision|compare|"
+    r"connect|connection|relationship|relate|linked|between)\b",
     re.IGNORECASE,
 )
 
@@ -472,6 +532,7 @@ class ArchitectureAgent(BaseAgent):
 
         bare_number_resolution = None
         if not signals.has_doc_ref:
+            # Pure bare-number query (no prefixed refs)
             bare_numbers = _extract_bare_numbers(question)
             if bare_numbers:
                 bare_number_resolution = self._resolve_bare_number_ref(bare_numbers[0])
@@ -488,6 +549,31 @@ class ArchitectureAgent(BaseAgent):
                     )
 
                 elif bare_number_resolution.status == "needs_clarification":
+                    return self._format_clarification_response(
+                        bare_number_resolution
+                    )
+        else:
+            # Mixed-ref: prefixed refs already detected, check for additional
+            # bare numbers (e.g. "Compare 22 and ADR.12")
+            bare_numbers = _extract_bare_numbers(question, prefixed_refs=signals.doc_refs)
+            if bare_numbers:
+                bare_number_resolution = self._resolve_bare_number_ref(bare_numbers[0])
+                bare_number_status = bare_number_resolution.status
+
+                if bare_number_resolution.status == "resolved":
+                    ref = bare_number_resolution.resolved_ref
+                    signals.doc_refs.append(ref)
+                    logger.info(
+                        "mixed-ref bare-number resolved: %s → %s",
+                        bare_numbers[0], ref["canonical_id"],
+                    )
+                elif bare_number_resolution.status == "needs_clarification":
+                    # Include already-known prefixed refs in clarification
+                    bare_number_resolution.candidates = [
+                        {"canonical_id": r["canonical_id"], "prefix": r["prefix"],
+                         "title": "(already identified)", "file": ""}
+                        for r in signals.doc_refs
+                    ] + bare_number_resolution.candidates
                     return self._format_clarification_response(
                         bare_number_resolution
                     )
@@ -557,9 +643,10 @@ class ArchitectureAgent(BaseAgent):
             self._emit_trace(trace)
             return self._conversational_response(question, signals.doc_refs)
 
-        # Step 6: Semantic search — must always include filters
+        # Step 6: Semantic search — scope-aware
         trace.intent = trace.intent or "semantic_answer"
         trace.path = "hybrid"
+        semantic_scope = _detect_semantic_scope(question)
         adr_filter = build_adr_filter()
         if adr_filter is None:
             logger.error(
@@ -569,10 +656,11 @@ class ArchitectureAgent(BaseAgent):
             trace.filters_applied = "MISSING"
             self._emit_trace(trace)
             return self._conversational_response(question, signals.doc_refs)
-        trace.filters_applied = "doc_type:adr|content"
+        trace.filters_applied = f"scope={semantic_scope}"
         response = await self._handle_semantic_query(
             question, limit=limit, include_principles=include_principles,
             status_filter=status_filter, adr_filter=adr_filter,
+            semantic_scope=semantic_scope,
         )
         # Telemetry: count how many docs the post-filter stripped
         trace.semantic_postfilter_dropped = getattr(
@@ -593,20 +681,36 @@ class ArchitectureAgent(BaseAgent):
     def lookup_by_canonical_id(self, canonical_id: str) -> list[dict]:
         """Look up all chunks for a document by canonical_id.
 
-        Uses Filter.by_property("canonical_id").equal() for exact match.
-        Falls back to adr_number if canonical_id returns no results.
+        Routes to the correct Weaviate collection based on the ID prefix
+        (ADR → ArchitecturalDecision, PCP → Principle).  DAR is a user-facing
+        alias: "DAR.12" is remapped to "ADR.12D" in the ADR collection.
+
+        Falls back to the collection's number field if canonical_id returns
+        no results.
 
         Args:
-            canonical_id: Normalized canonical ID (e.g. "ADR.12")
+            canonical_id: Normalized canonical ID (e.g. "ADR.12", "PCP.5", "DAR.12")
 
         Returns:
-            List of matching document chunks (may be multiple per ADR)
+            List of matching document chunks (may be multiple per document)
         """
-        collection = self.client.collections.get(self.collection_name)
+        # Route to the correct collection based on prefix
+        prefix = canonical_id.split(".")[0].upper() if "." in canonical_id else ""
+        logical_name, number_field = _PREFIX_COLLECTION_MAP.get(
+            prefix, ("adr", "adr_number")
+        )
+        collection = self.client.collections.get(get_collection_name(logical_name))
+
+        # DAR alias: "DAR.12" → search for "ADR.12D" in ADR collection
+        search_id = canonical_id
+        if prefix == "DAR":
+            num_match = re.match(r"DAR\.(\d+)", canonical_id, re.IGNORECASE)
+            if num_match:
+                search_id = f"ADR.{int(num_match.group(1))}D"
 
         # Primary: exact match on canonical_id (FIELD tokenization)
         results = collection.query.fetch_objects(
-            filters=Filter.by_property("canonical_id").equal(canonical_id),
+            filters=Filter.by_property("canonical_id").equal(search_id),
             limit=25,
         )
 
@@ -616,56 +720,68 @@ class ArchitectureAgent(BaseAgent):
             # filter is bypassed or returns unexpected results.
             filtered = [
                 c for c in chunks
-                if c.get("canonical_id") == canonical_id
+                if c.get("canonical_id") == search_id
             ]
             if len(filtered) < len(chunks):
                 dropped = [
                     c.get("canonical_id", "<missing>") for c in chunks
-                    if c.get("canonical_id") != canonical_id
+                    if c.get("canonical_id") != search_id
                 ]
                 logger.warning(
                     "canonical_id post-filter stripped mismatches: %s",
                     json.dumps({
-                        "requested_canonical_id": canonical_id,
+                        "requested_canonical_id": search_id,
                         "dropped_count": len(dropped),
                         "dropped_canonical_ids": dropped[:10],
                     }, separators=(",", ":")),
                 )
             if filtered:
                 logger.info(
-                    f"canonical_id lookup '{canonical_id}' returned "
+                    f"canonical_id lookup '{search_id}' returned "
                     f"{len(filtered)} chunks"
                 )
                 return filtered
 
-        # Fallback: try adr_number field
-        # Extract the number from canonical_id (e.g. "ADR.12" → "0012")
+        # Fallback: try number field for the correct collection
         match = re.match(r"[A-Z]+\.(\d+)", canonical_id)
         if match:
             number_value = f"{int(match.group(1)):04d}"
-            return self._lookup_by_number_field(number_value)
+            return self._lookup_by_number_field(
+                number_value,
+                collection_name=get_collection_name(logical_name),
+                number_field=number_field,
+            )
 
         return []
 
-    def _lookup_by_number_field(self, number_value: str) -> list[dict]:
-        """Fallback lookup by adr_number field.
+    def _lookup_by_number_field(
+        self,
+        number_value: str,
+        collection_name: str | None = None,
+        number_field: str = "adr_number",
+    ) -> list[dict]:
+        """Fallback lookup by number field.
 
         Args:
             number_value: Zero-padded number string (e.g. "0012")
+            collection_name: Weaviate collection to query (defaults to self.collection_name)
+            number_field: Property name for the number field (e.g. "adr_number", "principle_number")
 
         Returns:
             List of matching document chunks
         """
-        collection = self.client.collections.get(self.collection_name)
+        collection = self.client.collections.get(
+            collection_name or self.collection_name
+        )
 
         results = collection.query.fetch_objects(
-            filters=Filter.by_property("adr_number").equal(number_value),
+            filters=Filter.by_property(number_field).equal(number_value),
             limit=25,
         )
 
         if results.objects:
             logger.info(
-                f"adr_number lookup '{number_value}' returned "
+                f"{number_field} lookup '{number_value}' returned "
                 f"{len(results.objects)} chunks"
             )
 
@@ -803,6 +919,24 @@ class ArchitectureAgent(BaseAgent):
 
         return None
 
+    @staticmethod
+    def _select_principle_chunk(chunks: list[dict]) -> Optional[dict]:
+        """Select the primary content chunk from principle sections.
+
+        Precedence: Statement > Rationale > first chunk with content.
+        Only returns chunks that have non-empty content.
+        """
+        for suffix in ("Statement", "Rationale"):
+            for chunk in chunks:
+                title = chunk.get("title", "")
+                if (title.rstrip().endswith(f"- {suffix}") or title.strip() == suffix) \
+                        and (chunk.get("content") or "").strip():
+                    return chunk
+        for chunk in chunks:
+            if (chunk.get("content") or "").strip():
+                return chunk
+        return None
+
     # -----------------------------------------------------------------
     # A8: Quote formatting
     # -----------------------------------------------------------------
@@ -880,6 +1014,43 @@ class ArchitectureAgent(BaseAgent):
             f"Full decision text:\n\n"
             f"> {decision_text.strip()}"
         )
+
+    @staticmethod
+    def _format_principle_answer(
+        question: str, chunks: list[dict], canonical_id: str
+    ) -> str:
+        """Format a principle answer showing Statement + other sections."""
+        statement = None
+        other_sections = []
+        for chunk in chunks:
+            title = chunk.get("title", "")
+            content = (chunk.get("content") or "").strip()
+            if not content:
+                continue
+            if title.rstrip().endswith("- Statement") or title.strip() == "Statement":
+                statement = chunk
+            else:
+                section_label = title.rsplit("- ", 1)[-1] if "- " in title else title
+                other_sections.append((section_label, content))
+
+        doc_title = (
+            chunks[0].get("title", canonical_id).rsplit(" - ", 1)[0]
+            if chunks else canonical_id
+        )
+
+        parts = []
+        if statement:
+            content = (statement.get("content") or "").strip()
+            parts.append(f"**{canonical_id}** ({doc_title}):\n\n> {content}")
+        else:
+            parts.append(f"**{canonical_id}** ({doc_title})")
+
+        for label, content in other_sections:
+            if label == doc_title:
+                continue
+            parts.append(f"\n\n### {label}\n\n{content}")
+
+        return "\n".join(parts)
 
     # -----------------------------------------------------------------
     # Conversational response (cheeky query gate)
@@ -987,16 +1158,20 @@ class ArchitectureAgent(BaseAgent):
 
             all_chunks.extend(chunks)
 
-            # Try to select and format the Decision chunk
-            decision_chunk = self._select_decision_chunk(chunks)
-            if decision_chunk:
+            # Select best chunk for source metadata (prefix-aware)
+            ref_prefix = ref.get("prefix", "ADR")
+            if ref_prefix == "PCP":
+                best_chunk = self._select_principle_chunk(chunks)
+            else:
+                best_chunk = self._select_decision_chunk(chunks)
+            if best_chunk:
                 sources.append({
-                    "title": decision_chunk.get("title", ""),
-                    "type": "ADR",
+                    "title": best_chunk.get("title", ""),
+                    "type": ref_prefix,
                     "canonical_id": ref["canonical_id"],
                     "file": (
-                        decision_chunk.get("file_path", "").split("/")[-1]
-                        if decision_chunk.get("file_path") else ""
+                        best_chunk.get("file_path", "").split("/")[-1]
+                        if best_chunk.get("file_path") else ""
                     ),
                 })
 
@@ -1016,27 +1191,42 @@ class ArchitectureAgent(BaseAgent):
         answer_parts = []
         selected_chunk_type = "none"
         for ref in doc_refs:
+            # DAR alias: match chunks by remapped canonical_id (DAR.12 → ADR.12D)
+            ref_id = ref["canonical_id"]
+            prefix = ref.get("prefix", ref_id.split(".")[0].upper() if "." in ref_id else "")
+            if prefix == "DAR":
+                num_match = re.match(r"DAR\.(\d+)", ref_id, re.IGNORECASE)
+                match_base = f"ADR.{int(num_match.group(1))}" if num_match else ref_id.rstrip("D")
+            else:
+                match_base = ref_id.rstrip("D")
+
             ref_chunks = [
                 c for c in all_chunks
-                if c.get("canonical_id", "").startswith(ref["canonical_id"].rstrip("D"))
+                if c.get("canonical_id", "").startswith(match_base)
             ]
             if not ref_chunks:
                 answer_parts.append(f"No content found for {ref['canonical_id']}.")
                 continue
 
-            decision_chunk = self._select_decision_chunk(ref_chunks)
-            if decision_chunk:
-                selected_chunk_type = "decision"
+            if prefix == "PCP":
+                selected_chunk_type = "principle_statement"
                 answer_parts.append(
-                    self._format_decision_answer(question, decision_chunk, ref["canonical_id"])
+                    self._format_principle_answer(question, ref_chunks, ref["canonical_id"])
                 )
             else:
-                selected_chunk_type = "other"
-                titles = [c.get("title", "Untitled") for c in ref_chunks]
-                answer_parts.append(
-                    f"**{ref['canonical_id']}** — Found {len(ref_chunks)} sections: "
-                    f"{', '.join(titles)}"
-                )
+                decision_chunk = self._select_decision_chunk(ref_chunks)
+                if decision_chunk:
+                    selected_chunk_type = "decision"
+                    answer_parts.append(
+                        self._format_decision_answer(question, decision_chunk, ref["canonical_id"])
+                    )
+                else:
+                    selected_chunk_type = "other"
+                    titles = [c.get("title", "Untitled") for c in ref_chunks]
+                    answer_parts.append(
+                        f"**{ref['canonical_id']}** — Found {len(ref_chunks)} sections: "
+                        f"{', '.join(titles)}"
+                    )
 
         if trace:
             trace.path = lookup_path
@@ -1099,8 +1289,13 @@ class ArchitectureAgent(BaseAgent):
         include_principles: bool = True,
         status_filter: Optional[str] = None,
         adr_filter: Optional[Any] = None,
+        semantic_scope: str = "both",
     ) -> AgentResponse:
-        """Handle semantic search queries with doc_type filtering.
+        """Handle semantic search queries with scope-aware filtering.
+
+        When semantic_scope is "principle", principles are the primary search
+        (full limit) and ADRs are secondary (limit // 2).  Default ("adr" or
+        "both") keeps the original behavior: ADRs primary, principles secondary.
 
         Args:
             question: The user's question
@@ -1108,6 +1303,7 @@ class ArchitectureAgent(BaseAgent):
             include_principles: Whether to include principles
             status_filter: Optional status filter
             adr_filter: Pre-built doc_type filter (required; caller must provide)
+            semantic_scope: "principle", "adr", or "both"
 
         Returns:
             AgentResponse with search results
@@ -1119,15 +1315,32 @@ class ArchitectureAgent(BaseAgent):
         if adr_filter is None:
             adr_filter = build_adr_filter()
 
-        adr_results = self.hybrid_search(
-            query=question,
-            limit=limit,
-            alpha=settings.alpha_vocabulary,
-            filters=adr_filter,
-        )
+        if semantic_scope == "principle":
+            # Principles are primary: full limit; ADRs are secondary
+            principle_results = self._search_principles(question, limit=limit)
+            principle_results = self._post_filter_semantic_results(principle_results)
 
-        # Post-filter: strip conventions/template/index that leaked through
-        adr_results = self._post_filter_semantic_results(adr_results)
+            adr_results = self.hybrid_search(
+                query=question,
+                limit=limit // 2,
+                alpha=settings.alpha_vocabulary,
+                filters=adr_filter,
+            )
+            adr_results = self._post_filter_semantic_results(adr_results)
+        else:
+            # ADRs are primary (default)
+            adr_results = self.hybrid_search(
+                query=question,
+                limit=limit,
+                alpha=settings.alpha_vocabulary,
+                filters=adr_filter,
+            )
+            adr_results = self._post_filter_semantic_results(adr_results)
+
+            principle_results = []
+            if include_principles:
+                principle_results = self._search_principles(question, limit=limit // 2)
+                principle_results = self._post_filter_semantic_results(principle_results)
 
         # Apply status filter if provided
         if status_filter:
@@ -1136,14 +1349,11 @@ class ArchitectureAgent(BaseAgent):
                 if status_filter.lower() in r.get("status", "").lower()
             ]
 
-        # Optionally search principles
-        principle_results = []
-        if include_principles:
-            principle_results = self._search_principles(question, limit=limit // 2)
-
-        # Combine results and post-filter principles too
-        principle_results = self._post_filter_semantic_results(principle_results)
-        all_results = adr_results + principle_results
+        # Combine: scope-primary first, then secondary
+        if semantic_scope == "principle":
+            all_results = principle_results + adr_results
+        else:
+            all_results = adr_results + principle_results
 
         # Build sources
         sources = self._build_sources(all_results)

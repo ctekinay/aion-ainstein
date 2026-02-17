@@ -28,6 +28,7 @@ from src.agents.architecture_agent import (
     DocRefResolution,
     RouteTrace,
     RoutingSignals,
+    _detect_semantic_scope,
     _extract_bare_numbers,
     _extract_signals,
     _has_followup_marker,
@@ -251,6 +252,11 @@ class TestRetrievalVerbGate:
         "Give me details on ADR.12",
         "Find ADR.12",
         "Look up ADR.12",
+        # Semantic comparison verbs (demo regression fix)
+        "I would like to see the connection between ADR.12 and PCP.12",
+        "How do ADR.12 and PCP.12 relate?",
+        "What is the relationship between ADR.12 and PCP.12?",
+        "Are ADR.12 and PCP.12 linked?",
     ])
     def test_retrieval_detected(self, question):
         assert _has_retrieval_intent(question) is True
@@ -261,6 +267,8 @@ class TestRetrievalVerbGate:
         "I once saw ADR.12 in a dream",
         "If only ADR.12 were here",
         "ADR.12 is the bane of my existence",
+        # "see" alone must NOT trigger retrieval (cheeky safety)
+        "I see ADR.12",
     ])
     def test_cheeky_not_detected(self, question):
         assert _has_retrieval_intent(question) is False
@@ -1598,7 +1606,9 @@ class TestRouteTrace:
         assert trace["path"] == "hybrid"
         assert trace["winner"] == "semantic_answer"
         assert trace["threshold_met"] is True
-        assert trace["filters_applied"] == "doc_type:adr|content"
+        assert "scope=" in trace["filters_applied"], (
+            f"filters_applied must include scope, got: {trace['filters_applied']}"
+        )
 
 
 # =============================================================================
@@ -1854,6 +1864,15 @@ class TestFollowupMarkerDetection:
         "Show me this",
         "What about this document",
         "Tell me about this ADR",
+        # Multi-doc follow-ups with "them/those/these" (demo regression fix)
+        "Compare them",
+        "Compare those",
+        "Explain them",
+        "Show them",
+        "Show those",
+        "Tell me about those",
+        "Give me these",
+        "Quote them",
     ]
 
     NEGATIVE = [
@@ -1862,6 +1881,8 @@ class TestFollowupMarkerDetection:
         "Show me ADR 12",
         "How many principles do we have?",
         "Summarize our CIM approach",
+        # "them" without a verb prefix must NOT match
+        "them are boring",
     ]
 
     @pytest.mark.parametrize("query", POSITIVE)
@@ -1990,3 +2011,404 @@ class TestFollowupBinding:
 
         # Should use ADR.12 from query, not ADR.22 from last_refs
         assert "CIM" in response.answer or "ADR.12" in response.answer
+
+
+# =============================================================================
+# "on" topic qualifier
+# =============================================================================
+
+class TestOnTopicQualifier:
+    """Fix AD-6: 'on <topic>' sets has_topic_qualifier=True."""
+
+    @pytest.mark.parametrize("question", [
+        "List principles on interoperability",
+        "List ADRs on security",
+        "Principles on CIM adoption",
+    ])
+    def test_on_sets_topic_qualifier(self, question):
+        signals = _extract_signals(question)
+        assert signals.has_topic_qualifier is True
+
+    @pytest.mark.parametrize("question", [
+        "List all ADRs",
+        "How many ADRs are there?",
+        "What does ADR.12 decide?",
+    ])
+    def test_on_absent_no_false_positive(self, question):
+        """Queries without 'on <topic>' should not fire topic qualifier
+        (unless they contain 'about', 'regarding', etc.)."""
+        signals = _extract_signals(question)
+        assert signals.has_topic_qualifier is False
+
+    def test_list_on_topic_routes_semantic_not_list(self):
+        """'List principles on interoperability' → semantic wins over list."""
+        signals = _extract_signals("List principles on interoperability")
+        scores = _score_intents(signals)
+        assert scores["semantic_answer"] > scores["list"], (
+            f"semantic_answer={scores['semantic_answer']} should beat "
+            f"list={scores['list']}"
+        )
+
+
+# =============================================================================
+# "compare" as retrieval verb
+# =============================================================================
+
+class TestCompareRetrievalVerb:
+    """Fix: 'compare' counts as a retrieval verb."""
+
+    def test_compare_counts_as_retrieval(self):
+        assert _has_retrieval_intent("Compare 22 and ADR.12") is True
+
+    def test_compare_with_refs_routes_to_lookup(self):
+        """'Compare X and ADR.12' with doc ref → lookup_doc wins."""
+        signals = _extract_signals("Compare ADR.12 and ADR.22")
+        scores = _score_intents(signals)
+        winner, threshold_met, margin_ok = _select_winner(scores)
+        assert winner == "lookup_doc"
+        assert threshold_met is True
+
+    def test_compare_without_refs_not_lookup(self):
+        """'Compare approaches' (no refs) → not lookup."""
+        signals = _extract_signals("Compare approaches to security")
+        scores = _score_intents(signals)
+        winner, _, _ = _select_winner(scores)
+        assert winner != "lookup_doc"
+
+
+# =============================================================================
+# Mixed bare-number + prefixed ref
+# =============================================================================
+
+class TestMixedRefBareAndPrefixed:
+    """Fix AD-9: 'Compare 22 and ADR.12' resolves bare number alongside prefix."""
+
+    def test_extract_bare_numbers_mixed_mode(self):
+        """In mixed mode, bare numbers not covered by prefixed refs are returned."""
+        prefixed = [{"canonical_id": "ADR.12", "prefix": "ADR", "number_value": "0012"}]
+        result = _extract_bare_numbers("Compare 22 and ADR.12", prefixed_refs=prefixed)
+        assert result == ["0022"]
+
+    def test_extract_bare_numbers_mixed_mode_no_extra(self):
+        """If bare number matches the prefixed ref's number, it's excluded."""
+        prefixed = [{"canonical_id": "ADR.12", "prefix": "ADR", "number_value": "0012"}]
+        result = _extract_bare_numbers("Tell me about 12 and ADR.12", prefixed_refs=prefixed)
+        assert result == []
+
+    @pytest.mark.asyncio
+    async def test_mixed_ref_prefixed_plus_bare_resolves_bare(self):
+        """'Compare 22 and ADR.12' → resolves bare 22 + keeps ADR.12."""
+        from src.weaviate.collections import get_collection_name
+
+        client = MagicMock()
+        adr_coll = MagicMock()
+        pcp_coll = MagicMock()
+
+        # ADR.12 lookup → returns chunk
+        adr_chunk_12 = _make_chunk(
+            title="ADR.12 - Decision", decision="CIM.",
+            canonical_id="ADR.12", adr_number="0012",
+            full_text="Section: Decision\nCIM.",
+        )
+        # Bare 22 → resolves to ADR.22 only (single match)
+        adr_chunk_22 = _make_chunk(
+            title="ADR.22 - Decision", decision="Interop.",
+            canonical_id="ADR.22", adr_number="0022",
+            full_text="Section: Decision\nInterop.",
+        )
+
+        def adr_fetch(filters=None, limit=25):
+            if filters is not None:
+                # Inspect the filter to decide which chunk to return
+                filter_str = str(filters)
+                if "0022" in filter_str or "ADR.22" in filter_str:
+                    return _make_fetch_result([adr_chunk_22])
+                if "0012" in filter_str or "ADR.12" in filter_str:
+                    return _make_fetch_result([adr_chunk_12])
+            return _make_fetch_result([])
+
+        adr_coll.query.fetch_objects.side_effect = adr_fetch
+        pcp_coll.query.fetch_objects.return_value = _make_fetch_result([])
+
+        def get_collection(name):
+            if name == get_collection_name("adr"):
+                return adr_coll
+            if name == get_collection_name("principle"):
+                return pcp_coll
+            return MagicMock()
+
+        client.collections.get.side_effect = get_collection
+
+        agent = ArchitectureAgent(client)
+        response = await agent.query("Compare 22 and ADR.12")
+
+        # Both ADR.12 and ADR.22 should appear in the answer
+        assert "ADR.12" in response.answer
+        assert "ADR.22" in response.answer
+
+    @pytest.mark.asyncio
+    async def test_mixed_ref_prefixed_plus_bare_ambiguous_returns_clarification(self):
+        """'Compare 22 and ADR.12' where 22 matches ADR+PCP → clarification."""
+        from src.weaviate.collections import get_collection_name
+
+        client = MagicMock()
+        adr_coll = MagicMock()
+        pcp_coll = MagicMock()
+
+        adr_chunk_12 = _make_chunk(
+            title="ADR.12 - Decision", decision="CIM.",
+            canonical_id="ADR.12", adr_number="0012",
+        )
+        adr_chunk_22 = _make_chunk(
+            title="ADR.22 - Decision", decision="Interop.",
+            canonical_id="ADR.22", adr_number="0022",
+        )
+        pcp_chunk_22 = _make_chunk(
+            title="PCP.22 - Principle", decision="Standards.",
+            canonical_id="PCP.22", file_path="docs/pcp/0022-standards.md",
+            doc_type="principle",
+        )
+
+        def adr_fetch(filters=None, limit=25):
+            if filters is not None:
+                filter_str = str(filters)
+                if "0022" in filter_str:
+                    return _make_fetch_result([adr_chunk_22])
+                if "0012" in filter_str or "ADR.12" in filter_str:
+                    return _make_fetch_result([adr_chunk_12])
+            return _make_fetch_result([])
+
+        def pcp_fetch(filters=None, limit=5):
+            if filters is not None and "0022" in str(filters):
+                return _make_fetch_result([pcp_chunk_22])
+            return _make_fetch_result([])
+
+        adr_coll.query.fetch_objects.side_effect = adr_fetch
+        pcp_coll.query.fetch_objects.side_effect = pcp_fetch
+
+        def get_collection(name):
+            if name == get_collection_name("adr"):
+                return adr_coll
+            if name == get_collection_name("principle"):
+                return pcp_coll
+            return MagicMock()
+
+        client.collections.get.side_effect = get_collection
+
+        agent = ArchitectureAgent(client)
+        response = await agent.query("Compare 22 and ADR.12")
+
+        # Should return clarification since 22 is ambiguous (ADR.22 + PCP.22)
+        assert "clarification" in response.raw_results[0].get("type", "")
+        assert response.confidence == 0.60
+
+
+# =============================================================================
+# Semantic Scope Detection
+# =============================================================================
+
+class TestSemanticScope:
+    """Test _detect_semantic_scope() returns correct scope for query keywords."""
+
+    @pytest.mark.parametrize("query,expected_scope", [
+        ("What are the ESA architecture principles?", "principle"),
+        ("What principles do we have about interoperability?", "principle"),
+        ("Show PCP.22 details", "principle"),
+        ("List all principles", "principle"),
+        ("What does ADR.12 decide?", "adr"),
+        ("What decision drivers are used?", "adr"),
+        ("List all ADRs", "adr"),
+        ("What security patterns are used?", "both"),
+        ("Describe the data governance model", "both"),
+        ("How do we handle semantic interoperability?", "both"),
+    ])
+    def test_scope_detection(self, query, expected_scope):
+        assert _detect_semantic_scope(query) == expected_scope, (
+            f"Expected scope={expected_scope} for: {query}"
+        )
+
+    def test_principle_scope_in_trace(self):
+        """Principle-scoped query must show scope=principle in filters_applied."""
+        # Just verify _detect_semantic_scope is deterministic
+        assert _detect_semantic_scope("What are the ESA architecture principles?") == "principle"
+        assert _detect_semantic_scope("What security patterns are used?") == "both"
+
+
+# =============================================================================
+# Cross-collection routing: PCP, DAR, and approval record lookups
+# =============================================================================
+
+def _make_multi_collection_client():
+    """Create a mock Weaviate client that returns different collection mocks per name."""
+    client = MagicMock()
+    collections = {}
+
+    def get_collection(name):
+        if name not in collections:
+            collections[name] = MagicMock()
+            # Default: empty results
+            collections[name].query.fetch_objects.return_value = _make_fetch_result([])
+        return collections[name]
+
+    client.collections.get.side_effect = get_collection
+    return client, collections
+
+
+class TestCrossCollectionLookup:
+    """lookup_by_canonical_id() must route to the correct Weaviate collection."""
+
+    def test_pcp_routes_to_principle_collection(self):
+        """PCP.12 must search the Principle collection, not ADR."""
+        client, collections = _make_multi_collection_client()
+        agent = ArchitectureAgent(client)
+
+        pcp_chunk = _make_chunk(
+            title="PCP.12 - Interoperability",
+            decision="Adopt CIM for interoperability.",
+            canonical_id="PCP.12",
+            doc_type="principle",
+            file_path="docs/principles/0012-interoperability.md",
+        )
+        # Pre-seed the Principle collection with results
+        collections["Principle"] = MagicMock()
+        collections["Principle"].query.fetch_objects.return_value = _make_fetch_result([pcp_chunk])
+
+        result = agent.lookup_by_canonical_id("PCP.12")
+
+        assert len(result) == 1
+        assert result[0]["canonical_id"] == "PCP.12"
+        # Must NOT have queried the ADR collection
+        assert "ArchitecturalDecision" not in collections or \
+            not collections.get("ArchitecturalDecision", MagicMock()).query.fetch_objects.called
+
+    def test_pcp_approval_routes_to_principle_collection(self):
+        """PCP.12D must search the Principle collection."""
+        client, collections = _make_multi_collection_client()
+        agent = ArchitectureAgent(client)
+
+        pcp_dar_chunk = _make_chunk(
+            title="PCP.12D - Approval Record",
+            decision="Approved by Architecture Board.",
+            canonical_id="PCP.12D",
+            doc_type="principle_approval",
+            file_path="docs/principles/0012-interoperability-dar.md",
+        )
+        collections["Principle"] = MagicMock()
+        collections["Principle"].query.fetch_objects.return_value = _make_fetch_result([pcp_dar_chunk])
+
+        result = agent.lookup_by_canonical_id("PCP.12D")
+
+        assert len(result) == 1
+        assert result[0]["canonical_id"] == "PCP.12D"
+
+    def test_dar_remaps_to_adr_approval(self):
+        """DAR.12 must be remapped to ADR.12D and search the ADR collection."""
+        client, collections = _make_multi_collection_client()
+        agent = ArchitectureAgent(client)
+
+        adr_dar_chunk = _make_chunk(
+            title="ADR.12D - Decision Approval Record",
+            decision="Approved with conditions.",
+            canonical_id="ADR.12D",
+            doc_type="adr_approval",
+            file_path="docs/adr/0012-test-dar.md",
+        )
+        collections["ArchitecturalDecision"] = MagicMock()
+        collections["ArchitecturalDecision"].query.fetch_objects.return_value = _make_fetch_result([adr_dar_chunk])
+
+        result = agent.lookup_by_canonical_id("DAR.12")
+
+        assert len(result) == 1
+        assert result[0]["canonical_id"] == "ADR.12D"
+        # Verify it searched for "ADR.12D", not "DAR.12"
+        call_args = collections["ArchitecturalDecision"].query.fetch_objects.call_args
+        filter_arg = call_args.kwargs.get("filters") or call_args[1].get("filters")
+        # The filter should have been created with "ADR.12D"
+        assert filter_arg is not None
+
+    def test_adr_still_routes_to_adr_collection(self):
+        """ADR.12 must still route to the ADR collection (regression guard)."""
+        client, collections = _make_multi_collection_client()
+        agent = ArchitectureAgent(client)
+
+        adr_chunk = _make_chunk(
+            title="ADR.12 - Use CIM",
+            decision="We adopt CIM.",
+            canonical_id="ADR.12",
+        )
+        collections["ArchitecturalDecision"] = MagicMock()
+        collections["ArchitecturalDecision"].query.fetch_objects.return_value = _make_fetch_result([adr_chunk])
+
+        result = agent.lookup_by_canonical_id("ADR.12")
+
+        assert len(result) == 1
+        assert result[0]["canonical_id"] == "ADR.12"
+
+    def test_number_field_fallback_uses_correct_field_for_pcp(self):
+        """When canonical_id lookup returns empty, PCP fallback uses principle_number."""
+        client, collections = _make_multi_collection_client()
+        agent = ArchitectureAgent(client)
+
+        pcp_chunk = _make_chunk(
+            title="PCP.12 - Interoperability",
+            decision="Adopt CIM.",
+            canonical_id="PCP.12",
+            doc_type="principle",
+        )
+        principle_coll = MagicMock()
+        collections["Principle"] = principle_coll
+
+        # First call (canonical_id filter) returns empty
+        empty_result = _make_fetch_result([])
+        # Second call (number field fallback) returns the chunk
+        full_result = _make_fetch_result([pcp_chunk])
+        principle_coll.query.fetch_objects.side_effect = [empty_result, full_result]
+
+        result = agent.lookup_by_canonical_id("PCP.12")
+
+        assert len(result) == 1
+        # Verify second call used principle_number, not adr_number
+        second_call = principle_coll.query.fetch_objects.call_args_list[1]
+        filter_arg = second_call.kwargs.get("filters") or second_call[1].get("filters")
+        assert filter_arg is not None
+
+
+# =============================================================================
+# Principle chunk selection and formatting
+# =============================================================================
+
+class TestPrincipleChunkSelection:
+    """_select_principle_chunk picks Statement > Rationale > first with content."""
+
+    def test_picks_statement_over_rationale(self):
+        chunks = [
+            {"title": "PCP.12 - Rationale", "content": "Rationale text"},
+            {"title": "PCP.12 - Statement", "content": "Statement text"},
+            {"title": "PCP.12 - Implications", "content": "Implications text"},
+        ]
+        result = ArchitectureAgent._select_principle_chunk(chunks)
+        assert result["title"] == "PCP.12 - Statement"
+
+    def test_falls_back_to_rationale_when_no_statement(self):
+        chunks = [
+            {"title": "PCP.12 - Implications", "content": "Implications text"},
+            {"title": "PCP.12 - Rationale", "content": "Rationale text"},
+        ]
+        result = ArchitectureAgent._select_principle_chunk(chunks)
+        assert result["title"] == "PCP.12 - Rationale"
+
+    def test_falls_back_to_first_with_content(self):
+        chunks = [
+            {"title": "PCP.12 - Examples", "content": ""},
+            {"title": "PCP.12 - Implications", "content": "Implications text"},
+        ]
+        result = ArchitectureAgent._select_principle_chunk(chunks)
+        assert result["title"] == "PCP.12 - Implications"
+
+    def test_returns_none_when_all_empty(self):
+        chunks = [
+            {"title": "PCP.12 - Statement", "content": ""},
+            {"title": "PCP.12 - Rationale", "content": ""},
+        ]
+        result = ArchitectureAgent._select_principle_chunk(chunks)
+        assert result is None

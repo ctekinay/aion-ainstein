@@ -459,8 +459,14 @@ class TestGoldSemanticQueries:
             f"Expected threshold_met=True for: {query}"
         )
         assert collection.query.hybrid.called, "Hybrid must be called for semantic queries"
-        first_call = collection.query.hybrid.call_args_list[0]
-        assert first_call.kwargs.get("filters") is not None, "Filters must be present"
+        # At least one hybrid call must have doc_type filters applied.
+        # For principle-scoped queries, the first call may be the unfiltered
+        # principle collection search; the filtered ADR search comes second.
+        has_filtered_call = any(
+            call.kwargs.get("filters") is not None
+            for call in collection.query.hybrid.call_args_list
+        )
+        assert has_filtered_call, "At least one hybrid call must have filters"
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize("query", FALLBACK_QUERIES)
@@ -487,8 +493,11 @@ class TestGoldSemanticQueries:
 
         assert trace.get("path") == "hybrid", f"Expected hybrid, got {trace.get('path')}"
         assert collection.query.hybrid.called, "Hybrid must be called"
-        first_call = collection.query.hybrid.call_args_list[0]
-        assert first_call.kwargs.get("filters") is not None, "Filters must be present"
+        has_filtered_call = any(
+            call.kwargs.get("filters") is not None
+            for call in collection.query.hybrid.call_args_list
+        )
+        assert has_filtered_call, "At least one hybrid call must have filters"
 
     @pytest.mark.asyncio
     async def test_semantic_excludes_conventions_from_results(self, caplog):
@@ -529,6 +538,95 @@ class TestGoldSemanticQueries:
             assert "convention" not in doc.get("title", "").lower(), (
                 f"Conventions doc leaked: {doc.get('title')}"
             )
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("query", [
+        "What are the ESA architecture principles?",
+        "What principles do we have about interoperability?",
+    ])
+    async def test_principle_scope_in_trace(self, query, caplog):
+        """Principle-scoped queries must show scope=principle in filters_applied."""
+        client, collection = _make_single_collection_client()
+        collection.query.fetch_objects.return_value = _make_fetch_result([])
+
+        obj = MagicMock()
+        obj.properties = _make_chunk(title="PCP.1", canonical_id="PCP.1")
+        obj.metadata.score = 0.80
+        hybrid_result = MagicMock()
+        hybrid_result.objects = [obj]
+        collection.query.hybrid.return_value = hybrid_result
+
+        gen_result = MagicMock()
+        gen_result.generated = "Test principles answer."
+        gen_result.objects = hybrid_result.objects
+        collection.generate.near_text.return_value = gen_result
+        collection.generate.near_vector.return_value = gen_result
+
+        agent = ArchitectureAgent(client)
+        response, trace = await _capture_trace(caplog, agent, query)
+
+        assert trace.get("path") == "hybrid"
+        assert "scope=principle" in trace.get("filters_applied", ""), (
+            f"Expected scope=principle in filters_applied, got: {trace.get('filters_applied')}"
+        )
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("query", [
+        "List ADRs and principles about interoperability",
+        "What decisions and principles mention CIM?",
+    ])
+    async def test_scope_both_in_trace(self, query, caplog):
+        """Mixed-scope queries mentioning both ADRs and principles must show scope=both."""
+        client, collection = _make_single_collection_client()
+        collection.query.fetch_objects.return_value = _make_fetch_result([])
+
+        obj = MagicMock()
+        obj.properties = _make_chunk(title="ADR.5", canonical_id="ADR.5")
+        obj.metadata.score = 0.80
+        hybrid_result = MagicMock()
+        hybrid_result.objects = [obj]
+        collection.query.hybrid.return_value = hybrid_result
+
+        gen_result = MagicMock()
+        gen_result.generated = "Test mixed-scope answer."
+        gen_result.objects = hybrid_result.objects
+        collection.generate.near_text.return_value = gen_result
+        collection.generate.near_vector.return_value = gen_result
+
+        agent = ArchitectureAgent(client)
+        response, trace = await _capture_trace(caplog, agent, query)
+
+        assert trace.get("path") == "hybrid", (
+            f"Expected hybrid for mixed scope, got {trace.get('path')}"
+        )
+        assert "scope=both" in trace.get("filters_applied", ""), (
+            f"Expected scope=both in filters_applied, got: {trace.get('filters_applied')}"
+        )
+
+    @pytest.mark.asyncio
+    async def test_compare_mixed_refs_detects_both_collections(self, caplog):
+        """'Compare ADR.12 and PCP.22' has refs from both collections — lookup path."""
+        adr_chunk = _make_chunk(
+            title="ADR.12 - Decision", decision="CIM.",
+            canonical_id="ADR.12", adr_number="0012",
+        )
+        pcp_chunk = _make_chunk(
+            title="PCP.22 - Interop", decision="Interop mandate.",
+            canonical_id="PCP.22", doc_type="principle",
+        )
+        client, collection = _make_single_collection_client([adr_chunk, pcp_chunk])
+        agent = ArchitectureAgent(client)
+
+        response, trace = await _capture_trace(
+            caplog, agent, "Compare ADR.12 and PCP.22",
+        )
+
+        assert trace.get("path") in ("lookup_exact", "lookup_number"), (
+            f"Expected lookup path for mixed refs, got {trace.get('path')}"
+        )
+        detected = trace.get("doc_refs_detected", [])
+        assert "ADR.12" in detected, f"ADR.12 not in detected refs: {detected}"
+        assert "PCP.22" in detected, f"PCP.22 not in detected refs: {detected}"
 
 
 # =============================================================================
@@ -596,6 +694,111 @@ class TestGoldRegressionTraps:
 
         assert trace.get("path") == "lookup_exact"
         assert trace.get("winner") == "lookup_doc"
+
+    @pytest.mark.asyncio
+    async def test_principle_query_excludes_adr_conventions(self, caplog):
+        """'What are the ESA architecture principles?' must NOT return ADR conventions.
+
+        Regression: 'Use Markdown Architectural Decision Records' (an ADR conventions
+        doc) was appearing in results for principle-scoped queries because the ADR
+        secondary search returned it with doc_type='content'.
+        """
+        client, collection = _make_single_collection_client()
+        collection.query.fetch_objects.return_value = _make_fetch_result([])
+
+        # Simulate: principle search returns real principles; ADR search returns
+        # a conventions doc that should be post-filtered out.
+        principle_obj = MagicMock()
+        principle_obj.properties = _make_chunk(
+            title="PCP.1 - Interoperability",
+            canonical_id="PCP.1", doc_type="principle",
+        )
+        principle_obj.metadata.score = 0.85
+
+        conventions_obj = MagicMock()
+        conventions_obj.properties = _make_chunk(
+            title="Use Markdown Architectural Decision Records",
+            canonical_id="", doc_type="content",
+            file_path="data/adr/adr-conventions.md",
+        )
+        conventions_obj.metadata.score = 0.70
+
+        hybrid_result = MagicMock()
+        hybrid_result.objects = [principle_obj, conventions_obj]
+        collection.query.hybrid.return_value = hybrid_result
+
+        gen_result = MagicMock()
+        gen_result.generated = "Architecture principles."
+        gen_result.objects = hybrid_result.objects
+        collection.generate.near_text.return_value = gen_result
+        collection.generate.near_vector.return_value = gen_result
+
+        agent = ArchitectureAgent(client)
+        response, trace = await _capture_trace(
+            caplog, agent, "What are the ESA architecture principles?",
+        )
+
+        # Conventions doc must be stripped by post-filter
+        for doc in response.raw_results:
+            title = doc.get("title", "")
+            assert "markdown architectural decision" not in title.lower(), (
+                f"ADR conventions doc leaked into principle query results: {title}"
+            )
+            assert "convention" not in title.lower(), (
+                f"Conventions doc leaked: {title}"
+            )
+
+    def test_on_qualifier_routes_semantic_not_list(self):
+        """AD-6: 'List principles on interoperability' → semantic beats list."""
+        signals = _extract_signals("List principles on interoperability")
+        scores = _score_intents(signals)
+        assert scores["semantic_answer"] > scores["list"], (
+            f"Semantic ({scores['semantic_answer']}) should beat List ({scores['list']})"
+        )
+
+    @pytest.mark.asyncio
+    async def test_compare_mixed_refs_not_conversational(self, caplog):
+        """AD-9: 'Compare 22 and ADR.12' → must NOT be conversational."""
+        adr_chunk_12 = _make_chunk(
+            title="ADR.12 - Decision", decision="CIM.",
+            canonical_id="ADR.12", adr_number="0012",
+            full_text="Section: Decision\nCIM.",
+        )
+        adr_chunk_22 = _make_chunk(
+            title="ADR.22 - Decision", decision="Interop.",
+            canonical_id="ADR.22", adr_number="0022",
+            full_text="Section: Decision\nInterop.",
+        )
+
+        client, adr_coll, pcp_coll = _make_multi_collection_client(
+            adr_results=_make_fetch_result([adr_chunk_22]),
+        )
+        # ADR.12 lookup by canonical_id
+        def adr_fetch(filters=None, limit=25):
+            if filters is not None:
+                f = str(filters)
+                if "0022" in f or "ADR.22" in f:
+                    return _make_fetch_result([adr_chunk_22])
+                if "0012" in f or "ADR.12" in f:
+                    return _make_fetch_result([adr_chunk_12])
+            return _make_fetch_result([])
+
+        adr_coll.query.fetch_objects.side_effect = adr_fetch
+        pcp_coll.query.fetch_objects.return_value = _make_fetch_result([])
+
+        agent = ArchitectureAgent(client)
+        response, trace = await _capture_trace(
+            caplog, agent, "Compare 22 and ADR.12",
+        )
+
+        # Must NOT be conversational — "compare" is a retrieval verb
+        assert trace.get("path") != "conversational", (
+            f"Expected non-conversational path, got {trace.get('path')}"
+        )
+        # Should be lookup (both refs resolved)
+        assert trace.get("path") in ("lookup_exact", "lookup_number"), (
+            f"Expected lookup path, got {trace.get('path')}"
+        )
 
 
 # =============================================================================
@@ -677,3 +880,204 @@ class TestGoldFollowupBinding:
 
         # Must NOT be lookup — should be hybrid/semantic
         assert trace.get("path") == "hybrid"
+
+    @pytest.mark.asyncio
+    async def test_see_connection_between_two_refs(self, caplog):
+        """'see the connection between ADR.12 and PCP.12' → lookup, not conversational.
+
+        Demo regression: "connection" and "between" must be recognized as retrieval
+        verbs so multi-ref queries trigger lookup instead of conversational deflection.
+        """
+        adr_chunk = _make_chunk(
+            title="ADR.12 - Decision", decision="CIM.",
+            canonical_id="ADR.12", adr_number="0012",
+        )
+        pcp_chunk = _make_chunk(
+            title="PCP.12 - Statement", decision="Interop mandate.",
+            canonical_id="PCP.12", doc_type="principle",
+        )
+        client, collection = _make_single_collection_client([adr_chunk, pcp_chunk])
+        agent = ArchitectureAgent(client)
+
+        response, trace = await _capture_trace(
+            caplog, agent,
+            "I would like to see the connection between ADR.12 and PCP.12",
+        )
+
+        assert trace.get("path") in ("lookup_exact", "lookup_number"), (
+            f"Expected lookup path, got {trace.get('path')} — "
+            f"'connection' and 'between' must be retrieval verbs"
+        )
+        detected = trace.get("doc_refs_detected", [])
+        assert "ADR.12" in detected, f"ADR.12 not detected: {detected}"
+        assert "PCP.12" in detected, f"PCP.12 not detected: {detected}"
+        assert trace.get("path") != "conversational", (
+            "Must NOT be conversational — this is a legitimate retrieval query"
+        )
+
+    @pytest.mark.asyncio
+    async def test_compare_them_followup_injects_refs(self, caplog):
+        """'compare them' with last_doc_refs=[ADR.12, PCP.12] → lookup via injection.
+
+        Demo regression: "them" must be recognized as a follow-up pronoun
+        so multi-doc follow-ups inject cached doc_refs.
+        """
+        adr_chunk = _make_chunk(
+            title="ADR.12 - Decision", decision="CIM.",
+            canonical_id="ADR.12", adr_number="0012",
+        )
+        pcp_chunk = _make_chunk(
+            title="PCP.12 - Statement", decision="Interop mandate.",
+            canonical_id="PCP.12", doc_type="principle",
+        )
+        client, collection = _make_single_collection_client([adr_chunk, pcp_chunk])
+        agent = ArchitectureAgent(client)
+
+        last_refs = [
+            {"canonical_id": "ADR.12", "prefix": "ADR", "number_value": "0012"},
+            {"canonical_id": "PCP.12", "prefix": "PCP", "number_value": "0012"},
+        ]
+        response, trace = await _capture_trace(
+            caplog, agent, "compare them", last_doc_refs=last_refs,
+        )
+
+        assert trace.get("path") in ("lookup_exact", "lookup_number"), (
+            f"Expected lookup path via follow-up injection, got {trace.get('path')}"
+        )
+        assert trace.get("followup_injected") is True, (
+            "Follow-up binding must inject cached doc_refs"
+        )
+        detected = trace.get("doc_refs_detected", [])
+        assert "ADR.12" in detected, f"ADR.12 not injected: {detected}"
+        assert "PCP.12" in detected, f"PCP.12 not injected: {detected}"
+
+
+# =============================================================================
+# Cross-collection lookup: PCP returns principle content, DAR returns approval
+# =============================================================================
+
+class TestGoldCrossCollectionLookup:
+    """PCP and DAR queries must route to the correct Weaviate collection."""
+
+    @pytest.mark.asyncio
+    async def test_pcp_lookup_returns_principle_content(self, caplog):
+        """'What does PCP.12 decide?' must render Statement content, not just titles.
+
+        Regression: formatter was ADR-biased — _select_decision_chunk returned None
+        for principles (no 'decision' field), falling back to title-only dump.
+        """
+        pcp_statement = _make_chunk(
+            title="Principle: Business-Driven Data Readiness - Statement",
+            decision="",
+            canonical_id="PCP.12",
+            doc_type="principle",
+            file_path="docs/principles/0012-data-readiness.md",
+            context="All subsystems must adopt CIM-based interoperability.",
+        )
+        pcp_statement["content"] = "All subsystems must adopt CIM-based interoperability."
+        pcp_rationale = _make_chunk(
+            title="Principle: Business-Driven Data Readiness - Rationale",
+            decision="",
+            canonical_id="PCP.12",
+            doc_type="principle",
+            file_path="docs/principles/0012-data-readiness.md",
+            context="Standardized data models reduce integration costs.",
+        )
+        pcp_rationale["content"] = "Standardized data models reduce integration costs."
+        client, _, _ = _make_multi_collection_client(
+            principle_results=_make_fetch_result([pcp_statement, pcp_rationale]),
+        )
+        agent = ArchitectureAgent(client)
+
+        response, trace = await _capture_trace(
+            caplog, agent, "What does PCP.12 decide?",
+        )
+
+        assert trace.get("path") in ("lookup_exact", "lookup_number"), (
+            f"Expected lookup path for PCP.12, got {trace.get('path')}"
+        )
+        assert response.confidence > 0.0, "PCP.12 must return content"
+        assert "interoperability" in response.answer.lower() or "CIM" in response.answer, (
+            f"Expected Statement content in answer, got: {response.answer[:200]}"
+        )
+        assert "Found" not in response.answer and "sections:" not in response.answer, (
+            f"Must NOT show title-only fallback for principles: {response.answer[:200]}"
+        )
+
+    @pytest.mark.asyncio
+    async def test_dar_lookup_returns_approval_content(self, caplog):
+        """'What does DAR.12 say?' must remap to ADR.12D and return approval record.
+
+        DAR is a user-facing alias. In the DB, ADR DARs are stored as ADR.{num}D.
+        """
+        adr_dar_chunk = _make_chunk(
+            title="ADR.12D - Decision Approval Record",
+            decision="Approved with conditions: annual review required.",
+            canonical_id="ADR.12D",
+            doc_type="adr_approval",
+            file_path="docs/adr/0012-test-dar.md",
+            adr_number="0012",
+        )
+        client, _, _ = _make_multi_collection_client(
+            adr_results=_make_fetch_result([adr_dar_chunk]),
+        )
+        agent = ArchitectureAgent(client)
+
+        response, trace = await _capture_trace(
+            caplog, agent, "What does DAR.12 say?",
+        )
+
+        assert trace.get("path") in ("lookup_exact", "lookup_number"), (
+            f"Expected lookup path for DAR.12, got {trace.get('path')}"
+        )
+        assert response.confidence > 0.0, "DAR.12 must return content (mapped to ADR.12D)"
+        assert "approval" in response.answer.lower() or "approved" in response.answer.lower(), (
+            f"Expected approval record content, got: {response.answer[:200]}"
+        )
+
+    @pytest.mark.asyncio
+    async def test_cross_collection_compare_returns_both_docs(self, caplog):
+        """'Compare ADR.12 and PCP.12' must return both docs from different collections.
+
+        ADR.12 lives in ArchitecturalDecision, PCP.12 lives in Principle.
+        Both must be found and rendered with actual content.
+        """
+        adr_chunk = _make_chunk(
+            title="ADR.12 - Use CIM",
+            decision="We adopt CIM as the canonical data model.",
+            canonical_id="ADR.12",
+            doc_type="adr",
+            file_path="docs/adr/0012-use-cim.md",
+            adr_number="0012",
+        )
+        pcp_statement = _make_chunk(
+            title="PCP.12 - Statement",
+            decision="",
+            canonical_id="PCP.12",
+            doc_type="principle",
+            file_path="docs/principles/0012-interoperability.md",
+        )
+        pcp_statement["content"] = "All subsystems must adopt CIM-based interoperability."
+        client, _, _ = _make_multi_collection_client(
+            adr_results=_make_fetch_result([adr_chunk]),
+            principle_results=_make_fetch_result([pcp_statement]),
+        )
+        agent = ArchitectureAgent(client)
+
+        response, trace = await _capture_trace(
+            caplog, agent, "Compare ADR.12 and PCP.12",
+        )
+
+        assert trace.get("path") in ("lookup_exact", "lookup_number"), (
+            f"Expected lookup path for compare, got {trace.get('path')}"
+        )
+        assert response.confidence > 0.0, "Both docs must be found"
+        # Both doc refs must appear in the answer with actual content
+        assert "ADR.12" in response.answer, f"ADR.12 missing from answer: {response.answer[:200]}"
+        assert "PCP.12" in response.answer, f"PCP.12 missing from answer: {response.answer[:200]}"
+        assert "canonical data model" in response.answer.lower(), (
+            f"ADR decision text missing: {response.answer[:300]}"
+        )
+        assert "interoperability" in response.answer.lower(), (
+            f"PCP statement text missing: {response.answer[:300]}"
+        )

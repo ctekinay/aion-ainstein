@@ -2319,9 +2319,30 @@
                     updateHeartbeat(data.elapsed_sec);
                     break;
 
+                case 'route_trace':
+                    removeStatus();
+                    // Show route trace as collapsible "thinking" panel
+                    if (data.trace) {
+                        const trace = data.trace;
+                        const traceLines = [
+                            `Path: ${trace.path || '?'}`,
+                            `Winner: ${trace.winner || '?'}`,
+                            trace.doc_refs_detected && trace.doc_refs_detected.length > 0
+                                ? `Doc refs: ${trace.doc_refs_detected.join(', ')}`
+                                : null,
+                            trace.bare_number_resolution
+                                ? `Bare number: ${trace.bare_number_resolution}`
+                                : null,
+                            trace.scores
+                                ? `Scores: ${Object.entries(trace.scores).map(([k,v]) => k + '=' + (typeof v === 'number' ? v.toFixed(2) : v)).join(', ')}`
+                                : null,
+                        ].filter(Boolean).join('\n');
+                        appendPanel('decision', 'Route Trace', traceLines);
+                    }
+                    break;
+
                 case 'decision':
                     removeStatus();
-                    // Show loading again if it was removed (for multi-step thinking)
                     if (!document.getElementById('global-loading')) {
                         showLoading();
                     }
@@ -2337,7 +2358,6 @@
 
                 case 'thinking_aloud':
                     removeStatus();
-                    // Show loading again if needed (more thinking may come)
                     if (!document.getElementById('global-loading')) {
                         showLoading();
                     }
