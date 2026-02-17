@@ -1,17 +1,17 @@
 ---
 parent: Principles
-nav_order: 0011
-title: Data is Designed for Need to Know
-status: Proposed
-date: 2025-10-27
-driver: GDPR & ISO 27001 compliance, trust & stakeholder confidence, operational risk mitigation, secure collaboration enablement
-#approvers: 
-contributors: Christian Heuer, Laurent van Groningen, Robert-Jan Peters
-#informed: 
-
-# additional decision-makers: 
+nav_order: PCP.11
+dct:
+  identifier: urn:uuid:2b3c4d5e-6f7a-4b8c-9d0e-1f2a3b4c5d6e
+  title: Data is Designed for Need to Know
+  isVersionOf: proposed
+  issued: 2025-10-27
+owl:
+  versionIRI: "https://esa-artifacts.alliander.com/metamodel/principles/2025-10/0011-data-design-need-to-know.html"
+  versionInfo: "v1.0.0 (2025-10-27)"
 ---
 <!-- markdownlint-disable-next-line MD025 -->
+
 # Principle: Need to Know
 
 ## Statement  

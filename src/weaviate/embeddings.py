@@ -10,6 +10,7 @@ Instead of relying on Weaviate's vectorizer, we:
 3. Query using near_vector with client-computed query embeddings
 """
 
+import atexit
 import logging
 import time
 from typing import Optional
@@ -20,12 +21,67 @@ from ..config import settings
 
 logger = logging.getLogger(__name__)
 
-# Ollama embedding dimensions (nomic-embed-text-v2-moe)
+# Known embedding dimensions by model name
+_EMBEDDING_DIMENSIONS = {
+    "nomic-embed-text-v2-moe": 768,
+    "text-embedding-3-small": 1536,
+    "text-embedding-3-large": 3072,
+}
+
+# Cache for dynamically discovered dimensions
+_dimension_cache: dict[str, int] = {}
+
+# Backward compatibility constant
 EMBEDDING_DIMENSION = 768
 
 # Retry configuration
 MAX_RETRIES = 3
 RETRY_DELAY_SECONDS = 5
+
+
+def get_embedding_dimension(model: str = None) -> int:
+    """Get the embedding dimension for the configured or specified model.
+
+    Checks a known model lookup table first. If the model is not found,
+    makes a single test embedding call to discover the dimension and caches it.
+
+    Args:
+        model: Model name to look up. If None, uses settings.embedding_model.
+
+    Returns:
+        Embedding dimension as integer.
+    """
+    if model is None:
+        model = settings.embedding_model
+
+    # Check known dimensions
+    if model in _EMBEDDING_DIMENSIONS:
+        return _EMBEDDING_DIMENSIONS[model]
+
+    # Check cache for previously discovered dimensions
+    if model in _dimension_cache:
+        return _dimension_cache[model]
+
+    # Self-healing fallback: probe the model with a test embedding
+    try:
+        client = httpx.Client(timeout=30.0)
+        response = client.post(
+            f"{settings.ollama_url}/api/embed",
+            json={"model": model, "input": "dimension probe"},
+        )
+        response.raise_for_status()
+        data = response.json()
+        embeddings = data.get("embeddings", [])
+        client.close()
+        if embeddings and len(embeddings) > 0:
+            dim = len(embeddings[0])
+            _dimension_cache[model] = dim
+            logger.info(f"Discovered embedding dimension for '{model}': {dim}")
+            return dim
+    except Exception as e:
+        logger.warning(f"Could not probe embedding dimension for '{model}': {e}. Using default 768.")
+
+    return 768
 
 
 class OllamaEmbeddings:
@@ -50,6 +106,11 @@ class OllamaEmbeddings:
         self._client = None
 
     @property
+    def _dimension(self) -> int:
+        """Get the embedding dimension for this client's model."""
+        return get_embedding_dimension(self.model)
+
+    @property
     def client(self) -> httpx.Client:
         """Get or create the HTTP client."""
         if self._client is None:
@@ -66,8 +127,8 @@ class OllamaEmbeddings:
             List of floats representing the embedding vector
         """
         if not text or not text.strip():
-            # Return zero vector for empty text
-            return [0.0] * EMBEDDING_DIMENSION
+            logger.warning("Returning zero vector for empty/whitespace-only text input")
+            return [0.0] * self._dimension
 
         try:
             response = self.client.post(
@@ -85,8 +146,11 @@ class OllamaEmbeddings:
             if embeddings and len(embeddings) > 0:
                 return embeddings[0]
 
-            logger.warning(f"No embeddings returned for text: {text[:50]}...")
-            return [0.0] * EMBEDDING_DIMENSION
+            logger.warning(
+                f"Ollama returned no embeddings for text (len={len(text)}): {text[:50]}... "
+                "Returning zero vector fallback."
+            )
+            return [0.0] * self._dimension
 
         except httpx.HTTPError as e:
             logger.error(f"HTTP error generating embedding: {e}")
@@ -118,7 +182,10 @@ class OllamaEmbeddings:
                 non_empty_texts.append(text)
 
         if not non_empty_texts:
-            return [[0.0] * EMBEDDING_DIMENSION for _ in texts]
+            logger.warning(
+                f"All {len(texts)} texts in batch are empty. Returning zero vectors."
+            )
+            return [[0.0] * self._dimension for _ in texts]
 
         # Try batch embedding with retries
         last_error = None
@@ -137,14 +204,21 @@ class OllamaEmbeddings:
                 non_empty_embeddings = data.get("embeddings", [])
 
                 # Reconstruct full list with zero vectors for empty texts
-                result = [[0.0] * EMBEDDING_DIMENSION for _ in texts]
+                empty_count = len(texts) - len(non_empty_texts)
+                result = [[0.0] * self._dimension for _ in texts]
                 for i, idx in enumerate(non_empty_indices):
                     if i < len(non_empty_embeddings):
                         result[idx] = non_empty_embeddings[i]
 
+                if empty_count > 0:
+                    logger.warning(
+                        f"Batch embedding: {empty_count}/{len(texts)} texts were empty, "
+                        "using zero vector fallbacks for those entries."
+                    )
+
                 return result
 
-            except (httpx.HTTPError, httpx.TimeoutException) as e:
+            except httpx.HTTPError as e:
                 last_error = e
                 if attempt < MAX_RETRIES - 1:
                     logger.warning(
@@ -163,7 +237,7 @@ class OllamaEmbeddings:
             f"Falling back to individual processing for {len(non_empty_texts)} texts..."
         )
 
-        result = [[0.0] * EMBEDDING_DIMENSION for _ in texts]
+        result = [[0.0] * self._dimension for _ in texts]
         success_count = 0
 
         for i, idx in enumerate(non_empty_indices):
@@ -178,10 +252,19 @@ class OllamaEmbeddings:
                     if attempt < MAX_RETRIES - 1:
                         time.sleep(RETRY_DELAY_SECONDS)
                     else:
-                        logger.error(f"Failed to embed text {i}: {e}")
-                        # Keep zero vector for failed embeddings
+                        logger.error(
+                            f"Failed to embed text {i} after {MAX_RETRIES} attempts: {e}. "
+                            "Using zero vector fallback."
+                        )
 
-        logger.info(f"Individual processing complete: {success_count}/{len(non_empty_texts)} succeeded")
+        failed_count = len(non_empty_texts) - success_count
+        if failed_count > 0:
+            logger.warning(
+                f"Individual processing complete: {success_count}/{len(non_empty_texts)} succeeded, "
+                f"{failed_count} texts using zero vector fallbacks."
+            )
+        else:
+            logger.info(f"Individual processing complete: {success_count}/{len(non_empty_texts)} succeeded")
         return result
 
     def close(self):
@@ -207,6 +290,24 @@ def get_embeddings_client() -> OllamaEmbeddings:
     if _embeddings_client is None:
         _embeddings_client = OllamaEmbeddings()
     return _embeddings_client
+
+
+def close_embeddings_client() -> None:
+    """Close and reset the global embeddings client.
+
+    Safe to call multiple times (idempotent). Should be called during
+    application shutdown to properly release HTTP connections.
+    Also registered with atexit as a safety net for CLI scripts.
+    """
+    global _embeddings_client
+    if _embeddings_client is not None:
+        _embeddings_client.close()
+        _embeddings_client = None
+        logger.debug("Global embeddings client closed")
+
+
+# Register cleanup for normal interpreter exit
+atexit.register(close_embeddings_client)
 
 
 def embed_text(text: str) -> list[float]:

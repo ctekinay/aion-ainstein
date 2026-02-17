@@ -25,6 +25,8 @@ wheels/
 .venv[0-9]*/
 .venv312/
 venv/
+venv[0-9]*/
+venv312/
 ENV/
 
 # IDE

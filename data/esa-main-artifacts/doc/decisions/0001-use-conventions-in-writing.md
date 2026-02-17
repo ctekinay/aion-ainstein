@@ -1,12 +1,16 @@
 ---
 parent: Decisions
-nav_order: 1
-status: accepted
-date: 2025-06-01
-approvers: "Energy System Architecture: Robert-Jan Peters, Laurent van Groningen"
-consulted: René Tiesma (BBN architecture), Robbert van Waveren (ART-SO solution architecture)"
-informed: "BBN architecture, ART-SO solution architecture"
+nav_order: ADR.1
+dct:
+  identifier: urn:uuid:b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e
+  title: What conventions to use in writing ADRs?
+  isVersionOf: accepted
+  issued: 2025-06-01
+owl:
+  versionIRI: "https://esa-artifacts.alliander.com/metamodel/decisions/2025-06/0001-use-conventions-in-writing.html"
+  versionInfo: "v1.0.0 (2025-06-01)"
 ---
+<!-- markdownlint-disable-next-line MD025 -->
 
 # What conventions to use in writing ADRs?
 

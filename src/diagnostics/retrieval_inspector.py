@@ -49,8 +49,11 @@ def inspect_retrieval(question: str, collection_name: str, limit: int = 10, alph
 
     client = get_client()
 
-    # Get embedding for the question
-    query_vector = embed_text(question)
+    # Compute embedding client-side only for Ollama collections.
+    # OpenAI collections use Weaviate's text2vec-openai vectorizer server-side.
+    query_vector = None
+    if settings.llm_provider == "ollama":
+        query_vector = embed_text(question)
 
     # Check if collection exists
     if not client.collections.exists(collection_name):
@@ -110,11 +113,12 @@ def inspect_retrieval(question: str, collection_name: str, limit: int = 10, alph
 
 def inspect_all_collections(question: str, alpha: float = None, limit: int = 5):
     """Inspect retrieval across all collections for a question."""
+    suffix = "_OpenAI" if settings.llm_provider == "openai" else ""
     collections = [
-        "Vocabulary",
-        "ArchitecturalDecision",
-        "Principle",
-        "PolicyDocument"
+        f"Vocabulary{suffix}",
+        f"ArchitecturalDecision{suffix}",
+        f"Principle{suffix}",
+        f"PolicyDocument{suffix}",
     ]
 
     all_results = {
@@ -271,7 +275,8 @@ def main():
         return
 
     if args.compare_alpha:
-        collection = args.collection or "ArchitecturalDecision"
+        default_coll = "ArchitecturalDecision_OpenAI" if settings.llm_provider == "openai" else "ArchitecturalDecision"
+        collection = args.collection or default_coll
         results = compare_alpha_values(args.question, collection)
     elif args.collection:
         results = inspect_retrieval(args.question, args.collection, args.limit, args.alpha)

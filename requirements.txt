@@ -1,41 +1,43 @@
-# Weaviate client
-weaviate-client>=4.18.0
+# Python Version: 3.10-3.12 (3.12 recommended, 3.13+ not supported)
+
+# Weaviate client (compatible with Weaviate 1.35+)
+weaviate-client>=4.19.3
 
 # Elysia agentic RAG framework (keep versions as required by Elysia)
 elysia-ai>=0.2.8
-dspy-ai>=2.4.0
+dspy-ai>=3.1.3
 
 # RDF/SKOS parsing
-rdflib>=7.4.0
+rdflib>=7.6.0
 
 # Document processing
 python-docx>=1.2.0
-pypdf>=6.2.0  # Successor to PyPDF2 (deprecated)
-pymupdf>=1.26.0
+pypdf>=6.7.0
+pymupdf>=1.27.1
 
 # Markdown processing
-markdown>=3.10
+markdown>=3.10.2
 python-frontmatter>=1.1.0
 
 # OpenAI
-openai>=2.8.0
+openai>=2.21.0
 tiktoken>=0.12.0
 
 # Async support
 aiofiles>=25.1.0
-httpx>=0.28.0
+httpx>=0.28.1
 
 # CLI and utilities
-typer>=0.20.0
+typer>=0.24.0
 rich>=13.7.0,<=14.0.0  # Constrained by elysia-ai dependency
-python-dotenv>=1.2.0
-pydantic>=2.12.0
-pydantic-settings>=2.12.0
+python-dotenv>=1.2.1
+pydantic>=2.12.5
+pydantic-settings>=2.13.0
 
 # Web UI
-fastapi>=0.115.0
-uvicorn>=0.34.0
+fastapi>=0.129.0
+uvicorn>=0.34.0,==0.35.0  # Pinned by elysia-ai dependency
 
 # Development (requires Python >=3.10)
-pytest>=9.0.0
+pytest>=9.0.2
 pytest-asyncio>=1.3.0

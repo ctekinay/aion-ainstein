@@ -1,12 +1,16 @@
 ---
 parent: Decisions
-nav_order: 0
-status: accepted
-date: 2025-06-01
-approvers: "Energy System Architecture: Robert-Jan Peters, Laurent van Groningen"
-consulted: René Tiesma (BBN architecture), Robbert van Waveren (ART-SO solution architecture)"
-informed: "BBN architecture, ART-SO solution architecture"
+nav_order: ADR.0
+dct:
+  identifier: urn:uuid:a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d
+  title: Use Markdown Architectural Decision Records
+  isVersionOf: accepted
+  issued: 2025-06-01
+owl:
+  versionIRI: "https://esa-artifacts.alliander.com/metamodel/decisions/2025-06/0000-use-markdown-architectural-decision-records.html"
+  versionInfo: "v1.0.0 (2025-06-01)"
 ---
+<!-- markdownlint-disable-next-line MD025 -->
 
 # Use Markdown Architectural Decision Records
 

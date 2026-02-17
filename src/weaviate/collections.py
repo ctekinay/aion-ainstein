@@ -6,8 +6,6 @@ from typing import Optional
 from weaviate import WeaviateClient
 from weaviate.classes.config import Configure, Property, DataType, Tokenization, VectorDistances
 
-from .embeddings import EMBEDDING_DIMENSION
-
 from ..config import settings
 
 logger = logging.getLogger(__name__)

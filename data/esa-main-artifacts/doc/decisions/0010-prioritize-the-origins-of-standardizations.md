@@ -1,14 +1,14 @@
 ---
-# Configuration for the Jekyll template "Just the Docs"
 parent: Decisions
-nav_order: 10
-
-# These are optional elements. Feel free to remove any of them.
-status: "accepted"
-date: "2025-07-17"
-approvers: "Energy System Architecture: Robert-Jan Peters, Laurent van Groningen"
-consulted: "Robert Steeg <robert.steegh@enexis.nl>, Rick Harms <rick.harms@stedin.net>, Tosca de Jong (Liander)"
-informed: "BBN architecture, ART-SO solution architecture"
+nav_order: ADR.10
+dct:
+  identifier: urn:uuid:d4e5f6a7-b8c9-4d0e-1f2a-3b4c5d6e7f8a
+  title: How to prioritize origins of standardizations
+  isVersionOf: accepted
+  issued: 2025-07-17
+owl:
+  versionIRI: "https://esa-artifacts.alliander.com/metamodel/decisions/2025-07/0010-prioritize-the-origins-of-standardizations.html"
+  versionInfo: "v1.0.0 (2025-07-17)"
 ---
 <!-- markdownlint-disable-next-line MD025 -->
 

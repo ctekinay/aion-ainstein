@@ -88,12 +88,28 @@ class RAGDiagnostics:
     def __init__(self, verbose: bool = False):
         self.client = get_weaviate_client()
         self.verbose = verbose
+        self.use_openai = settings.llm_provider == "openai"
+        suffix = "_OpenAI" if self.use_openai else ""
         self.collections = [
-            "Vocabulary",
-            "ArchitecturalDecision",
-            "Principle",
-            "PolicyDocument"
+            f"Vocabulary{suffix}",
+            f"ArchitecturalDecision{suffix}",
+            f"Principle{suffix}",
+            f"PolicyDocument{suffix}",
         ]
+
+    def _get_query_vector(self, text: str) -> list[float] | None:
+        """Get query vector for hybrid search.
+
+        For Ollama collections, computes embedding client-side.
+        For OpenAI collections, returns None (Weaviate handles it server-side).
+        """
+        if self.use_openai:
+            return None
+        try:
+            return embed_text(text)
+        except Exception as e:
+            print(f"  ERROR: Could not compute embedding: {e}")
+            return None
 
     def analyze_chunks(self) -> dict:
         """Analyze document/chunk sizes across all collections.
@@ -113,13 +129,14 @@ class RAGDiagnostics:
 
             collection = self.client.collections.get(coll_name)
 
-            # Determine text field based on collection
+            # Determine text field based on collection (strip _OpenAI suffix for lookup)
+            base_name = coll_name.replace("_OpenAI", "")
             text_field = {
                 "Vocabulary": "content",
                 "ArchitecturalDecision": "full_text",
                 "Principle": "full_text",
                 "PolicyDocument": "full_text",
-            }.get(coll_name, "content")
+            }.get(base_name, "content")
 
             # Fetch all documents
             all_docs = collection.query.fetch_objects(limit=1000)
@@ -170,16 +187,17 @@ class RAGDiagnostics:
         for q in questions:
             print(f"\n[{q['id']}] {q['question']}")
 
-            # Get query embedding
-            try:
-                query_vector = embed_text(q["question"])
-            except Exception as e:
-                print(f"  ERROR: Could not compute embedding: {e}")
+            # Get query embedding (None for OpenAI — Weaviate vectorizes server-side)
+            query_vector = self._get_query_vector(q["question"])
+            if not self.use_openai and query_vector is None:
                 results["failed"] += 1
                 continue
 
             # Search expected collection or all collections
-            target_collections = [q["expected_collection"]] if q.get("expected_collection") else self.collections
+            expected_coll = q.get("expected_collection")
+            if expected_coll and self.use_openai:
+                expected_coll = f"{expected_coll}_OpenAI"
+            target_collections = [expected_coll] if expected_coll else self.collections
 
             found_match = False
             top_results = []
@@ -255,7 +273,7 @@ class RAGDiagnostics:
 
         return results
 
-    def tune_alpha(self, test_question: str = None, collection: str = "ArchitecturalDecision") -> dict:
+    def tune_alpha(self, test_question: str = None, collection: str = None) -> dict:
         """Test different alpha values to find optimal hybrid search balance.
 
         Alpha controls keyword (BM25) vs vector balance:
@@ -268,6 +286,8 @@ class RAGDiagnostics:
         print("="*70)
 
         test_question = test_question or "What decision was made about domain language?"
+        if collection is None:
+            collection = "ArchitecturalDecision_OpenAI" if self.use_openai else "ArchitecturalDecision"
         alphas = [0.0, 0.3, 0.5, 0.7, 0.8, 1.0]
 
         print(f"\nQuestion: {test_question}")
@@ -279,7 +299,7 @@ class RAGDiagnostics:
             return {}
 
         coll = self.client.collections.get(collection)
-        query_vector = embed_text(test_question)
+        query_vector = self._get_query_vector(test_question)
 
         results = {}
 
@@ -464,7 +484,8 @@ def main():
                         help="Run complete diagnostic suite")
     parser.add_argument("--question", "-q", type=str,
                         help="Custom question for testing")
-    parser.add_argument("--collection", "-c", type=str, default="ArchitecturalDecision",
+    default_collection = "ArchitecturalDecision_OpenAI" if settings.llm_provider == "openai" else "ArchitecturalDecision"
+    parser.add_argument("--collection", "-c", type=str, default=default_collection,
                         help="Collection to test")
     parser.add_argument("--verbose", "-v", action="store_true",
                         help="Verbose output")

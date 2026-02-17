@@ -1,16 +1,17 @@
 ---
-# Configuration for the Jekyll template "Just the Docs"
 parent: Decisions
-nav_order: 11
-
-status: "accepted"
-# date: {YYYY-MM-DD when the decision was last updated}
-# decision-makers: {list everyone involved in the decision}
-# consulted: {list everyone whose opinions are sought (typically subject-matter experts); and with whom there is a two-way communication}
-# consulted: {list everyone whose opinions are sought (typically subject-matter experts); and with whom there is a two-way communication}
-# informed: {list everyone who is kept up-to-date on progress; and with whom there is a one-way communication}
+nav_order: ADR.11
+dct:
+  identifier: urn:uuid:e5f6a7b8-c9d0-4e1f-2a3b-4c5d6e7f8a9b
+  title: Use standard for describing business functions
+  isVersionOf: accepted
+  issued: 2025-01-01
+owl:
+  versionIRI: "https://esa-artifacts.alliander.com/metamodel/decisions/2025-01/0011-use-standard-for-business-functions.html"
+  versionInfo: "v1.0.0 (2025-01-01)"
 ---
 <!-- markdownlint-disable-next-line MD025 -->
+
 # Use standard for describing business functions
 
 ## Context and Problem Statement

@@ -30,7 +30,7 @@ from weaviate.classes.query import Filter
 
 from .config import settings
 from .weaviate.client import get_weaviate_client
-from .weaviate.embeddings import embed_text
+from .weaviate.embeddings import embed_text, close_embeddings_client
 from .elysia_agents import ElysiaRAGSystem, ELYSIA_AVAILABLE
 
 logger = logging.getLogger(__name__)
@@ -223,6 +223,8 @@ async def lifespan(app: FastAPI):
     yield  # App is running
 
     # Shutdown
+    close_embeddings_client()
+    logger.info("Embeddings client closed")
     if _weaviate_client:
         _weaviate_client.close()
         logger.info("Weaviate connection closed")

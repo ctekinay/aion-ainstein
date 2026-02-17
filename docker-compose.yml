@@ -1,11 +1,11 @@
 services:
   weaviate:
-    image: cr.weaviate.io/semitechnologies/weaviate:1.28.2
-    container_name: weaviate-aion
+    image: cr.weaviate.io/semitechnologies/weaviate:1.35.7
+    container_name: weaviate-aion-dev
     restart: unless-stopped
     ports:
-      - "8080:8080"
-      - "50051:50051"
+      - "8090:8080"
+      - "50061:50051"
     environment:
       QUERY_DEFAULTS_LIMIT: 25
       AUTHENTICATION_ANONYMOUS_ACCESS_ENABLED: 'true'

@@ -1,20 +1,15 @@
 ---
-# Configuration for the Jekyll template "Just the Docs"
 parent: Decisions
-nav_order: 29
-title: Use OAuth 2.0 (with OpenID Connect where needed) for Identification, Authentication and Authorization
-status: proposed
-date: YYYY-MM-DD when the decision was last updated
-
-driver: Robert-Jan Peters <robert-jan.peters@alliander.com>
-#approvers: list everyone with the final say in this ADR.
-contributors: Edi Recica <edi.recica@alliander.com>, René Kleizen <rene.kleizen@alliander.com>
-#informed: list everyone who need to be aware of the decision once made. 
-
-# These are optional elements. Feel free to remove any of them.
-# additional decision-makers: {list everyone involved in the decision}
+nav_order: ADR.29
+dct:
+  identifier: urn:uuid:d6e7f8a9-b0c1-4d2e-3f4a-5b6c7d8e9f0a
+  title: Use OAuth 2.0 (with OpenID Connect where needed) for Identification, Authentication, and Authorization
+  isVersionOf: proposed
+  issued: 2025-01-01
+owl:
+  versionIRI: "https://esa-artifacts.alliander.com/metamodel/decisions/2025-01/0029-use-OAuth-2.0--for-identification-authentication-and-authorization.html"
+  versionInfo: "v1.0.0 (2025-01-01)"
 ---
-
 <!-- markdownlint-disable-next-line MD025 -->
 
 # Use OAuth 2.0 (with OpenID Connect where needed) for Identification, Authentication, and Authorization
@@ -124,7 +119,7 @@ The outcome is **Option 3** to use **OAuth 2.0** as the core **authorization and
 
 - **TLS required** for all communication.
 - **PKCE** mandatory for public clients.
-- **Short-lived access tokens** (5–15 minutes).
+- **Short-lived access tokens**.
 - **Refresh token rotation** enabled.
 - **Revocation endpoint** implemented and enforced.
 - **JWKS** used for key management and rotation.

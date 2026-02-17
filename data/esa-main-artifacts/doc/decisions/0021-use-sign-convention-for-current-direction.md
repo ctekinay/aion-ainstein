@@ -1,15 +1,15 @@
 ---
 parent: Decisions
-nav_order: 21
-
-status: "accepted"
-date: "2025-07-17"
-driver: Robert-Jan Peters (Alliander)
-approvers: "Energy System Architecture: Robert-Jan Peters, Laurent van Groningen"
-contributors: "Arend Hagreis, Jurgen van de Velde"
-informed: "BBN architecture, ART-SO solution architecture" 
+nav_order: ADR.21
+dct:
+  identifier: urn:uuid:b8c9d0e1-f2a3-4b4c-5d6e-7f8a9b0c1d2e
+  title: Use sign convention for current direction
+  isVersionOf: accepted
+  issued: 2025-07-17
+owl:
+  versionIRI: "https://esa-artifacts.alliander.com/metamodel/decisions/2025-07/0021-use-sign-convention-for-current-direction.html"
+  versionInfo: "v1.0.0 (2025-07-17)"
 ---
-
 <!-- markdownlint-disable-next-line MD025 -->
 
 # Use sign convention for current direction
