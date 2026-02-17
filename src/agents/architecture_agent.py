@@ -21,6 +21,7 @@ import json
 import logging
 import re
 from dataclasses import dataclass, field, asdict
+from pathlib import Path
 from typing import Optional, Any
 
 from weaviate import WeaviateClient
@@ -30,6 +31,7 @@ from .base import BaseAgent, AgentResponse, _needs_client_side_embedding, _embed
 from ..weaviate.collections import get_collection_name
 from ..config import settings
 from ..skills.filters import build_adr_filter, build_principle_filter
+from ..classifiers.embedding_classifier import EmbeddingClassifier, ClassificationResult
 
 logger = logging.getLogger(__name__)
 
@@ -110,16 +112,26 @@ _ADR_SCOPE_RE = re.compile(
 )
 
 
-def _detect_semantic_scope(question: str) -> str:
+def _detect_semantic_scope(question: str, doc_refs: list[dict] = None) -> str:
     """Detect whether the semantic query targets principles, ADRs, or both.
 
     Returns "principle", "adr", or "both".
 
-    TODO(post-demo): Replace this regex-based detector with a learned scope
-    classifier that combines intent + scope in a single pass. Track as backlog
-    item: "Replace _detect_semantic_scope regex with learned scope classifier
-    (intent+scope)".
+    Priority 1: explicit doc ref prefixes (structural — takes precedence).
+    Priority 2: existing regex detection (unchanged).
     """
+    # Priority 1: explicit doc ref prefixes
+    if doc_refs:
+        has_adr = any(r.get("prefix") == "ADR" for r in doc_refs)
+        has_pcp = any(r.get("prefix") == "PCP" for r in doc_refs)
+        if has_adr and has_pcp:
+            return "both"
+        if has_pcp:
+            return "principle"
+        if has_adr:
+            return "adr"
+
+    # Priority 2: existing regex detection
     has_principle = bool(_PRINCIPLE_SCOPE_RE.search(question))
     has_adr = bool(_ADR_SCOPE_RE.search(question))
     if has_principle and not has_adr:
@@ -475,14 +487,46 @@ class ArchitectureAgent(BaseAgent):
     )
     collection_name = get_collection_name("adr")
 
-    def __init__(self, client: WeaviateClient, llm_client: Optional[Any] = None):
+    def __init__(self, client: WeaviateClient, llm_client: Optional[Any] = None,
+                 classifier: Optional[EmbeddingClassifier] = None):
         """Initialize the architecture agent.
 
         Args:
             client: Connected Weaviate client
             llm_client: Optional LLM client for generation
+            classifier: Optional embedding classifier (injected for testing;
+                lazy-initialized from Ollama in production when flag is on)
         """
         super().__init__(client, llm_client)
+        self._classifier = classifier
+        self._classifier_initialized = classifier is not None
+
+    def _get_classifier_if_enabled(self) -> Optional[EmbeddingClassifier]:
+        """Return the embedding classifier if the feature flag is on.
+
+        Lazy-initializes from Ollama on first call. Returns None if disabled
+        or if initialization fails (logs error but does not raise).
+        """
+        policy = settings.get_routing_policy()
+        if not policy.get("embedding_classifier_enabled", False):
+            return None
+
+        if not self._classifier_initialized:
+            try:
+                from ..weaviate.embeddings import embed_text, embed_texts
+                proto_path = settings.resolve_path(Path("config/intent_prototypes.yaml"))
+                self._classifier = EmbeddingClassifier(
+                    embed_fn=embed_text,
+                    embed_batch_fn=embed_texts,
+                    prototype_file=proto_path,
+                )
+                self._classifier_initialized = True
+                logger.info("EmbeddingClassifier initialized from %s", proto_path)
+            except Exception as e:
+                logger.error("EmbeddingClassifier init failed: %s", e)
+                self._classifier_initialized = True  # Don't retry
+                self._classifier = None
+        return self._classifier
 
     # -----------------------------------------------------------------
     # A10: Main query() flow
@@ -591,6 +635,21 @@ class ArchitectureAgent(BaseAgent):
                 [r.get("canonical_id", "?") for r in last_doc_refs],
             )
 
+        # Step 2a: Shadow-mode embedding classification (log-only, no routing)
+        classify_result: Optional[ClassificationResult] = None
+        if self._get_classifier_if_enabled() is not None:
+            try:
+                classify_result = self._classifier.classify(question)
+                logger.info(
+                    "CLASSIFY_SHADOW intent=%s conf=%.2f margin=%.2f "
+                    "threshold_met=%s margin_ok=%s",
+                    classify_result.intent, classify_result.confidence,
+                    classify_result.margin, classify_result.threshold_met,
+                    classify_result.margin_ok,
+                )
+            except Exception:
+                logger.warning("Shadow classifier failed, continuing with scoring gate")
+
         # Step 2: Score intents
         scores = _score_intents(signals)
 
@@ -608,6 +667,11 @@ class ArchitectureAgent(BaseAgent):
             bare_number_resolution=bare_number_status,
             followup_injected=followup_injected,
         )
+
+        # Attach shadow classifier result to trace for parity analysis
+        if classify_result is not None:
+            trace.signals["_shadow_classifier_intent"] = classify_result.intent
+            trace.signals["_shadow_classifier_confidence"] = classify_result.confidence
 
         # Step 4: Route by winner
         if threshold_met and margin_ok and winner:
@@ -646,7 +710,7 @@ class ArchitectureAgent(BaseAgent):
         # Step 6: Semantic search — scope-aware
         trace.intent = trace.intent or "semantic_answer"
         trace.path = "hybrid"
-        semantic_scope = _detect_semantic_scope(question)
+        semantic_scope = _detect_semantic_scope(question, doc_refs=signals.doc_refs)
         adr_filter = build_adr_filter()
         if adr_filter is None:
             logger.error(

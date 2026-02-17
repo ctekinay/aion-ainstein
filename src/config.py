@@ -243,6 +243,10 @@ class Settings(BaseSettings):
         default=None,
         description="Embed mode: chunked|full|both (env: AINSTEIN_EMBED_MODE)"
     )
+    ainstein_embedding_classifier: Optional[bool] = Field(
+        default=None,
+        description="Override embedding_classifier_enabled (env: AINSTEIN_EMBEDDING_CLASSIFIER)"
+    )
 
     @property
     def project_root(self) -> Path:
@@ -318,6 +322,7 @@ class Settings(BaseSettings):
             "abstain_gate_enabled": self.ainstein_abstain_gate,
             "tree_enabled": self.ainstein_tree_enabled,
             "debug_headers_enabled": self.ainstein_debug_headers,
+            "embedding_classifier_enabled": self.ainstein_embedding_classifier,
         }
         for key, value in overrides.items():
             if value is not None:
@@ -406,6 +411,7 @@ def _load_routing_policy(path: str) -> Dict[str, Any]:
         "tree_enabled": True,
         "intent_confidence_threshold": 0.55,
         "debug_headers_enabled": False,
+        "embedding_classifier_enabled": False,
     }
     policy_file = Path(path)
     if policy_file.exists():
@@ -436,6 +442,7 @@ def save_routing_policy(policy: Dict[str, Any]) -> None:
         "abstain_gate_enabled",
         "max_tree_seconds", "tree_enabled", "intent_confidence_threshold",
         "debug_headers_enabled",
+        "embedding_classifier_enabled",
     }
     filtered = {k: v for k, v in policy.items() if k in _KNOWN_KEYS}
     policy_path = Path(settings.resolve_path(settings.routing_policy_path))

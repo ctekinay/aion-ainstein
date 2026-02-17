@@ -1,0 +1,94 @@
+_meta:
+  version: "1.0"
+  last_updated: "2026-02-17"
+  total_prototypes: 83
+  note: "followup is handled by rule-based pre-check, not embedding classification"
+
+intents:
+
+  list:
+    # UNSCOPED catalog requests — "give me everything"
+    - "List all ADRs"
+    - "Show me all decisions"
+    - "Enumerate all principles"
+    - "What ADRs exist?"
+    - "Which decisions do we have?"
+    - "Show all policies"
+    - "Give me every ADR"
+    - "What principles are defined?"
+    - "Show me every principle"
+    - "What decisions exist?"
+
+  count:
+    - "How many ADRs are there?"
+    - "Total count of decisions"
+    - "Count of principles"
+    - "How many principles do we have?"
+    - "Number of ADRs"
+    - "How many policies exist?"
+    - "Total number of principles"
+    - "How many policies are there?"
+    - "Count the decisions"
+    - "How many DARs exist?"
+
+  lookup_doc:
+    # Prefixed refs
+    - "What does ADR.0012 decide?"
+    - "ADR-12 quote the decision"
+    - "Show me ADR 12 decision"
+    - "Show PCP.22 decision"
+    - "PCP.22 what does it state?"
+    - "Tell me about ADR.12"
+    - "Give me ADR.12"
+    # Bare number refs
+    - "What does 0022 decide?"
+    - "Show me document 22"
+    - "What does 22 decide?"
+    # Retrieval verbs with refs
+    - "Quote ADR.12"
+    - "Decision drivers of ADR.12"
+
+  semantic_answer:
+    # Topic queries with retrieval verbs
+    - "What principles do we have about interoperability?"
+    - "Summarize our approach to CIM adoption"
+    - "What security patterns are used?"
+    - "Describe the deployment strategy"
+    - "Explain the data governance model"
+    - "What conventions do we use for ADRs?"
+    # SCOPED list requests — these are semantic, not catalog lists
+    - "List all principles about interoperability"
+    - "List ADRs regarding security"
+    - "List principles related to CIM"
+    - "List principles on interoperability"
+    - "Show ADRs about data governance"
+    # Topic queries without retrieval verb
+    - "How do we handle semantic interoperability in ESA?"
+    - "What are the ESA architecture principles?"
+
+  compare:
+    - "Compare 22 and ADR.12"
+    - "Compare ADR.12 and ADR.13"
+    - "What's the difference between 22 and 12?"
+    - "How does PCP.01 relate to ADR.05?"
+    - "Differences between ADR.12 and PCP.22"
+    - "ADR.12 versus PCP.22"
+    - "ADR.12 vs ADR.13"
+    - "I would like to see the connection between ADR.12 and PCP.12"
+    - "How are ADR.12 and PCP.12 related?"
+    - "What links ADR.12 to PCP.12?"
+    - "What's the overlap between ADR.12 and PCP.12?"
+
+  conversational:
+    # Doc ref present but no retrieval intent — "cheeky" queries
+    - "I wish I had written ADR.12"
+    - "ADR.12 reminds me of my college days"
+    - "ADR.12 is the bane of my existence"
+    - "My cat sat on ADR.12"
+    - "ADR.25 walks into a bar"
+    - "Is ADR.12 even real"
+    - "ADR.12 spaghetti carbonara recipe"
+    - "I named my dog ADR.5"
+    - "Someone told me about ADR.5"
+    - "I like ADR.12"
+    - "ADRs are boring documents"

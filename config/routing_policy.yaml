@@ -6,3 +6,4 @@ abstain_gate_enabled: false
 max_tree_seconds: 120
 tree_enabled: true
 debug_headers_enabled: false
+embedding_classifier_enabled: false  # TODO: remove after 2026-03-15 if stable
