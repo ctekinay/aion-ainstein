@@ -1331,7 +1331,7 @@ if static_dir.exists():
 def run_server(host: str = "127.0.0.1", port: int = 8081):
     """Run the chat server."""
     import uvicorn
-    uvicorn.run(app, host=host, port=port)
+    uvicorn.run(app, host=host, port=port, loop="asyncio")
 
 
 if __name__ == "__main__":
