@@ -33,7 +33,7 @@ from .weaviate.client import get_weaviate_client
 from .weaviate.collections import get_collection_name
 from .weaviate.embeddings import embed_text
 from .elysia_agents import ElysiaRAGSystem, ELYSIA_AVAILABLE, configure_elysia_from_settings
-from .agents.architecture_agent import ArchitectureAgent
+from .agents.architecture_agent import ArchitectureAgent, create_classifier
 from .skills import SkillRegistry, get_skill_registry, DEFAULT_SKILL
 from .skills import api as skills_api
 from .skills.filters import build_document_filter
@@ -397,9 +397,13 @@ async def lifespan(app: FastAPI):
         logger.error(f"Failed to connect to Weaviate: {e}")
         raise
 
-    # Primary backend: ArchitectureAgent (demo v1 router)
-    _architecture_agent = ArchitectureAgent(_weaviate_client)
-    logger.info("ArchitectureAgent initialized (demo v1 backend)")
+    # Primary backend: ArchitectureAgent with embedding classifier
+    _classifier = create_classifier()
+    _architecture_agent = ArchitectureAgent(_weaviate_client, classifier=_classifier)
+    if _classifier:
+        logger.info("ArchitectureAgent initialized with embedding classifier")
+    else:
+        logger.info("ArchitectureAgent initialized (classifier disabled or unavailable)")
 
     # Elysia kept for comparison mode only — not used by /api/chat/stream
     if ELYSIA_AVAILABLE:
