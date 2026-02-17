@@ -29,6 +29,7 @@ from pydantic import BaseModel
 from weaviate.classes.query import Filter
 
 from .config import settings
+from .skills import api as skills_api
 from .weaviate.client import get_weaviate_client
 from .weaviate.embeddings import embed_text, close_embeddings_client
 from .elysia_agents import ElysiaRAGSystem, ELYSIA_AVAILABLE
@@ -287,6 +288,20 @@ class ConversationSummary(BaseModel):
     title: str
     created_at: str
     message_count: int
+
+
+class ThresholdsUpdate(BaseModel):
+    thresholds: dict
+
+
+class SkillContentUpdate(BaseModel):
+    content: Optional[str] = None
+    metadata: Optional[dict] = None
+    body: Optional[str] = None
+
+
+class SkillToggleRequest(BaseModel):
+    enabled: bool
 
 
 # Available models configuration
@@ -1322,6 +1337,119 @@ async def add_ollama_model(model_id: str):
 
     logger.info(f"Added new Ollama model: {model_id}")
     return {"status": "added", "model": new_model}
+
+
+# ============================================================================
+# Skills Management API
+# ============================================================================
+
+
+@app.get("/api/skills/defaults")
+async def get_skill_defaults():
+    """Get default configuration values for skills."""
+    try:
+        return skills_api.get_defaults()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/skills")
+async def list_skills():
+    """List all registered skills."""
+    try:
+        return {"skills": skills_api.list_skills()}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/skills/{skill_name}")
+async def get_skill(skill_name: str):
+    """Get detailed information about a specific skill."""
+    try:
+        return skills_api.get_skill(skill_name)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.put("/api/skills/{skill_name}/enabled")
+async def toggle_skill(skill_name: str, request: SkillToggleRequest):
+    """Toggle skill enabled/disabled status."""
+    try:
+        return skills_api.toggle_skill_enabled(skill_name, request.enabled)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/skills/{skill_name}/thresholds")
+async def get_skill_thresholds(skill_name: str):
+    """Get thresholds for a specific skill."""
+    try:
+        return {"thresholds": skills_api.get_thresholds(skill_name)}
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.put("/api/skills/{skill_name}/thresholds")
+async def update_skill_thresholds(skill_name: str, request: ThresholdsUpdate):
+    """Update thresholds for a specific skill."""
+    try:
+        return skills_api.update_thresholds(skill_name, request.thresholds)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/skills/{skill_name}/content")
+async def get_skill_content(skill_name: str):
+    """Get SKILL.md content for a specific skill."""
+    try:
+        return skills_api.get_skill_content(skill_name)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.put("/api/skills/{skill_name}/content")
+async def update_skill_content(skill_name: str, request: SkillContentUpdate):
+    """Update SKILL.md content for a specific skill."""
+    try:
+        return skills_api.update_skill_content(
+            skill_name,
+            content=request.content,
+            metadata=request.metadata,
+            body=request.body,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/skills/reload")
+async def reload_skills():
+    """Reload all skills from disk."""
+    try:
+        return skills_api.reload_skills()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/skills", response_class=HTMLResponse)
+async def skills_page():
+    """Serve the Skills Management UI."""
+    static_dir = Path(__file__).parent / "static"
+    skills_path = static_dir / "skills.html"
+    if skills_path.exists():
+        return FileResponse(skills_path)
+    return HTMLResponse("<h1>Skills UI not found</h1>")
 
 
 # Mount static files

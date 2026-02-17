@@ -1,0 +1,2215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AInstein - Skills Management</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        /* Dark theme (default) - Alliander Green */
+        :root {
+            --primary: #10b981;
+            --primary-dark: #059669;
+            --primary-light: #34d399;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --bg-dark: #1e1e2e;
+            --bg-card: #313244;
+            --bg-input: #45475a;
+            --text-primary: #cdd6f4;
+            --text-secondary: #a6adc8;
+            --text-muted: #6c7086;
+            --border: #45475a;
+        }
+
+        /* Light theme - Alliander Green */
+        [data-theme="light"] {
+            --primary: #059669;
+            --primary-dark: #047857;
+            --primary-light: #10b981;
+            --success: #059669;
+            --warning: #d97706;
+            --danger: #dc2626;
+            --bg-dark: #f8fafc;
+            --bg-card: #ffffff;
+            --bg-input: #e2e8f0;
+            --text-primary: #1e293b;
+            --text-secondary: #475569;
+            --text-muted: #64748b;
+            --border: #cbd5e1;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg-dark);
+            color: var(--text-primary);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        /* Header */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .header h1 {
+            font-size: 24px;
+            font-weight: 600;
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .theme-toggle {
+            background: var(--bg-input);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 8px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+
+        .theme-toggle:hover {
+            background: var(--border);
+        }
+
+        .theme-toggle svg {
+            color: var(--text-secondary);
+            transition: all 0.2s;
+        }
+
+        .theme-toggle:hover svg {
+            color: var(--text-primary);
+        }
+
+        /* Show sun in dark mode, moon in light mode */
+        .theme-toggle .sun-icon {
+            display: block;
+        }
+        .theme-toggle .moon-icon {
+            display: none;
+        }
+        [data-theme="light"] .theme-toggle .sun-icon {
+            display: none;
+        }
+        [data-theme="light"] .theme-toggle .moon-icon {
+            display: block;
+        }
+
+        .btn {
+            padding: 8px 16px;
+            border-radius: 6px;
+            border: none;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: var(--primary-dark);
+        }
+
+        .btn-secondary {
+            background: var(--bg-input);
+            color: var(--text-primary);
+        }
+
+        .btn-secondary:hover {
+            background: var(--border);
+        }
+
+        .btn-danger {
+            background: var(--danger);
+            color: white;
+        }
+
+        .btn-success {
+            background: var(--success);
+            color: white;
+        }
+
+        /* Navigation */
+        .nav-link {
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-size: 14px;
+        }
+
+        .nav-link:hover {
+            color: var(--text-primary);
+        }
+
+        /* Grid Layout */
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        @media (max-width: 900px) {
+            .grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Cards */
+        .card {
+            background: var(--bg-card);
+            border-radius: 12px;
+            padding: 20px;
+            border: 1px solid var(--border);
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .card-title {
+            font-size: 16px;
+            font-weight: 600;
+        }
+
+        /* Skills List */
+        .skill-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px;
+            background: var(--bg-dark);
+            border-radius: 8px;
+            margin-bottom: 10px;
+        }
+
+        .skill-info {
+            flex: 1;
+        }
+
+        .skill-name {
+            font-weight: 600;
+            margin-bottom: 4px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .skill-description {
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+
+        .skill-meta {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-top: 6px;
+        }
+
+        .badge {
+            font-size: 11px;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-weight: 500;
+        }
+
+        .badge-active {
+            background: rgba(16, 185, 129, 0.2);
+            color: var(--success);
+        }
+
+        .badge-default {
+            background: rgba(16, 185, 129, 0.2);
+            color: var(--primary);
+        }
+
+        /* Sliders */
+        .slider-group {
+            margin-bottom: 25px;
+        }
+
+        .slider-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+        }
+
+        .slider-label {
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .slider-value {
+            font-size: 14px;
+            color: var(--primary);
+            font-weight: 600;
+        }
+
+        .slider {
+            width: 100%;
+            height: 6px;
+            border-radius: 3px;
+            background: var(--bg-input);
+            outline: none;
+            -webkit-appearance: none;
+        }
+
+        .slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: var(--primary);
+            cursor: pointer;
+        }
+
+        .slider::-moz-range-thumb {
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: var(--primary);
+            cursor: pointer;
+            border: none;
+        }
+
+        .slider-labels {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 6px;
+            font-size: 11px;
+            color: var(--text-muted);
+        }
+
+        .slider-help {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-top: 6px;
+        }
+
+        /* Testing Panel */
+        .test-input-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .test-input {
+            flex: 1;
+            padding: 10px 14px;
+            border-radius: 6px;
+            border: 1px solid var(--border);
+            background: var(--bg-input);
+            color: var(--text-primary);
+            font-size: 14px;
+        }
+
+        .test-input:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+
+        .test-results {
+            background: var(--bg-dark);
+            border-radius: 8px;
+            padding: 15px;
+            font-size: 13px;
+            min-height: 150px;
+        }
+
+        .test-result-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+
+        .test-icon {
+            font-size: 16px;
+        }
+
+        .test-icon.pass { color: var(--success); }
+        .test-icon.warn { color: var(--warning); }
+        .test-icon.info { color: var(--primary); }
+
+        /* Status Messages */
+        .status-bar {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            padding: 12px 20px;
+            border-radius: 8px;
+            font-size: 14px;
+            display: none;
+            z-index: 1000;
+        }
+
+        .status-bar.success {
+            background: var(--success);
+            color: white;
+        }
+
+        .status-bar.error {
+            background: var(--danger);
+            color: white;
+        }
+
+        .status-bar.show {
+            display: block;
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Loading */
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: var(--text-muted);
+        }
+
+        /* Buttons row */
+        .button-row {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        /* Full width card */
+        .card-full {
+            grid-column: 1 / -1;
+        }
+
+        /* Modal Styles */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .modal-overlay.show {
+            display: flex;
+        }
+
+        .modal {
+            background: var(--bg-card);
+            border-radius: 12px;
+            width: 90%;
+            max-width: 800px;
+            max-height: 90vh;
+            display: flex;
+            flex-direction: column;
+            border: 1px solid var(--border);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .modal-title {
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 24px;
+            color: var(--text-muted);
+            cursor: pointer;
+            padding: 0;
+            line-height: 1;
+        }
+
+        .modal-close:hover {
+            color: var(--text-primary);
+        }
+
+        .modal-body {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+        }
+
+        .modal-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 20px;
+            border-top: 1px solid var(--border);
+        }
+
+        .modal-footer-left {
+            display: flex;
+            gap: 10px;
+        }
+
+        .modal-footer-right {
+            display: flex;
+            gap: 10px;
+        }
+
+        /* Tabs */
+        .tabs {
+            display: flex;
+            border-bottom: 1px solid var(--border);
+            margin-bottom: 20px;
+        }
+
+        .tab-btn {
+            padding: 10px 20px;
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            border-bottom: 2px solid transparent;
+            margin-bottom: -1px;
+            transition: all 0.2s;
+        }
+
+        .tab-btn:hover {
+            color: var(--text-primary);
+        }
+
+        .tab-btn.active {
+            color: var(--primary);
+            border-bottom-color: var(--primary);
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        /* Form Elements */
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-label {
+            display: block;
+            font-size: 14px;
+            font-weight: 500;
+            margin-bottom: 6px;
+        }
+
+        .form-help {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-top: 4px;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 10px 12px;
+            border-radius: 6px;
+            border: 1px solid var(--border);
+            background: var(--bg-input);
+            color: var(--text-primary);
+            font-size: 14px;
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+
+        .form-input.error {
+            border-color: var(--danger);
+        }
+
+        .form-input-small {
+            width: 120px;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        @media (max-width: 600px) {
+            .form-row {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* List Editor */
+        .list-editor {
+            background: var(--bg-dark);
+            border-radius: 8px;
+            padding: 15px;
+        }
+
+        .list-items {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 10px;
+            min-height: 36px;
+        }
+
+        .list-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 10px;
+            background: var(--bg-input);
+            border-radius: 4px;
+            font-size: 13px;
+        }
+
+        .list-item-remove {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            padding: 0;
+            font-size: 16px;
+            line-height: 1;
+        }
+
+        .list-item-remove:hover {
+            color: var(--danger);
+        }
+
+        .list-add-row {
+            display: flex;
+            gap: 8px;
+        }
+
+        .list-add-input {
+            flex: 1;
+            padding: 8px 10px;
+            border-radius: 4px;
+            border: 1px solid var(--border);
+            background: var(--bg-input);
+            color: var(--text-primary);
+            font-size: 13px;
+        }
+
+        /* Validation Errors */
+        .validation-errors {
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid var(--danger);
+            border-radius: 6px;
+            padding: 12px;
+            margin-bottom: 15px;
+        }
+
+        .validation-errors-title {
+            font-weight: 600;
+            color: var(--danger);
+            margin-bottom: 8px;
+        }
+
+        .validation-errors-list {
+            font-size: 13px;
+            color: var(--text-primary);
+        }
+
+        .validation-errors-list li {
+            margin-bottom: 4px;
+        }
+
+        /* Section Headers */
+        .section-header {
+            font-size: 15px;
+            font-weight: 600;
+            margin-bottom: 15px;
+            color: var(--text-primary);
+        }
+
+        /* Loading States */
+        .btn.loading {
+            position: relative;
+            pointer-events: none;
+            opacity: 0.7;
+        }
+
+        .btn.loading::after {
+            content: '';
+            position: absolute;
+            width: 14px;
+            height: 14px;
+            top: 50%;
+            left: 50%;
+            margin-left: -7px;
+            margin-top: -7px;
+            border: 2px solid transparent;
+            border-top-color: currentColor;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        .btn.loading span {
+            visibility: hidden;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Rule Editor Modal Styles */
+        .editor-modal {
+            max-width: 1200px;
+            height: 90vh;
+        }
+
+        .editor-modal .modal-body {
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .editor-container {
+            display: flex;
+            flex: 1;
+            gap: 20px;
+            overflow: hidden;
+        }
+
+        .editor-panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-width: 0;
+        }
+
+        .editor-panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .editor-panel-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-secondary);
+        }
+
+        .editor-textarea {
+            flex: 1;
+            width: 100%;
+            padding: 12px;
+            border-radius: 6px;
+            border: 1px solid var(--border);
+            background: var(--bg-dark);
+            color: var(--text-primary);
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 13px;
+            line-height: 1.5;
+            resize: none;
+            tab-size: 2;
+        }
+
+        .editor-textarea:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+
+        .preview-panel {
+            background: var(--bg-dark);
+            border-radius: 6px;
+            padding: 15px;
+            overflow-y: auto;
+            flex: 1;
+        }
+
+        .preview-panel h1 { font-size: 20px; margin: 0 0 12px 0; }
+        .preview-panel h2 { font-size: 18px; margin: 16px 0 8px 0; color: var(--primary); }
+        .preview-panel h3 { font-size: 16px; margin: 12px 0 6px 0; }
+        .preview-panel p { margin: 8px 0; line-height: 1.6; }
+        .preview-panel ul, .preview-panel ol { margin: 8px 0; padding-left: 20px; }
+        .preview-panel li { margin: 4px 0; }
+        .preview-panel code {
+            background: var(--bg-input);
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: monospace;
+        }
+        .preview-panel pre {
+            background: var(--bg-input);
+            padding: 12px;
+            border-radius: 6px;
+            overflow-x: auto;
+        }
+        .preview-panel pre code {
+            background: none;
+            padding: 0;
+        }
+        .preview-panel blockquote {
+            border-left: 3px solid var(--primary);
+            margin: 8px 0;
+            padding-left: 12px;
+            color: var(--text-secondary);
+        }
+
+        /* Metadata Panel */
+        .metadata-panel {
+            background: var(--bg-dark);
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+
+        .metadata-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+        }
+
+        .metadata-field {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .metadata-field.full-width {
+            grid-column: 1 / -1;
+        }
+
+        .metadata-label {
+            font-size: 12px;
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+
+        .metadata-input {
+            padding: 8px 10px;
+            border-radius: 4px;
+            border: 1px solid var(--border);
+            background: var(--bg-input);
+            color: var(--text-primary);
+            font-size: 13px;
+        }
+
+        .metadata-input:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+
+        .toggle-switch {
+            position: relative;
+            width: 44px;
+            height: 24px;
+        }
+
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: var(--bg-input);
+            transition: 0.3s;
+            border-radius: 24px;
+        }
+
+        .toggle-slider:before {
+            position: absolute;
+            content: "";
+            height: 18px;
+            width: 18px;
+            left: 3px;
+            bottom: 3px;
+            background-color: var(--text-muted);
+            transition: 0.3s;
+            border-radius: 50%;
+        }
+
+        .toggle-switch input:checked + .toggle-slider {
+            background-color: var(--primary);
+        }
+
+        .toggle-switch input:checked + .toggle-slider:before {
+            transform: translateX(20px);
+            background-color: white;
+        }
+
+        .view-toggle {
+            display: flex;
+            gap: 5px;
+        }
+
+        .view-toggle-btn {
+            padding: 4px 10px;
+            border: none;
+            background: var(--bg-input);
+            color: var(--text-secondary);
+            font-size: 12px;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+
+        .view-toggle-btn.active {
+            background: var(--primary);
+            color: white;
+        }
+
+        .skill-action-btn {
+            padding: 4px 8px;
+            font-size: 12px;
+            margin-left: 8px;
+        }
+
+        /* Skill Toggle */
+        .skill-toggle {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-left: auto;
+            padding-left: 15px;
+        }
+
+        .skill-toggle-label {
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        .badge-disabled {
+            background: rgba(239, 68, 68, 0.2);
+            color: var(--danger);
+        }
+
+        /* Restart Warning Banner */
+        .restart-warning {
+            background: rgba(245, 158, 11, 0.15);
+            border: 1px solid var(--warning);
+            border-radius: 8px;
+            padding: 12px 15px;
+            margin-bottom: 20px;
+            display: none;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .restart-warning.show {
+            display: flex;
+        }
+
+        .restart-warning-icon {
+            font-size: 18px;
+            color: var(--warning);
+        }
+
+        .restart-warning-text {
+            flex: 1;
+            font-size: 13px;
+            color: var(--text-primary);
+        }
+
+        .restart-warning-dismiss {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            font-size: 18px;
+            padding: 0;
+        }
+
+        .restart-warning-dismiss:hover {
+            color: var(--text-primary);
+        }
+
+        .restart-warning-btn {
+            background: var(--warning);
+            color: #000;
+            font-size: 12px;
+            padding: 4px 12px;
+            margin-right: 10px;
+        }
+
+        .restart-warning-btn:hover {
+            background: #d97706;
+        }
+
+        .restart-warning-btn.loading {
+            opacity: 0.7;
+            pointer-events: none;
+        }
+
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <div>
+                <h1>Skills Management</h1>
+                <a href="/" class="nav-link">← Back to Chat</a>
+            </div>
+            <div class="header-actions">
+                <button class="btn btn-secondary" onclick="reloadSkills()">Reload Skills</button>
+                <button class="theme-toggle" id="theme-toggle" onclick="toggleTheme()" title="Toggle light/dark mode">
+                    <svg class="sun-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="5"></circle>
+                        <line x1="12" y1="1" x2="12" y2="3"></line>
+                        <line x1="12" y1="21" x2="12" y2="23"></line>
+                        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                        <line x1="1" y1="12" x2="3" y2="12"></line>
+                        <line x1="21" y1="12" x2="23" y2="12"></line>
+                        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+                    </svg>
+                    <svg class="moon-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+                    </svg>
+                </button>
+            </div>
+        </header>
+
+        <div class="grid">
+            <!-- Skills List -->
+            <div class="card">
+                <div class="card-header">
+                    <span class="card-title">Registered Skills</span>
+                </div>
+                <div class="restart-warning" id="restart-warning">
+                    <span class="restart-warning-icon">&#9888;</span>
+                    <span class="restart-warning-text">
+                        Skill configuration changed. Reload to apply changes.
+                    </span>
+                    <button class="btn btn-warning restart-warning-btn" onclick="reloadSkills()">Reload Skills</button>
+                    <button class="restart-warning-dismiss" onclick="dismissRestartWarning()">&times;</button>
+                </div>
+                <div id="skills-list">
+                    <div class="loading">Loading skills...</div>
+                </div>
+            </div>
+
+            <!-- Quick Settings -->
+            <div class="card">
+                <div class="card-header">
+                    <span class="card-title">Quick Settings</span>
+                    <span id="settings-skill-name" class="badge badge-default"></span>
+                </div>
+
+                <div class="slider-group">
+                    <div class="slider-header">
+                        <span class="slider-label">Abstention Strictness</span>
+                        <span class="slider-value" id="distance-value">0.5</span>
+                    </div>
+                    <input type="range" class="slider" id="distance-slider"
+                           min="0.3" max="0.7" step="0.05" value="0.5"
+                           onchange="updateSliderValue('distance')">
+                    <div class="slider-labels">
+                        <span>Strict (0.3)</span>
+                        <span>Lenient (0.7)</span>
+                    </div>
+                    <div class="slider-help">Lower = pickier, abstains more often</div>
+                </div>
+
+                <div class="slider-group">
+                    <div class="slider-header">
+                        <span class="slider-label">Query Coverage Required</span>
+                        <span class="slider-value" id="coverage-value">0.2</span>
+                    </div>
+                    <input type="range" class="slider" id="coverage-slider"
+                           min="0.1" max="0.5" step="0.05" value="0.2"
+                           onchange="updateSliderValue('coverage')">
+                    <div class="slider-labels">
+                        <span>Low (0.1)</span>
+                        <span>High (0.5)</span>
+                    </div>
+                    <div class="slider-help">Higher = requires more query terms to match</div>
+                </div>
+
+                <div class="button-row">
+                    <button class="btn btn-primary" onclick="applySettings()">Apply Changes</button>
+                    <button class="btn btn-secondary" onclick="resetSettings()">Reset</button>
+                </div>
+
+                <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--border);">
+                    <button class="btn btn-secondary" style="width: 100%;" onclick="openConfigModal()">
+                        Full Configuration...
+                    </button>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Status Bar -->
+    <div class="status-bar" id="status-bar"></div>
+
+    <!-- Full Configuration Modal -->
+    <div class="modal-overlay" id="config-modal">
+        <div class="modal">
+            <div class="modal-header">
+                <span class="modal-title">Full Configuration - <span id="modal-skill-name"></span></span>
+                <button class="modal-close" onclick="closeConfigModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="validation-errors" class="validation-errors" style="display: none;">
+                    <div class="validation-errors-title">Validation Errors</div>
+                    <ul class="validation-errors-list" id="validation-errors-list"></ul>
+                </div>
+
+                <div class="tabs">
+                    <button class="tab-btn active" onclick="switchTab('abstention', this)">Abstention</button>
+                    <button class="tab-btn" onclick="switchTab('retrieval', this)">Retrieval Limits</button>
+                    <button class="tab-btn" onclick="switchTab('truncation', this)">Truncation</button>
+                    <button class="tab-btn" onclick="switchTab('listquery', this)">List Query Detection</button>
+                </div>
+
+                <!-- Abstention Tab -->
+                <div class="tab-content active" id="tab-abstention">
+                    <div class="section-header">Abstention Thresholds</div>
+                    <p class="form-help" style="margin-bottom: 20px;">
+                        Control when AInstein abstains from answering instead of potentially hallucinating.
+                    </p>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Distance Threshold</label>
+                            <input type="number" class="form-input" id="cfg-distance-threshold"
+                                   min="0" max="1" step="0.05" placeholder="0.5">
+                            <div class="form-help">
+                                Maximum vector distance to consider relevant (0.0-1.0).
+                                Lower = stricter, abstains more often.
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Min Query Coverage</label>
+                            <input type="number" class="form-input" id="cfg-min-coverage"
+                                   min="0" max="1" step="0.05" placeholder="0.2">
+                            <div class="form-help">
+                                Minimum fraction of query terms that must appear in results (0.0-1.0).
+                                Higher = requires more terms to match.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Retrieval Limits Tab -->
+                <div class="tab-content" id="tab-retrieval">
+                    <div class="section-header">Retrieval Limits</div>
+                    <p class="form-help" style="margin-bottom: 20px;">
+                        Control how many documents are retrieved from each collection.
+                    </p>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">ADRs Limit</label>
+                            <input type="number" class="form-input form-input-small" id="cfg-limit-adr"
+                                   min="1" max="50" step="1" placeholder="8">
+                            <div class="form-help">Max ADRs to retrieve (1-50)</div>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Principles Limit</label>
+                            <input type="number" class="form-input form-input-small" id="cfg-limit-principle"
+                                   min="1" max="50" step="1" placeholder="6">
+                            <div class="form-help">Max Principles to retrieve (1-50)</div>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Policies Limit</label>
+                            <input type="number" class="form-input form-input-small" id="cfg-limit-policy"
+                                   min="1" max="50" step="1" placeholder="4">
+                            <div class="form-help">Max Policy docs to retrieve (1-50)</div>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Vocabulary Limit</label>
+                            <input type="number" class="form-input form-input-small" id="cfg-limit-vocabulary"
+                                   min="1" max="50" step="1" placeholder="4">
+                            <div class="form-help">Max Vocabulary terms to retrieve (1-50)</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Truncation Tab -->
+                <div class="tab-content" id="tab-truncation">
+                    <div class="section-header">Truncation Limits</div>
+                    <p class="form-help" style="margin-bottom: 20px;">
+                        Control how much content is included in context to manage token usage.
+                    </p>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Content Max Chars</label>
+                            <input type="number" class="form-input form-input-small" id="cfg-content-max-chars"
+                                   min="100" max="5000" step="100" placeholder="800">
+                            <div class="form-help">Max characters for document content</div>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Elysia Content Chars</label>
+                            <input type="number" class="form-input form-input-small" id="cfg-elysia-content-chars"
+                                   min="100" max="2000" step="50" placeholder="500">
+                            <div class="form-help">Max chars for Elysia tool content fields</div>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Elysia Summary Chars</label>
+                            <input type="number" class="form-input form-input-small" id="cfg-elysia-summary-chars"
+                                   min="100" max="1000" step="50" placeholder="300">
+                            <div class="form-help">Max chars for Elysia summary fields</div>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Max Context Results</label>
+                            <input type="number" class="form-input form-input-small" id="cfg-max-context-results"
+                                   min="1" max="50" step="1" placeholder="10">
+                            <div class="form-help">Max results to include in LLM context</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- List Query Detection Tab -->
+                <div class="tab-content" id="tab-listquery">
+                    <div class="section-header">List Query Detection</div>
+                    <p class="form-help" style="margin-bottom: 20px;">
+                        Configure how list queries (e.g., "What ADRs exist?") are detected.
+                        List queries skip coverage check if distance is acceptable.
+                    </p>
+
+                    <div class="form-group">
+                        <label class="form-label">List Indicators</label>
+                        <div class="form-help" style="margin-bottom: 8px;">
+                            Words that indicate a list query (e.g., "list", "show", "all", "exist")
+                        </div>
+                        <div class="list-editor" id="list-indicators-editor">
+                            <div class="list-items" id="list-indicators-items"></div>
+                            <div class="list-add-row">
+                                <input type="text" class="list-add-input" id="list-indicators-input"
+                                       placeholder="Add indicator word...">
+                                <button class="btn btn-secondary" onclick="addListItem('indicators')">Add</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">List Patterns (Regex)</label>
+                        <div class="form-help" style="margin-bottom: 8px;">
+                            Regex patterns to detect list queries (e.g., "what\\s+\\w+s\\s+(are|exist)")
+                        </div>
+                        <div class="list-editor" id="list-patterns-editor">
+                            <div class="list-items" id="list-patterns-items"></div>
+                            <div class="list-add-row">
+                                <input type="text" class="list-add-input" id="list-patterns-input"
+                                       placeholder="Add regex pattern...">
+                                <button class="btn btn-secondary" onclick="addListItem('patterns')">Add</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Additional Stop Words</label>
+                        <div class="form-help" style="margin-bottom: 8px;">
+                            Extra words to ignore when computing query coverage
+                        </div>
+                        <div class="list-editor" id="list-stopwords-editor">
+                            <div class="list-items" id="list-stopwords-items"></div>
+                            <div class="list-add-row">
+                                <input type="text" class="list-add-input" id="list-stopwords-input"
+                                       placeholder="Add stop word...">
+                                <button class="btn btn-secondary" onclick="addListItem('stopwords')">Add</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <div class="modal-footer-left">
+                </div>
+                <div class="modal-footer-right">
+                    <button class="btn btn-secondary" onclick="closeConfigModal()"><span>Cancel</span></button>
+                    <button class="btn btn-primary" id="btn-save" onclick="saveFullConfig()"><span>Save Changes</span></button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Rule Editor Modal -->
+    <div class="modal-overlay" id="rule-editor-modal">
+        <div class="modal editor-modal">
+            <div class="modal-header">
+                <span class="modal-title">Rule Editor - <span id="editor-skill-name"></span></span>
+                <button class="modal-close" onclick="closeRuleEditor()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="editor-validation-errors" class="validation-errors" style="display: none;">
+                    <div class="validation-errors-title">Validation Errors</div>
+                    <ul class="validation-errors-list" id="editor-errors-list"></ul>
+                </div>
+
+                <!-- Metadata Panel -->
+                <div class="metadata-panel">
+                    <div class="metadata-grid">
+                        <div class="metadata-field">
+                            <label class="metadata-label">Skill Name</label>
+                            <input type="text" class="metadata-input" id="editor-name" placeholder="skill-name">
+                        </div>
+                        <div class="metadata-field">
+                            <label class="metadata-label">Auto-Activate</label>
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="editor-auto-activate">
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+                        <div class="metadata-field full-width">
+                            <label class="metadata-label">Description</label>
+                            <input type="text" class="metadata-input" id="editor-description" placeholder="Brief description of the skill">
+                        </div>
+                        <div class="metadata-field full-width">
+                            <label class="metadata-label">Triggers (comma-separated)</label>
+                            <input type="text" class="metadata-input" id="editor-triggers" placeholder="keyword1, keyword2, keyword3">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Editor Container -->
+                <div class="editor-container">
+                    <!-- Editor Panel -->
+                    <div class="editor-panel" id="editor-edit-panel">
+                        <div class="editor-panel-header">
+                            <span class="editor-panel-title">Markdown Editor</span>
+                            <div class="view-toggle">
+                                <button class="view-toggle-btn active" onclick="setEditorView('split', this)">Split</button>
+                                <button class="view-toggle-btn" onclick="setEditorView('edit', this)">Edit Only</button>
+                                <button class="view-toggle-btn" onclick="setEditorView('preview', this)">Preview Only</button>
+                            </div>
+                        </div>
+                        <textarea class="editor-textarea" id="editor-body"
+                            placeholder="# Skill Rules&#10;&#10;Write your skill rules in markdown..."></textarea>
+                    </div>
+
+                    <!-- Preview Panel -->
+                    <div class="editor-panel" id="editor-preview-panel">
+                        <div class="editor-panel-header">
+                            <span class="editor-panel-title">Preview</span>
+                        </div>
+                        <div class="preview-panel" id="editor-preview"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <div class="modal-footer-left">
+                </div>
+                <div class="modal-footer-right">
+                    <button class="btn btn-secondary" onclick="closeRuleEditor()"><span>Cancel</span></button>
+                    <button class="btn btn-primary" id="btn-editor-save" onclick="saveRules()"><span>Save Changes</span></button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+    <script>
+        // Theme management - sync with main UI
+        function initTheme() {
+            const savedTheme = localStorage.getItem('theme');
+            if (savedTheme) {
+                document.documentElement.setAttribute('data-theme', savedTheme);
+            } else {
+                // Check system preference
+                const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+                document.documentElement.setAttribute('data-theme', prefersDark ? 'dark' : 'light');
+            }
+        }
+
+        function toggleTheme() {
+            const currentTheme = document.documentElement.getAttribute('data-theme') || 'dark';
+            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            document.documentElement.setAttribute('data-theme', newTheme);
+            localStorage.setItem('theme', newTheme);
+        }
+
+        // Initialize theme immediately
+        initTheme();
+
+        // Default values - centralized for consistency
+        // Fallback defaults (used if API fails)
+        const FALLBACK_DEFAULTS = {
+            distance_threshold: 0.5,
+            min_query_coverage: 0.2,
+            limit_adr: 8,
+            limit_principle: 6,
+            limit_policy: 4,
+            limit_vocabulary: 4,
+            content_max_chars: 800,
+            elysia_content_chars: 500,
+            elysia_summary_chars: 300,
+            max_context_results: 10,
+            list_indicators: ['list', 'show', 'all', 'exist', 'exists', 'available', 'have', 'many', 'which', 'enumerate'],
+            additional_stop_words: ['are', 'there', 'exist', 'exists', 'list', 'show', 'all', 'me', 'give']
+        };
+
+        // DEFAULTS loaded from API (flattened for frontend use)
+        let DEFAULTS = { ...FALLBACK_DEFAULTS };
+
+        // Load defaults from API
+        async function loadDefaults() {
+            try {
+                const response = await fetch('/api/skills/defaults');
+                if (!response.ok) throw new Error('Failed to load defaults');
+                const data = await response.json();
+
+                // Flatten the nested API response to match frontend key names
+                DEFAULTS = {
+                    distance_threshold: data.abstention?.distance_threshold ?? FALLBACK_DEFAULTS.distance_threshold,
+                    min_query_coverage: data.abstention?.min_query_coverage ?? FALLBACK_DEFAULTS.min_query_coverage,
+                    limit_adr: data.retrieval_limits?.adr ?? FALLBACK_DEFAULTS.limit_adr,
+                    limit_principle: data.retrieval_limits?.principle ?? FALLBACK_DEFAULTS.limit_principle,
+                    limit_policy: data.retrieval_limits?.policy ?? FALLBACK_DEFAULTS.limit_policy,
+                    limit_vocabulary: data.retrieval_limits?.vocabulary ?? FALLBACK_DEFAULTS.limit_vocabulary,
+                    content_max_chars: data.truncation?.content_max_chars ?? FALLBACK_DEFAULTS.content_max_chars,
+                    elysia_content_chars: data.truncation?.elysia_content_chars ?? FALLBACK_DEFAULTS.elysia_content_chars,
+                    elysia_summary_chars: data.truncation?.elysia_summary_chars ?? FALLBACK_DEFAULTS.elysia_summary_chars,
+                    max_context_results: data.truncation?.max_context_results ?? FALLBACK_DEFAULTS.max_context_results,
+                    list_indicators: data.abstention?.list_indicators ?? FALLBACK_DEFAULTS.list_indicators,
+                    additional_stop_words: data.abstention?.additional_stop_words ?? FALLBACK_DEFAULTS.additional_stop_words
+                };
+            } catch (error) {
+                console.warn('Failed to load defaults from API, using fallbacks:', error);
+                DEFAULTS = { ...FALLBACK_DEFAULTS };
+            }
+        }
+
+        // UI timing constants (milliseconds)
+        const STATUS_DISPLAY_MS = 3000;
+
+        // State - currentSkill starts as null until loaded from API
+        let currentSkill = null;
+        let originalThresholds = null;
+        let skillsLoaded = false;
+
+        // API Functions
+        async function fetchSkills() {
+            try {
+                // Load defaults from API first
+                await loadDefaults();
+
+                const response = await fetch('/api/skills');
+                const data = await response.json();
+                renderSkillsList(data.skills);
+
+                // Load thresholds for default skill (first from API, not hardcoded)
+                if (data.skills.length > 0) {
+                    const defaultSkill = data.skills.find(s => s.is_default) || data.skills[0];
+                    currentSkill = defaultSkill.name;
+                    await loadThresholds(currentSkill);
+                    skillsLoaded = true;
+                } else {
+                    // No skills available - show message
+                    document.getElementById('settings-skill-name').textContent = 'No skills available';
+                    showStatus('No skills registered in the system', 'error');
+                }
+            } catch (error) {
+                showStatus('Error loading skills: ' + error.message, 'error');
+            }
+        }
+
+        async function loadThresholds(skillName) {
+            try {
+                const response = await fetch(`/api/skills/${skillName}/thresholds`);
+                const data = await response.json();
+
+                originalThresholds = JSON.parse(JSON.stringify(data.thresholds));
+
+                const abstention = data.thresholds.abstention || {};
+                document.getElementById('distance-slider').value = abstention.distance_threshold || DEFAULTS.distance_threshold;
+                document.getElementById('coverage-slider').value = abstention.min_query_coverage || DEFAULTS.min_query_coverage;
+
+                updateSliderValue('distance');
+                updateSliderValue('coverage');
+
+                document.getElementById('settings-skill-name').textContent = skillName;
+            } catch (error) {
+                showStatus('Error loading thresholds: ' + error.message, 'error');
+            }
+        }
+
+        async function applySettings() {
+            if (!currentSkill || !originalThresholds) {
+                showStatus('Please wait for skills to load', 'error');
+                return;
+            }
+
+            const distance = parseFloat(document.getElementById('distance-slider').value);
+            const coverage = parseFloat(document.getElementById('coverage-slider').value);
+
+            // Create updated thresholds
+            const thresholds = JSON.parse(JSON.stringify(originalThresholds));
+            thresholds.abstention = thresholds.abstention || {};
+            thresholds.abstention.distance_threshold = distance;
+            thresholds.abstention.min_query_coverage = coverage;
+
+            try {
+                const response = await fetch(`/api/skills/${currentSkill}/thresholds`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ thresholds })
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.detail || 'Failed to save');
+                }
+
+                const data = await response.json();
+                originalThresholds = data.thresholds;
+                showStatus('Settings saved! Backup created.', 'success');
+            } catch (error) {
+                showStatus('Error saving settings: ' + error.message, 'error');
+            }
+        }
+
+        async function resetSettings() {
+            if (!currentSkill || !originalThresholds) {
+                showStatus('Please wait for skills to load', 'error');
+                return;
+            }
+            const abstention = originalThresholds.abstention || {};
+            document.getElementById('distance-slider').value = abstention.distance_threshold || DEFAULTS.distance_threshold;
+            document.getElementById('coverage-slider').value = abstention.min_query_coverage || DEFAULTS.min_query_coverage;
+            updateSliderValue('distance');
+            updateSliderValue('coverage');
+            showStatus('Reset to last saved values', 'success');
+        }
+
+
+        // Note: reloadSkills() is defined later with button loading state
+
+        async function toggleSkillEnabled(skillName, enabled) {
+            try {
+                const response = await fetch(`/api/skills/${skillName}/enabled`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ enabled })
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.detail || 'Failed to toggle skill');
+                }
+
+                const data = await response.json();
+                showStatus(data.message, 'success');
+
+                // Refresh skills list (API auto-reloads, no manual reload needed)
+                fetchSkills();
+            } catch (error) {
+                showStatus('Error toggling skill: ' + error.message, 'error');
+                // Refresh to reset checkbox state
+                fetchSkills();
+            }
+        }
+
+
+        function showRestartWarning() {
+            document.getElementById('restart-warning').classList.add('show');
+        }
+
+        function dismissRestartWarning() {
+            document.getElementById('restart-warning').classList.remove('show');
+        }
+
+        async function reloadSkills() {
+            const btn = document.querySelector('.restart-warning-btn');
+
+            // Null check to prevent crash if button doesn't exist
+            if (btn) {
+                btn.classList.add('loading');
+                btn.textContent = 'Reloading...';
+            }
+
+            try {
+                const response = await fetch('/api/skills/reload', {
+                    method: 'POST'
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.detail || 'Failed to reload skills');
+                }
+
+                const data = await response.json();
+                showStatus(data.message + ` (${data.skill_count} skills loaded)`, 'success');
+                dismissRestartWarning();
+
+                // Refresh the skills list
+                fetchSkills();
+            } catch (error) {
+                showStatus('Error reloading skills: ' + error.message, 'error');
+            } finally {
+                if (btn) {
+                    btn.classList.remove('loading');
+                    btn.textContent = 'Reload Skills';
+                }
+            }
+        }
+
+
+        // Render Functions
+        function renderSkillsList(skills) {
+            const container = document.getElementById('skills-list');
+
+            if (skills.length === 0) {
+                container.innerHTML = '<p class="loading">No skills registered</p>';
+                return;
+            }
+
+            container.innerHTML = skills.map(skill => `
+                <div class="skill-item" data-skill-name="${escapeAttr(skill.name)}">
+                    <div class="skill-info">
+                        <div class="skill-name">
+                            ${escapeHtml(skill.name)}
+                            ${skill.enabled ? '<span class="badge badge-active">ACTIVE</span>' : '<span class="badge badge-disabled">DISABLED</span>'}
+                            ${skill.is_default ? '<span class="badge badge-default">DEFAULT</span>' : ''}
+                            <button class="btn btn-secondary skill-action-btn skill-edit-btn">Edit Rules</button>
+
+                        </div>
+                        <div class="skill-description">${escapeHtml(skill.description || 'No description')}</div>
+                        <div class="skill-meta">
+                            Auto-activate: ${skill.auto_activate ? 'Yes' : 'No'} |
+                            Distance: ${skill.distance_threshold} |
+                            Coverage: ${skill.min_query_coverage}
+                        </div>
+                    </div>
+                    <div class="skill-toggle">
+                        <span class="skill-toggle-label">Enabled</span>
+                        <label class="toggle-switch">
+                            <input type="checkbox" class="skill-enabled-toggle" ${skill.enabled ? 'checked' : ''}>
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+
+        // Utility Functions
+        function updateSliderValue(type) {
+            if (type === 'distance') {
+                const value = document.getElementById('distance-slider').value;
+                document.getElementById('distance-value').textContent = value;
+            } else {
+                const value = document.getElementById('coverage-slider').value;
+                document.getElementById('coverage-value').textContent = value;
+            }
+        }
+
+        function showStatus(message, type) {
+            const bar = document.getElementById('status-bar');
+            bar.textContent = message;
+            bar.className = 'status-bar ' + type + ' show';
+
+            setTimeout(() => {
+                bar.classList.remove('show');
+            }, STATUS_DISPLAY_MS);
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function escapeAttr(text) {
+            // Escape for use in HTML attributes
+            return text
+                .replace(/&/g, '&amp;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;');
+        }
+
+        // Modal State
+        let modalThresholds = null;
+        let listIndicators = [];
+        let listPatterns = [];
+        let listStopwords = [];
+
+        // Modal Functions
+        function openConfigModal() {
+            if (!currentSkill || !originalThresholds) {
+                showStatus('Please wait for skills to load', 'error');
+                return;
+            }
+
+            // Clone thresholds for editing
+            modalThresholds = JSON.parse(JSON.stringify(originalThresholds));
+
+            // Populate modal fields
+            document.getElementById('modal-skill-name').textContent = currentSkill;
+            populateModalFields(modalThresholds);
+
+            // Show modal
+            document.getElementById('config-modal').classList.add('show');
+
+            // Reset to first tab
+            switchTab('abstention');
+
+            // Hide validation errors
+            document.getElementById('validation-errors').style.display = 'none';
+        }
+
+        function closeConfigModal() {
+            document.getElementById('config-modal').classList.remove('show');
+        }
+
+        function switchTab(tabName, clickedBtn) {
+            // Update tab buttons
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            if (clickedBtn) {
+                clickedBtn.classList.add('active');
+            } else {
+                // If called programmatically, find the right button
+                document.querySelector(`.tab-btn[onclick*="${tabName}"]`).classList.add('active');
+            }
+
+            // Update tab content
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+            document.getElementById('tab-' + tabName).classList.add('active');
+        }
+
+        function populateModalFields(thresholds) {
+            // Abstention
+            const abstention = thresholds.abstention || {};
+            document.getElementById('cfg-distance-threshold').value = abstention.distance_threshold || DEFAULTS.distance_threshold;
+            document.getElementById('cfg-min-coverage').value = abstention.min_query_coverage || DEFAULTS.min_query_coverage;
+
+            // Retrieval limits
+            const limits = thresholds.retrieval_limits || {};
+            document.getElementById('cfg-limit-adr').value = limits.adr || DEFAULTS.limit_adr;
+            document.getElementById('cfg-limit-principle').value = limits.principle || DEFAULTS.limit_principle;
+            document.getElementById('cfg-limit-policy').value = limits.policy || DEFAULTS.limit_policy;
+            document.getElementById('cfg-limit-vocabulary').value = limits.vocabulary || DEFAULTS.limit_vocabulary;
+
+            // Truncation
+            const truncation = thresholds.truncation || {};
+            document.getElementById('cfg-content-max-chars').value = truncation.content_max_chars || DEFAULTS.content_max_chars;
+            document.getElementById('cfg-elysia-content-chars').value = truncation.elysia_content_chars || DEFAULTS.elysia_content_chars;
+            document.getElementById('cfg-elysia-summary-chars').value = truncation.elysia_summary_chars || DEFAULTS.elysia_summary_chars;
+            document.getElementById('cfg-max-context-results').value = truncation.max_context_results || DEFAULTS.max_context_results;
+
+            // List query detection (stored under abstention in YAML)
+            listIndicators = [...(abstention.list_indicators || DEFAULTS.list_indicators)];
+            listPatterns = [...(abstention.list_patterns || [])];
+            listStopwords = [...(abstention.additional_stop_words || DEFAULTS.additional_stop_words)];
+
+            renderListItems('indicators');
+            renderListItems('patterns');
+            renderListItems('stopwords');
+        }
+
+        function getModalThresholds() {
+            return {
+                abstention: {
+                    distance_threshold: parseFloat(document.getElementById('cfg-distance-threshold').value) || DEFAULTS.distance_threshold,
+                    min_query_coverage: parseFloat(document.getElementById('cfg-min-coverage').value) || DEFAULTS.min_query_coverage,
+                    // List query detection is stored under abstention
+                    list_indicators: listIndicators,
+                    list_patterns: listPatterns,
+                    additional_stop_words: listStopwords
+                },
+                retrieval_limits: {
+                    adr: parseInt(document.getElementById('cfg-limit-adr').value) || DEFAULTS.limit_adr,
+                    principle: parseInt(document.getElementById('cfg-limit-principle').value) || DEFAULTS.limit_principle,
+                    policy: parseInt(document.getElementById('cfg-limit-policy').value) || DEFAULTS.limit_policy,
+                    vocabulary: parseInt(document.getElementById('cfg-limit-vocabulary').value) || DEFAULTS.limit_vocabulary
+                },
+                truncation: {
+                    content_max_chars: parseInt(document.getElementById('cfg-content-max-chars').value) || DEFAULTS.content_max_chars,
+                    elysia_content_chars: parseInt(document.getElementById('cfg-elysia-content-chars').value) || DEFAULTS.elysia_content_chars,
+                    elysia_summary_chars: parseInt(document.getElementById('cfg-elysia-summary-chars').value) || DEFAULTS.elysia_summary_chars,
+                    max_context_results: parseInt(document.getElementById('cfg-max-context-results').value) || DEFAULTS.max_context_results
+                }
+            };
+        }
+
+
+        function showValidationErrors(errors) {
+            const container = document.getElementById('validation-errors');
+            const list = document.getElementById('validation-errors-list');
+
+            list.innerHTML = errors.map(e => `<li>${escapeHtml(e)}</li>`).join('');
+            container.style.display = 'block';
+        }
+
+        async function saveFullConfig() {
+            const btn = document.getElementById('btn-save');
+            btn.classList.add('loading');
+
+            try {
+                const thresholds = getModalThresholds();
+
+                const response = await fetch(`/api/skills/${currentSkill}/thresholds`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ thresholds })
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.detail || 'Failed to save');
+                }
+
+                const data = await response.json();
+                originalThresholds = data.thresholds;
+
+                // Update the quick settings sliders
+                const abstention = data.thresholds.abstention || {};
+                document.getElementById('distance-slider').value = abstention.distance_threshold || DEFAULTS.distance_threshold;
+                document.getElementById('coverage-slider').value = abstention.min_query_coverage || DEFAULTS.min_query_coverage;
+                updateSliderValue('distance');
+                updateSliderValue('coverage');
+
+                closeConfigModal();
+                showStatus('Full configuration saved! Backup created.', 'success');
+            } catch (error) {
+                showStatus('Error saving: ' + error.message, 'error');
+            } finally {
+                btn.classList.remove('loading');
+            }
+        }
+
+        // List Editor Functions
+        function renderListItems(type) {
+            let items, containerId;
+
+            switch (type) {
+                case 'indicators':
+                    items = listIndicators;
+                    containerId = 'list-indicators-items';
+                    break;
+                case 'patterns':
+                    items = listPatterns;
+                    containerId = 'list-patterns-items';
+                    break;
+                case 'stopwords':
+                    items = listStopwords;
+                    containerId = 'list-stopwords-items';
+                    break;
+            }
+
+            const container = document.getElementById(containerId);
+            container.innerHTML = items.map((item, index) => `
+                <div class="list-item">
+                    <span>${escapeHtml(item)}</span>
+                    <button class="list-item-remove" onclick="removeListItem('${type}', ${index})">&times;</button>
+                </div>
+            `).join('');
+        }
+
+        function addListItem(type) {
+            let inputId, items;
+
+            switch (type) {
+                case 'indicators':
+                    inputId = 'list-indicators-input';
+                    items = listIndicators;
+                    break;
+                case 'patterns':
+                    inputId = 'list-patterns-input';
+                    items = listPatterns;
+                    break;
+                case 'stopwords':
+                    inputId = 'list-stopwords-input';
+                    items = listStopwords;
+                    break;
+            }
+
+            const input = document.getElementById(inputId);
+            const value = input.value.trim();
+
+            if (!value) return;
+
+            // Validate regex patterns
+            if (type === 'patterns') {
+                try {
+                    new RegExp(value);
+                } catch (e) {
+                    showStatus('Invalid regex pattern: ' + e.message, 'error');
+                    return;
+                }
+            }
+
+            if (!items.includes(value)) {
+                items.push(value);
+                renderListItems(type);
+            }
+
+            input.value = '';
+        }
+
+        function removeListItem(type, index) {
+            switch (type) {
+                case 'indicators':
+                    listIndicators.splice(index, 1);
+                    break;
+                case 'patterns':
+                    listPatterns.splice(index, 1);
+                    break;
+                case 'stopwords':
+                    listStopwords.splice(index, 1);
+                    break;
+            }
+            renderListItems(type);
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', fetchSkills);
+
+        // Event delegation for skill list (avoids issues with quotes in skill names)
+        document.getElementById('skills-list').addEventListener('click', function(e) {
+            const skillItem = e.target.closest('.skill-item');
+            if (!skillItem) return;
+            const skillName = skillItem.dataset.skillName;
+
+            // Handle Edit Rules button
+            if (e.target.classList.contains('skill-edit-btn')) {
+                openRuleEditor(skillName);
+            }
+
+
+        });
+
+        document.getElementById('skills-list').addEventListener('change', function(e) {
+            if (e.target.classList.contains('skill-enabled-toggle')) {
+                const skillItem = e.target.closest('.skill-item');
+                if (!skillItem) return;
+                const skillName = skillItem.dataset.skillName;
+                toggleSkillEnabled(skillName, e.target.checked);
+            }
+        });
+
+
+
+        // Allow Enter key to add list items
+        ['indicators', 'patterns', 'stopwords'].forEach(type => {
+            document.getElementById(`list-${type}-input`).addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    addListItem(type);
+                }
+            });
+        });
+
+        // Close modals on Escape key (checks which modal is visible)
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+
+                // Close Rule Editor if open
+                const ruleEditorModal = document.getElementById('rule-editor-modal');
+                if (ruleEditorModal && ruleEditorModal.classList.contains('show')) {
+                    closeRuleEditor();
+                    return;
+                }
+                // Then check Config Modal
+                const configModal = document.getElementById('config-modal');
+                if (configModal && configModal.classList.contains('show')) {
+                    closeConfigModal();
+                }
+            }
+        });
+
+        // Close modal when clicking overlay background
+        document.getElementById('config-modal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeConfigModal();
+            }
+        });
+
+        // ============================================================================
+        // Rule Editor Functions (Phase 3)
+        // ============================================================================
+
+        let editorSkillName = null;
+        let originalSkillContent = null;
+        let editorView = 'split'; // 'split', 'edit', 'preview'
+
+        async function openRuleEditor(skillName) {
+            editorSkillName = skillName;
+            document.getElementById('editor-skill-name').textContent = skillName;
+
+            // Show modal
+            document.getElementById('rule-editor-modal').classList.add('show');
+
+            // Hide validation errors
+            document.getElementById('editor-validation-errors').style.display = 'none';
+
+            // Load skill content
+            try {
+                const response = await fetch(`/api/skills/${skillName}/content`);
+                if (!response.ok) {
+                    throw new Error('Failed to load skill content');
+                }
+                const data = await response.json();
+                originalSkillContent = data;
+
+                // Populate metadata fields
+                const meta = data.metadata || {};
+                document.getElementById('editor-name').value = meta.name || skillName;
+                document.getElementById('editor-description').value = meta.description || '';
+                document.getElementById('editor-auto-activate').checked = meta.auto_activate || false;
+                document.getElementById('editor-triggers').value = (meta.triggers || []).join(', ');
+
+                // Populate body
+                document.getElementById('editor-body').value = data.body || '';
+
+                // Update preview
+                updatePreview();
+
+                // Reset view to split
+                setEditorView('split');
+            } catch (error) {
+                showStatus('Error loading skill content: ' + error.message, 'error');
+                closeRuleEditor();
+            }
+        }
+
+        function closeRuleEditor() {
+            document.getElementById('rule-editor-modal').classList.remove('show');
+            editorSkillName = null;
+            originalSkillContent = null;
+        }
+
+        function setEditorView(view, clickedBtn) {
+            editorView = view;
+
+            // Update buttons
+            document.querySelectorAll('.view-toggle-btn').forEach(btn => btn.classList.remove('active'));
+            if (clickedBtn) {
+                clickedBtn.classList.add('active');
+            }
+
+            const editPanel = document.getElementById('editor-edit-panel');
+            const previewPanel = document.getElementById('editor-preview-panel');
+
+            switch (view) {
+                case 'edit':
+                    editPanel.style.display = 'flex';
+                    previewPanel.style.display = 'none';
+                    break;
+                case 'preview':
+                    editPanel.style.display = 'none';
+                    previewPanel.style.display = 'flex';
+                    break;
+                case 'split':
+                default:
+                    editPanel.style.display = 'flex';
+                    previewPanel.style.display = 'flex';
+                    break;
+            }
+        }
+
+        function updatePreview() {
+            const body = document.getElementById('editor-body').value;
+            const preview = document.getElementById('editor-preview');
+
+            // Simple markdown to HTML conversion
+            let html = body
+                // Escape HTML first
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                // Code blocks (before other transformations)
+                .replace(/```(\w*)\n([\s\S]*?)```/g, '<pre><code>$2</code></pre>')
+                // Inline code
+                .replace(/`([^`]+)`/g, '<code>$1</code>')
+                // Headers
+                .replace(/^### (.+)$/gm, '<h3>$1</h3>')
+                .replace(/^## (.+)$/gm, '<h2>$1</h2>')
+                .replace(/^# (.+)$/gm, '<h1>$1</h1>')
+                // Bold and italic
+                .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+                .replace(/\*(.+?)\*/g, '<em>$1</em>')
+                // Lists
+                .replace(/^- (.+)$/gm, '<li>$1</li>')
+                .replace(/^(\d+)\. (.+)$/gm, '<li>$2</li>')
+                // Wrap consecutive <li> in <ul>
+                .replace(/(<li>.*<\/li>\n?)+/g, '<ul>$&</ul>')
+                // Blockquotes
+                .replace(/^> (.+)$/gm, '<blockquote>$1</blockquote>')
+                // Paragraphs (double newlines)
+                .replace(/\n\n/g, '</p><p>')
+                // Single newlines in non-code areas
+                .replace(/\n/g, '<br>');
+
+            preview.innerHTML = '<p>' + html + '</p>';
+        }
+
+        function getEditorMetadata() {
+            const triggers = document.getElementById('editor-triggers').value
+                .split(',')
+                .map(t => t.trim())
+                .filter(t => t.length > 0);
+
+            return {
+                name: document.getElementById('editor-name').value.trim(),
+                description: document.getElementById('editor-description').value.trim(),
+                auto_activate: document.getElementById('editor-auto-activate').checked,
+                triggers: triggers
+            };
+        }
+
+
+        function showEditorErrors(errors) {
+            const container = document.getElementById('editor-validation-errors');
+            const list = document.getElementById('editor-errors-list');
+
+            list.innerHTML = errors.map(e => `<li>${escapeHtml(e)}</li>`).join('');
+            container.style.display = 'block';
+        }
+
+        function escapeYamlString(str) {
+            // Check if string needs quoting (contains special YAML chars)
+            if (!str) return '""';
+            const needsQuoting = /[:#{}\[\],&*?|<>=!%@`"'\n\r]/.test(str) ||
+                                 str.startsWith(' ') || str.endsWith(' ') ||
+                                 str === 'true' || str === 'false' ||
+                                 str === 'null' || str === 'yes' || str === 'no';
+            if (needsQuoting) {
+                // Use double quotes and escape internal double quotes and backslashes
+                const escaped = str.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\n/g, '\\n');
+                return `"${escaped}"`;
+            }
+            return str;
+        }
+
+        function buildSkillContent(metadata, body) {
+            // Build YAML frontmatter with proper escaping
+            let yaml = '---\n';
+            yaml += `name: ${escapeYamlString(metadata.name)}\n`;
+            yaml += `description: ${escapeYamlString(metadata.description)}\n`;
+            yaml += `auto_activate: ${metadata.auto_activate}\n`;
+            if (metadata.triggers.length > 0) {
+                yaml += `triggers:\n`;
+                metadata.triggers.forEach(t => {
+                    yaml += `  - ${escapeYamlString(t)}\n`;
+                });
+            }
+            yaml += '---\n\n';
+
+            return yaml + body;
+        }
+
+        async function saveRules() {
+            const btn = document.getElementById('btn-editor-save');
+            btn.classList.add('loading');
+
+            try {
+                const metadata = getEditorMetadata();
+                const body = document.getElementById('editor-body').value;
+
+                const response = await fetch(`/api/skills/${editorSkillName}/content`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ metadata, body })
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.detail || 'Failed to save');
+                }
+
+                const data = await response.json();
+                originalSkillContent = {
+                    metadata: data.metadata,
+                    body: data.body
+                };
+
+                closeRuleEditor();
+                showStatus('Rules saved! Backup created.', 'success');
+
+                // Reload skills to reflect any metadata changes
+                fetchSkills();
+            } catch (error) {
+                showStatus('Error saving: ' + error.message, 'error');
+            } finally {
+                btn.classList.remove('loading');
+            }
+        }
+
+
+        // Debounce utility for performance
+        function debounce(func, wait) {
+            let timeout;
+            return function executedFunction(...args) {
+                const later = () => {
+                    clearTimeout(timeout);
+                    func(...args);
+                };
+                clearTimeout(timeout);
+                timeout = setTimeout(later, wait);
+            };
+        }
+
+        // Live preview update on input (debounced for performance)
+        const debouncedPreview = debounce(updatePreview, 150);
+        document.getElementById('editor-body').addEventListener('input', debouncedPreview);
+
+        // Close rule editor when clicking overlay background
+        document.getElementById('rule-editor-modal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeRuleEditor();
+            }
+        });
+
+    </script>
+</body>
+</html>
