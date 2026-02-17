@@ -142,6 +142,40 @@ class CollectionManager:
             model=settings.openai_chat_model,
         )
 
+    def _get_chunk_properties(self) -> list[Property]:
+        """Get chunk-specific properties for chunked ingestion mode."""
+        return [
+            Property(
+                name="chunk_type",
+                data_type=DataType.TEXT,
+                description="Chunk level: document, section, or semantic_unit",
+                tokenization=Tokenization.FIELD,
+            ),
+            Property(
+                name="section_name",
+                data_type=DataType.TEXT,
+                description="Section name (e.g., Context, Decision, Consequences)",
+                tokenization=Tokenization.WORD,
+            ),
+            Property(
+                name="chunk_index",
+                data_type=DataType.INT,
+                description="Position of this chunk within the parent document",
+            ),
+            Property(
+                name="document_id",
+                data_type=DataType.TEXT,
+                description="ID linking chunks back to their parent document",
+                tokenization=Tokenization.FIELD,
+            ),
+            Property(
+                name="content_hash",
+                data_type=DataType.TEXT,
+                description="SHA-256 hash prefix for deduplication",
+                tokenization=Tokenization.FIELD,
+            ),
+        ]
+
     def _get_ownership_properties(self) -> list[Property]:
         """Get common ownership properties for all document collections."""
         return [
@@ -350,6 +384,8 @@ class CollectionManager:
                 ),
                 # Ownership properties from index.md
                 *self._get_ownership_properties(),
+                # Chunk properties for chunked ingestion mode
+                *self._get_chunk_properties(),
             ],
         )
 
@@ -408,6 +444,8 @@ class CollectionManager:
                 ),
                 # Ownership properties from index.md
                 *self._get_ownership_properties(),
+                # Chunk properties for chunked ingestion mode
+                *self._get_chunk_properties(),
             ],
         )
 
@@ -465,6 +503,8 @@ class CollectionManager:
                 ),
                 # Ownership properties from index.md
                 *self._get_ownership_properties(),
+                # Chunk properties for chunked ingestion mode
+                *self._get_chunk_properties(),
             ],
         )
 
@@ -630,6 +670,7 @@ class CollectionManager:
                     tokenization=Tokenization.FIELD,
                 ),
                 *self._get_ownership_properties(),
+                *self._get_chunk_properties(),
             ],
         )
 
@@ -684,6 +725,7 @@ class CollectionManager:
                     tokenization=Tokenization.WORD,
                 ),
                 *self._get_ownership_properties(),
+                *self._get_chunk_properties(),
             ],
         )
 
@@ -737,6 +779,7 @@ class CollectionManager:
                     tokenization=Tokenization.WORD,
                 ),
                 *self._get_ownership_properties(),
+                *self._get_chunk_properties(),
             ],
         )
 

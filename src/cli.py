@@ -111,6 +111,9 @@ def init(
     openai_batch_size: int = typer.Option(
         100, "--openai-batch-size", help="Batch size for OpenAI collections (can be larger since API is fast)"
     ),
+    chunked: bool = typer.Option(
+        False, "--chunked", help="Use section-based chunking (multiple chunks per document)"
+    ),
 ):
     """Initialize Weaviate collections and ingest data."""
     console.print(Panel("Initializing AION-AINSTEIN RAG System", style="bold blue"))
@@ -125,6 +128,8 @@ def init(
         console.print(f"  OPENAI_CHAT_MODEL: {settings.openai_chat_model}")
         console.print(f"  OPENAI_EMBEDDING_MODEL: {settings.openai_embedding_model}")
     console.print(f"  Batch sizes: Ollama={batch_size}, OpenAI={openai_batch_size}")
+    if chunked:
+        console.print(f"  [blue]Chunked ingestion: section-based splitting enabled[/blue]")
     if include_openai:
         console.print(f"  [blue]Including OpenAI collections for comparison[/blue]")
 
@@ -187,6 +192,7 @@ def init(
                 batch_size=batch_size,
                 openai_batch_size=openai_batch_size,
                 include_openai=include_openai,
+                chunked=chunked,
             )
 
             progress.update(task, description="[green]Ingestion complete!")
