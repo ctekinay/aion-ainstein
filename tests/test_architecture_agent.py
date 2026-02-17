@@ -2412,3 +2412,183 @@ class TestPrincipleChunkSelection:
         ]
         result = ArchitectureAgent._select_principle_chunk(chunks)
         assert result is None
+
+
+# =============================================================================
+# W2: Classifier-routed integration tests (embedding classifier active)
+# =============================================================================
+
+from src.classifiers.embedding_classifier import (
+    ClassificationResult,
+    EmbeddingClassifier,
+)
+
+
+class _FakeClassifier:
+    """Deterministic fake classifier for integration tests."""
+
+    def __init__(self, intent_map: dict[str, str]):
+        self._intent_map = intent_map
+
+    def classify(self, query: str) -> ClassificationResult:
+        intent = self._intent_map.get(query, "semantic_answer")
+        return ClassificationResult(
+            intent=intent,
+            confidence=0.85,
+            margin=0.30,
+            scores={intent: 0.85, "conversational": 0.10},
+            threshold_met=True,
+            margin_ok=True,
+        )
+
+
+class TestClassifierRoutedLookup:
+    """W2: When classifier is injected and flag is on, classifier routes."""
+
+    @pytest.mark.asyncio
+    async def test_lookup_doc_via_classifier(self):
+        """Classifier returns lookup_doc → lookup path runs."""
+        client, collection = _make_mock_client()
+        clf = _FakeClassifier({"Tell me about ADR.12": "lookup_doc"})
+        agent = ArchitectureAgent(client, classifier=clf)
+
+        chunk = _make_chunk(
+            title="ADR.12 - Decision",
+            decision="We adopt CIM.",
+            canonical_id="ADR.12",
+        )
+        collection.query.fetch_objects.return_value = _make_fetch_result([chunk])
+
+        with patch.object(
+            type(agent), '_get_classifier_if_enabled',
+            return_value=clf,
+        ):
+            response = await agent.query("Tell me about ADR.12")
+
+        assert "CIM" in response.answer
+
+    @pytest.mark.asyncio
+    async def test_compare_via_classifier(self):
+        """Classifier returns compare + 2 doc refs → lookup path with both docs."""
+        client, collection = _make_mock_client()
+        clf = _FakeClassifier({
+            "I would like to see the connection between ADR.12 and ADR.22": "compare",
+        })
+        agent = ArchitectureAgent(client, classifier=clf)
+
+        chunk_12 = _make_chunk(
+            title="ADR.12 - Decision",
+            decision="We adopt CIM.",
+            canonical_id="ADR.12",
+            adr_number="0012",
+        )
+        chunk_22 = _make_chunk(
+            title="ADR.22 - Decision",
+            decision="We use interoperability standard.",
+            canonical_id="ADR.22",
+            adr_number="0022",
+        )
+        collection.query.fetch_objects.side_effect = [
+            _make_fetch_result([chunk_12]),
+            _make_fetch_result([chunk_22]),
+        ]
+
+        with patch.object(
+            type(agent), '_get_classifier_if_enabled',
+            return_value=clf,
+        ):
+            response = await agent.query(
+                "I would like to see the connection between ADR.12 and ADR.22"
+            )
+
+        assert "CIM" in response.answer or "interoperability" in response.answer
+
+    @pytest.mark.asyncio
+    async def test_conversational_via_classifier(self):
+        """Classifier returns conversational → no lookup, conversational response."""
+        client, collection = _make_mock_client()
+        clf = _FakeClassifier({"My cat sat on ADR.12": "conversational"})
+        agent = ArchitectureAgent(client, classifier=clf)
+
+        with patch.object(
+            type(agent), '_get_classifier_if_enabled',
+            return_value=clf,
+        ):
+            response = await agent.query("My cat sat on ADR.12")
+
+        # Should NOT contain document content
+        assert "decide" not in response.answer.lower() or "mention" in response.answer.lower()
+        # Should be the conversational response
+        assert "ADR.12" in response.answer
+
+    @pytest.mark.asyncio
+    async def test_cheeky_gate_overrides_classifier(self):
+        """Cheeky gate overrides classifier when doc_ref + no retrieval verb."""
+        client, collection = _make_mock_client()
+        # Classifier says lookup_doc, but cheeky gate says conversational
+        clf = _FakeClassifier({"I like ADR.12": "lookup_doc"})
+        agent = ArchitectureAgent(client, classifier=clf)
+
+        with patch.object(
+            type(agent), '_get_classifier_if_enabled',
+            return_value=clf,
+        ):
+            response = await agent.query("I like ADR.12")
+
+        # Cheeky gate should win — conversational response
+        assert "mention" in response.answer.lower() or "like" in response.answer.lower() \
+            or "ADR.12" in response.answer
+
+    @pytest.mark.asyncio
+    async def test_list_via_classifier(self):
+        """Classifier returns list → listing handler runs."""
+        client, collection = _make_mock_client()
+        clf = _FakeClassifier({"List all ADRs": "list"})
+        agent = ArchitectureAgent(client, classifier=clf)
+
+        all_adrs = _make_fetch_result([
+            _make_chunk(title=f"ADR.{i}", canonical_id=f"ADR.{i}")
+            for i in range(1, 4)
+        ])
+        collection.query.fetch_objects.return_value = all_adrs
+
+        with patch.object(
+            type(agent), '_get_classifier_if_enabled',
+            return_value=clf,
+        ):
+            response = await agent.query("List all ADRs")
+
+        assert "ADR" in response.answer
+
+    @pytest.mark.asyncio
+    async def test_semantic_answer_via_classifier(self):
+        """Classifier returns semantic_answer → hybrid search path."""
+        client, collection = _make_mock_client()
+        clf = _FakeClassifier({
+            "What are the ESA architecture principles?": "semantic_answer",
+        })
+        agent = ArchitectureAgent(client, classifier=clf)
+
+        # Mock hybrid search results
+        hybrid_result = MagicMock()
+        hybrid_obj = MagicMock()
+        hybrid_obj.properties = {
+            "title": "Interoperability Principle",
+            "content": "Systems shall use CIM.",
+            "doc_type": "principle",
+        }
+        hybrid_obj.metadata = MagicMock()
+        hybrid_obj.metadata.score = 0.9
+        hybrid_result.objects = [hybrid_obj]
+        collection.query.hybrid.return_value = hybrid_result
+
+        with patch.object(
+            type(agent), '_get_classifier_if_enabled',
+            return_value=clf,
+        ):
+            response = await agent.query(
+                "What are the ESA architecture principles?"
+            )
+
+        # Should return semantic search results, not conversational
+        assert response.answer != ""

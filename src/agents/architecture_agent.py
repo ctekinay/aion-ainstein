@@ -472,6 +472,31 @@ def _fetch_all_objects(collection, return_properties: list[str] = None, page_siz
     return all_objects
 
 
+def create_classifier() -> Optional[EmbeddingClassifier]:
+    """Factory: create EmbeddingClassifier from Ollama + prototype YAML.
+
+    Returns None if Ollama is unreachable or prototypes missing.
+    Call during app startup / warmup, then inject into ArchitectureAgent.
+    """
+    policy = settings.get_routing_policy()
+    if not policy.get("embedding_classifier_enabled", False):
+        logger.info("Embedding classifier disabled by routing policy")
+        return None
+    try:
+        from ..weaviate.embeddings import embed_text, embed_texts
+        proto_path = settings.resolve_path(Path("config/intent_prototypes.yaml"))
+        classifier = EmbeddingClassifier(
+            embed_fn=embed_text,
+            embed_batch_fn=embed_texts,
+            prototype_file=proto_path,
+        )
+        logger.info("EmbeddingClassifier ready from %s", proto_path)
+        return classifier
+    except Exception as e:
+        logger.error("EmbeddingClassifier init failed: %s", e)
+        return None
+
+
 # =============================================================================
 # ArchitectureAgent
 # =============================================================================
@@ -494,38 +519,23 @@ class ArchitectureAgent(BaseAgent):
         Args:
             client: Connected Weaviate client
             llm_client: Optional LLM client for generation
-            classifier: Optional embedding classifier (injected for testing;
-                lazy-initialized from Ollama in production when flag is on)
+            classifier: Optional embedding classifier. When provided AND the
+                feature flag is on, the classifier routes queries. When None,
+                the old scoring gate routes regardless of flag.
+
+        Production wiring: create the classifier in chat_ui.py (or app startup)
+        and inject it here. This keeps the agent stateless and tests deterministic.
         """
         super().__init__(client, llm_client)
         self._classifier = classifier
-        self._classifier_initialized = classifier is not None
 
     def _get_classifier_if_enabled(self) -> Optional[EmbeddingClassifier]:
-        """Return the embedding classifier if the feature flag is on.
-
-        Lazy-initializes from Ollama on first call. Returns None if disabled
-        or if initialization fails (logs error but does not raise).
-        """
+        """Return the embedding classifier if both injected AND flag is on."""
+        if self._classifier is None:
+            return None
         policy = settings.get_routing_policy()
         if not policy.get("embedding_classifier_enabled", False):
             return None
-
-        if not self._classifier_initialized:
-            try:
-                from ..weaviate.embeddings import embed_text, embed_texts
-                proto_path = settings.resolve_path(Path("config/intent_prototypes.yaml"))
-                self._classifier = EmbeddingClassifier(
-                    embed_fn=embed_text,
-                    embed_batch_fn=embed_texts,
-                    prototype_file=proto_path,
-                )
-                self._classifier_initialized = True
-                logger.info("EmbeddingClassifier initialized from %s", proto_path)
-            except Exception as e:
-                logger.error("EmbeddingClassifier init failed: %s", e)
-                self._classifier_initialized = True  # Don't retry
-                self._classifier = None
         return self._classifier
 
     # -----------------------------------------------------------------
@@ -635,43 +645,80 @@ class ArchitectureAgent(BaseAgent):
                 [r.get("canonical_id", "?") for r in last_doc_refs],
             )
 
-        # Step 2a: Shadow-mode embedding classification (log-only, no routing)
+        # Step 2: Intent classification — embedding classifier or scoring gate
+        classifier = self._get_classifier_if_enabled()
         classify_result: Optional[ClassificationResult] = None
-        if self._get_classifier_if_enabled() is not None:
+
+        if classifier is not None:
+            # ── Classifier-routed path (flag=true) ──────────────────────
             try:
-                classify_result = self._classifier.classify(question)
-                logger.info(
-                    "CLASSIFY_SHADOW intent=%s conf=%.2f margin=%.2f "
-                    "threshold_met=%s margin_ok=%s",
-                    classify_result.intent, classify_result.confidence,
-                    classify_result.margin, classify_result.threshold_met,
-                    classify_result.margin_ok,
-                )
+                classify_result = classifier.classify(question)
             except Exception:
-                logger.warning("Shadow classifier failed, continuing with scoring gate")
+                logger.error("Classifier failed, falling back to scoring gate")
+                classify_result = None
 
-        # Step 2: Score intents
-        scores = _score_intents(signals)
+            if classify_result is not None:
+                winner = classify_result.intent
+                threshold_met = classify_result.threshold_met
+                margin_ok = classify_result.margin_ok
 
-        # Step 3: Select winner
-        winner, threshold_met, margin_ok = _select_winner(scores)
+                # Shadow: run old scoring gate for parity logging
+                old_scores = _score_intents(signals)
+                old_winner, _, _ = _select_winner(old_scores)
 
-        # Build trace
-        trace = RouteTrace(
-            doc_refs_detected=[r["canonical_id"] for r in signals.doc_refs],
-            signals={k: v for k, v in asdict(signals).items() if k != "doc_refs"},
-            scores=scores,
-            winner=winner or "none",
-            threshold_met=threshold_met,
-            margin_ok=margin_ok,
-            bare_number_resolution=bare_number_status,
-            followup_injected=followup_injected,
-        )
+                trace = RouteTrace(
+                    doc_refs_detected=[r["canonical_id"] for r in signals.doc_refs],
+                    signals={
+                        "classifier_intent": classify_result.intent,
+                        "classifier_confidence": classify_result.confidence,
+                        "_shadow_old_winner": old_winner or "none",
+                    },
+                    scores=classify_result.scores,
+                    winner=winner,
+                    threshold_met=threshold_met,
+                    margin_ok=margin_ok,
+                    bare_number_resolution=bare_number_status,
+                    followup_injected=followup_injected,
+                )
 
-        # Attach shadow classifier result to trace for parity analysis
-        if classify_result is not None:
-            trace.signals["_shadow_classifier_intent"] = classify_result.intent
-            trace.signals["_shadow_classifier_confidence"] = classify_result.confidence
+                # Log parity disagreement
+                effective_old = old_winner or "semantic_answer"
+                if signals.has_doc_ref and not signals.has_retrieval_verb:
+                    effective_old = "conversational"
+                if effective_old != winner:
+                    logger.info(
+                        "PARITY_DISAGREE old=%s new=%s query=%s",
+                        effective_old, winner, question[:80],
+                    )
+
+                # Cheeky gate secondary check (transitional — remove Week 3)
+                if (signals.has_doc_ref and not signals.has_retrieval_verb
+                        and winner != "conversational"):
+                    logger.info(
+                        "CHEEKY_GATE_DISAGREE classifier=%s cheeky_gate=conversational "
+                        "query=%s",
+                        winner, question[:80],
+                    )
+                    # During transition: trust the cheeky gate, override classifier
+                    winner = "conversational"
+                    trace.signals["_cheeky_gate_override"] = True
+
+        if classify_result is None:
+            # ── Old scoring gate path (flag=false or classifier failed) ─
+            scores = _score_intents(signals)
+            winner_raw, threshold_met, margin_ok = _select_winner(scores)
+            winner = winner_raw
+
+            trace = RouteTrace(
+                doc_refs_detected=[r["canonical_id"] for r in signals.doc_refs],
+                signals={k: v for k, v in asdict(signals).items() if k != "doc_refs"},
+                scores=scores,
+                winner=winner or "none",
+                threshold_met=threshold_met,
+                margin_ok=margin_ok,
+                bare_number_resolution=bare_number_status,
+                followup_injected=followup_injected,
+            )
 
         # Step 4: Route by winner
         if threshold_met and margin_ok and winner:
@@ -695,17 +742,33 @@ class ArchitectureAgent(BaseAgent):
                 self._emit_trace(trace)
                 return response
 
+            if winner == "compare" and len(signals.doc_refs) >= 2:
+                trace.intent = "compare"
+                response = await self._handle_lookup_query(
+                    question, signals.doc_refs, trace,
+                )
+                self._emit_trace(trace)
+                return response
+
             if winner == "semantic_answer":
                 trace.intent = "semantic_answer"
                 # fall through to semantic path below
 
         # Step 5: Fallback — no confident winner
-        # If doc refs present but no retrieval verb → conversational
-        if signals.has_doc_ref and not signals.has_retrieval_verb:
-            trace.intent = trace.intent or "conversational"
-            trace.path = "conversational"
-            self._emit_trace(trace)
-            return self._conversational_response(question, signals.doc_refs)
+        if classify_result is None:
+            # Old path: cheeky gate (doc refs + no retrieval verb → conversational)
+            if signals.has_doc_ref and not signals.has_retrieval_verb:
+                trace.intent = trace.intent or "conversational"
+                trace.path = "conversational"
+                self._emit_trace(trace)
+                return self._conversational_response(question, signals.doc_refs)
+        else:
+            # Classifier path: conversational if winner is conversational
+            if winner == "conversational":
+                trace.intent = "conversational"
+                trace.path = "conversational"
+                self._emit_trace(trace)
+                return self._conversational_response(question, signals.doc_refs)
 
         # Step 6: Semantic search — scope-aware
         trace.intent = trace.intent or "semantic_answer"
