@@ -23,7 +23,7 @@ from .config import settings
 from .weaviate.client import get_weaviate_client, weaviate_client
 from .weaviate.collections import CollectionManager
 from .weaviate.ingestion import DataIngestionPipeline
-from .agents import OrchestratorAgent
+from .elysia_agents import ElysiaRAGSystem, ELYSIA_AVAILABLE
 
 # Set up logging
 logging.basicConfig(
@@ -250,22 +250,16 @@ def status():
 @app.command()
 def query(
     question: str = typer.Argument(..., help="Question to ask the system"),
-    agent: Optional[str] = typer.Option(
-        None, "--agent", "-a", help="Specific agent to use (vocabulary, architecture, policy)"
-    ),
-    all_agents: bool = typer.Option(
-        False, "--all", help="Query all agents"
-    ),
     verbose: bool = typer.Option(
         False, "--verbose", "-v", help="Show detailed output including sources"
     ),
 ):
-    """Query the knowledge base using the multi-agent system."""
+    """Query the knowledge base using the Elysia RAG system."""
     console.print(Panel(f"Query: {question}", style="bold blue"))
 
     try:
         with weaviate_client() as client:
-            orchestrator = OrchestratorAgent(client)
+            rag = ElysiaRAGSystem(client)
 
             with Progress(
                 SpinnerColumn(),
@@ -274,35 +268,20 @@ def query(
             ) as progress:
                 task = progress.add_task("Processing query...", total=None)
 
-                # Run the async query
-                agent_names = [agent] if agent else None
-                response = asyncio.run(
-                    orchestrator.query(
-                        question,
-                        use_all_agents=all_agents,
-                        agent_names=agent_names,
-                    )
-                )
+                response_text, results = asyncio.run(rag.query(question))
 
                 progress.update(task, description="[green]Query complete!")
 
-            # Display routing decision
-            console.print(f"\n[dim]Agents used: {', '.join(response.routing_decision.get('agents', []))}[/dim]")
-            console.print(f"[dim]Routing reason: {response.routing_decision.get('reason', '')}[/dim]")
-            console.print(f"[dim]Confidence: {response.confidence:.2f}[/dim]\n")
-
             # Display answer
-            console.print(Panel(Markdown(response.answer), title="Answer", border_style="green"))
+            console.print(Panel(Markdown(response_text), title="Answer", border_style="green"))
 
             # Display sources if verbose
-            if verbose and response.agent_responses:
+            if verbose and results:
                 console.print("\n[bold]Sources:[/bold]")
-                for agent_response in response.agent_responses:
-                    if agent_response.sources:
-                        console.print(f"\n[cyan]{agent_response.agent_name}:[/cyan]")
-                        for source in agent_response.sources[:5]:
-                            title = source.get("title") or source.get("label") or "Unknown"
-                            console.print(f"  - {title}")
+                for r in results[:10]:
+                    title = r.get("title") or r.get("label") or "Unknown"
+                    doc_type = r.get("type", "")
+                    console.print(f"  - [{doc_type}] {title}")
 
     except Exception as e:
         console.print(f"[red]Query failed: {e}")
@@ -319,44 +298,65 @@ def search(
     ),
     limit: int = typer.Option(5, "--limit", "-n", help="Maximum results"),
 ):
-    """Search the knowledge base directly."""
+    """Search the knowledge base directly via hybrid search."""
     console.print(Panel(f"Search: {query_text}", style="bold blue"))
 
     try:
+        from .weaviate.embeddings import embed_text
+
         with weaviate_client() as client:
-            orchestrator = OrchestratorAgent(client)
+            use_openai = settings.llm_provider == "openai"
+            suffix = "_OpenAI" if use_openai else ""
+
+            # Compute query vector for Ollama collections
+            query_vector = None
+            if not use_openai:
+                try:
+                    query_vector = embed_text(query_text)
+                except Exception as e:
+                    logger.warning(f"Failed to compute query embedding: {e}")
+
+            collection_map = {
+                "vocabulary": "Vocabulary",
+                "adr": "ArchitecturalDecision",
+                "principle": "Principle",
+                "policy": "PolicyDocument",
+            }
 
             if collection == "all":
-                results = asyncio.run(orchestrator.search_all(query_text, limit=limit))
+                search_collections = list(collection_map.items())
+            elif collection in collection_map:
+                search_collections = [(collection, collection_map[collection])]
             else:
-                agent_map = {
-                    "vocabulary": orchestrator.vocabulary_agent,
-                    "adr": orchestrator.architecture_agent,
-                    "principle": orchestrator.architecture_agent,  # Principles are under architecture
-                    "policy": orchestrator.policy_agent,
-                }
-                agent = agent_map.get(collection)
-                if not agent:
-                    console.print(f"[red]Unknown collection: {collection}")
-                    raise typer.Exit(1)
+                console.print(f"[red]Unknown collection: {collection}")
+                raise typer.Exit(1)
 
-                results = {collection: agent.hybrid_search(query_text, limit=limit)}
+            for coll_name, coll_base in search_collections:
+                try:
+                    wv_collection = client.collections.get(f"{coll_base}{suffix}")
+                    results = wv_collection.query.hybrid(
+                        query=query_text,
+                        vector=query_vector,
+                        limit=limit,
+                        alpha=settings.alpha_default,
+                    )
 
-            # Display results
-            for coll_name, coll_results in results.items():
-                if coll_results:
-                    table = Table(title=f"{coll_name.title()} Results")
-                    table.add_column("Title/Label", style="cyan", max_width=40)
-                    table.add_column("Preview", style="white", max_width=60)
+                    if results.objects:
+                        table = Table(title=f"{coll_name.title()} Results")
+                        table.add_column("Title/Label", style="cyan", max_width=40)
+                        table.add_column("Preview", style="white", max_width=60)
 
-                    for doc in coll_results:
-                        title = doc.get("title") or doc.get("pref_label") or "Unknown"
-                        content = doc.get("content") or doc.get("definition") or doc.get("full_text") or ""
-                        preview = content[:100] + "..." if len(content) > 100 else content
-                        table.add_row(title, preview)
+                        for obj in results.objects:
+                            props = obj.properties
+                            title = props.get("title") or props.get("pref_label") or "Unknown"
+                            content = props.get("content") or props.get("definition") or props.get("full_text") or ""
+                            preview = content[:100] + "..." if len(content) > 100 else content
+                            table.add_row(title, preview)
 
-                    console.print(table)
-                    console.print()
+                        console.print(table)
+                        console.print()
+                except Exception as e:
+                    logger.warning(f"Search failed for {coll_base}{suffix}: {e}")
 
     except Exception as e:
         console.print(f"[red]Search failed: {e}")
@@ -365,22 +365,21 @@ def search(
 
 @app.command()
 def agents():
-    """List available agents and their capabilities."""
-    console.print(Panel("Available Agents", style="bold blue"))
+    """List available knowledge domains and collections."""
+    console.print(Panel("Knowledge Domains", style="bold blue"))
 
-    try:
-        with weaviate_client() as client:
-            orchestrator = OrchestratorAgent(client)
-            agent_info = orchestrator.get_agent_info()
+    suffix = "_OpenAI" if settings.llm_provider == "openai" else ""
+    domains = [
+        ("Vocabulary", f"Vocabulary{suffix}", "SKOS/OWL vocabulary concepts from IEC standards (CIM, 61970, 61968, 62325)"),
+        ("Architecture", f"ArchitecturalDecision{suffix}", "Architectural Decision Records (ADRs) and design rationale"),
+        ("Principles", f"Principle{suffix}", "Architecture and governance principles (ESA + Data Office)"),
+        ("Policy", f"PolicyDocument{suffix}", "Data governance and compliance policy documents"),
+    ]
 
-            for info in agent_info:
-                console.print(f"\n[bold cyan]{info['name']}[/bold cyan]")
-                console.print(f"  Collection: {info['collection']}")
-                console.print(f"  Description: {info['description']}")
-
-    except Exception as e:
-        console.print(f"[red]Failed to list agents: {e}")
-        raise typer.Exit(1)
+    for name, collection, description in domains:
+        console.print(f"\n[bold cyan]{name}[/bold cyan]")
+        console.print(f"  Collection: {collection}")
+        console.print(f"  {description}")
 
 
 @app.command()
@@ -395,7 +394,7 @@ def interactive():
 
     try:
         with weaviate_client() as client:
-            orchestrator = OrchestratorAgent(client)
+            rag = ElysiaRAGSystem(client)
 
             while True:
                 try:
@@ -413,20 +412,10 @@ def interactive():
 [bold]Available commands:[/bold]
   quit, exit, q  - Exit interactive mode
   help           - Show this help message
-  agents         - List available agents
   status         - Show collection status
 
-[bold]Query modifiers:[/bold]
-  @vocabulary <question>    - Query only vocabulary agent
-  @architecture <question>  - Query only architecture agent
-  @policy <question>        - Query only policy agent
-  @all <question>           - Query all agents
+[bold]Just type your question to query the knowledge base.[/bold]
                         """)
-                        continue
-
-                    if user_input.lower() == "agents":
-                        for info in orchestrator.get_agent_info():
-                            console.print(f"  [cyan]{info['name']}[/cyan]: {info['description'][:60]}...")
                         continue
 
                     if user_input.lower() == "status":
@@ -437,37 +426,14 @@ def interactive():
                             console.print(f"  {name}: {status}")
                         continue
 
-                    # Parse agent directive
-                    agent_names = None
-                    use_all = False
-
-                    if user_input.startswith("@"):
-                        parts = user_input.split(" ", 1)
-                        directive = parts[0][1:].lower()
-                        user_input = parts[1] if len(parts) > 1 else ""
-
-                        if directive == "all":
-                            use_all = True
-                        elif directive in ("vocabulary", "architecture", "policy"):
-                            agent_names = [directive]
-
-                    if not user_input:
-                        console.print("[yellow]Please provide a question.[/yellow]")
-                        continue
-
                     # Process query
                     with console.status("Thinking...", spinner="dots"):
-                        response = asyncio.run(
-                            orchestrator.query(
-                                user_input,
-                                use_all_agents=use_all,
-                                agent_names=agent_names,
-                            )
-                        )
+                        response_text, results = asyncio.run(rag.query(user_input))
 
                     # Display response
-                    console.print(f"\n[dim]Agents: {', '.join(response.routing_decision.get('agents', []))} | Confidence: {response.confidence:.2f}[/dim]")
-                    console.print(Panel(Markdown(response.answer), border_style="green"))
+                    result_count = len(results) if results else 0
+                    console.print(f"\n[dim]Retrieved {result_count} documents[/dim]")
+                    console.print(Panel(Markdown(response_text), border_style="green"))
 
                 except KeyboardInterrupt:
                     console.print("\n[dim]Use 'quit' to exit.[/dim]")
@@ -489,8 +455,6 @@ def elysia():
     ))
 
     try:
-        from .elysia_agents import ElysiaRAGSystem, ELYSIA_AVAILABLE
-
         if not ELYSIA_AVAILABLE:
             console.print("[red]Elysia not installed. Run: pip install elysia-ai[/red]")
             raise typer.Exit(1)

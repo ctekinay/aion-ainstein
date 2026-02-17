@@ -5,6 +5,7 @@ and agentic query processing.
 """
 
 import logging
+from pathlib import Path
 from typing import Optional, Any
 
 import re
@@ -12,6 +13,23 @@ from weaviate import WeaviateClient
 from weaviate.classes.query import Filter, MetadataQuery
 
 from .config import settings
+
+
+def _load_skill_md() -> str:
+    """Load the ESA document ontology SKILL.md for system prompt injection.
+
+    Returns:
+        SKILL.md content, or empty string if file not found.
+    """
+    skill_path = Path(__file__).parent.parent / "data" / "skills" / "esa-document-ontology" / "SKILL.md"
+    try:
+        return skill_path.read_text(encoding="utf-8")
+    except FileNotFoundError:
+        logging.getLogger(__name__).warning(f"SKILL.md not found at {skill_path}")
+        return ""
+
+
+_SKILL_CONTENT = _load_skill_md()
 
 # Abstention thresholds
 DISTANCE_THRESHOLD = 0.5  # Max distance for relevance (lower = more similar)
@@ -125,7 +143,41 @@ class ElysiaRAGSystem:
 
         self.client = client
         self.tree = Tree()
+        self._use_openai = settings.llm_provider == "openai"
+        self._collection_suffix = "_OpenAI" if self._use_openai else ""
         self._register_tools()
+
+    def _get_collection(self, base_name: str):
+        """Get a Weaviate collection with the correct provider suffix.
+
+        Args:
+            base_name: Base collection name (e.g., "Vocabulary")
+
+        Returns:
+            Weaviate collection object
+        """
+        return self.client.collections.get(f"{base_name}{self._collection_suffix}")
+
+    def _get_query_vector(self, query: str) -> Optional[list[float]]:
+        """Compute query embedding for Ollama collections, None for OpenAI.
+
+        OpenAI collections use server-side vectorization (text2vec-openai),
+        so no client-side vector is needed. Ollama collections use
+        Vectorizer.none() and require client-side embeddings.
+
+        Args:
+            query: The search query text
+
+        Returns:
+            Embedding vector for Ollama, None for OpenAI
+        """
+        if self._use_openai:
+            return None
+        try:
+            return embed_text(query)
+        except Exception as e:
+            logger.error(f"Failed to compute query embedding: {e}")
+            return None
 
     def _register_tools(self) -> None:
         """Register custom tools for each knowledge domain."""
@@ -149,9 +201,11 @@ class ElysiaRAGSystem:
             Returns:
                 List of matching vocabulary concepts with definitions
             """
-            collection = self.client.collections.get("Vocabulary")
+            collection = self._get_collection("Vocabulary")
+            query_vector = self._get_query_vector(query)
             results = collection.query.hybrid(
                 query=query,
+                vector=query_vector,
                 limit=limit,
                 alpha=settings.alpha_vocabulary,
             )
@@ -184,9 +238,11 @@ class ElysiaRAGSystem:
             Returns:
                 List of matching ADRs with context and decisions
             """
-            collection = self.client.collections.get("ArchitecturalDecision")
+            collection = self._get_collection("ArchitecturalDecision")
+            query_vector = self._get_query_vector(query)
             results = collection.query.hybrid(
                 query=query,
+                vector=query_vector,
                 limit=limit,
                 alpha=settings.alpha_vocabulary,
             )
@@ -219,9 +275,11 @@ class ElysiaRAGSystem:
             Returns:
                 List of matching principles
             """
-            collection = self.client.collections.get("Principle")
+            collection = self._get_collection("Principle")
+            query_vector = self._get_query_vector(query)
             results = collection.query.hybrid(
                 query=query,
+                vector=query_vector,
                 limit=limit,
                 alpha=settings.alpha_vocabulary,
             )
@@ -253,9 +311,11 @@ class ElysiaRAGSystem:
             Returns:
                 List of matching policy documents
             """
-            collection = self.client.collections.get("PolicyDocument")
+            collection = self._get_collection("PolicyDocument")
+            query_vector = self._get_query_vector(query)
             results = collection.query.hybrid(
                 query=query,
+                vector=query_vector,
                 limit=limit,
                 alpha=settings.alpha_vocabulary,
             )
@@ -282,7 +342,7 @@ class ElysiaRAGSystem:
             Returns:
                 Complete list of all ADRs with titles and status
             """
-            collection = self.client.collections.get("ArchitecturalDecision")
+            collection = self._get_collection("ArchitecturalDecision")
             results = collection.query.fetch_objects(
                 limit=100,
                 return_properties=["title", "status", "file_path"],
@@ -314,7 +374,7 @@ class ElysiaRAGSystem:
             Returns:
                 Complete list of all principles
             """
-            collection = self.client.collections.get("Principle")
+            collection = self._get_collection("Principle")
             results = collection.query.fetch_objects(
                 limit=100,
                 return_properties=["title", "doc_type"],
@@ -350,13 +410,15 @@ class ElysiaRAGSystem:
                 List of documents with their type, title, and owner info
             """
             results = []
+            query_vector = self._get_query_vector(f"{team_name} {query}") if query else None
 
             # Search ADRs
             try:
-                adr_collection = self.client.collections.get("ArchitecturalDecision")
+                adr_collection = self._get_collection("ArchitecturalDecision")
                 if query:
                     adr_results = adr_collection.query.hybrid(
                         query=f"{team_name} {query}",
+                        vector=query_vector,
                         limit=limit,
                         alpha=settings.alpha_default,
                     )
@@ -381,10 +443,11 @@ class ElysiaRAGSystem:
 
             # Search Principles
             try:
-                principle_collection = self.client.collections.get("Principle")
+                principle_collection = self._get_collection("Principle")
                 if query:
                     principle_results = principle_collection.query.hybrid(
                         query=f"{team_name} {query}",
+                        vector=query_vector,
                         limit=limit,
                         alpha=settings.alpha_default,
                     )
@@ -409,10 +472,11 @@ class ElysiaRAGSystem:
 
             # Search Policies
             try:
-                policy_collection = self.client.collections.get("PolicyDocument")
+                policy_collection = self._get_collection("PolicyDocument")
                 if query:
                     policy_results = policy_collection.query.hybrid(
                         query=f"{team_name} {query}",
+                        vector=query_vector,
                         limit=limit,
                         alpha=settings.alpha_default,
                     )
@@ -451,15 +515,16 @@ class ElysiaRAGSystem:
             Returns:
                 Dictionary with collection names and document counts
             """
-            collections = ["Vocabulary", "ArchitecturalDecision", "Principle", "PolicyDocument"]
+            base_names = ["Vocabulary", "ArchitecturalDecision", "Principle", "PolicyDocument"]
             stats = {}
-            for name in collections:
-                if self.client.collections.exists(name):
-                    collection = self.client.collections.get(name)
+            for base_name in base_names:
+                full_name = f"{base_name}{self._collection_suffix}"
+                if self.client.collections.exists(full_name):
+                    collection = self.client.collections.get(full_name)
                     aggregate = collection.aggregate.over_all(total_count=True)
-                    stats[name] = aggregate.total_count
+                    stats[base_name] = aggregate.total_count
                 else:
-                    stats[name] = 0
+                    stats[base_name] = 0
             return stats
 
         logger.info("Registered Elysia tools: vocabulary, ADR, principles, policies, search_by_team")
@@ -478,11 +543,12 @@ class ElysiaRAGSystem:
 
         # Always specify our collection names to bypass Elysia's metadata collection discovery
         # This avoids gRPC errors from Elysia's internal collections
+        s = self._collection_suffix
         our_collections = collection_names or [
-            "Vocabulary",
-            "ArchitecturalDecision",
-            "Principle",
-            "PolicyDocument",
+            f"Vocabulary{s}",
+            f"ArchitecturalDecision{s}",
+            f"Principle{s}",
+            f"PolicyDocument{s}",
         ]
 
         try:
@@ -682,19 +748,19 @@ class ElysiaRAGSystem:
             for r in all_results[:10]
         ])
 
-        system_prompt = """You are AInstein, the Energy System Architecture AI Assistant at Alliander.
+        system_prompt = f"""You are AInstein, the Energy System Architecture AI Assistant at Alliander.
 
-Your role is to help architects, engineers, and stakeholders navigate Alliander's energy system architecture knowledge base, including:
-- Architectural Decision Records (ADRs)
-- Data governance principles and policies
-- IEC/CIM vocabulary and standards
-- Energy domain concepts and terminology
+Your role is to help architects, engineers, and stakeholders navigate Alliander's energy system architecture knowledge base.
+
+{_SKILL_CONTENT}
 
 Guidelines:
 - Base your answers strictly on the provided context
 - If the information is not in the context, clearly state that you don't have that information
 - Be concise but thorough
-- When referencing ADRs, include the ADR number (e.g., ADR-0012)
+- When referencing ADRs, include the ADR identifier (e.g., ADR.12)
+- When referencing Principles, include the PCP identifier (e.g., PCP.10)
+- For vocabulary terms, include the source standard (e.g., from IEC 61970)
 - For technical terms, provide clear explanations"""
         user_prompt = f"Context:\n{context}\n\nQuestion: {question}"
 
