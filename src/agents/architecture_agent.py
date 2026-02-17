@@ -114,6 +114,11 @@ def _detect_semantic_scope(question: str) -> str:
     """Detect whether the semantic query targets principles, ADRs, or both.
 
     Returns "principle", "adr", or "both".
+
+    TODO(post-demo): Replace this regex-based detector with a learned scope
+    classifier that combines intent + scope in a single pass. Track as backlog
+    item: "Replace _detect_semantic_scope regex with learned scope classifier
+    (intent+scope)".
     """
     has_principle = bool(_PRINCIPLE_SCOPE_RE.search(question))
     has_adr = bool(_ADR_SCOPE_RE.search(question))
@@ -281,6 +286,14 @@ _CANONICAL_ID_RE = re.compile(
     re.IGNORECASE,
 )
 
+# Prefix → (logical_collection_name, number_field) for cross-collection routing.
+# DAR is a user-facing alias — DARs live in the ADR collection as ADR.{num}D.
+_PREFIX_COLLECTION_MAP: dict[str, tuple[str, str]] = {
+    "ADR": ("adr", "adr_number"),
+    "PCP": ("principle", "principle_number"),
+    "DAR": ("adr", "adr_number"),
+}
+
 
 def _normalize_doc_ids(question: str) -> list[dict]:
     """Extract and normalize doc references from a question.
@@ -372,11 +385,12 @@ class DocRefResolution:
 # or short demonstrative. Examples: "show it", "what does it decide",
 # "tell me about that", "quote that one".
 _FOLLOWUP_MARKER_RE = re.compile(
-    r"\b(?:show\s+it|what\s+(?:does|about)\s+it|"
-    r"tell\s+me\s+(?:about\s+)?(?:it|that|this)|"
+    r"\b(?:show\s+(?:it|that|them|those)|what\s+(?:does|about)\s+(?:it|them|those)|"
+    r"tell\s+me\s+(?:about\s+)?(?:it|that|this|them|those|these)|"
     r"(?:that|this|the)\s+(?:one|document|adr|principle)|"
-    r"quote\s+(?:it|that)|explain\s+(?:it|that)|"
-    r"(?:show|get|give)\s+me\s+(?:that|this|it))\b",
+    r"quote\s+(?:it|that|them|those)|explain\s+(?:it|that|them|those)|"
+    r"compare\s+(?:it|that|them|those|these)|"
+    r"(?:show|get|give)\s+me\s+(?:that|this|it|them|those|these))\b",
     re.IGNORECASE,
 )
 
@@ -392,7 +406,8 @@ def _has_followup_marker(question: str) -> bool:
 
 _RETRIEVAL_VERB_RE = re.compile(
     r"\b(?:what|show|tell|explain|describe|summarize|summarise|quote|detail|"
-    r"find|get|give|look\s*up|retrieve|fetch|read|display|decide|decision|compare)\b",
+    r"find|get|give|look\s*up|retrieve|fetch|read|display|decide|decision|compare|"
+    r"connect|connection|relationship|relate|linked|between)\b",
     re.IGNORECASE,
 )
 
@@ -666,20 +681,36 @@ class ArchitectureAgent(BaseAgent):
     def lookup_by_canonical_id(self, canonical_id: str) -> list[dict]:
         """Look up all chunks for a document by canonical_id.
 
-        Uses Filter.by_property("canonical_id").equal() for exact match.
-        Falls back to adr_number if canonical_id returns no results.
+        Routes to the correct Weaviate collection based on the ID prefix
+        (ADR → ArchitecturalDecision, PCP → Principle).  DAR is a user-facing
+        alias: "DAR.12" is remapped to "ADR.12D" in the ADR collection.
+
+        Falls back to the collection's number field if canonical_id returns
+        no results.
 
         Args:
-            canonical_id: Normalized canonical ID (e.g. "ADR.12")
+            canonical_id: Normalized canonical ID (e.g. "ADR.12", "PCP.5", "DAR.12")
 
         Returns:
-            List of matching document chunks (may be multiple per ADR)
+            List of matching document chunks (may be multiple per document)
         """
-        collection = self.client.collections.get(self.collection_name)
+        # Route to the correct collection based on prefix
+        prefix = canonical_id.split(".")[0].upper() if "." in canonical_id else ""
+        logical_name, number_field = _PREFIX_COLLECTION_MAP.get(
+            prefix, ("adr", "adr_number")
+        )
+        collection = self.client.collections.get(get_collection_name(logical_name))
+
+        # DAR alias: "DAR.12" → search for "ADR.12D" in ADR collection
+        search_id = canonical_id
+        if prefix == "DAR":
+            num_match = re.match(r"DAR\.(\d+)", canonical_id, re.IGNORECASE)
+            if num_match:
+                search_id = f"ADR.{int(num_match.group(1))}D"
 
         # Primary: exact match on canonical_id (FIELD tokenization)
         results = collection.query.fetch_objects(
-            filters=Filter.by_property("canonical_id").equal(canonical_id),
+            filters=Filter.by_property("canonical_id").equal(search_id),
             limit=25,
         )
 
@@ -689,56 +720,68 @@ class ArchitectureAgent(BaseAgent):
             # filter is bypassed or returns unexpected results.
             filtered = [
                 c for c in chunks
-                if c.get("canonical_id") == canonical_id
+                if c.get("canonical_id") == search_id
             ]
             if len(filtered) < len(chunks):
                 dropped = [
                     c.get("canonical_id", "<missing>") for c in chunks
-                    if c.get("canonical_id") != canonical_id
+                    if c.get("canonical_id") != search_id
                 ]
                 logger.warning(
                     "canonical_id post-filter stripped mismatches: %s",
                     json.dumps({
-                        "requested_canonical_id": canonical_id,
+                        "requested_canonical_id": search_id,
                         "dropped_count": len(dropped),
                         "dropped_canonical_ids": dropped[:10],
                     }, separators=(",", ":")),
                 )
             if filtered:
                 logger.info(
-                    f"canonical_id lookup '{canonical_id}' returned "
+                    f"canonical_id lookup '{search_id}' returned "
                     f"{len(filtered)} chunks"
                 )
                 return filtered
 
-        # Fallback: try adr_number field
-        # Extract the number from canonical_id (e.g. "ADR.12" → "0012")
+        # Fallback: try number field for the correct collection
         match = re.match(r"[A-Z]+\.(\d+)", canonical_id)
         if match:
             number_value = f"{int(match.group(1)):04d}"
-            return self._lookup_by_number_field(number_value)
+            return self._lookup_by_number_field(
+                number_value,
+                collection_name=get_collection_name(logical_name),
+                number_field=number_field,
+            )
 
         return []
 
-    def _lookup_by_number_field(self, number_value: str) -> list[dict]:
-        """Fallback lookup by adr_number field.
+    def _lookup_by_number_field(
+        self,
+        number_value: str,
+        collection_name: str | None = None,
+        number_field: str = "adr_number",
+    ) -> list[dict]:
+        """Fallback lookup by number field.
 
         Args:
             number_value: Zero-padded number string (e.g. "0012")
+            collection_name: Weaviate collection to query (defaults to self.collection_name)
+            number_field: Property name for the number field (e.g. "adr_number", "principle_number")
 
         Returns:
             List of matching document chunks
         """
-        collection = self.client.collections.get(self.collection_name)
+        collection = self.client.collections.get(
+            collection_name or self.collection_name
+        )
 
         results = collection.query.fetch_objects(
-            filters=Filter.by_property("adr_number").equal(number_value),
+            filters=Filter.by_property(number_field).equal(number_value),
             limit=25,
         )
 
         if results.objects:
             logger.info(
-                f"adr_number lookup '{number_value}' returned "
+                f"{number_field} lookup '{number_value}' returned "
                 f"{len(results.objects)} chunks"
             )
 
@@ -1065,7 +1108,7 @@ class ArchitectureAgent(BaseAgent):
             if decision_chunk:
                 sources.append({
                     "title": decision_chunk.get("title", ""),
-                    "type": "ADR",
+                    "type": ref.get("prefix", "ADR"),
                     "canonical_id": ref["canonical_id"],
                     "file": (
                         decision_chunk.get("file_path", "").split("/")[-1]
@@ -1089,9 +1132,18 @@ class ArchitectureAgent(BaseAgent):
         answer_parts = []
         selected_chunk_type = "none"
         for ref in doc_refs:
+            # DAR alias: match chunks by remapped canonical_id (DAR.12 → ADR.12D)
+            ref_id = ref["canonical_id"]
+            prefix = ref.get("prefix", ref_id.split(".")[0].upper() if "." in ref_id else "")
+            if prefix == "DAR":
+                num_match = re.match(r"DAR\.(\d+)", ref_id, re.IGNORECASE)
+                match_base = f"ADR.{int(num_match.group(1))}" if num_match else ref_id.rstrip("D")
+            else:
+                match_base = ref_id.rstrip("D")
+
             ref_chunks = [
                 c for c in all_chunks
-                if c.get("canonical_id", "").startswith(ref["canonical_id"].rstrip("D"))
+                if c.get("canonical_id", "").startswith(match_base)
             ]
             if not ref_chunks:
                 answer_parts.append(f"No content found for {ref['canonical_id']}.")

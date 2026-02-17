@@ -135,3 +135,11 @@ Run in chat UI. Each chain is a multi-turn conversation.
 **Tester**: ctekinay
 **Commit**: 5eac12b
 **Gate**: `make test-demo` — 198 passed, 0 failures
+
+---
+
+## Post-Demo Backlog
+
+| # | Item | Priority | Notes |
+|---|------|----------|-------|
+| 1 | Replace `_detect_semantic_scope` regex with learned scope classifier (intent+scope) | Medium | Current regex approach handles principle/adr/both but cannot learn from user feedback. A learned classifier would combine intent detection and scope selection in a single pass. |
