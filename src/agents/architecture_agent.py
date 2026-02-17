@@ -1515,10 +1515,12 @@ class ArchitectureAgent(BaseAgent):
         """
         try:
             collection = self.client.collections.get(get_collection_name("principle"))
+            principle_filter = build_principle_filter()
             hybrid_kwargs = dict(
                 query=query,
                 limit=limit,
                 alpha=settings.alpha_vocabulary,
+                filters=principle_filter,
             )
             if _needs_client_side_embedding():
                 hybrid_kwargs["vector"] = _embed_query(query)
@@ -1608,7 +1610,10 @@ class ArchitectureAgent(BaseAgent):
             return_properties=["title", "file_path", "doc_type"],
         )
 
-        return [dict(obj.properties) for obj in all_objects]
+        return [
+            dict(obj.properties) for obj in all_objects
+            if obj.properties.get("doc_type") not in ("principle_approval", "template", "index")
+        ]
 
     def list_adrs_by_status(self, status: str) -> list[dict]:
         """List all ADRs with a specific status.
