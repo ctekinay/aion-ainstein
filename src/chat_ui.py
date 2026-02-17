@@ -48,6 +48,10 @@ SKILL_NAME_REGEX = r"^[a-z][a-z0-9-]*[a-z0-9]$"
 
 logger = logging.getLogger(__name__)
 
+# Ensure architecture_agent logger propagates INFO-level ROUTE_TRACE messages.
+# Uvicorn only configures its own loggers; without this, the root logger's
+# WARNING level silently drops ROUTE_TRACE, breaking doc_refs caching.
+logging.getLogger("src.agents.architecture_agent").setLevel(logging.INFO)
 
 # Global state
 _weaviate_client = None

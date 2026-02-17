@@ -744,7 +744,7 @@ class ArchitectureAgent(BaseAgent):
 
             if winner == "compare" and len(signals.doc_refs) >= 2:
                 trace.intent = "compare"
-                response = await self._handle_lookup_query(
+                response = await self._handle_compare_query(
                     question, signals.doc_refs, trace,
                 )
                 self._emit_trace(trace)
@@ -1366,6 +1366,119 @@ class ArchitectureAgent(BaseAgent):
             answer=answer,
             sources=sources,
             confidence=confidence,
+            agent_name=self.name,
+            raw_results=all_chunks,
+        )
+
+    # -----------------------------------------------------------------
+    # Compare: structured side-by-side with document headers
+    # -----------------------------------------------------------------
+
+    async def _handle_compare_query(
+        self, question: str, doc_refs: list[dict],
+        trace: Optional[RouteTrace] = None,
+    ) -> AgentResponse:
+        """Handle compare queries with clear per-document headers.
+
+        Retrieves the same chunks as _handle_lookup_query but formats
+        each document under an H2 header with a concise summary section,
+        not the full verbatim dump.
+        """
+        all_chunks = []
+        sources = []
+
+        for ref in doc_refs:
+            chunks = self.lookup_by_canonical_id(ref["canonical_id"])
+            if not chunks:
+                continue
+            all_chunks.extend(chunks)
+            ref_prefix = ref.get("prefix", "ADR")
+            if ref_prefix == "PCP":
+                best = self._select_principle_chunk(chunks)
+            else:
+                best = self._select_decision_chunk(chunks)
+            if best:
+                sources.append({
+                    "title": best.get("title", ""),
+                    "type": ref_prefix,
+                    "canonical_id": ref["canonical_id"],
+                    "file": (
+                        best.get("file_path", "").split("/")[-1]
+                        if best.get("file_path") else ""
+                    ),
+                })
+
+        if not all_chunks:
+            if trace:
+                trace.path = "compare"
+                trace.selected_chunk = "none"
+            return AgentResponse(
+                answer=f"No documents found for {', '.join(r['canonical_id'] for r in doc_refs)}.",
+                sources=[], confidence=0.0,
+                agent_name=self.name, raw_results=[],
+            )
+
+        # Build per-document summaries under H2 headers
+        doc_sections = []
+        for ref in doc_refs:
+            ref_id = ref["canonical_id"]
+            prefix = ref.get("prefix", ref_id.split(".")[0].upper() if "." in ref_id else "")
+            match_base = ref_id.rstrip("D")
+            ref_chunks = [
+                c for c in all_chunks
+                if c.get("canonical_id", "").startswith(match_base)
+            ]
+            if not ref_chunks:
+                doc_sections.append(f"## {ref_id}\n\nNo content found.")
+                continue
+
+            title = ref_chunks[0].get("title", ref_id).rsplit(" - ", 1)[0]
+
+            if prefix == "PCP":
+                # Statement + rationale summary
+                statement = ""
+                rationale = ""
+                for chunk in ref_chunks:
+                    ct = chunk.get("title", "")
+                    content = (chunk.get("content") or "").strip()
+                    if ct.rstrip().endswith("- Statement") or ct.strip() == "Statement":
+                        statement = content
+                    elif "Rationale" in ct:
+                        rationale = content
+                section = f"## {ref_id} — {title}\n\n"
+                if statement:
+                    section += f"> {statement}\n"
+                if rationale:
+                    section += f"\n**Rationale:** {rationale}\n"
+            else:
+                # ADR: decision text + consequences summary
+                decision_chunk = self._select_decision_chunk(ref_chunks)
+                decision_text = decision_chunk.get("decision", "") if decision_chunk else ""
+                consequences = ""
+                for chunk in ref_chunks:
+                    ct = chunk.get("title", "")
+                    if "Consequence" in ct:
+                        consequences = (chunk.get("content") or "").strip()
+
+                section = f"## {ref_id} — {title}\n\n"
+                if decision_text:
+                    lead = self._extract_lead_sentence(decision_text)
+                    section += f"> {lead}\n"
+                if consequences:
+                    section += f"\n**Consequences:** {consequences}\n"
+
+            doc_sections.append(section)
+
+        answer = "\n\n---\n\n".join(doc_sections)
+
+        if trace:
+            trace.path = "compare"
+            trace.selected_chunk = "compare_summary"
+
+        return AgentResponse(
+            answer=answer,
+            sources=sources,
+            confidence=0.95,
             agent_name=self.name,
             raw_results=all_chunks,
         )
