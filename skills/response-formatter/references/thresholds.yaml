@@ -1,0 +1,36 @@
+abstention:
+  distance_threshold: 0.5
+  min_query_coverage: 0.2
+  list_indicators:
+    - list
+    - show
+    - all
+    - exist
+    - exists
+    - available
+    - have
+    - many
+    - which
+    - enumerate
+  additional_stop_words:
+    - are
+    - there
+    - exist
+    - exists
+    - list
+    - show
+    - all
+    - me
+    - give
+retrieval_limits:
+  adr: 8
+  principle: 6
+  policy: 4
+  vocabulary: 4
+truncation:
+  content_max_chars: 800
+  elysia_content_chars: 500
+  elysia_summary_chars: 300
+  consequences_max_chars: 4000
+  direct_doc_max_chars: 12000
+  max_context_results: 10

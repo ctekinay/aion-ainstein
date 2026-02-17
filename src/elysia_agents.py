@@ -5,7 +5,6 @@ and agentic query processing.
 """
 
 import logging
-from pathlib import Path
 from typing import Optional, Any
 
 import re
@@ -14,26 +13,51 @@ from weaviate.classes.query import Filter, MetadataQuery
 
 from .config import settings
 
+# Skills framework — optional, degrades gracefully
+try:
+    from .skills import get_skill_registry
+    _SKILLS_AVAILABLE = True
+except ImportError:
+    _SKILLS_AVAILABLE = False
 
-def _load_skill_md() -> str:
-    """Load the ESA document ontology SKILL.md for system prompt injection.
+# Hardcoded fallbacks for when skills framework is unavailable or disabled
+_DEFAULT_DISTANCE_THRESHOLD = 0.5
+_DEFAULT_MIN_QUERY_COVERAGE = 0.2
+
+
+def _get_abstention_thresholds() -> tuple[float, float]:
+    """Get abstention thresholds from rag-quality-assurance skill.
+
+    Falls back to hardcoded defaults if the skill registry fails to load
+    or the rag-quality-assurance skill is disabled.
 
     Returns:
-        SKILL.md content, or empty string if file not found.
+        Tuple of (distance_threshold, min_query_coverage)
     """
-    skill_path = Path(__file__).parent.parent / "data" / "skills" / "esa-document-ontology" / "SKILL.md"
+    if not _SKILLS_AVAILABLE:
+        return _DEFAULT_DISTANCE_THRESHOLD, _DEFAULT_MIN_QUERY_COVERAGE
     try:
-        return skill_path.read_text(encoding="utf-8")
-    except FileNotFoundError:
-        logging.getLogger(__name__).warning(f"SKILL.md not found at {skill_path}")
+        registry = get_skill_registry()
+        entry = registry.get_skill_entry("rag-quality-assurance")
+        if entry is None or not entry.enabled:
+            return _DEFAULT_DISTANCE_THRESHOLD, _DEFAULT_MIN_QUERY_COVERAGE
+        return registry.loader.get_abstention_thresholds("rag-quality-assurance")
+    except Exception:
+        return _DEFAULT_DISTANCE_THRESHOLD, _DEFAULT_MIN_QUERY_COVERAGE
+
+
+def _get_skill_content(query: str) -> str:
+    """Get combined skill content for prompt injection.
+
+    Returns all active skill content for the given query, or empty string
+    if the skills framework is unavailable.
+    """
+    if not _SKILLS_AVAILABLE:
         return ""
-
-
-_SKILL_CONTENT = _load_skill_md()
-
-# Abstention thresholds
-DISTANCE_THRESHOLD = 0.5  # Max distance for relevance (lower = more similar)
-MIN_QUERY_COVERAGE = 0.2  # Min fraction of query terms found in results
+    try:
+        return get_skill_registry().get_all_skill_content(query)
+    except Exception:
+        return ""
 
 
 def should_abstain(query: str, results: list) -> tuple[bool, str]:
@@ -53,11 +77,13 @@ def should_abstain(query: str, results: list) -> tuple[bool, str]:
     if not results:
         return True, "No relevant documents found in the knowledge base."
 
+    distance_threshold, min_query_coverage = _get_abstention_thresholds()
+
     # Check if any result has acceptable distance
     distances = [r.get("distance") for r in results if r.get("distance") is not None]
     if distances:
         min_distance = min(distances)
-        if min_distance > DISTANCE_THRESHOLD:
+        if min_distance > distance_threshold:
             return True, f"No sufficiently relevant documents found (best match distance: {min_distance:.2f})."
 
     # Check for specific ADR queries - must find the exact ADR
@@ -87,7 +113,7 @@ def should_abstain(query: str, results: list) -> tuple[bool, str]:
         terms_found = sum(1 for t in query_terms if t in results_text)
         coverage = terms_found / len(query_terms) if query_terms else 0
 
-        if coverage < MIN_QUERY_COVERAGE:
+        if coverage < min_query_coverage:
             return True, f"Query terms not well covered by retrieved documents (coverage: {coverage:.0%})."
 
     return False, "OK"
@@ -833,11 +859,14 @@ class ElysiaRAGSystem:
             for r in all_results[:10]
         ])
 
+        # Inject active skill content (domain ontology, quality rules, etc.)
+        skill_content = _get_skill_content(question)
+
         system_prompt = f"""You are AInstein, the Energy System Architecture AI Assistant at Alliander.
 
 Your role is to help architects, engineers, and stakeholders navigate Alliander's energy system architecture knowledge base.
 
-{_SKILL_CONTENT}
+{skill_content}
 
 Guidelines:
 - Base your answers strictly on the provided context

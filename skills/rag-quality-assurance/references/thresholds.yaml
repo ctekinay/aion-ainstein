@@ -1,0 +1,41 @@
+abstention:
+  distance_threshold: 0.4
+  min_query_coverage: 0.2
+  list_indicators:
+  - list
+  - show
+  - all
+  - exist
+  - exists
+  - available
+  - have
+  - many
+  - which
+  - enumerate
+  list_patterns:
+  - what\s+\w+s\s+(are|exist|do we have)
+  - (list|show|give)\s+(me\s+)?(all|the)
+  - how many\s+\w+
+  - which\s+\w+s?\s+(are|exist|do)
+  additional_stop_words:
+  - are
+  - there
+  - exist
+  - exists
+  - list
+  - show
+  - all
+  - me
+  - give
+retrieval_limits:
+  adr: 20
+  principle: 20
+  policy: 15
+  vocabulary: 8
+truncation:
+  content_max_chars: 3000
+  elysia_content_chars: 1500
+  elysia_summary_chars: 600
+  consequences_max_chars: 4000
+  direct_doc_max_chars: 12000
+  max_context_results: 6
