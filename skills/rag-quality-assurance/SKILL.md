@@ -1,6 +1,6 @@
 ---
 name: rag-quality-assurance
-description: "Ensures RAG responses meet strict quality standards for critical decision support. Use when answering questions about architecture decisions (ADRs), principles (PCPs), policies, or technical vocabulary. Activates confidence-based abstention and citation requirements to prevent hallucination."
+description: Anti-hallucination rules and citation requirements for RAG responses
 ---
 
 # RAG Quality Assurance
@@ -24,24 +24,9 @@ This system supports critical procurement and architecture decisions. False info
 could lead to costly mistakes. We enforce strict quality standards to ensure responses
 are grounded in retrieved documents.
 
-## Pre-Generation Quality Gate
+## Abstention
 
-Before generating any response, evaluate retrieval quality using the thresholds
-defined in `references/thresholds.yaml`.
-
-### Abstention Criteria
-
-You MUST abstain from answering when:
-
-1. **No relevant documents found** - Zero results from retrieval
-2. **High distance scores** - Best document distance exceeds threshold
-3. **Low query coverage** - Retrieved documents don't cover the query terms
-
-When abstaining, respond with:
-> "I don't have sufficient information in the knowledge base to answer this
-> confidently. The retrieved documents have low relevance to your question."
-
-Do NOT attempt to answer from general knowledge when retrieval quality is poor.
+If the retrieved documents don't contain information relevant to the user's question, say so honestly. Do not guess or answer from general knowledge.
 
 ## Citation Requirements
 
@@ -66,12 +51,3 @@ Bad:
 2. **Never extrapolate** - Stay within the bounds of retrieved information
 3. **Never provide general advice** - If specific documents exist, cite them
 4. **Never claim certainty** - When retrieval scores are marginal, express uncertainty
-
-## Response Quality Checklist
-
-Before returning a response, verify:
-
-- [ ] All factual claims have citations
-- [ ] No ADR/PCP numbers are fabricated
-- [ ] Response stays within retrieved context
-- [ ] Uncertainty is expressed when appropriate

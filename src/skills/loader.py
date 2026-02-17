@@ -174,22 +174,18 @@ class SkillLoader:
             return skill.thresholds
         return {}
 
-    def get_abstention_thresholds(self, skill_name: str) -> tuple[float, float]:
-        """Get abstention thresholds for a skill.
+    def get_abstention_thresholds(self, skill_name: str) -> float:
+        """Get the distance threshold for abstention.
 
         Args:
             skill_name: Name of the skill
 
         Returns:
-            Tuple of (distance_threshold, min_query_coverage) with defaults
+            Distance threshold (default 0.5)
         """
         thresholds = self.get_thresholds(skill_name)
         abstention = thresholds.get("abstention", {})
-
-        distance_threshold = abstention.get("distance_threshold", 0.5)
-        min_query_coverage = abstention.get("min_query_coverage", 0.2)
-
-        return distance_threshold, min_query_coverage
+        return abstention.get("distance_threshold", 0.5)
 
     def get_retrieval_limits(self, skill_name: str) -> dict[str, int]:
         """Get retrieval limits for a skill."""

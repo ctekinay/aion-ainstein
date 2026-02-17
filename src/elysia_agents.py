@@ -20,30 +20,29 @@ try:
 except ImportError:
     _SKILLS_AVAILABLE = False
 
-# Hardcoded fallbacks for when skills framework is unavailable or disabled
+# Hardcoded fallback for when skills framework is unavailable or disabled
 _DEFAULT_DISTANCE_THRESHOLD = 0.5
-_DEFAULT_MIN_QUERY_COVERAGE = 0.2
 
 
-def _get_abstention_thresholds() -> tuple[float, float]:
-    """Get abstention thresholds from rag-quality-assurance skill.
+def _get_distance_threshold() -> float:
+    """Get distance threshold from rag-quality-assurance skill.
 
-    Falls back to hardcoded defaults if the skill registry fails to load
+    Falls back to hardcoded default if the skill registry fails to load
     or the rag-quality-assurance skill is disabled.
 
     Returns:
-        Tuple of (distance_threshold, min_query_coverage)
+        Distance threshold for abstention
     """
     if not _SKILLS_AVAILABLE:
-        return _DEFAULT_DISTANCE_THRESHOLD, _DEFAULT_MIN_QUERY_COVERAGE
+        return _DEFAULT_DISTANCE_THRESHOLD
     try:
         registry = get_skill_registry()
         entry = registry.get_skill_entry("rag-quality-assurance")
         if entry is None or not entry.enabled:
-            return _DEFAULT_DISTANCE_THRESHOLD, _DEFAULT_MIN_QUERY_COVERAGE
+            return _DEFAULT_DISTANCE_THRESHOLD
         return registry.loader.get_abstention_thresholds("rag-quality-assurance")
     except Exception:
-        return _DEFAULT_DISTANCE_THRESHOLD, _DEFAULT_MIN_QUERY_COVERAGE
+        return _DEFAULT_DISTANCE_THRESHOLD
 
 
 def _get_skill_content(query: str) -> str:
@@ -78,7 +77,7 @@ def should_abstain(query: str, results: list) -> tuple[bool, str]:
     if not results:
         return True, "No relevant documents found in the knowledge base."
 
-    distance_threshold, min_query_coverage = _get_abstention_thresholds()
+    distance_threshold = _get_distance_threshold()
 
     # Check if any result has acceptable distance
     distances = [r.get("distance") for r in results if r.get("distance") is not None]
@@ -98,24 +97,6 @@ def should_abstain(query: str, results: list) -> tuple[bool, str]:
         )
         if not adr_found:
             return True, f"ADR-{adr_num} was not found in the knowledge base."
-
-    # Check query term coverage in results
-    # Extract meaningful terms (skip common words)
-    stop_words = {"what", "is", "the", "a", "an", "of", "in", "to", "for", "and", "or", "how", "does", "do", "about", "our"}
-    query_terms = [t for t in query.lower().split() if t not in stop_words and len(t) > 2]
-
-    if query_terms:
-        results_text = " ".join(
-            str(r.get("title", "")) + " " + str(r.get("content", "")) + " " +
-            str(r.get("label", "")) + " " + str(r.get("definition", ""))
-            for r in results
-        ).lower()
-
-        terms_found = sum(1 for t in query_terms if t in results_text)
-        coverage = terms_found / len(query_terms) if query_terms else 0
-
-        if coverage < min_query_coverage:
-            return True, f"Query terms not well covered by retrieved documents (coverage: {coverage:.0%})."
 
     return False, "OK"
 

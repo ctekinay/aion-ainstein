@@ -1,6 +1,6 @@
 ---
 name: esa-document-ontology
-description: "Domain knowledge about the ESA architectural artifact ecosystem: what ADRs, PCPs, and DARs are, how they're named, numbered, related, and how users refer to them. Includes messy-repo handling, non-content document classification, query intent semantics, and metadata-first resolution. Enables accurate identification and disambiguation of document references in queries."
+description: "Domain knowledge about ADRs, PCPs, DARs: naming, numbering, relationships, disambiguation"
 ---
 
 # ESA Document Ontology v2
@@ -118,20 +118,9 @@ These are completely different documents. When a user references just a number w
 
 Numbers that overlap between ADR and PCP: 0010, 0011, 0012, 0020-0031 (15 numbers total).
 
-## Section 5: Resolution Priority
+## Section 5: Disambiguation
 
-When you need to identify which specific document a user means, use this priority order. Note: This priority applies to query-time document identification. Ingestion-time classification uses filename patterns.
-
-1. **Metadata fields first**: Check `canonical_id`, `adr_number`, `principle_number` from the indexed object. These are authoritative.
-2. **Folder path**: `decisions/` = ADR, `principles/` = PCP. Definitive when metadata is missing.
-3. **Registry prefix**: `ADR.22` vs `PCP.22` in the registry table.
-4. **Frontmatter fields**: `parent: Decisions` = ADR, `parent: Principles` = PCP. `nav_order: ADR.22D` = ADR DAR.
-5. **UUID** (`dct.identifier` in frontmatter): Shared between a content document and its DAR (available for PCPs; ADRs currently lack UUIDs in their content files).
-6. **Content-based inference**: Use document sections and terminology as a last resort only when all metadata is absent.
-
-When a user asks about a specific document by ID, this is a **lookup**, not a semantic search. Use the `canonical_id` field or the `adr_number` / `principle_number` metadata fields to find the exact document.
-
-If a query is ambiguous and you cannot determine the type from context, **ask the user** rather than guessing. For example:
+If a query is ambiguous and you cannot determine the document type from context, **ask the user** rather than guessing. For example:
 
 > "There are two documents numbered 0022:
 > - **ADR.22**: Use priority-based scheduling (Architecture Decision)
@@ -170,62 +159,6 @@ Documents are owned by different architecture groups within Alliander. Ownership
 | BA | Alliander Business Architecture Group | PCP.21-30 | Acceptance |
 | DO | Alliander Data Office | PCP.31-38 | Acceptance |
 
-## Section 8: Frontmatter Differences
+## Section 8: Non-Content Files to Avoid
 
-Be aware that ADR and PCP frontmatter schemas differ:
-
-**ADR content files** have:
-```yaml
-parent: Decisions
-nav_order: 22          # plain number
-status: "proposed"
-date: 2025-07-21
-driver: Name1, Name2
-```
-
-**PCP content files** have:
-```yaml
-parent: Principles
-nav_order: PCP.22      # prefixed
-dct:
-  identifier: urn:uuid:3c9f2b7e-...   # UUID
-  title: "Document title"
-  isVersionOf: proposed
-  issued: 2026-01-21
-owl:
-  versionIRI: "https://esa-artifacts.alliander.com/..."
-  versionInfo: "v1.0.0 (2026-01-21)"
-```
-
-**ADR DAR files** have:
-```yaml
-nav_order: ADR.22D     # prefixed with D
-dct:
-  identifier: urn:uuid:...   # UUID (but the ADR itself may not have one)
-  title: Document title
-```
-
-**PCP DAR files** have:
-```yaml
-nav_order: PCP.22D     # prefixed with D
-dct:
-  identifier: urn:uuid:...   # same UUID as the PCP content file
-  title: Document title
-```
-
-## Section 9: Non-Content Files to Avoid
-
-These files should NEVER appear in content retrieval results (they are filtered at ingestion or query time):
-
-| File | Why it's excluded |
-|------|------------------|
-| `decisions/index.md` | Navigation page, generic terms attract false matches |
-| `principles/index.md` | Navigation page, generic terms attract false matches |
-| `README_esa-main-artifacts.md` | Repository documentation, not architectural content |
-| `adr-template.md` | Authoring scaffold with placeholder tokens |
-| `adr-decision-template.md` | DAR authoring scaffold |
-| `principle-template.md` | Authoring scaffold |
-| `principle-decision-template.md` | DAR authoring scaffold |
-| `decisions/images/*` | Diagrams referenced by ADRs, not text content |
-
-If any of these appear in your retrieval context, **ignore them** — they are noise, not signal.
+If you see documents titled "Decision Approval Record List" or containing placeholder text like `{short title}`, ignore them — they are templates or navigation pages, not content. These are normally filtered at ingestion, but may occasionally leak through.
