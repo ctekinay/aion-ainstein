@@ -1,84 +1,64 @@
 # ESA Document Ontology
 
-## Knowledge Base Structure
+## 1. Document Types
 
 The AInstein knowledge base contains four document collections from Alliander's Energy System Architecture (ESA) domain.
 
-### 1. Architectural Decision Records (ADRs)
+### Architectural Decision Records (ADRs)
 
 Formal records of significant architecture decisions following the MADR template.
 
-**Source:** Markdown files in `esa-main-artifacts/doc/decisions/`
-**Naming:** `NNNN-title.md` (e.g., `0012-use-cim-as-canonical-data-model.md`)
-**Identifier format:** ADR.XX (e.g., ADR.12)
+**Identifier format:** ADR.NN (e.g., ADR.12 = "Use CIM as default domain language")
+**Sections:** Context (problem statement), Decision (outcome), Consequences
+**Status:** proposed, accepted, deprecated, or superseded
 
-**Key fields:**
-- `title` — ADR title (prefixed with ADR.XX)
-- `status` — One of: proposed, accepted, deprecated, superseded
-- `context` — Context and Problem Statement
-- `decision` — Decision Outcome
-- `consequences` — Positive and negative consequences
+**ADR number ranges:**
+- ADR.0-2: Meta decisions (markdown format, writing conventions, DACI process)
+- ADR.10-12: Standardisation (IEC standards priority, business functions, CIM adoption)
+- ADR.20-31: Energy system decisions (demand response, scheduling, security, OAuth, TLS)
+
+**Decision Approval Records (DARs):** Files like `0029D` contain the approval record for ADR.29 — who approved it, when, and under what conditions.
 
 **Ownership:** Energy System Architecture (ESA) team, System Operations department.
 
-### 2. Architecture & Governance Principles (Principles)
+### Architecture & Governance Principles (PCPs)
 
-Guiding principles for architecture and data governance decisions.
+Guiding principles with sections: Statement, Rationale, Implications.
 
-**Source:** Markdown files in `esa-main-artifacts/doc/principles/` and `do-artifacts/`
-**Naming:** `NNNN-title.md` (e.g., `0010-eventual-consistency-by-design.md`)
-**Identifier format:** PCP.XX (e.g., PCP.10)
+**Identifier format:** PCP.NN (e.g., PCP.10 = "Eventual Consistency by Design")
 
-**Key fields:**
-- `title` — Principle title (prefixed with PCP.XX)
-- `content` — Statement, Rationale, and Implications
-- `doc_type` — content, index, template, or decision_approval_record
+**PCP number ranges:**
+- PCP.10-20: ESA Architecture Principles (data design, consistency, sovereignty)
+- PCP.21-30: Business Architecture Principles (omnichannel, customer centricity, value streams) — primarily Dutch
+- PCP.31-40: Data Office Governance Principles (data quality, accessibility, AI) — mix of Dutch and English
 
-**Ranges:**
-- PCP.10-20: ESA Architecture Principles
-- PCP.21-30: Business Architecture Principles
-- PCP.31-40: Data Office Governance Principles
+**Decision Approval Records:** Files like `0022D` contain the approval record for PCP.22.
 
-**Ownership:** ESA team or Data Office (DO), depending on range.
+**Ownership:** ESA team (PCP.10-20), Business Architecture (PCP.21-30), Data Office (PCP.31-40).
 
-### 3. Policy Documents
+### Policy Documents
 
-Data governance and compliance policies in DOCX/PDF format.
+Data governance and compliance policies in DOCX/PDF format, primarily in Dutch.
 
-**Source:** `do-artifacts/policy_docs/`
-**Formats:** .docx and .pdf
-
-**Key fields:**
-- `title` — Document title
-- `content` — Extracted text (large documents chunked at ~6000 chars)
-- `file_type` — docx or pdf
-
-**Topics covered:** Data classification, information governance, data quality, metadata management, privacy, security, data lifecycle.
+**Topics:** Data classification (BIV), information governance, data quality, metadata management, privacy, security, data lifecycle, data product management.
+**Chunking:** Large documents are split at ~6000 chars, so multiple results may come from the same document.
 
 **Ownership:** Data Office (DO) team, Data Management department.
 
-### 4. Vocabulary Concepts (SKOS/OWL)
+### Vocabulary Concepts (SKOS/OWL)
 
-Semantic vocabulary terms from IEC energy standards and domain ontologies, encoded in RDF/Turtle using SKOS and OWL standards.
-
-**Source:** 70+ `.ttl` files in `esa-skosmos/`
-**Standards:** W3C SKOS (Simple Knowledge Organization System), OWL
-
-**Key fields:**
-- `pref_label` — Preferred term (English or Dutch)
-- `definition` — Concept definition
-- `broader` / `narrower` / `related` — Concept hierarchy relationships
-- `vocabulary_name` — Source vocabulary name
-- `uri` — Unique concept URI
+Semantic vocabulary terms from 70+ RDF/Turtle ontology files.
 
 **Major vocabularies:**
-- IEC 61968 / 61970 / 62325 / 62746 — Energy system CIM standards
-- ENTSOE HEMRM — European energy market model
-- ArchiMate — Enterprise architecture modeling
-- ESA — Alliander's own energy system vocabulary
-- Legal/regulatory vocabularies (Dutch energy law)
+- IEC 61968/61970 (CIM — Common Information Model)
+- IEC 62325 (energy market), IEC 62746 (demand response)
+- ENTSOE HEMRM (European energy market model)
+- ArchiMate (enterprise architecture), ESA vocabulary
+- Dutch legal/regulatory vocabularies (energy law)
 
-## Relationships Between Document Types
+**Each concept has:** pref_label, definition, broader/narrower/related hierarchy, vocabulary_name, URI.
+
+## 2. Relationships Between Document Types
 
 - **ADRs reference Principles:** Decisions are grounded in architectural principles
 - **ADRs reference Vocabulary:** Decisions cite IEC/CIM standard concepts
@@ -86,12 +66,48 @@ Semantic vocabulary terms from IEC energy standards and domain ontologies, encod
 - **Policies enforce Principles:** Governance policies operationalize principles
 - **Vocabulary provides shared semantics:** All document types use vocabulary terms
 
-## Answer Guidelines
+## 3. ID Aliases
 
-When answering questions:
-- Reference ADRs by their identifier (e.g., "ADR.12 - Use CIM as Canonical Data Model")
-- Reference Principles by their identifier (e.g., "PCP.10 - Eventual Consistency by Design")
+Users refer to documents in many ways. All of these are equivalent:
+
+**ADRs:** "ADR 29", "adr-29", "ADR.29", "ADR.0029", "ADR-0029", "decision 29"
+**Principles:** "PCP 10", "pcp-10", "PCP.10", "PCP.0010", "principle 10"
+
+When searching, normalize to the 4-digit format (e.g., "0029" for ADR.29).
+
+## 4. Numbering Overlap
+
+Numbers 10-12 and 20-31 exist in BOTH ADRs and Principles. Examples:
+
+| Number | ADR | Principle |
+|--------|-----|-----------|
+| 10 | Prioritize origins of standardizations | Eventual Consistency by Design |
+| 12 | Use CIM as default domain language | Business Driven Data Readiness |
+| 22 | Use priority-based scheduling | Omnichannel Multibrand |
+| 29 | Use OAuth 2.0 for auth | Datagedreven besluiten |
+
+If a user says "document 22" without specifying ADR or PCP, present BOTH results.
+
+## 5. Team Ownership
+
+| Team | Abbreviation | Owns |
+|------|-------------|------|
+| Energy System Architecture | ESA | All ADRs, PCP.10-20 |
+| Business Architecture | — | PCP.21-30 |
+| Data Office | DO | All Policies, PCP.31-40 |
+
+## 6. Query Intent Patterns
+
+- **Lookup:** "What does ADR.12 decide?" → Search for the specific ADR
+- **Approval:** "Who approved ADR.29?" → Search for DAR "0029D"
+- **Topic search:** "What decisions about security?" → Keyword search across ADRs
+- **List:** "List all ADRs" → Use list_all_adrs, not search
+- **Ambiguous number:** "What is document 22?" → Search both ADRs and Principles
+
+## 7. Answer Guidelines
+
+- Reference ADRs as "ADR.12 — Use CIM as default domain language"
+- Reference Principles as "PCP.10 — Eventual Consistency by Design"
 - For vocabulary terms, include the source standard (e.g., "from IEC 61970")
-- Distinguish between ESA architecture principles (PCP.10-20) and DO governance principles (PCP.31-40)
-- Note the status of ADRs: accepted decisions are binding, proposed ones are under review
+- Note ADR status: accepted = binding, proposed = under review
 - Policy documents are primarily in Dutch; translate key points when answering in English

@@ -185,14 +185,27 @@ class ElysiaRAGSystem:
         # Vocabulary/SKOS search tool
         @tool(tree=self.tree)
         async def search_vocabulary(query: str, limit: int = 5) -> list[dict]:
-            """Search SKOS vocabulary concepts from IEC standards (CIM, 61970, 61968, 62325).
+            """Search SKOS/OWL vocabulary concepts from energy domain standards.
+
+            This collection contains semantic vocabulary terms from 70+ RDF/Turtle
+            ontology files covering IEC energy standards and domain models:
+            - IEC 61968/61970 (CIM - Common Information Model)
+            - IEC 62325 (energy market), IEC 62746 (demand response)
+            - ENTSOE HEMRM (European energy market model)
+            - ArchiMate (enterprise architecture), ESA vocabulary
+            - Dutch legal/regulatory vocabularies (energy law)
+
+            Each concept has: pref_label (primary term), definition, broader/narrower
+            hierarchy, related concepts, vocabulary_name, and URI.
 
             Use this tool when the user asks about:
-            - Energy sector terminology and definitions
-            - CIM (Common Information Model) concepts
-            - IEC standards (61970, 61968, 62325, 62746)
-            - SKOS concepts, vocabularies, or ontologies
-            - Technical terms and their meanings
+            - Energy terminology, definitions, or "what is/does X mean"
+            - CIM concepts, IEC standards, SKOS vocabularies
+            - Technical terms from the energy domain
+            - Ontology classes, properties, or concept hierarchies
+
+            Do NOT use this tool for numbered documents (ADR.NN or PCP.NN) —
+            use search_architecture_decisions or search_principles instead.
 
             Args:
                 query: Search query for vocabulary concepts
@@ -224,19 +237,40 @@ class ElysiaRAGSystem:
         async def search_architecture_decisions(query: str, limit: int = 5) -> list[dict]:
             """Search Architectural Decision Records (ADRs) for design decisions.
 
-            Use this tool when the user asks about:
-            - Architecture decisions and their rationale
-            - Design choices and tradeoffs
-            - Technical decisions and their context
-            - ADRs or architectural records
-            - System design patterns used
+            ADRs are formal records of significant architecture decisions. Each has
+            sections: Context (problem statement), Decision (outcome), Consequences.
+            Identifier format: ADR.NN (e.g., ADR.12 = "Use CIM as default domain language").
+
+            ADR number ranges:
+            - ADR.0-2: Meta decisions (markdown format, writing conventions, DACI)
+            - ADR.10-12: Standardisation (IEC standards, CIM adoption)
+            - ADR.20-31: Energy system decisions (demand response, security, OAuth, TLS)
+
+            Decision Approval Records (DARs): Files like 0029D contain the approval
+            record for ADR.29. Use these for "who approved" or "when was it approved" queries.
+
+            ID aliases — all of these refer to ADR.29:
+            "ADR 29", "adr-29", "ADR.0029", "ADR-0029", "decision 29"
+
+            IMPORTANT — Numbering overlap with Principles:
+            Numbers 10-12 and 20-31 exist in BOTH ADRs and Principles. For example:
+            - ADR.22 = "Use priority-based scheduling" (architecture decision)
+            - PCP.22 = "Omnichannel Multibrand" (business principle)
+            If the user says "document 22" or just a number without specifying ADR or PCP,
+            search BOTH this collection AND search_principles to present both results.
+
+            Query intent patterns:
+            - "What does ADR.12 decide?" → lookup the ADR itself
+            - "Who approved ADR.29?" → search for "0029D" to find the DAR
+            - "What decisions about security?" → topic search
+            - "List all ADRs" → use list_all_adrs tool instead
 
             Args:
-                query: Search query for architecture decisions
+                query: Search query — use the 4-digit number (e.g., "0029") for ID lookups
                 limit: Maximum number of results to return
 
             Returns:
-                List of matching ADRs with context and decisions
+                List of matching ADRs with title, status, context, decision, consequences
             """
             collection = self._get_collection("ArchitecturalDecision")
             query_vector = self._get_query_vector(query)
@@ -260,20 +294,44 @@ class ElysiaRAGSystem:
         # Principles search tool
         @tool(tree=self.tree)
         async def search_principles(query: str, limit: int = 5) -> list[dict]:
-            """Search architecture and governance principles.
+            """Search architecture and governance principles (PCPs).
 
-            Use this tool when the user asks about:
-            - Architecture principles and guidelines
-            - Governance principles
-            - Design principles and best practices
-            - Standards and conventions
+            Principles are guiding statements with sections: Statement, Rationale,
+            Implications. Identifier format: PCP.NN (e.g., PCP.10 = "Eventual
+            Consistency by Design").
+
+            PCP number ranges:
+            - PCP.10-20: ESA Architecture Principles (data design, consistency, sovereignty)
+            - PCP.21-30: Business Architecture Principles (omnichannel, customer, value streams)
+            - PCP.31-40: Data Office Governance Principles (data quality, accessibility, AI)
+
+            Decision Approval Records: Files like 0022D contain the approval record
+            for PCP.22. Use these for "who approved" queries.
+
+            ID aliases — all of these refer to PCP.22:
+            "PCP 22", "pcp-22", "PCP.0022", "principle 22"
+
+            IMPORTANT — Numbering overlap with ADRs:
+            Numbers 10-12 and 20-31 exist in BOTH Principles and ADRs. For example:
+            - PCP.22 = "Omnichannel Multibrand" (business principle)
+            - ADR.22 = "Use priority-based scheduling" (architecture decision)
+            If the user says "document 22" or just a number without specifying ADR or PCP,
+            search BOTH this collection AND search_architecture_decisions to present both.
+
+            Note: PCP.21-30 are Dutch-language Business Architecture Principles.
+            PCP.31-40 are Data Office principles (mix of Dutch and English).
+
+            Query intent patterns:
+            - "What are the data governance principles?" → PCP.31-40
+            - "What does PCP.10 say?" → lookup PCP.10
+            - "List all principles" → use list_all_principles tool instead
 
             Args:
-                query: Search query for principles
+                query: Search query — use the 4-digit number (e.g., "0022") for ID lookups
                 limit: Maximum number of results to return
 
             Returns:
-                List of matching principles
+                List of matching principles with title, content, doc_type
             """
             collection = self._get_collection("Principle")
             query_vector = self._get_query_vector(query)
@@ -295,21 +353,35 @@ class ElysiaRAGSystem:
         # Policy document search tool
         @tool(tree=self.tree)
         async def search_policies(query: str, limit: int = 5) -> list[dict]:
-            """Search data governance and policy documents.
+            """Search data governance and policy documents (DOCX/PDF).
+
+            Policy documents are formal governance policies from the Data Office,
+            primarily in Dutch. Topics include: data classification (BIV), information
+            governance, data quality, metadata management, privacy, security, data
+            lifecycle, and data product management.
+
+            These are NOT ADRs or Principles — they are separate policy documents.
+            Owned by the Data Office (DO) team, Data Management department.
+
+            Large documents are automatically chunked (~6000 chars per chunk), so
+            multiple results may come from the same document.
 
             Use this tool when the user asks about:
-            - Data governance policies
-            - Data quality requirements
-            - Compliance and regulatory policies
-            - Data management policies
-            - Security and privacy policies
+            - Data governance policies or "beleid" (Dutch for policy)
+            - Data classification, BIV classification
+            - Compliance, regulatory requirements
+            - Data quality, metadata management policies
+            - Privacy or security policies
+
+            Do NOT use this tool for ADRs (use search_architecture_decisions) or
+            Principles (use search_principles).
 
             Args:
                 query: Search query for policy documents
                 limit: Maximum number of results to return
 
             Returns:
-                List of matching policy documents
+                List of matching policy documents with title, content, file_type
             """
             collection = self._get_collection("PolicyDocument")
             query_vector = self._get_query_vector(query)
@@ -331,13 +403,16 @@ class ElysiaRAGSystem:
         # List all ADRs tool
         @tool(tree=self.tree)
         async def list_all_adrs() -> list[dict]:
-            """List all Architectural Decision Records in the system.
+            """List ALL Architectural Decision Records (ADRs) in the system.
 
-            Use this tool when the user asks:
-            - What ADRs exist?
-            - List all architecture decisions
-            - Show me all ADRs
-            - What decisions have been documented?
+            Use this tool (not search_architecture_decisions) when the user wants
+            to enumerate or count ADRs rather than search for specific content:
+            - "What ADRs exist?", "List all ADRs", "Show me all ADRs"
+            - "How many architecture decisions are there?"
+            - "What decisions have been documented?"
+
+            Returns all ADRs with title, status (accepted/proposed/deprecated), and filename.
+            ADR numbering: ADR.0-2 (meta), ADR.10-12 (standards), ADR.20-31 (energy system).
 
             Returns:
                 Complete list of all ADRs with titles and status
@@ -364,12 +439,16 @@ class ElysiaRAGSystem:
         # List all principles tool
         @tool(tree=self.tree)
         async def list_all_principles() -> list[dict]:
-            """List all architecture and governance principles.
+            """List ALL architecture and governance principles (PCPs) in the system.
 
-            Use this tool when the user asks:
-            - What principles exist?
-            - List all principles
-            - Show me the governance principles
+            Use this tool (not search_principles) when the user wants to enumerate
+            or count principles rather than search for specific content:
+            - "What principles exist?", "List all principles"
+            - "Show me the governance principles"
+            - "How many principles are there?"
+
+            Returns all principles with title and doc_type.
+            PCP numbering: PCP.10-20 (ESA), PCP.21-30 (Business), PCP.31-40 (Data Office).
 
             Returns:
                 Complete list of all principles
@@ -392,18 +471,24 @@ class ElysiaRAGSystem:
         async def search_by_team(team_name: str, query: str = "", limit: int = 10) -> list[dict]:
             """Search all documents owned by a specific team or workgroup.
 
-            Use this tool when the user asks about documents from a specific team:
-            - What documents does ESA/Energy System Architecture have?
-            - Show me Data Office documents
-            - What are the ESA principles and ADRs?
-            - Documents from System Operations team
+            Known teams and what they own:
+            - ESA (Energy System Architecture), System Operations dept:
+              Owns all ADRs (ADR.0-31) and ESA Principles (PCP.10-20)
+            - DO (Data Office), Data Management dept:
+              Owns all Policy documents and DO Principles (PCP.31-40)
+            - Business Architecture:
+              Owns Business Principles (PCP.21-30)
 
-            This searches across ALL collection types (ADRs, Principles, Policies)
-            filtered by the owning team.
+            Searches across ADRs, Principles, and Policies filtered by owner.
+
+            Use this tool when the user asks:
+            - "What documents does ESA own?"
+            - "Show me Data Office documents"
+            - "What are the ESA principles and ADRs?"
 
             Args:
-                team_name: Team name or abbreviation (e.g., "ESA", "Energy System Architecture", "Data Office")
-                query: Optional search query to filter results within the team's documents
+                team_name: Team name or abbreviation (e.g., "ESA", "DO", "Data Office")
+                query: Optional search query to filter within the team's documents
                 limit: Maximum number of results per collection
 
             Returns:
