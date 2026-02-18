@@ -682,7 +682,7 @@
             background: rgba(16, 185, 129, 0.1);
         }
 
-        /* Decision panel */
+        /* Decision panel (legacy, kept for loaded history) */
         .panel.decision {
             border: 1px solid var(--border-decision);
         }
@@ -696,7 +696,7 @@
             font-size: 13px;
         }
 
-        /* Thinking aloud panel (intermediate responses - green but hideable) */
+        /* Thinking aloud panel (legacy, kept for loaded history) */
         .panel.thinking-aloud {
             border: 1px solid var(--border-assistant);
             opacity: 0.85;
@@ -707,7 +707,130 @@
             font-style: italic;
         }
 
+        /* Thinking container — accumulates intermediate steps */
+        .thinking-container {
+            border: 1px solid var(--border-decision);
+            border-radius: 12px;
+            margin-bottom: 16px;
+            overflow: hidden;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .thinking-container .thinking-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px 16px;
+            background: linear-gradient(135deg, var(--bg-decision) 0%, rgba(168, 85, 247, 0.15) 100%);
+            color: var(--border-decision);
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .thinking-container .thinking-header .thinking-spinner {
+            width: 18px;
+            height: 18px;
+            border: 2px solid rgba(168, 85, 247, 0.2);
+            border-top-color: var(--border-decision);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            flex-shrink: 0;
+        }
+
+        .thinking-container .thinking-header .thinking-timer {
+            margin-left: auto;
+            font-size: 12px;
+            opacity: 0.8;
+            font-weight: 400;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .thinking-container .thinking-steps {
+            padding: 8px 16px 12px;
+            background: var(--bg-decision);
+        }
+
+        .thinking-container .thinking-step {
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+            padding: 4px 0;
+            font-size: 13px;
+            color: var(--text-secondary);
+            line-height: 1.4;
+        }
+
+        .thinking-container .thinking-step .step-icon {
+            flex-shrink: 0;
+            width: 16px;
+            height: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-top: 1px;
+        }
+
+        .thinking-container .thinking-step .step-icon.done {
+            color: #10b981;
+        }
+
+        .thinking-container .thinking-step .step-icon.active {
+            color: var(--border-decision);
+        }
+
+        .thinking-container .thinking-step .step-icon.active svg {
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+
+        .thinking-container .thinking-step .step-text {
+            flex: 1;
+        }
+
+        /* Collapsed state after completion */
+        .thinking-container.collapsed .thinking-steps {
+            display: none;
+        }
+
+        .thinking-container.collapsed .thinking-header {
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .thinking-container.collapsed .thinking-header:hover {
+            background: linear-gradient(135deg, rgba(168, 85, 247, 0.15) 0%, rgba(168, 85, 247, 0.25) 100%);
+        }
+
+        .thinking-container.collapsed .thinking-header .expand-icon {
+            transition: transform 0.2s;
+        }
+
+        .thinking-container.expanded .thinking-header {
+            cursor: pointer;
+        }
+
+        .thinking-container.expanded .thinking-header .expand-icon {
+            transform: rotate(90deg);
+            transition: transform 0.2s;
+        }
+
+        .thinking-container .thinking-header .expand-icon {
+            font-size: 12px;
+            opacity: 0.6;
+            display: none;
+        }
+
+        .thinking-container.collapsed .thinking-header .expand-icon,
+        .thinking-container.expanded .thinking-header .expand-icon {
+            display: inline;
+        }
+
+        .thinking-container.collapsed .thinking-header .thinking-spinner,
+        .thinking-container.expanded .thinking-header .thinking-spinner {
+            display: none;
+        }
+
         /* Hide thinking when disabled */
+        .hide-thinking .thinking-container,
         .hide-thinking .panel.decision,
         .hide-thinking .panel.thinking-aloud {
             display: none;
@@ -1454,6 +1577,12 @@
         let currentStatusElement = null;
         let showThinking = true;
 
+        // Thinking container state
+        let thinkingContainer = null;
+        let thinkingStepCount = 0;
+        let thinkingStartTime = null;
+        let thinkingTimerInterval = null;
+
         // LLM Settings
         let llmSettings = {
             provider: 'ollama',
@@ -1697,6 +1826,7 @@
 
             // Reset response tracking
             responseShown = false;
+            resetThinkingContainer();
 
             // Add user prompt panel
             appendPanel('user-prompt', 'User', message);
@@ -1705,7 +1835,6 @@
 
             isLoading = true;
             updateSendButton();
-            showLoading();
 
             try {
                 const response = await fetch('/api/chat/stream', {
@@ -1750,6 +1879,8 @@
                 updateSendButton();
                 removeStatus();
                 removeLoading();
+                // Ensure thinking container is collapsed if stream ended unexpectedly
+                collapseThinkingContainer(null);
             }
 
             scrollToBottom();
@@ -1987,6 +2118,131 @@
             }
         }
 
+        // Thinking container helpers
+        function getOrCreateThinkingContainer() {
+            if (thinkingContainer) return thinkingContainer;
+
+            thinkingStartTime = Date.now();
+            thinkingStepCount = 0;
+
+            const messagesContainer = document.getElementById('messages');
+            const container = document.createElement('div');
+            container.className = 'thinking-container';
+            container.id = 'thinking-container';
+            container.innerHTML = `
+                <div class="thinking-header">
+                    <div class="thinking-spinner"></div>
+                    <span class="expand-icon">&#9654;</span>
+                    <span class="thinking-label">AInstein is working...</span>
+                    <span class="thinking-timer">0s</span>
+                </div>
+                <div class="thinking-steps"></div>
+            `;
+            messagesContainer.appendChild(container);
+            thinkingContainer = container;
+
+            // Start timer
+            thinkingTimerInterval = setInterval(() => {
+                const elapsed = Math.round((Date.now() - thinkingStartTime) / 1000);
+                const timerEl = container.querySelector('.thinking-timer');
+                if (timerEl) timerEl.textContent = elapsed + 's';
+            }, 1000);
+
+            return container;
+        }
+
+        function addThinkingStep(text) {
+            const container = getOrCreateThinkingContainer();
+            const stepsEl = container.querySelector('.thinking-steps');
+
+            // Mark previous active step as done
+            const activeStep = stepsEl.querySelector('.step-icon.active');
+            if (activeStep) {
+                activeStep.className = 'step-icon done';
+                activeStep.innerHTML = '<svg viewBox="0 0 16 16" width="14" height="14"><path fill="currentColor" d="M13.78 4.22a.75.75 0 010 1.06l-7.25 7.25a.75.75 0 01-1.06 0L2.22 9.28a.75.75 0 011.06-1.06L6 10.94l6.72-6.72a.75.75 0 011.06 0z"/></svg>';
+            }
+
+            thinkingStepCount++;
+
+            // Clean up the text — remove very long content, keep just first sentence
+            let displayText = text.trim();
+            if (displayText.length > 120) {
+                const firstSentence = displayText.match(/^[^.!?]+[.!?]/);
+                displayText = firstSentence ? firstSentence[0] : displayText.substring(0, 120) + '...';
+            }
+
+            const step = document.createElement('div');
+            step.className = 'thinking-step';
+            step.innerHTML = `
+                <span class="step-icon active">
+                    <svg viewBox="0 0 16 16" width="14" height="14"><circle cx="8" cy="8" r="4" fill="currentColor"/></svg>
+                </span>
+                <span class="step-text">${escapeHtml(displayText)}</span>
+            `;
+            stepsEl.appendChild(step);
+            scrollToBottom();
+        }
+
+        function collapseThinkingContainer(totalMs) {
+            if (!thinkingContainer) return;
+
+            // Stop timer
+            if (thinkingTimerInterval) {
+                clearInterval(thinkingTimerInterval);
+                thinkingTimerInterval = null;
+            }
+
+            // Mark last active step as done
+            const activeStep = thinkingContainer.querySelector('.step-icon.active');
+            if (activeStep) {
+                activeStep.className = 'step-icon done';
+                activeStep.innerHTML = '<svg viewBox="0 0 16 16" width="14" height="14"><path fill="currentColor" d="M13.78 4.22a.75.75 0 010 1.06l-7.25 7.25a.75.75 0 01-1.06 0L2.22 9.28a.75.75 0 011.06-1.06L6 10.94l6.72-6.72a.75.75 0 011.06 0z"/></svg>';
+            }
+
+            // Calculate elapsed time
+            const elapsed = totalMs
+                ? (totalMs / 1000).toFixed(1)
+                : ((Date.now() - thinkingStartTime) / 1000).toFixed(1);
+            const stepWord = thinkingStepCount === 1 ? 'step' : 'steps';
+
+            // Update header to summary
+            const label = thinkingContainer.querySelector('.thinking-label');
+            if (label) label.textContent = `AInstein worked for ${elapsed}s (${thinkingStepCount} ${stepWord})`;
+
+            const timer = thinkingContainer.querySelector('.thinking-timer');
+            if (timer) timer.style.display = 'none';
+
+            // Collapse
+            thinkingContainer.classList.add('collapsed');
+
+            // Make header clickable to toggle
+            const header = thinkingContainer.querySelector('.thinking-header');
+            header.onclick = () => {
+                if (thinkingContainer.classList.contains('collapsed')) {
+                    thinkingContainer.classList.remove('collapsed');
+                    thinkingContainer.classList.add('expanded');
+                } else {
+                    thinkingContainer.classList.remove('expanded');
+                    thinkingContainer.classList.add('collapsed');
+                }
+            };
+
+            // Reset state for next query
+            thinkingContainer = null;
+            thinkingStepCount = 0;
+            thinkingStartTime = null;
+        }
+
+        function resetThinkingContainer() {
+            if (thinkingTimerInterval) {
+                clearInterval(thinkingTimerInterval);
+                thinkingTimerInterval = null;
+            }
+            thinkingContainer = null;
+            thinkingStepCount = 0;
+            thinkingStartTime = null;
+        }
+
         // Handle streaming events
         function handleStreamEvent(data) {
             console.log('Event:', data.type, data);
@@ -1995,40 +2251,36 @@
                 case 'init':
                     currentConversationId = data.conversation_id;
                     responseShown = false;
+                    resetThinkingContainer();
                     break;
 
                 case 'status':
-                    showStatus(data.content);
+                    // Route status to thinking container as a step
+                    addThinkingStep(data.content);
                     break;
 
                 case 'heartbeat':
-                    // System is still processing - update elapsed time indicator
-                    updateHeartbeat(data.elapsed_sec);
+                    // Timer is handled by the thinking container itself
+                    // Just ensure it exists
+                    getOrCreateThinkingContainer();
                     break;
 
                 case 'decision':
-                    removeStatus();
-                    // Show loading again if it was removed (for multi-step thinking)
-                    if (!document.getElementById('global-loading')) {
-                        showLoading();
-                    }
-                    appendPanel('decision', 'AInstein Reasoning', data.content);
+                    // Route decision reasoning to thinking container
+                    addThinkingStep(data.content);
                     break;
 
                 case 'assistant':
-                    removeStatus();
+                    // Final assistant response — collapse thinking and show answer
+                    collapseThinkingContainer(data.timing ? data.timing.total_ms : null);
                     removeLoading();
                     appendPanel('assistant', 'AInstein', data.content, null, null, data.timing);
                     responseShown = true;
                     break;
 
                 case 'thinking_aloud':
-                    removeStatus();
-                    // Show loading again if needed (more thinking may come)
-                    if (!document.getElementById('global-loading')) {
-                        showLoading();
-                    }
-                    appendPanel('thinking-aloud', 'AInstein thinking out loud', data.content);
+                    // Route intermediate thinking to thinking container
+                    addThinkingStep(data.content);
                     break;
 
                 case 'user_prompt':
@@ -2036,8 +2288,8 @@
                     break;
 
                 case 'complete':
-                    removeStatus();
                     removeLoading();
+                    collapseThinkingContainer(data.timing ? data.timing.total_ms : null);
                     // If no assistant response was shown yet, show the final response
                     if (!responseShown && data.response) {
                         appendPanel('assistant', 'AInstein', data.response, null, null, data.timing);
@@ -2067,7 +2319,8 @@
                     break;
 
                 case 'error':
-                    removeStatus();
+                    collapseThinkingContainer(null);
+                    removeLoading();
                     appendPanel('assistant', 'Error', data.content);
                     break;
             }
