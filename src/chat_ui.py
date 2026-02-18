@@ -43,162 +43,6 @@ _elysia_system = None
 _db_path = Path(__file__).parent.parent / "chat_history.db"
 
 
-class OutputCapture:
-    """Capture stdout and parse Rich panel output into structured events."""
-
-    def __init__(self, queue: Queue, original_stdout):
-        self.queue = queue
-        self.original_stdout = original_stdout
-        self.buffer = ""
-        self.current_panel_type = None
-        self.current_panel_content = []
-        self.encoding = 'utf-8'
-        self.errors = 'replace'
-        self.mode = 'w'
-        self.name = '<capture>'
-
-    def write(self, text: str):
-        """Capture and process output while also printing to original stdout."""
-        # Also write to original stdout so we see it in console
-        if self.original_stdout:
-            self.original_stdout.write(text)
-            self.original_stdout.flush()
-
-        self.buffer += text
-
-        # Process complete lines immediately
-        while "\n" in self.buffer:
-            line, self.buffer = self.buffer.split("\n", 1)
-            self._process_line(line)
-
-        return len(text)
-
-    def _process_line(self, line: str):
-        """Parse a line and emit structured events."""
-        # Strip ANSI codes for analysis
-        clean = re.sub(r'\x1b\[[0-9;]*m', '', line).strip()
-
-        if not clean:
-            return
-
-        # Detect panel boundaries and types based on Rich panel titles
-        if "User prompt" in clean:
-            self._emit_panel()
-            self.current_panel_type = "user_prompt"
-        elif "Assistant response" in clean:
-            self._emit_panel()
-            self.current_panel_type = "assistant"
-        elif "Current Decision" in clean:
-            self._emit_panel()
-            self.current_panel_type = "decision"
-        elif "Thinking..." in clean:
-            self._emit_panel()
-            self.queue.put({"type": "status", "content": "Thinking..."})
-        elif "Running " in clean and "..." in clean:
-            self._emit_panel()
-            self.queue.put({"type": "status", "content": clean.strip("⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏ ")})
-        elif "Summarizing..." in clean:
-            self._emit_panel()
-            self.queue.put({"type": "status", "content": "Summarizing..."})
-        elif clean.startswith("╭") or clean.startswith("╰"):
-            # Panel border - ignore but don't add to content
-            pass
-        elif clean.startswith("│"):
-            # Panel content line
-            content = clean[1:].strip() if len(clean) > 1 else ""
-            # Remove trailing border character if present
-            if content.endswith("│"):
-                content = content[:-1].strip()
-            if content and self.current_panel_type:
-                self.current_panel_content.append(content)
-        elif self.current_panel_type and clean and not clean.startswith("─"):
-            # Content line without border
-            self.current_panel_content.append(clean)
-
-    def _emit_panel(self):
-        """Emit the current panel as an event."""
-        if self.current_panel_type and self.current_panel_content:
-            # Filter out "Node:" lines from decision panels (internal Elysia detail)
-            if self.current_panel_type == "decision":
-                filtered_content = [
-                    line for line in self.current_panel_content
-                    if not line.startswith("Node:")
-                ]
-                content = "\n".join(filtered_content).strip()
-            else:
-                content = "\n".join(self.current_panel_content).strip()
-
-            if content:
-                panel_type = self.current_panel_type
-
-                # Detect intermediate "thinking aloud" assistant responses
-                if panel_type == "assistant" and self._is_thinking_aloud(content):
-                    panel_type = "thinking_aloud"
-
-                self.queue.put({
-                    "type": panel_type,
-                    "content": content
-                })
-        self.current_panel_type = None
-        self.current_panel_content = []
-
-    def _is_thinking_aloud(self, content: str) -> bool:
-        """Detect if an assistant response is an intermediate 'thinking aloud' message."""
-        # Short responses that describe actions being taken
-        if len(content) > 400:
-            return False
-
-        content_lower = content.lower()
-
-        # Patterns indicating intermediate responses
-        thinking_patterns = [
-            "i will now",
-            "i will search",
-            "i will retrieve",
-            "i will look",
-            "i will find",
-            "i will provide",
-            "i will analyze",
-            "i will examine",
-            "i have searched",
-            "i have retrieved",
-            "i have found",
-            "i have analyzed",
-            "let me search",
-            "let me retrieve",
-            "let me find",
-            "let me look",
-            "let me analyze",
-            "searching for",
-            "retrieving",
-            "looking for",
-            "analyzing",
-        ]
-
-        return any(pattern in content_lower for pattern in thinking_patterns)
-
-    def flush(self):
-        """Flush remaining content."""
-        if self.original_stdout:
-            self.original_stdout.flush()
-        if self.buffer:
-            self._process_line(self.buffer)
-            self.buffer = ""
-        self._emit_panel()
-
-    def fileno(self):
-        """Return file descriptor for compatibility."""
-        if self.original_stdout:
-            return self.original_stdout.fileno()
-        return -1
-
-    def isatty(self):
-        """Check if output is a TTY."""
-        if self.original_stdout:
-            return self.original_stdout.isatty()
-        return False
-
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Lifespan context manager for startup/shutdown."""
@@ -494,75 +338,49 @@ def delete_all_conversations():
 
 
 def run_elysia_query(question: str, result_queue: Queue, output_queue: Queue):
-    """Run Elysia query in a thread, capturing console output via stdout/stderr redirect."""
-    import sys
+    """Run Elysia query in a thread, emitting typed events via output_queue.
+
+    Events are emitted directly from Tree.async_run() results — no stdout
+    parsing needed. See docs/MONKEY_PATCHES.md #2 for details.
+    """
     import asyncio
-    import os
     import time
 
-    # Track timing
     start_time = time.time()
 
-    # Redirect both stdout and stderr to capture all Rich console output
-    original_stdout = sys.stdout
-    original_stderr = sys.stderr
-
-    stdout_capture = OutputCapture(output_queue, original_stdout)
-    stderr_capture = OutputCapture(output_queue, original_stderr)
-
-    sys.stdout = stdout_capture
-    sys.stderr = stderr_capture
-
-    # Also set environment variable to force Rich to use simple output
-    original_term = os.environ.get('TERM', '')
-    os.environ['TERM'] = 'dumb'
-
     try:
-        # Run the query synchronously
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
 
         try:
-            response, objects = loop.run_until_complete(_elysia_system.query(question))
+            response, objects = loop.run_until_complete(
+                _elysia_system.query(question, event_queue=output_queue)
+            )
         finally:
-            # Clean up pending tasks
             pending = asyncio.all_tasks(loop)
             for task in pending:
                 task.cancel()
             loop.run_until_complete(asyncio.gather(*pending, return_exceptions=True))
             loop.close()
 
-        # Flush any remaining output
-        stdout_capture.flush()
-        stderr_capture.flush()
-
-        # Calculate total time
         total_time_ms = int((time.time() - start_time) * 1000)
 
         result_queue.put({
             "response": response,
             "objects": objects,
             "error": None,
-            "timing": {
-                "total_ms": total_time_ms,
-            }
+            "timing": {"total_ms": total_time_ms},
         })
     except Exception as e:
-        stdout_capture.flush()
-        stderr_capture.flush()
         logger.exception("Elysia query error")
         total_time_ms = int((time.time() - start_time) * 1000)
         result_queue.put({
             "response": None,
             "objects": None,
             "error": str(e),
-            "timing": {"total_ms": total_time_ms}
+            "timing": {"total_ms": total_time_ms},
         })
     finally:
-        # Restore original stdout/stderr
-        sys.stdout = original_stdout
-        sys.stderr = original_stderr
-        os.environ['TERM'] = original_term
         output_queue.put(None)  # Signal end of output
 
 

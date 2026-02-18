@@ -587,29 +587,31 @@
             word-break: break-word;
         }
 
-        /* Formatted paragraph styling */
-        .message-text .formatted-para {
+        /* Markdown content styling (rendered by marked.js) */
+        .message-text p {
             margin: 0 0 0.4em 0;
             line-height: 1.5;
         }
 
-        .message-text .formatted-para:last-child {
+        .message-text p:last-child {
             margin-bottom: 0;
         }
 
-        /* Formatted list styling */
-        .message-text .formatted-list {
+        .message-text ol,
+        .message-text ul {
             margin: 0.3em 0;
-            padding-left: 1.5em;
+            padding-left: 2em;
             line-height: 1.5;
         }
 
-        .message-text .formatted-list li {
+        .message-text li {
             margin: 0.1em 0;
         }
 
-        /* Nested lists (e.g. status bullets under ADR items) */
-        .message-text .formatted-list .formatted-list {
+        .message-text ol ol,
+        .message-text ol ul,
+        .message-text ul ol,
+        .message-text ul ul {
             margin: 0;
             padding-left: 1.2em;
         }
@@ -809,11 +811,7 @@
         }
 
         .thinking-container .thinking-step.narration {
-            color: var(--text-secondary);
-        }
-
-        .thinking-container .thinking-step.narration .step-icon.done {
-            opacity: 0.8;
+            color: var(--border-assistant);
         }
 
         /* Collapsed state (default after completion) */
@@ -1549,6 +1547,7 @@
         </div>
     </main>
 
+    <script src="https://cdn.jsdelivr.net/npm/marked@9.1.6/marked.min.js"></script>
     <script>
         let currentConversationId = null;
         let isLoading = false;
@@ -2347,12 +2346,6 @@
             }
 
             panel.innerHTML = panelHTML;
-
-            if (sources && sources.length > 0) {
-                const sourcesDiv = createSourcesDiv(sources);
-                panel.querySelector('.panel-content').appendChild(sourcesDiv);
-            }
-
             messagesContainer.appendChild(panel);
             scrollToBottom();
         }
@@ -2423,15 +2416,44 @@
         }
 
         // Copy message content to clipboard
+        // Convert HTML element to plain text, preserving list numbering
+        function htmlToPlainText(el) {
+            let text = '';
+            for (const node of el.childNodes) {
+                if (node.nodeType === Node.TEXT_NODE) {
+                    text += node.textContent;
+                } else if (node.nodeType === Node.ELEMENT_NODE) {
+                    const tag = node.tagName;
+                    if (tag === 'OL') {
+                        const items = node.querySelectorAll(':scope > li');
+                        const start = parseInt(node.getAttribute('start') || '1', 10);
+                        items.forEach((li, i) => {
+                            text += (start + i) + '. ' + htmlToPlainText(li).trim() + '\n';
+                        });
+                    } else if (tag === 'UL') {
+                        const items = node.querySelectorAll(':scope > li');
+                        items.forEach(li => {
+                            text += '- ' + htmlToPlainText(li).trim() + '\n';
+                        });
+                    } else if (tag === 'BR') {
+                        text += '\n';
+                    } else if (tag === 'P') {
+                        text += htmlToPlainText(node) + '\n\n';
+                    } else {
+                        text += htmlToPlainText(node);
+                    }
+                }
+            }
+            return text;
+        }
+
         async function copyMessage(button) {
             const panel = button.closest('.panel');
             const messageText = panel.querySelector('.message-text');
             const copyText = button.querySelector('.copy-text');
 
             try {
-                // Use innerText to preserve line breaks and list structure
-                const plainText = messageText.innerText;
-                // Also provide HTML for rich paste targets
+                const plainText = htmlToPlainText(messageText).trim();
                 const htmlText = messageText.innerHTML;
 
                 const blob = new Blob([htmlText], { type: 'text/html' });
@@ -2449,7 +2471,7 @@
             } catch (err) {
                 // Fallback to plain text copy
                 try {
-                    await navigator.clipboard.writeText(messageText.innerText);
+                    await navigator.clipboard.writeText(htmlToPlainText(messageText).trim());
                     copyText.textContent = 'Copied!';
                 } catch (err2) {
                     console.error('Failed to copy:', err2);
@@ -2637,105 +2659,14 @@
             return div.innerHTML;
         }
 
-        // Format text for display: escape HTML and render basic markdown
+        // Format text for display using marked.js markdown renderer
         function formatMessageText(text) {
             if (!text) return '';
-
-            // First escape HTML
-            let escaped = escapeHtml(text);
-
-            // Helper to check if a line is a list item
-            const isListItem = (line) => {
-                return /^(\s*)([-*•◦▸▹●○])\s+/.test(line) || /^(\s*)(\d+)\.\s+/.test(line);
-            };
-
-            // Step 1: Unwrap paragraphs - join consecutive non-list, non-empty lines
-            // Rich wraps text at ~80 chars, we need to undo that for web display
-            const lines = escaped.split('\n');
-            const unwrappedLines = [];
-            let currentPara = [];
-
-            for (let i = 0; i < lines.length; i++) {
-                const line = lines[i];
-                const trimmed = line.trim();
-
-                if (trimmed === '') {
-                    // Empty line: flush current paragraph, add blank line marker
-                    if (currentPara.length > 0) {
-                        unwrappedLines.push(currentPara.join(' '));
-                        currentPara = [];
-                    }
-                    unwrappedLines.push('');
-                } else if (isListItem(line)) {
-                    // List item: flush current paragraph, add list item as-is
-                    if (currentPara.length > 0) {
-                        unwrappedLines.push(currentPara.join(' '));
-                        currentPara = [];
-                    }
-                    unwrappedLines.push(line);
-                } else {
-                    // Regular text: accumulate into current paragraph
-                    currentPara.push(trimmed);
-                }
+            if (typeof marked !== 'undefined' && marked.parse) {
+                return marked.parse(text);
             }
-            // Flush remaining paragraph
-            if (currentPara.length > 0) {
-                unwrappedLines.push(currentPara.join(' '));
-            }
-
-            // Step 2: Process unwrapped lines for list formatting
-            let result = [];
-            let inList = false;
-            let listType = null;
-
-            for (let i = 0; i < unwrappedLines.length; i++) {
-                let line = unwrappedLines[i];
-
-                // Check for unordered list items (-, *, •, ◦, ▸, ▹, ●, ○)
-                const ulMatch = line.match(/^(\s*)([-*•◦▸▹●○])\s+(.+)$/);
-                // Check for ordered list items (1. 2. etc)
-                const olMatch = line.match(/^(\s*)(\d+)\.\s+(.+)$/);
-
-                if (ulMatch) {
-                    if (!inList || listType !== 'ul') {
-                        if (inList) result.push(listType === 'ol' ? '</ol>' : '</ul>');
-                        result.push('<ul class="formatted-list">');
-                        inList = true;
-                        listType = 'ul';
-                    }
-                    result.push(`<li>${ulMatch[3]}</li>`);
-                } else if (olMatch) {
-                    const itemNum = parseInt(olMatch[2], 10);
-                    if (!inList || listType !== 'ol') {
-                        if (inList) result.push(listType === 'ol' ? '</ol>' : '</ul>');
-                        // Use start attribute to preserve numbering when list is broken
-                        result.push(`<ol class="formatted-list" start="${itemNum}">`);
-                        inList = true;
-                        listType = 'ol';
-                    }
-                    result.push(`<li>${olMatch[3]}</li>`);
-                } else {
-                    // Not a list item - close any open list
-                    if (inList) {
-                        result.push(listType === 'ol' ? '</ol>' : '</ul>');
-                        inList = false;
-                        listType = null;
-                    }
-                    // Empty line becomes a paragraph break
-                    if (line.trim() === '') {
-                        result.push('<br>');
-                    } else {
-                        result.push(`<p class="formatted-para">${line}</p>`);
-                    }
-                }
-            }
-
-            // Close any remaining open list
-            if (inList) {
-                result.push(listType === 'ol' ? '</ol>' : '</ul>');
-            }
-
-            return result.join('');
+            console.warn('marked.js not loaded, falling back to plain text');
+            return escapeHtml(text);
         }
 
         // ============ LLM Settings Functions ============

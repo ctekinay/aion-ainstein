@@ -696,12 +696,18 @@ class ElysiaRAGSystem:
 
         logger.info("Registered Elysia tools: vocabulary, ADR, principles, policies, search_by_team")
 
-    async def query(self, question: str, collection_names: Optional[list[str]] = None) -> tuple[str, list[dict]]:
+    async def query(self, question: str, collection_names: Optional[list[str]] = None,
+                    event_queue=None) -> tuple[str, list[dict]]:
         """Process a query using Elysia's decision tree.
+
+        Iterates Tree.async_run() directly (bypassing tree.run() which wraps
+        it with Rich console rendering). Each yielded result is mapped to a
+        typed SSE event and placed on event_queue for real-time streaming.
 
         Args:
             question: The user's question
             collection_names: Optional list of collection names to focus on
+            event_queue: Optional Queue for streaming typed SSE events
 
         Returns:
             Tuple of (response text, retrieved objects)
@@ -726,12 +732,54 @@ class ElysiaRAGSystem:
             logger.debug(f"Injected {len(skill_content)} chars of skill content into Tree atlas")
 
         try:
-            response, objects = self.tree(question, collection_names=our_collections)
+            # Replicate the one setup step from tree.run()
+            # See docs/MONKEY_PATCHES.md #2 for upgrade notes
+            self.tree.store_retrieved_objects = True
 
-            # Elysia concatenates ALL assistant responses (intermediate narration +
-            # final answer) into one string. Extract only the last text response
-            # from retrieved_objects — that's the final cited_summarize output.
-            final_response = self._extract_final_response(response)
+            # Suppress Rich console printing from _evaluate_result() —
+            # we get typed data directly from the yielded results
+            original_log_level = self.tree.settings.LOGGING_LEVEL_INT
+            self.tree.settings.LOGGING_LEVEL_INT = 30
+
+            # Track the last text result — its raw content preserves newlines,
+            # unlike conversation_history which joins everything with spaces.
+            last_text_content = None
+
+            async for result in self.tree.async_run(
+                question, collection_names=our_collections
+            ):
+                if result is None:
+                    continue
+
+                # Capture text from the last text result for the final response
+                if result.get("type") == "text":
+                    payload = result.get("payload", {})
+                    objects_list = payload.get("objects", [])
+                    text_parts = [
+                        o["text"] for o in objects_list
+                        if isinstance(o, dict) and "text" in o
+                    ]
+                    if text_parts:
+                        last_text_content = "\n\n".join(text_parts)
+
+                event = self._map_tree_result_to_event(result)
+                if event and event_queue:
+                    event_queue.put(event)
+
+            # Restore logging level
+            self.tree.settings.LOGGING_LEVEL_INT = original_log_level
+
+            objects = self.tree.retrieved_objects
+
+            # Use the last text result directly — it preserves formatting.
+            # Fall back to conversation_history only if no text was captured.
+            if last_text_content and len(last_text_content) > 20:
+                final_response = last_text_content
+                logger.debug(f"Using last text result ({len(final_response)} chars)")
+            else:
+                response = self.tree.tree_data.conversation_history[-1]["content"]
+                final_response = response
+                logger.debug("Fell back to conversation_history")
 
         except Exception as e:
             # If Elysia's tree fails, fall back to direct tool execution
@@ -739,6 +787,45 @@ class ElysiaRAGSystem:
             final_response, objects = await self._direct_query(question)
 
         return final_response, objects
+
+    def _map_tree_result_to_event(self, result: dict) -> Optional[dict]:
+        """Map a Tree async_run() result to an SSE event dict.
+
+        The Tree yields typed dicts with 'type' and 'payload' fields.
+        We map these to the SSE event types the frontend expects.
+        """
+        rtype = result.get("type")
+        payload = result.get("payload", {})
+
+        if rtype == "tree_update":
+            decision = payload.get("decision", "")
+            reasoning = payload.get("reasoning", "")
+            return {
+                "type": "decision",
+                "content": f"Decision: {decision} Reasoning: {reasoning}",
+            }
+
+        if rtype == "status":
+            text = payload.get("text", "")
+            if text:
+                return {"type": "status", "content": text}
+            return None
+
+        if rtype == "text":
+            # All text results during execution are intermediate thinking steps.
+            # The final answer is extracted from retrieved_objects after completion.
+            objects_list = payload.get("objects", [])
+            text_parts = [
+                o["text"] for o in objects_list
+                if isinstance(o, dict) and "text" in o
+            ]
+            content = " ".join(text_parts) if text_parts else ""
+            if content:
+                return {"type": "assistant", "content": content}
+            return None
+
+        # result, completed, etc. — no SSE event needed
+        return None
 
     def _extract_final_response(self, concatenated_response: str) -> str:
         """Extract the final answer from the Tree's retrieved objects.

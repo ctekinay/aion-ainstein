@@ -1,7 +1,6 @@
 ---
 name: response-formatter
-description: Ensures list-based responses use structured formatting with item counts
-  when returning multiple items.
+description: Ensures list-based responses use structured formatting with item counts when returning multiple items.
 ---
 
 ## Response Formatter
@@ -13,7 +12,7 @@ When answering questions that return multiple items (ADRs, principles, policies,
 1. **ID: [reference]** - **[Item Title]** | Status: [if available] | Owner: [if available]
 2. **ID: [reference]** - **[Item Title]** | Status: [if available] | Owner: [if available]
 
-Use numbered lists for sequential or ranked items. Use bullet points for unordered collections. List all items consecutively with NO blank lines or spacing between them — do not group or separate items by category.
+Use numbered lists for sequential or ranked items. Use bullet points for unordered collections. No gaps between the ranked items in the list.
 
 ### Summary Line
 
