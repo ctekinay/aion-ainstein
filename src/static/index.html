@@ -829,8 +829,16 @@
             display: none;
         }
 
-        /* Hide thinking when disabled */
-        .hide-thinking .thinking-container,
+        /* Hide thinking when disabled — keep header visible for progress, hide steps */
+        .hide-thinking .thinking-container .thinking-steps {
+            display: none;
+        }
+
+        .hide-thinking .thinking-container.collapsed .thinking-header .expand-icon,
+        .hide-thinking .thinking-container.expanded .thinking-header .expand-icon {
+            display: none;
+        }
+
         .hide-thinking .panel.decision,
         .hide-thinking .panel.thinking-aloud {
             display: none;
@@ -2215,15 +2223,18 @@
             // Collapse
             thinkingContainer.classList.add('collapsed');
 
+            // Capture element reference for click handler (thinkingContainer will be nulled)
+            const containerEl = thinkingContainer;
+
             // Make header clickable to toggle
-            const header = thinkingContainer.querySelector('.thinking-header');
+            const header = containerEl.querySelector('.thinking-header');
             header.onclick = () => {
-                if (thinkingContainer.classList.contains('collapsed')) {
-                    thinkingContainer.classList.remove('collapsed');
-                    thinkingContainer.classList.add('expanded');
+                if (containerEl.classList.contains('collapsed')) {
+                    containerEl.classList.remove('collapsed');
+                    containerEl.classList.add('expanded');
                 } else {
-                    thinkingContainer.classList.remove('expanded');
-                    thinkingContainer.classList.add('collapsed');
+                    containerEl.classList.remove('expanded');
+                    containerEl.classList.add('collapsed');
                 }
             };
 
