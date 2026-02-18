@@ -1,618 +1,257 @@
-# AION-AINSTEIN
+# AInstein
 
-Multi-Agent RAG (Retrieval-Augmented Generation) System for Energy System Architecture knowledge bases.
+Agentic RAG system for querying Energy System Architecture knowledge bases. Built on Weaviate + Elysia decision trees with a Skills Framework for prompt engineering.
 
-## Quick Deploy
+## What It Does
 
-Get up and running with local LLM (Ollama) - no API keys needed:
+AInstein lets architects and engineers query Alliander's architecture knowledge base using natural language:
 
-```bash
-# 1. Clone and enter the project
-git clone https://github.com/Alliander/esa-ainstein-artifacts.git
-cd aion-ainstein
+- **18 Architecture Decision Records (ADRs)** — design decisions with context, options, and consequences
+- **31 Architecture Principles (PCPs)** — guiding statements for design choices
+- **49 Decision Approval Records (DARs)** — governance and approval history
+- **5,200+ SKOS/OWL Vocabulary Concepts** — IEC 61970/61968/62325 standards, CIM models, domain ontologies
+- **Policy Documents** — data governance, privacy, security policies
 
-# 2. Start Weaviate (Docker required)
-docker compose up -d
-
-# 3. Install and start Ollama (see https://ollama.ai/download)
-ollama serve &  # Skip if already running
-
-# 4. Pull required models (IMPORTANT: do this BEFORE init)
-ollama pull nomic-embed-text-v2-moe
-ollama pull alibayram/smollm3:latest
-
-# 5. Set up Python environment (Python 3.10-3.12 required)
-python -m venv .venv
-source .venv/bin/activate  # On Windows: .\.venv\Scripts\Activate.ps1
-pip install -r requirements.txt
-
-# 6. Configure environment
-cp .env.example .env
-# Default uses Ollama - no changes needed for local LLM
-# For OpenAI: edit .env, set LLM_PROVIDER=openai and add OPENAI_API_KEY
-
-# 7. Initialize and start
-python -m src.cli init
-python -m src.cli chat --port 8081
-Access the UI at **http://localhost:8081**
-```
-
-## Overview
-
-AION-AINSTEIN is a local Weaviate-based RAG system that enables intelligent querying of energy sector knowledge bases. It supports both **local LLM (Ollama)** and **cloud LLM (OpenAI)** for embeddings and generation.
-
-**Knowledge bases include:**
-
-- **SKOS/RDF Vocabularies**: IEC 61970/61968/62325 standards, CIM models, and domain ontologies
-- **Architectural Decision Records (ADRs)**: Design decisions and rationale
-- **Data Governance Policies**: Compliance, data quality, security, privacy, and management policies
-- **Architecture Principles**: System design and governance principles
-
-The system integrates with Weaviate's Elysia framework - a decision tree-based agentic RAG system that dynamically selects tools and processes queries.
+Queries like "What ADRs exist?", "What is document 22?", "Who approved ADR.12?", and "Consequences of ADR.29?" are handled through an agentic decision tree that selects the right retrieval strategy, disambiguates overlapping document numbers, and formats responses with proper citations.
 
 ## Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                    OrchestratorAgent                        │
-│         (Routes queries to specialized agents)              │
-└───────────────┬─────────────────┬─────────────────┬─────────┘
-                │                 │                 │
-    ┌───────────▼───┐   ┌────────▼────────┐   ┌────▼────────┐
-    │ Vocabulary    │   │  Architecture   │   │   Policy    │
-    │    Agent      │   │     Agent       │   │    Agent    │
-    │               │   │                 │   │             │
-    │ SKOS/OWL      │   │ ADRs &          │   │ Governance  │
-    │ Concepts      │   │ Principles      │   │ Policies    │
-    └───────────────┘   └─────────────────┘   └─────────────┘
-                │                 │                 │
-    ┌───────────▼─────────────────▼─────────────────▼─────────┐
-    │                    Weaviate (Local Docker)              │
-    │                      Version 1.28.2                     │
-    │  ┌──────────┐  ┌──────────────────┐  ┌───────────────┐ │
-    │  │Vocabulary│  │ArchitecturalDec. │  │PolicyDocument │ │
-    │  │Collection│  │  Collection      │  │  Collection   │ │
-    │  └──────────┘  └──────────────────┘  └───────────────┘ │
-    └─────────────────────────────────────────────────────────┘
-                              │
-    ┌─────────────────────────▼───────────────────────────────┐
-    │              LLM Provider (choose one)                  │
-    │  ┌─────────────────────┐  ┌───────────────────────────┐ │
-    │  │ Ollama (default)    │  │ OpenAI (alternative)      │ │
-    │  │ Embed: nomic-v2-moe │  │ Embed: text-embed-3-small │ │
-    │  │ Chat: smollm3/qwen3 │  │ Chat: gpt-4o-mini         │ │
-    │  │ Local, Free         │  │ Cloud, Paid               │ │
-    │  └─────────────────────┘  └───────────────────────────┘ │
-    └─────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────┐
+│                         Web UI / CLI                                  │
+│              localhost:8081  |  python -m src.cli                     │
+└──────────────┬───────────────────────────────────────────────────────┘
+               │
+┌──────────────▼───────────────────────────────────────────────────────┐
+│                      Elysia Decision Tree                            │
+│  Routes queries to tools based on intent (list, lookup, summarize)   │
+│  Atlas = injected skill content (identity, formatting, ontology)     │
+├──────────────────────────────────────────────────────────────────────┤
+│  Tools:                                                              │
+│  search_vocabulary  search_architecture_decisions  search_principles  │
+│  search_policies    list_all_adrs    list_all_principles             │
+│  search_by_team     get_collection_stats                             │
+├──────────────────────────────────────────────────────────────────────┤
+│  Summarizers: cited_summarize  (monkey-patched to respect skills)    │
+└──────────────┬───────────────────────────────────────────────────────┘
+               │
+┌──────────────▼───────────────────────────────────────────────────────┐
+│                     Skills Framework                                  │
+│  Enabled skills are injected into every LLM prompt via atlas          │
+│  ┌─────────────────┐ ┌──────────────────┐ ┌──────────────────────┐   │
+│  │ rag-quality-    │ │ esa-document-    │ │ response-formatter   │   │
+│  │ assurance       │ │ ontology         │ │                      │   │
+│  │ Anti-hallucin.  │ │ ADR/PCP/DAR      │ │ Numbered lists,      │   │
+│  │ Citation rules  │ │ disambiguation   │ │ statistics, follow-  │   │
+│  │ Identity rules  │ │ ID aliases       │ │ up suggestions       │   │
+│  └─────────────────┘ └──────────────────┘ └──────────────────────┘   │
+└──────────────────────────────────────────────────────────────────────┘
+               │
+┌──────────────▼───────────────────────────────────────────────────────┐
+│                        Weaviate 1.35.7                                │
+│  ┌────────────┐ ┌──────────────────┐ ┌───────────┐ ┌──────────────┐ │
+│  │ Vocabulary │ │ Architectural    │ │ Principle │ │ Policy       │ │
+│  │ 5,200+     │ │ Decision  18+49  │ │ 31+31     │ │ Document     │ │
+│  │ concepts   │ │ ADRs + DARs      │ │ PCPs+DARs │ │ 76 chunks    │ │
+│  └────────────┘ └──────────────────┘ └───────────┘ └──────────────┘ │
+│  Hybrid search: BM25 keyword + vector similarity                     │
+└──────────────┬───────────────────────────────────────────────────────┘
+               │
+┌──────────────▼───────────────────────────────────────────────────────┐
+│                      LLM Provider                                     │
+│  ┌──────────────────────┐    ┌────────────────────────────────────┐  │
+│  │ Ollama (default)     │    │ OpenAI (alternative)               │  │
+│  │ Embed: nomic-v2-moe  │    │ Embed: text-embedding-3-small     │  │
+│  │ Chat: gpt-oss:20b    │    │ Chat: gpt-4o-mini                 │  │
+│  │ Local, free           │    │ Cloud, paid                       │  │
+│  └──────────────────────┘    └────────────────────────────────────┘  │
+└──────────────────────────────────────────────────────────────────────┘
+```
+
+## Quick Start
+
+```bash
+# 1. Clone and enter
+git clone <your-fork-url>
+cd esa-ainstein-artifacts
+
+# 2. Start Weaviate
+docker compose up -d
+
+# 3. Start Ollama and pull models
+ollama serve &
+ollama pull nomic-embed-text-v2-moe
+ollama pull gpt-oss:20b
+
+# 4. Python environment
+python3 -m venv venv312
+source venv312/bin/activate
+pip install -r requirements.txt
+
+# 5. Configure
+cp .env.example .env
+# Default uses Ollama — no changes needed
+
+# 6. Initialize and run
+python -m src.cli init
+python -m src.cli chat --port 8081
+# Open http://localhost:8081
 ```
 
 ## Prerequisites
 
-- **Docker Desktop** (with WSL2 on Windows) or **Podman** (Linux) - [Install Docker](https://docs.docker.com/desktop/)
-- **Python 3.10-3.12** (3.12 recommended) - [Download Python](https://www.python.org/downloads/)
-- **Git** - [Install Git](https://git-scm.com/downloads)
+- **Docker** — for Weaviate vector database
+- **Python 3.10-3.12** (3.13+ not supported)
+- **Ollama** (default, local, free) — [ollama.ai/download](https://ollama.ai/download)
+- Or **OpenAI API key** (cloud, paid) — set `LLM_PROVIDER=openai` in `.env`
 
-**LLM Provider** (choose one):
-- **Ollama** (default, local) - [Install Ollama](https://ollama.ai/download) - Free, runs locally, no API key needed
-- **OpenAI** (cloud) - [Get API Key](https://platform.openai.com/api-keys) - Requires API key and usage fees
-
-> **Note**: Python 3.13+ is not yet supported due to dependency compatibility.
-
-## Installation
-
-### Linux / macOS
+## CLI Commands
 
 ```bash
-# Clone the repository
-git clone https://github.com/Alliander/esa-ainstein-artifacts.git
-cd aion-ainstein
-
-# Start Weaviate database
-# Using Docker:
-docker compose up -d
-# Or using Podman (Linux):
-podman-compose up -d
-# Or start existing container:
-podman start weaviate-aion  # if container already exists
-
-# Install Ollama (if not already installed)
-curl -fsSL https://ollama.ai/install.sh | sh
-
-# Start Ollama and pull models
-ollama serve &  # Skip if already running (check: curl localhost:11434/api/version)
-ollama pull nomic-embed-text-v2-moe
-ollama pull alibayram/smollm3:latest
-
-# Create and activate virtual environment
-python3 -m venv .venv
-source .venv/bin/activate
-
-# Install dependencies
-pip install -r requirements.txt
-
-# Configure environment
-cp .env.example .env
-# Default uses Ollama - edit only if using OpenAI:
-# nano .env  # Set LLM_PROVIDER=openai and add OPENAI_API_KEY
-
-# Initialize the system (creates embeddings)
-python -m src.cli init
-
-# Start AInstein UI (recommended)
-python -m src.cli chat --port 8081
-Access the UI at **http://localhost:8081**
+python -m src.cli init                  # Initialize collections and ingest data
+python -m src.cli init --chunked        # Ingest with section-based chunking
+python -m src.cli init --recreate       # Recreate collections from scratch
+python -m src.cli chat --port 8081      # Start web UI
+python -m src.cli query "question"      # Single query from terminal
+python -m src.cli elysia                # Interactive Elysia session
+python -m src.cli status                # Show collection statistics
+python -m src.cli search "term"         # Direct hybrid search
+python -m src.cli evaluate              # Compare Ollama vs OpenAI quality
 ```
 
-> **Linux Note**: On some Linux systems, the Weaviate framework may have compatibility issues with `uvloop`. If you see errors like "Can't patch loop of type uvloop.Loop", the system automatically falls back to direct query mode.
+## Web UI
 
-### Windows (PowerShell)
+The chat interface at `http://localhost:8081` provides:
 
-```powershell
-# Clone the repository
-git clone https://github.com/Alliander/esa-ainstein-artifacts.git
-cd aion-ainstein
+- **Chat** — conversational RAG with citations and source cards
+- **Settings** — model selection, temperature, comparison mode
+- **Skills** (`/skills`) — enable/disable skills, tune abstention threshold, edit SKILL.md content
+- **Test Mode** — side-by-side Ollama vs OpenAI comparison
 
-# Start Weaviate database
-docker compose up -d
+## Skills Framework
 
-# Create and activate virtual environment
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
-
-# Install dependencies
-pip install -r requirements.txt
-
-# Configure environment
-Copy-Item .env.example .env
-notepad .env  # Add your OPENAI_API_KEY
-
-# Initialize the system
-python -m src.cli init
-
-# Start CLI (recommended)
-python -m src.cli elysia
-```
-
-## Docker Setup
-
-The system uses Docker to run a local Weaviate vector database. The `docker-compose.yml` includes:
-
-- **Weaviate 1.28.2** - Vector database with OpenAI integration
-- **Ports**: 8080 (HTTP), 50051 (gRPC)
-- **Persistent storage** via Docker volumes
-
-### Docker Commands
-
-```bash
-# Start Weaviate in background
-docker compose up -d
-
-# Check if running
-docker ps
-
-# View logs
-docker logs weaviate-aion
-
-# Stop Weaviate
-docker compose down
-
-# Reset everything (deletes all data)
-docker compose down -v
-```
-
-## Using the System
-
-### AInstein CLI Mode (Recommended)
-
-The AInstein CLI provides an intelligent, decision tree-based interface:
-
-```bash
-python -m src.cli elysia
-```
-
-This starts an interactive session where you can ask questions like:
-- "What is the CIM model?"
-- "What are the data governance principles?"
-- "Show me all architectural decisions about security"
-
-### AInstein Web UI
-
-For a full web experience with dynamic data display:
-
-```powershell
-# Windows
-python -m src.cli chat --port 8081
-Access the UI at **http://localhost:8081**
-```
-
-### Other Query Modes
-
-```bash
-# Interactive multi-agent mode
-python -m src.cli interactive
-
-# Single query
-python -m src.cli query "What is the CIM model?"
-
-# Query specific agent
-python -m src.cli query "What decisions have been made about security?" --agent architecture
-
-# Direct search
-python -m src.cli search "data quality" --collection policy
-
-# Check system status
-python -m src.cli status
-```
-
-### Query Options
-
-```powershell
-# Use specific agent
-python -m src.cli query "question" --agent vocabulary
-python -m src.cli query "question" --agent architecture
-python -m src.cli query "question" --agent policy
-
-# Use all agents
-python -m src.cli query "question" --all
-
-# Verbose output with sources
-python -m src.cli query "question" --verbose
-```
-
-### Interactive Mode Commands
-
-Once in interactive mode (`python -m src.cli interactive`):
+Skills are markdown instruction files injected into every LLM prompt. They control how AInstein behaves — identity, formatting, citation rules, domain knowledge. Skills are managed via the `/skills` UI or by editing files directly.
 
 ```
-@vocabulary <question>    Query only vocabulary agent
-@architecture <question>  Query only architecture agent
-@policy <question>        Query only policy agent
-@all <question>           Query all agents
-agents                    List available agents
-status                    Show collection status
-help                      Show help
-quit                      Exit
+skills/
+├── registry.yaml                    # Which skills are enabled
+├── rag-quality-assurance/
+│   ├── SKILL.md                     # Identity rules, citation format, abstention
+│   └── references/thresholds.yaml   # Distance threshold for abstention
+├── esa-document-ontology/
+│   └── SKILL.md                     # ADR/PCP/DAR naming, numbering, disambiguation
+├── response-formatter/
+│   └── SKILL.md                     # Numbered lists, statistics, follow-up options
+└── response-contract/
+    └── SKILL.md                     # Structured JSON output (disabled by default)
 ```
 
-### Elysia Tools
+**How it works:** Enabled skills are concatenated and set on the Elysia Tree's `atlas.agent_description` field before each query. This means every `ElysiaChainOfThought` prompt — including decision nodes and summarizers — sees the skill content alongside the retrieved documents and user query.
 
-Available tools in AInstein mode:
-- `search_vocabulary` - Search SKOS concepts and IEC standards
-- `search_architecture_decisions` - Search ADRs
-- `search_principles` - Search architecture principles
-- `search_policies` - Search governance policies (including privacy and security)
-- `list_all_adrs` - List all ADRs
-- `list_all_principles` - List all principles
-- `get_collection_stats` - Get system statistics
+**Thresholds:** The `rag-quality-assurance` skill has a `thresholds.yaml` that controls:
+- `abstention.distance_threshold` (0.5) — maximum vector distance before abstaining
+- `retrieval_limits` — max documents per collection (not yet wired)
+- `truncation` — content length limits (not yet wired)
 
 ## Project Structure
 
 ```
-aion-ainstein/
-├── data/                           # Knowledge base data
-│   ├── esa-skosmos/               # RDF/SKOS vocabularies (IEC standards)
-│   ├── esa-main-artifacts/        # ADRs and architecture principles
-│   │   └── doc/
-│   │       ├── decisions/         # Architectural Decision Records
-│   │       └── principles/        # Architecture principles
-│   ├── do-artifacts/              # Domain-specific governance
-│   │   ├── policy_docs/           # Data governance policies (DOCX/PDF)
-│   │   └── principles/            # Governance principles
-│   └── general-artifacts/         # General organizational policies
-│       └── policies/              # Privacy and security policies (PDF)
-├── knowledge/                      # Agent instruction templates
-│   ├── compile-architecture-principles-EN.md
-│   └── interact-with-open-archimate-file.md
+esa-ainstein-artifacts/
 ├── src/
-│   ├── agents/                    # Multi-agent system
-│   │   ├── base.py               # Base agent class
-│   │   ├── vocabulary_agent.py   # SKOS/vocabulary queries
-│   │   ├── architecture_agent.py # ADR and principle queries
-│   │   ├── policy_agent.py       # Policy document queries
-│   │   └── orchestrator.py       # Query routing
-│   ├── loaders/                   # Data loaders
-│   │   ├── rdf_loader.py         # SKOS/OWL/RDF parser
-│   │   ├── markdown_loader.py    # ADR and principle parser
-│   │   └── document_loader.py    # DOCX/PDF parser
-│   ├── weaviate/                  # Weaviate integration
-│   │   ├── client.py             # Connection management
-│   │   ├── collections.py        # Schema definitions
+│   ├── cli.py                    # Typer CLI (init, chat, query, evaluate)
+│   ├── config.py                 # Pydantic settings from .env
+│   ├── chat_ui.py                # FastAPI web server + API endpoints
+│   ├── elysia_agents.py          # Elysia Tree integration, tool registration,
+│   │                             #   skill injection, prompt patching, abstention
+│   ├── agents/                   # Legacy multi-agent system (orchestrator, vocab, etc.)
+│   ├── weaviate/
+│   │   ├── client.py             # Weaviate connection factory
+│   │   ├── collections.py        # Collection schema definitions
+│   │   ├── embeddings.py         # Ollama/OpenAI embedding functions
 │   │   └── ingestion.py          # Data ingestion pipeline
-│   ├── config.py                  # Configuration management
-│   ├── cli.py                     # CLI interface
-│   └── elysia_agents.py           # Elysia integration with fallback
-├── docker-compose.yml             # Weaviate container config
+│   ├── loaders/
+│   │   ├── rdf_loader.py         # SKOS/OWL/RDF parser (70+ ontology files)
+│   │   ├── markdown_loader.py    # ADR/PCP markdown parser with frontmatter
+│   │   ├── document_loader.py    # DOCX/PDF parser for policies
+│   │   └── registry_parser.py    # ESA registry table parser
+│   ├── chunking/                 # Section-based document chunking
+│   ├── skills/
+│   │   ├── __init__.py           # Package init, get_skill_registry()
+│   │   ├── loader.py             # SkillLoader: parses SKILL.md, loads thresholds
+│   │   ├── registry.py           # SkillRegistry: enabled/disabled state, content injection
+│   │   ├── api.py                # Skills CRUD API (list, get, toggle, update)
+│   │   └── filters.py            # Query-based skill filtering (unused, kept for reference)
+│   ├── evaluation/               # RAG quality evaluation framework
+│   ├── diagnostics/              # Retrieval debugging tools
+│   └── static/
+│       ├── index.html            # Main chat UI
+│       └── skills.html           # Skills management UI
+├── skills/                       # Skill definitions (SKILL.md + thresholds.yaml)
+├── data/
+│   ├── esa-skosmos/              # RDF/SKOS vocabularies (IEC standards)
+│   ├── esa-main-artifacts/doc/   # ADRs (decisions/) and PCPs (principles/)
+│   ├── do-artifacts/             # Data Office policies and principles
+│   └── general-artifacts/        # Privacy and security policies
+├── docker-compose.yml            # Weaviate 1.35.7 container
 ├── requirements.txt
-├── pyproject.toml
 └── .env.example
 ```
 
 ## Configuration
 
-### LLM Provider Selection
-
-The system supports two LLM providers. Set `LLM_PROVIDER` in your `.env` file:
-
-| Provider | Value | Description |
-|----------|-------|-------------|
-| **Ollama** | `ollama` | Local LLM, free, no API key required (default) |
-| **OpenAI** | `openai` | Cloud LLM, requires API key and usage fees |
-
 ### Environment Variables
 
-**Common Settings:**
-
 | Variable | Default | Description |
 |----------|---------|-------------|
+| `LLM_PROVIDER` | `ollama` | `ollama` or `openai` |
 | `WEAVIATE_URL` | `http://localhost:8080` | Weaviate HTTP endpoint |
 | `WEAVIATE_GRPC_URL` | `localhost:50051` | Weaviate gRPC endpoint |
-| `LLM_PROVIDER` | `ollama` | LLM provider: `ollama` or `openai` |
-
-**Ollama Settings** (when `LLM_PROVIDER=ollama`):
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `OLLAMA_URL` | `http://localhost:11434` | Ollama API endpoint |
-| `OLLAMA_MODEL` | `alibayram/smollm3:latest` | Chat/completion model |
+| `OLLAMA_URL` | `http://localhost:11434` | Ollama API |
+| `OLLAMA_MODEL` | `gpt-oss:20b` | Chat model |
 | `OLLAMA_EMBEDDING_MODEL` | `nomic-embed-text-v2-moe` | Embedding model |
+| `OPENAI_API_KEY` | — | Required when `LLM_PROVIDER=openai` |
 
-**OpenAI Settings** (when `LLM_PROVIDER=openai`):
+### Docker
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `OPENAI_API_KEY` | (required) | Your OpenAI API key |
-| `OPENAI_EMBEDDING_MODEL` | `text-embedding-3-small` | Embedding model |
-| `OPENAI_CHAT_MODEL` | `gpt-4o-mini` | Chat model |
-
----
-
-## Ollama Setup (Local LLM)
-
-Ollama allows running LLMs locally without API keys or cloud costs.
-
-### 1. Install Ollama
-
-**Linux:**
-```bash
-curl -fsSL https://ollama.ai/install.sh | sh
-```
-
-**macOS:**
-```bash
-brew install ollama
-```
-
-**Windows:**
-Download from [ollama.ai/download](https://ollama.ai/download)
-
-### 2. Start Ollama Service
-
-**Linux/macOS:**
-```bash
-# Start Ollama in the background
-ollama serve &
-
-# Or as a systemd service (Linux)
-sudo systemctl start ollama
-sudo systemctl enable ollama  # Auto-start on boot
-```
-
-**Windows:**
-Ollama runs automatically after installation. Check the system tray.
-
-### 3. Pull Required Models
-
-**IMPORTANT:** Pull both models BEFORE running `python -m src.cli init`
+Weaviate runs locally via Docker. The `docker-compose.yml` configures:
+- Weaviate 1.35.7 with text2vec-ollama and text2vec-openai vectorizers
+- HTTP on port 8090, gRPC on port 50061
+- Persistent storage via Docker volume
 
 ```bash
-# Embedding model (required for vector search)
-ollama pull nomic-embed-text-v2-moe
-
-# Chat model (required for responses)
-ollama pull alibayram/smollm3:latest
+docker compose up -d        # Start
+docker compose down          # Stop
+docker compose down -v       # Stop and delete all data
 ```
 
-### 4. Verify Models
+## Key Design Decisions
 
-```bash
-# List installed models
-ollama list
+**Elysia Tree as Router**: The decision tree picks tools (search, list, summarize) based on the query. Skills are prompt content, not routing logic — the LLM decides what's relevant.
 
-# Expected output:
-# NAME                              SIZE
-# nomic-embed-text-v2-moe          274 MB
-# alibayram/smollm3:latest         2.0 GB
+**Atlas Injection**: Skill content is set on `tree_data.atlas.agent_description` before each `tree.run()`. This reaches all `ElysiaChainOfThought` prompts including summarizers.
 
-# Test embedding model
-curl http://localhost:11434/api/embed -d '{
-  "model": "nomic-embed-text-v2-moe",
-  "input": "test"
-}'
+**Prompt Patching**: Elysia's `CitedSummarizingPrompt` has a hardcoded "do not give an itemised list" instruction. We monkey-patch this at import time to say "format according to agent description guidelines" — letting our response-formatter skill control output format.
 
-# Test chat model
-curl http://localhost:11434/api/generate -d '{
-  "model": "alibayram/smollm3:latest",
-  "prompt": "Hello"
-}'
-```
+**Abstention in Code**: The system abstains from answering when vector distances exceed the threshold or when a specific ADR number isn't found in results. This is done in `elysia_agents.py:should_abstain()`, not in the LLM prompt.
 
-### 5. Configure Environment
-
-```bash
-cp .env.example .env
-```
-
-Ensure your `.env` contains:
-```env
-LLM_PROVIDER=ollama
-OLLAMA_URL=http://localhost:11434
-OLLAMA_MODEL=alibayram/smollm3:latest
-OLLAMA_EMBEDDING_MODEL=nomic-embed-text-v2-moe
-```
-
-### 6. Initialize and Run
-
-```bash
-# Initialize (creates embeddings using Ollama)
-python -m src.cli init
-
-# Start the system
-python -m src.cli chat --port 8081 [or a similar available port]
-Access the UI at **http://localhost:8081**
-
-```
-
-### Ollama Troubleshooting
-
-**Connection refused (port 11434):**
-```bash
-# Check if Ollama is running
-curl http://localhost:11434/api/version
-
-# If not running, start it
-ollama serve
-
-# On Linux, check systemd status
-sudo systemctl status ollama
-```
-
-**404 on /api/embed:**
-```bash
-# This means the embedding model is not installed
-ollama pull nomic-embed-text-v2-moe
-
-# Verify it's installed
-ollama list | grep nomic
-```
-
-**Model not found errors:**
-```bash
-# List available models
-ollama list
-
-# Pull missing models
-ollama pull nomic-embed-text-v2-moe
-ollama pull alibayram/smollm3:latest
-```
-
-**Port already in use:**
-```bash
-# Check what's using port 11434
-# Linux/macOS:
-lsof -i :11434
-# Windows (PowerShell):
-netstat -ano | findstr 11434
-
-# Ollama might already be running - this is fine
-```
-
-**Slow performance:**
-- Ollama uses CPU by default. For faster inference, use a GPU-enabled system.
-- SmolLM3 is intentionally small (2GB) for broad compatibility. For better quality, try larger models like `llama3.2` or `mistral`.
-
-### Alternative Ollama Models
-
-| Model | Size | Use Case |
-|-------|------|----------|
-| `alibayram/smollm3:latest` | 2GB | Default, lightweight, fast |
-| `llama3.2:3b` | 2GB | Better quality, similar size |
-| `qwen3:4b` | 2.6GB | Excellent reasoning, multilingual |
-| `mistral:7b` | 4GB | Higher quality, needs more RAM |
-| `qwen3:8b` | 5GB | Best reasoning, requires 8GB+ RAM |
-| `llama3.2:latest` | 4GB | Good balance of quality/speed |
-
-**Recommended for better quality:** `qwen3:4b` offers excellent reasoning capabilities while staying lightweight.
-
-To use a different model:
-```bash
-ollama pull qwen3:4b
-# Then update .env:
-# OLLAMA_MODEL=qwen3:4b
-```
-
----
-
-## Data Sources
-
-### SKOS Vocabularies (5,200+ concepts)
-- IEC 61970 (CIM for energy management)
-- IEC 61968 (CIM for distribution management)
-- IEC 62325 (CIM for energy markets)
-- IEC 62746 (Distributed energy resources)
-- ACER, ENTSOE-HEMRM, EUR-Lex regulatory terms
-- PAS1879, FOCP2025, PPT2025 standards
-
-### Architectural Decisions (17 ADRs)
-- Documentation conventions
-- Security and authentication (TLS, OAuth 2.0)
-- Integration standards (CIM, demand response)
-- Decision-making processes (DACI)
-
-### Governance Principles (16 principles)
-- Architecture principles (ESA)
-- Data governance principles (data as asset, availability, etc.)
-
-### Policy Documents (76 document chunks from 10 files)
-- **Domain policies**: Data governance, classification, quality management
-- **General policies**: Privacy policy, strategic security policy
-- Capability documentation (metadata, master data, interoperability)
-
-## Python API Usage
-
-```python
-import asyncio
-from src.weaviate.client import weaviate_client
-from src.agents import OrchestratorAgent
-
-async def main():
-    with weaviate_client() as client:
-        orchestrator = OrchestratorAgent(client)
-
-        # Query all agents
-        response = await orchestrator.query(
-            "What are the key data governance principles?"
-        )
-        print(response.answer)
-
-        # Query specific agent
-        response = await orchestrator.query(
-            "What is IEC 61970?",
-            agent_names=["vocabulary"]
-        )
-        print(response.answer)
-
-asyncio.run(main())
-```
+**Dual Provider Support**: Collections exist with and without `_OpenAI` suffix. The system automatically appends the suffix when `LLM_PROVIDER=openai`.
 
 ## Troubleshooting
 
-### Docker issues on Windows
-
-```powershell
-# Check if container is running
-docker ps
-
-# View logs
-docker logs weaviate-aion
-
-# Restart services
-docker compose restart
+**Weaviate won't start:**
+```bash
+docker ps                    # Check if running
+docker logs weaviate-aion-dev  # Check logs
 ```
 
-### Weaviate connection issues
-
-```powershell
-# Test Weaviate is responding
-Invoke-WebRequest -Uri "http://localhost:8080/v1/.well-known/ready"
-
-# Check gRPC port
-Test-NetConnection -ComputerName localhost -Port 50051
+**Ollama models not found:**
+```bash
+ollama list                  # Check installed models
+ollama pull nomic-embed-text-v2-moe
+ollama pull gpt-oss:20b
 ```
 
-### Elysia gRPC errors
-
-If you encounter gRPC errors like `proto: invalid type: <nil>`, the system will automatically fall back to direct tool execution. To reset Elysia's metadata:
-
+**Elysia gRPC errors** — the system falls back to direct query mode automatically. To reset Elysia metadata:
 ```python
 import weaviate
 client = weaviate.connect_to_local()
@@ -621,47 +260,10 @@ if client.collections.exists("ELYSIA_METADATA__"):
 client.close()
 ```
 
-### Reset everything
-
-```powershell
-# Stop and remove containers + volumes
-docker compose down -v
-
-# Start fresh
-docker compose up -d
-python -m src.cli init --recreate
+**Skills not taking effect** — verify skills are enabled:
+```bash
+curl http://localhost:8081/api/skills | python -m json.tool
 ```
-
-## Development
-
-```powershell
-# Install dev dependencies
-pip install -e ".[dev]"
-
-# Run tests
-pytest
-
-# Format code
-black src/
-ruff check src/ --fix
-```
-
-## Recent Changes
-
-### Version Updates
-- Weaviate upgraded to **1.28.2**
-- Elysia integration with **automatic fallback** when gRPC errors occur
-
-### New Features
-- **Multiple policy path support**: Ingestion now scans both `do-artifacts/policy_docs` and `general-artifacts/policies`
-- **Privacy and security policies**: Added support for general organizational policies
-- **Elysia helper scripts**: `start_elysia.ps1` and `stop_elysia.ps1` for Windows
-
-### New Documentation
-- `knowledge/` folder with agent instruction templates for:
-  - Compiling architecture principles
-  - Interacting with ArchiMate files
-- `other/` folder with Elysia reference documentation
 
 ## License
 
