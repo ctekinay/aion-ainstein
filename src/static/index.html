@@ -567,8 +567,8 @@
 
         /* Formatted paragraph styling */
         .message-text .formatted-para {
-            margin: 0 0 0.5em 0;
-            line-height: 1.6;
+            margin: 0 0 0.4em 0;
+            line-height: 1.5;
         }
 
         .message-text .formatted-para:last-child {
@@ -577,13 +577,19 @@
 
         /* Formatted list styling */
         .message-text .formatted-list {
-            margin: 0.5em 0;
+            margin: 0.3em 0;
             padding-left: 1.5em;
-            line-height: 1.6;
+            line-height: 1.5;
         }
 
         .message-text .formatted-list li {
-            margin: 0.25em 0;
+            margin: 0.1em 0;
+        }
+
+        /* Nested lists (e.g. status bullets under ADR items) */
+        .message-text .formatted-list .formatted-list {
+            margin: 0;
+            padding-left: 1.2em;
         }
 
         /* Let text flow naturally for all panel types */
@@ -670,26 +676,16 @@
             background: rgba(37, 99, 235, 0.1);
         }
 
-        /* Assistant response panel — clean, content-focused */
+        /* Assistant response panel — header bar matching USER structure */
         .panel.assistant {
-            border: 1px solid var(--border);
-            background: var(--bg-chat);
+            border: 1px solid var(--border-assistant);
         }
         .panel.assistant .panel-header {
-            background: transparent;
-            color: var(--text-muted);
-            font-weight: 500;
-            text-transform: none;
-            letter-spacing: normal;
-            font-size: 13px;
-            padding: 12px 16px 4px;
-        }
-        .panel.assistant .panel-header .header-title {
-            color: var(--text-secondary);
+            background: var(--border-assistant);
+            color: white;
         }
         .panel.assistant .panel-content {
-            background: transparent;
-            padding-top: 8px;
+            background: var(--bg-chat);
         }
 
         /* Decision panel (legacy, kept for loaded history) */

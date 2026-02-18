@@ -727,14 +727,51 @@ class ElysiaRAGSystem:
 
         try:
             response, objects = self.tree(question, collection_names=our_collections)
+
+            # Elysia concatenates ALL assistant responses (intermediate narration +
+            # final answer) into one string. Extract only the last text response
+            # from retrieved_objects — that's the final cited_summarize output.
+            final_response = self._extract_final_response(response)
+
         except Exception as e:
             # If Elysia's tree fails, fall back to direct tool execution
             logger.warning(f"Elysia tree failed: {e}, using direct tool execution")
-            response, objects = await self._direct_query(question)
+            final_response, objects = await self._direct_query(question)
 
-        # Note: We return the raw response, but the CLI doesn't display it anymore
-        # Elysia's framework already displays the answer via its "Assistant response" panels
-        return response, objects
+        return final_response, objects
+
+    def _extract_final_response(self, concatenated_response: str) -> str:
+        """Extract the final answer from the Tree's retrieved objects.
+
+        Elysia's conversation_history concatenates all intermediate assistant
+        responses with the final answer into one string. We scan retrieved_objects
+        for the last text-type result (text_with_citations, text_with_title, or
+        response) and return just its text content.
+
+        Falls back to the full concatenated response if extraction fails.
+        """
+        try:
+            text_types = {"text_with_citations", "text_with_title", "response"}
+            last_text = None
+
+            for obj in self.tree.retrieved_objects:
+                if isinstance(obj, dict) and obj.get("type") in text_types:
+                    # Reconstruct text from objects list
+                    text_parts = []
+                    for item in obj.get("objects", []):
+                        if isinstance(item, dict) and "text" in item:
+                            text_parts.append(item["text"])
+                    if text_parts:
+                        last_text = " ".join(text_parts)
+
+            if last_text and len(last_text) > 20:
+                logger.debug(f"Extracted final response ({len(last_text)} chars) from retrieved_objects")
+                return last_text
+
+        except Exception as e:
+            logger.warning(f"Failed to extract final response: {e}")
+
+        return concatenated_response
 
     async def _direct_query(self, question: str) -> tuple[str, list[dict]]:
         """Direct query execution bypassing Elysia tree when it fails.
