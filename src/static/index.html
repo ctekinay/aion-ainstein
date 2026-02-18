@@ -808,6 +808,14 @@
             flex: 1;
         }
 
+        .thinking-container .thinking-step.narration {
+            color: var(--text-secondary);
+        }
+
+        .thinking-container .thinking-step.narration .step-icon.done {
+            opacity: 0.8;
+        }
+
         /* Collapsed state (default after completion) */
         .thinking-container.collapsed .thinking-steps {
             display: none;
@@ -2117,7 +2125,7 @@
             return container;
         }
 
-        function addThinkingStep(text) {
+        function addThinkingStep(text, eventType) {
             const container = getOrCreateThinkingContainer();
             const stepsEl = container.querySelector('.thinking-steps');
 
@@ -2137,8 +2145,9 @@
                 displayText = firstSentence ? firstSentence[0] : displayText.substring(0, 120) + '...';
             }
 
+            const isNarration = eventType === 'assistant';
             const step = document.createElement('div');
-            step.className = 'thinking-step';
+            step.className = 'thinking-step' + (isNarration ? ' narration' : '');
             step.innerHTML = `
                 <span class="step-icon active">
                     <svg viewBox="0 0 16 16" width="14" height="14"><circle cx="8" cy="8" r="4" fill="currentColor"/></svg>
@@ -2225,7 +2234,7 @@
 
                 case 'status':
                     // Route status to thinking container as a step
-                    addThinkingStep(data.content);
+                    addThinkingStep(data.content, 'status');
                     break;
 
                 case 'heartbeat':
@@ -2236,17 +2245,17 @@
 
                 case 'decision':
                     // Route decision reasoning to thinking container
-                    addThinkingStep(data.content);
+                    addThinkingStep(data.content, 'decision');
                     break;
 
                 case 'assistant':
-                    // Intermediate narration from Tree — route to thinking steps
-                    addThinkingStep(data.content);
+                    // Intermediate narration from Tree — route to thinking steps (darker text)
+                    addThinkingStep(data.content, 'assistant');
                     break;
 
                 case 'thinking_aloud':
                     // Route intermediate thinking to thinking container
-                    addThinkingStep(data.content);
+                    addThinkingStep(data.content, 'thinking_aloud');
                     break;
 
                 case 'user_prompt':
