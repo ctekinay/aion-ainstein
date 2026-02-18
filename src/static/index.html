@@ -670,16 +670,26 @@
             background: rgba(37, 99, 235, 0.1);
         }
 
-        /* Assistant response panel */
+        /* Assistant response panel — clean, content-focused */
         .panel.assistant {
-            border: 1px solid var(--border-assistant);
+            border: 1px solid var(--border);
+            background: var(--bg-chat);
         }
         .panel.assistant .panel-header {
-            background: var(--border-assistant);
-            color: white;
+            background: transparent;
+            color: var(--text-muted);
+            font-weight: 500;
+            text-transform: none;
+            letter-spacing: normal;
+            font-size: 13px;
+            padding: 12px 16px 4px;
+        }
+        .panel.assistant .panel-header .header-title {
+            color: var(--text-secondary);
         }
         .panel.assistant .panel-content {
-            background: rgba(16, 185, 129, 0.1);
+            background: transparent;
+            padding-top: 8px;
         }
 
         /* Decision panel (legacy, kept for loaded history) */
@@ -707,29 +717,25 @@
             font-style: italic;
         }
 
-        /* Thinking container — accumulates intermediate steps */
+        /* Thinking container — minimal line during processing, collapsible after */
         .thinking-container {
-            border: 1px solid var(--border-decision);
-            border-radius: 12px;
-            margin-bottom: 16px;
-            overflow: hidden;
+            margin-bottom: 8px;
             animation: fadeIn 0.3s ease;
         }
 
         .thinking-container .thinking-header {
             display: flex;
             align-items: center;
-            gap: 10px;
-            padding: 12px 16px;
-            background: linear-gradient(135deg, var(--bg-decision) 0%, rgba(168, 85, 247, 0.15) 100%);
-            color: var(--border-decision);
-            font-size: 14px;
-            font-weight: 600;
+            gap: 8px;
+            padding: 6px 4px;
+            color: var(--text-muted);
+            font-size: 13px;
+            font-weight: 400;
         }
 
         .thinking-container .thinking-header .thinking-spinner {
-            width: 18px;
-            height: 18px;
+            width: 14px;
+            height: 14px;
             border: 2px solid rgba(168, 85, 247, 0.2);
             border-top-color: var(--border-decision);
             border-radius: 50%;
@@ -738,32 +744,29 @@
         }
 
         .thinking-container .thinking-header .thinking-timer {
-            margin-left: auto;
             font-size: 12px;
-            opacity: 0.8;
-            font-weight: 400;
+            opacity: 0.7;
             font-variant-numeric: tabular-nums;
         }
 
         .thinking-container .thinking-steps {
-            padding: 8px 16px 12px;
-            background: var(--bg-decision);
+            padding: 4px 4px 8px 26px;
         }
 
         .thinking-container .thinking-step {
             display: flex;
             align-items: flex-start;
             gap: 8px;
-            padding: 4px 0;
-            font-size: 13px;
-            color: var(--text-secondary);
+            padding: 2px 0;
+            font-size: 12px;
+            color: var(--text-muted);
             line-height: 1.4;
         }
 
         .thinking-container .thinking-step .step-icon {
             flex-shrink: 0;
-            width: 16px;
-            height: 16px;
+            width: 14px;
+            height: 14px;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -771,7 +774,8 @@
         }
 
         .thinking-container .thinking-step .step-icon.done {
-            color: #10b981;
+            color: var(--text-muted);
+            opacity: 0.6;
         }
 
         .thinking-container .thinking-step .step-icon.active {
@@ -786,42 +790,35 @@
             flex: 1;
         }
 
-        /* Collapsed state after completion */
+        /* Collapsed state (default after completion) */
         .thinking-container.collapsed .thinking-steps {
             display: none;
         }
 
-        .thinking-container.collapsed .thinking-header {
-            cursor: pointer;
-            transition: background 0.2s;
-        }
-
-        .thinking-container.collapsed .thinking-header:hover {
-            background: linear-gradient(135deg, rgba(168, 85, 247, 0.15) 0%, rgba(168, 85, 247, 0.25) 100%);
-        }
-
-        .thinking-container.collapsed .thinking-header .expand-icon {
-            transition: transform 0.2s;
-        }
-
+        .thinking-container.collapsed .thinking-header,
         .thinking-container.expanded .thinking-header {
             cursor: pointer;
         }
 
-        .thinking-container.expanded .thinking-header .expand-icon {
-            transform: rotate(90deg);
-            transition: transform 0.2s;
+        .thinking-container.collapsed .thinking-header:hover,
+        .thinking-container.expanded .thinking-header:hover {
+            color: var(--text-secondary);
         }
 
         .thinking-container .thinking-header .expand-icon {
-            font-size: 12px;
+            font-size: 10px;
             opacity: 0.6;
             display: none;
+            transition: transform 0.2s;
         }
 
-        .thinking-container.collapsed .thinking-header .expand-icon,
+        .thinking-container.collapsed .thinking-header .expand-icon {
+            display: inline;
+        }
+
         .thinking-container.expanded .thinking-header .expand-icon {
             display: inline;
+            transform: rotate(90deg);
         }
 
         .thinking-container.collapsed .thinking-header .thinking-spinner,
@@ -829,13 +826,14 @@
             display: none;
         }
 
-        /* Hide thinking when disabled — keep header visible for progress, hide steps */
-        .hide-thinking .thinking-container .thinking-steps {
+        /* Hide thinking when disabled — hide entire container */
+        .hide-thinking .thinking-container.collapsed,
+        .hide-thinking .thinking-container.expanded {
             display: none;
         }
 
-        .hide-thinking .thinking-container.collapsed .thinking-header .expand-icon,
-        .hide-thinking .thinking-container.expanded .thinking-header .expand-icon {
+        /* But keep the active (in-progress) thinking container visible as progress indicator */
+        .hide-thinking .thinking-container:not(.collapsed):not(.expanded) .thinking-steps {
             display: none;
         }
 
@@ -2213,9 +2211,9 @@
                 : ((Date.now() - thinkingStartTime) / 1000).toFixed(1);
             const stepWord = thinkingStepCount === 1 ? 'step' : 'steps';
 
-            // Update header to summary
+            // Update header to compact summary
             const label = thinkingContainer.querySelector('.thinking-label');
-            if (label) label.textContent = `AInstein worked for ${elapsed}s (${thinkingStepCount} ${stepWord})`;
+            if (label) label.textContent = `${thinkingStepCount} ${stepWord} · ${elapsed}s`;
 
             const timer = thinkingContainer.querySelector('.thinking-timer');
             if (timer) timer.style.display = 'none';
@@ -2282,11 +2280,8 @@
                     break;
 
                 case 'assistant':
-                    // Final assistant response — collapse thinking and show answer
-                    collapseThinkingContainer(data.timing ? data.timing.total_ms : null);
-                    removeLoading();
-                    appendPanel('assistant', 'AInstein', data.content, null, null, data.timing);
-                    responseShown = true;
+                    // Intermediate narration from Tree — route to thinking steps
+                    addThinkingStep(data.content);
                     break;
 
                 case 'thinking_aloud':
@@ -2301,27 +2296,10 @@
                 case 'complete':
                     removeLoading();
                     collapseThinkingContainer(data.timing ? data.timing.total_ms : null);
-                    // If no assistant response was shown yet, show the final response
-                    if (!responseShown && data.response) {
+                    // Always render the final response from the complete event
+                    if (data.response) {
                         appendPanel('assistant', 'AInstein', data.response, null, null, data.timing);
                         responseShown = true;
-                    } else if (responseShown && data.timing && data.timing.total_ms) {
-                        // Response was already shown (via Rich parser), add timing badge to last assistant panel header (top right)
-                        const panels = document.querySelectorAll('.panel.assistant');
-                        if (panels.length > 0) {
-                            const lastPanel = panels[panels.length - 1];
-                            const header = lastPanel.querySelector('.panel-header');
-                            if (header && !header.querySelector('.latency-badges')) {
-                                const totalMs = data.timing.total_ms;
-                                const totalClass = totalMs < 5000 ? 'fast' : (totalMs > 15000 ? 'slow' : '');
-                                const timingHtml = `
-                                    <div class="latency-badges">
-                                        <div class="latency-badge ${totalClass}" title="Total response time">T: ${totalMs}ms</div>
-                                    </div>
-                                `;
-                                header.insertAdjacentHTML('beforeend', timingHtml);
-                            }
-                        }
                     }
                     // Add sources if present
                     if (data.sources && data.sources.length > 0) {
