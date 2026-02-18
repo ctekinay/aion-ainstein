@@ -1,6 +1,6 @@
 ---
 name: response-formatter
-description: "Ensures list-based responses use structured formatting with item counts when returning multiple items."
+description: Ensures list-based responses use structured formatting with item counts when returning multiple items.
 ---
 
 ## Response Formatter
@@ -28,3 +28,4 @@ End every list response with a count: **Total: [N] items**
 - Single-item lookups (e.g., "What is ADR.21?")
 - Fewer than 3 items returned
 - User explicitly asks for plain text
+

@@ -576,7 +576,7 @@
         .panel-content {
             padding: 16px;
             font-size: 14px;
-            line-height: 1.6;
+            line-height: 1.5;
             word-wrap: break-word;
             width: 100%;
         }
@@ -2416,14 +2416,32 @@
             const copyText = button.querySelector('.copy-text');
 
             try {
-                await navigator.clipboard.writeText(messageText.textContent);
+                // Use innerText to preserve line breaks and list structure
+                const plainText = messageText.innerText;
+                // Also provide HTML for rich paste targets
+                const htmlText = messageText.innerHTML;
+
+                const blob = new Blob([htmlText], { type: 'text/html' });
+                const textBlob = new Blob([plainText], { type: 'text/plain' });
+                const clipboardItem = new ClipboardItem({
+                    'text/html': blob,
+                    'text/plain': textBlob
+                });
+                await navigator.clipboard.write([clipboardItem]);
+
                 copyText.textContent = 'Copied!';
                 setTimeout(() => {
                     copyText.textContent = 'Copy';
                 }, 2000);
             } catch (err) {
-                console.error('Failed to copy:', err);
-                copyText.textContent = 'Failed';
+                // Fallback to plain text copy
+                try {
+                    await navigator.clipboard.writeText(messageText.innerText);
+                    copyText.textContent = 'Copied!';
+                } catch (err2) {
+                    console.error('Failed to copy:', err2);
+                    copyText.textContent = 'Failed';
+                }
                 setTimeout(() => {
                     copyText.textContent = 'Copy';
                 }, 2000);
