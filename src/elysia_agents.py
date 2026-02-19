@@ -20,29 +20,41 @@ try:
 except ImportError:
     _SKILLS_AVAILABLE = False
 
-# Hardcoded fallback for when skills framework is unavailable or disabled
+# Hardcoded fallbacks for when skills framework is unavailable or disabled
 _DEFAULT_DISTANCE_THRESHOLD = 0.5
+_DEFAULT_RETRIEVAL_LIMITS = {"adr": 8, "principle": 6, "policy": 4, "vocabulary": 4}
+_DEFAULT_TRUNCATION = {"content_max_chars": 800, "elysia_content_chars": 500,
+                       "elysia_summary_chars": 300, "max_context_results": 10}
 
 
-def _get_distance_threshold() -> float:
-    """Get distance threshold from rag-quality-assurance skill.
+def _get_skill_config(getter_name: str, default):
+    """Read a config value from rag-quality-assurance thresholds.
 
-    Falls back to hardcoded default if the skill registry fails to load
+    Falls back to the provided default if the skill registry fails to load
     or the rag-quality-assurance skill is disabled.
-
-    Returns:
-        Distance threshold for abstention
     """
     if not _SKILLS_AVAILABLE:
-        return _DEFAULT_DISTANCE_THRESHOLD
+        return default
     try:
         registry = get_skill_registry()
         entry = registry.get_skill_entry("rag-quality-assurance")
         if entry is None or not entry.enabled:
-            return _DEFAULT_DISTANCE_THRESHOLD
-        return registry.loader.get_abstention_thresholds("rag-quality-assurance")
+            return default
+        return getattr(registry.loader, getter_name)("rag-quality-assurance")
     except Exception:
-        return _DEFAULT_DISTANCE_THRESHOLD
+        return default
+
+
+def _get_distance_threshold() -> float:
+    return _get_skill_config("get_abstention_thresholds", _DEFAULT_DISTANCE_THRESHOLD)
+
+
+def _get_retrieval_limits() -> dict[str, int]:
+    return _get_skill_config("get_retrieval_limits", _DEFAULT_RETRIEVAL_LIMITS)
+
+
+def _get_truncation() -> dict[str, int]:
+    return _get_skill_config("get_truncation", _DEFAULT_TRUNCATION)
 
 
 def _get_skill_content(query: str) -> str:
@@ -191,6 +203,14 @@ class ElysiaRAGSystem:
 
         self.client = client
         self.tree = Tree()
+
+        # Limit: 4 iterations covers the most complex realistic pattern
+        # (search 3 collections + summarize). Default 5 allows the Tree
+        # to loop on the same tool when cited_summarize doesn't signal
+        # termination. 4 allows all legitimate multi-collection queries
+        # while preventing the 5th repetition that's always a loop.
+        self.tree.tree_data.recursion_limit = 4
+
         self._use_openai = settings.llm_provider == "openai"
         self._collection_suffix = "_OpenAI" if self._use_openai else ""
         self._register_tools()
@@ -262,6 +282,8 @@ class ElysiaRAGSystem:
             Returns:
                 List of matching vocabulary concepts with definitions
             """
+            # Config overrides the LLM's limit parameter — see thresholds.yaml
+            limit = _get_retrieval_limits().get("vocabulary", limit)
             collection = self._get_collection("Vocabulary")
             query_vector = self._get_query_vector(query)
             results = collection.query.hybrid(
@@ -320,6 +342,8 @@ class ElysiaRAGSystem:
             Returns:
                 List of matching ADRs with title, status, context, decision, consequences
             """
+            # Config overrides the LLM's limit parameter — see thresholds.yaml
+            limit = _get_retrieval_limits().get("adr", limit)
             collection = self._get_collection("ArchitecturalDecision")
 
             # Detect ADR number in query for filter-based lookup
@@ -345,13 +369,14 @@ class ElysiaRAGSystem:
                 alpha=settings.alpha_vocabulary,
                 filters=adr_filter,
             )
+            content_limit = _get_truncation().get("content_max_chars", 800)
             return [
                 {
                     "title": obj.properties.get("title", ""),
                     "status": obj.properties.get("status", ""),
                     "section_name": obj.properties.get("section_name", ""),
                     "chunk_type": obj.properties.get("chunk_type", ""),
-                    "content": (obj.properties.get("content", "") or "")[:800],
+                    "content": (obj.properties.get("content", "") or "")[:content_limit],
                 }
                 for obj in results.objects
             ]
@@ -398,6 +423,8 @@ class ElysiaRAGSystem:
             Returns:
                 List of matching principles with title, content, doc_type
             """
+            # Config overrides the LLM's limit parameter — see thresholds.yaml
+            limit = _get_retrieval_limits().get("principle", limit)
             collection = self._get_collection("Principle")
 
             # Detect PCP number in query for filter-based lookup
@@ -422,12 +449,13 @@ class ElysiaRAGSystem:
                 alpha=settings.alpha_vocabulary,
                 filters=pcp_filter,
             )
+            content_limit = _get_truncation().get("content_max_chars", 800)
             return [
                 {
                     "title": obj.properties.get("title", ""),
                     "section_name": obj.properties.get("section_name", ""),
                     "chunk_type": obj.properties.get("chunk_type", ""),
-                    "content": (obj.properties.get("content", "") or "")[:800],
+                    "content": (obj.properties.get("content", "") or "")[:content_limit],
                 }
                 for obj in results.objects
             ]
@@ -465,6 +493,8 @@ class ElysiaRAGSystem:
             Returns:
                 List of matching policy documents with title, content, file_type
             """
+            # Config overrides the LLM's limit parameter — see thresholds.yaml
+            limit = _get_retrieval_limits().get("policy", limit)
             collection = self._get_collection("PolicyDocument")
             query_vector = self._get_query_vector(query)
             results = collection.query.hybrid(
@@ -473,10 +503,11 @@ class ElysiaRAGSystem:
                 limit=limit,
                 alpha=settings.alpha_vocabulary,
             )
+            content_limit = _get_truncation().get("content_max_chars", 800)
             return [
                 {
                     "title": obj.properties.get("title", ""),
-                    "content": obj.properties.get("content", "")[:800],
+                    "content": obj.properties.get("content", "")[:content_limit],
                     "file_type": obj.properties.get("file_type", ""),
                 }
                 for obj in results.objects
@@ -523,30 +554,34 @@ class ElysiaRAGSystem:
         async def list_all_principles() -> list[dict]:
             """List ALL architecture and governance principles (PCPs) in the system.
 
-            Use this tool (not search_principles) when the user wants to enumerate
-            or count principles rather than search for specific content:
-            - "What principles exist?", "List all principles"
-            - "Show me the governance principles"
-            - "How many principles are there?"
+            ALWAYS use this tool (never search_principles) when the user wants to see,
+            enumerate, or count principles rather than search for specific content:
+            - "What principles exist?", "List all principles", "Show all principles"
+            - "Show me the governance principles", "Please show them all"
+            - "How many principles are there?", "Display all PCPs"
 
-            Returns all principles with title and doc_type.
+            Returns all principles with PCP number, title, and doc_type.
             PCP numbering: PCP.10-20 (ESA), PCP.21-30 (Business), PCP.31-40 (Data Office).
 
             Returns:
-                Complete list of all principles
+                Complete list of all principles with PCP numbers
             """
             collection = self._get_collection("Principle")
             results = collection.query.fetch_objects(
                 limit=100,
-                return_properties=["title", "doc_type"],
+                return_properties=["title", "principle_number", "doc_type"],
             )
-            return [
-                {
-                    "title": obj.properties.get("title", ""),
-                    "type": obj.properties.get("doc_type", ""),
-                }
-                for obj in results.objects
-            ]
+            return sorted(
+                [
+                    {
+                        "pcp_number": obj.properties.get("principle_number", ""),
+                        "title": obj.properties.get("title", ""),
+                        "type": obj.properties.get("doc_type", ""),
+                    }
+                    for obj in results.objects
+                ],
+                key=lambda x: x.get("pcp_number", ""),
+            )
 
         # Search documents by team/owner
         @tool(tree=self.tree)
@@ -769,6 +804,13 @@ class ElysiaRAGSystem:
             # Restore logging level
             self.tree.settings.LOGGING_LEVEL_INT = original_log_level
 
+            iterations = self.tree.tree_data.num_trees_completed
+            limit = self.tree.tree_data.recursion_limit
+            if iterations >= limit:
+                logger.warning(f"Elysia tree hit recursion limit ({iterations}/{limit})")
+            else:
+                logger.debug(f"Elysia tree completed in {iterations} iteration(s)")
+
             objects = self.tree.retrieved_objects
 
             # Use the last text result directly — it preserves formatting.
@@ -812,8 +854,17 @@ class ElysiaRAGSystem:
             return None
 
         if rtype == "text":
-            # All text results during execution are intermediate thinking steps.
-            # The final answer is extracted from retrieved_objects after completion.
+            payload_type = payload.get("type", "")
+
+            # Only show intermediate narration ("response") as thinking steps.
+            # Skip "text_with_citations" and "text_with_title" — those are
+            # final/structured responses that belong in the answer panel, not
+            # the thinking container.  (Showing them caused the "1." bug:
+            # the full response was truncated to its first sentence by the
+            # frontend, and "1." from a numbered list matched as a sentence.)
+            if payload_type != "response":
+                return None
+
             objects_list = payload.get("objects", [])
             text_parts = [
                 o["text"] for o in objects_list
@@ -1259,12 +1310,13 @@ Guidelines:
             collection = self.client.collections.get(f"Principle{suffix}")
             results = collection.query.fetch_objects(
                 limit=100,
-                return_properties=["title", "doc_type"],
+                return_properties=["title", "principle_number", "doc_type"],
             )
 
             for obj in results.objects:
                 all_results.append({
                     "type": "Principle",
+                    "pcp_number": obj.properties.get("principle_number", ""),
                     "title": obj.properties.get("title", ""),
                     "doc_type": obj.properties.get("doc_type", ""),
                 })
@@ -1278,9 +1330,10 @@ Guidelines:
 
         # Format response
         response_lines = [f"I found {len(all_results)} principles:\n"]
-        for principle in all_results:
+        for principle in sorted(all_results, key=lambda x: x.get("pcp_number", "")):
+            pcp = f"PCP.{int(principle['pcp_number'])}" if principle.get('pcp_number') else ""
             doc_type = f"({principle['doc_type']})" if principle.get('doc_type') else ""
-            response_lines.append(f"- **{principle['title']}** {doc_type}")
+            response_lines.append(f"- **{pcp} {principle['title']}** {doc_type}")
 
         return "\n".join(response_lines), all_results
 
