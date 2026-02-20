@@ -352,37 +352,39 @@ def delete_all_conversations():
 def _build_turn_summary(response: str, sources: list[dict]) -> str:
     """Build a structured turn summary from response and sources.
 
-    Instead of truncating the full response text (which loses semantics),
-    this extracts metadata from the sources to create a compact summary
-    that the Persona can use for follow-up resolution.
+    Produces a compact semantic summary (not individual titles) so the
+    Persona can resolve follow-ups like "Is there a common theme across these?"
+    without the rewritten query being truncated.
     """
-    if not sources:
-        # No sources — truncate response text as fallback
-        return response[:200] + "..." if len(response) > 200 else response
+    if not response:
+        return ""
 
-    # Count documents by type
-    type_counts = {}
-    titles = []
-    for src in sources:
-        doc_type = src.get("type", "Document")
-        type_counts[doc_type] = type_counts.get(doc_type, 0) + 1
-        title = src.get("title", "")
-        if title:
-            titles.append(title)
+    # Try to extract a document count and ID range from the response text.
+    # Listing responses mention many document IDs (3+); search responses mention 1-2.
+    adr_ids = re.findall(r'\bADR[.\s]?(\d{1,3})\b', response)
+    pcp_ids = re.findall(r'\bPCP[.\s]?(\d{1,3})\b', response)
 
-    # Build summary parts
-    parts = []
-    for doc_type, count in sorted(type_counts.items()):
-        parts.append(f"{count} {doc_type}{'s' if count > 1 else ''}")
+    if len(set(adr_ids)) >= 3:
+        nums = sorted(set(int(x) for x in adr_ids))
+        id_range = f"ADR.{nums[0]:02d} through ADR.{nums[-1]:02d}"
+        return f"Listed {len(nums)} ADRs ({id_range})"
 
-    summary = f"Retrieved {', '.join(parts)}"
-    if titles:
-        title_list = "; ".join(titles[:5])
-        if len(titles) > 5:
-            title_list += f" (and {len(titles) - 5} more)"
-        summary += f": {title_list}"
+    if len(set(pcp_ids)) >= 3:
+        nums = sorted(set(int(x) for x in pcp_ids))
+        id_range = f"PCP.{nums[0]} through PCP.{nums[-1]}"
+        return f"Listed {len(nums)} principles ({id_range})"
 
-    return summary
+    # For non-listing responses, produce a compact summary from sources
+    if sources:
+        type_counts = {}
+        for src in sources:
+            doc_type = src.get("type", "Document")
+            type_counts[doc_type] = type_counts.get(doc_type, 0) + 1
+        parts = [f"{count} {dt}{'s' if count > 1 else ''}" for dt, count in sorted(type_counts.items())]
+        return f"Retrieved {', '.join(parts)}"
+
+    # Fallback: truncate response
+    return response[:200] + "..." if len(response) > 200 else response
 
 
 def run_elysia_query(question: str, result_queue: Queue, output_queue: Queue):
@@ -946,14 +948,17 @@ async def chat_stream(request: ChatRequest):
         title = request.message[:50] + "..." if len(request.message) > 50 else request.message
         update_conversation_title(conversation_id, title)
 
-    # Run Persona intent classification and query rewriting
-    persona_result = await _persona.process(request.message, messages)
-
     async def event_generator():
         # Send conversation ID first
         yield f"data: {json.dumps({'type': 'init', 'conversation_id': conversation_id})}\n\n"
 
-        # Emit Persona classification as the first thinking step
+        # Show immediate feedback while Persona classifies intent
+        yield f"data: {json.dumps({'type': 'status', 'content': 'Thinking...'})}\n\n"
+
+        # Run Persona intent classification and query rewriting
+        persona_result = await _persona.process(request.message, messages)
+
+        # Emit Persona classification result
         yield f"data: {json.dumps({'type': 'persona_intent', 'intent': persona_result.intent, 'rewritten_query': persona_result.rewritten_query})}\n\n"
 
         # Direct response intents: respond immediately, no Tree needed
