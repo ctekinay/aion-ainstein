@@ -209,6 +209,19 @@ If the Persona's LLM call fails, fall back to passing the raw query directly to 
 ### CLI bypasses Persona
 `python -m src.cli query "..."` goes directly to the Tree. The Persona is only active in the Chat UI. This ensures a debugging path that's independent of the Persona.
 
+### Hybrid dual-model setup (Ollama)
+The Persona uses a hybrid model selection strategy:
+- **First message** (no conversation history): Uses `OLLAMA_PERSONA_MODEL` (SmolLM3 3.1B, ~4-6s). Handles greetings, identity, off-topic, and new KB queries fast.
+- **Follow-up messages** (has conversation history): Uses `OLLAMA_MODEL` (GPT-OSS 20B). SmolLM3 cannot reliably resolve pronouns or synthesize conversation history — it rewrote "common theme across these ADRs?" as "consequences of ADR.21". The 20B model handles context-dependent query rewriting correctly.
+
+If `OLLAMA_PERSONA_MODEL` is not set, the Persona falls back to `OLLAMA_MODEL` for all calls.
+
+**Context window constraint:** SmolLM3 has a 4,096-token context window. The Persona prompt (SKILL.md + message, no history for SmolLM3) totals ~1,200 tokens. If persona-orchestrator SKILL.md grows beyond ~2,000 tokens, switch to a model with a larger context window.
+
+**SmolLM3 output format quirks:** SmolLM3 outputs intent labels with markdown formatting (`**intent:** identity`) instead of bare labels. The `_parse_response()` parser strips formatting artifacts (`*`, `:`, `intent_` prefix) and searches for valid intent names. Direct responses may also contain format echoes and self-commentary, which are cleaned by regex patterns in `_parse_response()`.
+
+**UI model selector isolation:** The `/api/settings/llm` endpoint only updates `settings.ollama_model` (the Tree model). The Persona model is set exclusively via `.env`.
+
 ---
 
 ## 6. Frontend Rules
@@ -314,10 +327,10 @@ When rewriting a function (e.g., the `async_run()` migration), verify that all b
 
 ### Local model (GPT-OSS:20B on M3 MacBook Pro)
 - Single LLM inference: 3–8 seconds
-- Persona classification: 5–12 seconds
+- Persona classification: 2–3 seconds (SmolLM3) / 5–12 seconds (GPT-OSS:20B if no persona model set)
 - Full Tree query (search + summarize): 15–30 seconds
-- Total with Persona: 20–40 seconds
-- Direct response (identity/off-topic): 3–8 seconds (Persona only, no Tree)
+- Total with Persona + SmolLM3: 17–33 seconds
+- Direct response (identity/off-topic): 1–3 seconds (SmolLM3) / 3–8 seconds (GPT-OSS:20B)
 
 ### Cloud model (GPT-5.2 / OpenAI)
 - Persona classification: < 1 second

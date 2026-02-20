@@ -123,6 +123,7 @@ def init(
     console.print(f"  LLM_PROVIDER: {settings.llm_provider}")
     if settings.llm_provider == "ollama":
         console.print(f"  OLLAMA_MODEL: {settings.ollama_model}")
+        console.print(f"  OLLAMA_PERSONA_MODEL: {settings.ollama_persona_model or '(using OLLAMA_MODEL)'}")
         console.print(f"  OLLAMA_EMBEDDING_MODEL: {settings.ollama_embedding_model}")
     else:
         console.print(f"  OPENAI_CHAT_MODEL: {settings.openai_chat_model}")
