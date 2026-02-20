@@ -1102,8 +1102,8 @@
 
                 <div class="tabs">
                     <button class="tab-btn active" onclick="switchTab('abstention', this)">Abstention</button>
-                    <button class="tab-btn inactive" onclick="switchTab('retrieval', this)">Retrieval Limits</button>
-                    <button class="tab-btn inactive" onclick="switchTab('truncation', this)">Truncation</button>
+                    <button class="tab-btn" onclick="switchTab('retrieval', this)">Retrieval Limits</button>
+                    <button class="tab-btn" onclick="switchTab('truncation', this)">Truncation</button>
 
                 </div>
 
@@ -1129,7 +1129,6 @@
 
                 <!-- Retrieval Limits Tab -->
                 <div class="tab-content" id="tab-retrieval">
-                    <div class="tab-inactive-notice">Not yet active — these settings are saved but not read by the retrieval pipeline yet.</div>
                     <div class="section-header">Retrieval Limits</div>
                     <p class="form-help" style="margin-bottom: 20px;">
                         Control how many documents are retrieved from each collection.
@@ -1168,7 +1167,6 @@
 
                 <!-- Truncation Tab -->
                 <div class="tab-content" id="tab-truncation">
-                    <div class="tab-inactive-notice">Not yet active — these settings are saved but not read by the retrieval pipeline yet.</div>
                     <div class="section-header">Truncation Limits</div>
                     <p class="form-help" style="margin-bottom: 20px;">
                         Control how much content is included in context to manage token usage.

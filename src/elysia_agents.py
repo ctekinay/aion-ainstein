@@ -532,22 +532,27 @@ class ElysiaRAGSystem:
             """
             collection = self._get_collection("ArchitecturalDecision")
             results = collection.query.fetch_objects(
-                limit=100,
-                return_properties=["title", "status", "file_path"],
+                limit=500,  # High enough to get all chunks
+                return_properties=["title", "status", "file_path", "doc_type"],
             )
-            adrs = []
+
+            # Deduplicate by file_path — each ADR may have multiple chunks.
+            # Skip approval records (DARs), templates, and index pages.
+            seen = {}
             for obj in results.objects:
-                title = obj.properties.get("title", "")
                 file_path = obj.properties.get("file_path", "")
-                # Skip templates
-                if "template" in title.lower() or "template" in file_path.lower():
+                doc_type = obj.properties.get("doc_type", "")
+                if not file_path or file_path in seen:
                     continue
-                adrs.append({
-                    "title": title,
+                if doc_type in ("adr_approval", "template", "index"):
+                    continue
+                seen[file_path] = {
+                    "title": obj.properties.get("title", "").split(" - ")[0],
                     "status": obj.properties.get("status", ""),
                     "file": file_path.split("/")[-1] if file_path else "",
-                })
-            return sorted(adrs, key=lambda x: x.get("file", ""))
+                }
+
+            return sorted(seen.values(), key=lambda x: x.get("file", ""))
 
         # List all principles tool
         @tool(tree=self.tree)
@@ -568,20 +573,30 @@ class ElysiaRAGSystem:
             """
             collection = self._get_collection("Principle")
             results = collection.query.fetch_objects(
-                limit=100,
+                limit=500,  # High enough to get all chunks
                 return_properties=["title", "principle_number", "doc_type"],
             )
-            return sorted(
-                [
-                    {
-                        "pcp_number": obj.properties.get("principle_number", ""),
-                        "title": obj.properties.get("title", ""),
-                        "type": obj.properties.get("doc_type", ""),
-                    }
-                    for obj in results.objects
-                ],
-                key=lambda x: x.get("pcp_number", ""),
-            )
+
+            # Deduplicate by principle_number — each PCP may have multiple chunks.
+            # Skip approval record (DAR) chunks — they share the same
+            # principle_number but have titles starting with
+            # "Principle Approval Record List". doc_type is unreliable
+            # (ingestion tags them all as "principle").
+            seen = {}
+            for obj in results.objects:
+                pn = obj.properties.get("principle_number", "")
+                title = obj.properties.get("title", "")
+                if not pn or pn in seen:
+                    continue
+                if title.startswith("Principle Approval Record List"):
+                    continue
+                seen[pn] = {
+                    "pcp_number": pn,
+                    "title": title.split(" - ")[0],
+                    "type": obj.properties.get("doc_type", ""),
+                }
+
+            return sorted(seen.values(), key=lambda x: x.get("pcp_number", ""))
 
         # Search documents by team/owner
         @tool(tree=self.tree)
@@ -1248,30 +1263,32 @@ Guidelines:
             Tuple of (formatted response text, list of ADR objects)
         """
         suffix = "_OpenAI" if settings.llm_provider == "openai" else ""
-        all_results = []
 
         try:
             collection = self.client.collections.get(f"ArchitecturalDecision{suffix}")
             results = collection.query.fetch_objects(
-                limit=100,
-                return_properties=["title", "status", "file_path"],
+                limit=500,  # High enough to get all chunks
+                return_properties=["title", "status", "file_path", "doc_type"],
             )
 
+            # Deduplicate by file_path — each ADR may have multiple chunks.
+            # Skip approval records (DARs), templates, and index pages.
+            seen = {}
             for obj in results.objects:
-                title = obj.properties.get("title", "")
                 file_path = obj.properties.get("file_path", "")
-                # Skip template documents
-                if "template" in title.lower() or "template" in file_path.lower():
+                doc_type = obj.properties.get("doc_type", "")
+                if not file_path or file_path in seen:
                     continue
-                all_results.append({
+                if doc_type in ("adr_approval", "template", "index"):
+                    continue
+                seen[file_path] = {
                     "type": "ADR",
-                    "title": title,
+                    "title": obj.properties.get("title", "").split(" - ")[0],
                     "status": obj.properties.get("status", ""),
                     "file": file_path.split("/")[-1] if file_path else "",
-                })
+                }
 
-            # Sort by filename for consistent ordering
-            all_results = sorted(all_results, key=lambda x: x.get("file", ""))
+            all_results = sorted(seen.values(), key=lambda x: x.get("file", ""))
 
         except Exception as e:
             logger.warning(f"Error listing ADRs: {e}")
@@ -1304,22 +1321,31 @@ Guidelines:
             Tuple of (formatted response text, list of principle objects)
         """
         suffix = "_OpenAI" if settings.llm_provider == "openai" else ""
-        all_results = []
 
         try:
             collection = self.client.collections.get(f"Principle{suffix}")
             results = collection.query.fetch_objects(
-                limit=100,
+                limit=500,  # High enough to get all chunks
                 return_properties=["title", "principle_number", "doc_type"],
             )
 
+            # Deduplicate by principle_number — each PCP may have multiple chunks.
+            # Skip approval record (DAR) chunks by title (doc_type is unreliable).
+            seen = {}
             for obj in results.objects:
-                all_results.append({
+                pn = obj.properties.get("principle_number", "")
+                title = obj.properties.get("title", "")
+                if not pn or pn in seen:
+                    continue
+                if title.startswith("Principle Approval Record List"):
+                    continue
+                seen[pn] = {
                     "type": "Principle",
-                    "pcp_number": obj.properties.get("principle_number", ""),
-                    "title": obj.properties.get("title", ""),
+                    "pcp_number": pn,
+                    "title": title.split(" - ")[0],
                     "doc_type": obj.properties.get("doc_type", ""),
-                })
+                }
+            all_results = sorted(seen.values(), key=lambda x: x.get("pcp_number", ""))
 
         except Exception as e:
             logger.warning(f"Error listing principles: {e}")
@@ -1330,7 +1356,7 @@ Guidelines:
 
         # Format response
         response_lines = [f"I found {len(all_results)} principles:\n"]
-        for principle in sorted(all_results, key=lambda x: x.get("pcp_number", "")):
+        for principle in all_results:
             pcp = f"PCP.{int(principle['pcp_number'])}" if principle.get('pcp_number') else ""
             doc_type = f"({principle['doc_type']})" if principle.get('doc_type') else ""
             response_lines.append(f"- **{pcp} {principle['title']}** {doc_type}")
