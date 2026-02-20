@@ -71,8 +71,7 @@ class Persona:
             user_prompt_parts.append(f"CURRENT MESSAGE:\n{user_message}")
             user_prompt = "\n\n".join(user_prompt_parts)
 
-            has_history = bool(history_text)
-            raw = await self._classify(system_prompt, user_prompt, has_history)
+            raw = await self._classify(system_prompt, user_prompt)
             intent, content = self._parse_response(raw)
 
             logger.info(
@@ -119,17 +118,13 @@ class Persona:
         self._cached_prompt = _FALLBACK_PROMPT
         return self._cached_prompt
 
-    async def _classify(
-        self, system_prompt: str, user_prompt: str, has_history: bool = False
-    ) -> str:
+    async def _classify(self, system_prompt: str, user_prompt: str) -> str:
         """Make a single LLM call for intent classification + query rewriting."""
         if self._use_openai:
             return await self._classify_openai(system_prompt, user_prompt)
-        return await self._classify_ollama(system_prompt, user_prompt, has_history)
+        return await self._classify_ollama(system_prompt, user_prompt)
 
-    async def _classify_ollama(
-        self, system_prompt: str, user_prompt: str, has_history: bool = False
-    ) -> str:
+    async def _classify_ollama(self, system_prompt: str, user_prompt: str) -> str:
         """Classify via Ollama API."""
         import httpx
 
@@ -137,23 +132,13 @@ class Persona:
         full_prompt = f"{system_prompt}\n\n{user_prompt}"
 
         async with httpx.AsyncClient(timeout=120.0) as client:
-            # Hybrid model selection: first message uses the fast persona model
-            # (SmolLM3 3.1B, ~3-4s). Follow-ups with conversation history need
-            # the main model (20B) for context-dependent query rewriting —
-            # SmolLM3 can't reliably resolve pronouns or synthesize history.
-            if has_history:
-                model = settings.ollama_model
-            else:
-                model = settings.persona_model
             response = await client.post(
                 f"{settings.ollama_url}/api/generate",
                 json={
-                    "model": model,
+                    "model": settings.ollama_model,
                     "prompt": full_prompt,
                     "stream": False,
-                    # Persona output is always short: intent label (1 word) +
-                    # rewritten query or direct response (~10-150 tokens).
-                    "options": {"num_predict": 200},
+                    "options": {"num_predict": 500},
                 },
             )
             response.raise_for_status()
@@ -165,7 +150,7 @@ class Persona:
             text = re.sub(r"</?think>", "", text)
 
             latency = int((time.time() - start) * 1000)
-            logger.info(f"Persona classification (Ollama/{model}): {latency}ms")
+            logger.info(f"Persona classification (Ollama): {latency}ms")
 
             return text.strip()
 
@@ -185,9 +170,9 @@ class Persona:
             ],
         }
         if model.startswith("gpt-5"):
-            kwargs["max_completion_tokens"] = 200
+            kwargs["max_completion_tokens"] = 500
         else:
-            kwargs["max_tokens"] = 200
+            kwargs["max_tokens"] = 500
 
         response = client.chat.completions.create(**kwargs)
         text = response.choices[0].message.content or ""
@@ -207,44 +192,14 @@ class Persona:
             return "retrieval", ""
 
         parts = raw.strip().split("\n", 1)
-        # Clean formatting artifacts from small models (e.g., SmolLM3 outputs
-        # "**intent:** identity" or "Intent: off_topic" instead of bare labels).
-        intent_raw = parts[0].strip().lower()
-        intent_raw = intent_raw.replace("*", "").replace(":", "").replace(" ", "_")
-        # Strip common prefixes: "intent_" → ""
-        intent_raw = re.sub(r"^intent_+", "", intent_raw).strip("_")
+        intent = parts[0].strip().lower().replace(" ", "_")
 
-        # Validate intent — find valid intent anywhere in the cleaned string
-        intent = "retrieval"  # default fallback
-        for valid in VALID_INTENTS:
-            if valid in intent_raw:
-                intent = valid
-                break
-
-        if intent_raw and intent == "retrieval" and "retrieval" not in intent_raw:
-            logger.warning(f"Unrecognized intent '{parts[0].strip()}', defaulting to retrieval")
+        # Validate intent
+        if intent not in VALID_INTENTS:
+            logger.warning(f"Unrecognized intent '{intent}', defaulting to retrieval")
+            intent = "retrieval"
 
         content = parts[1].strip() if len(parts) > 1 else ""
-
-        # Clean direct response content from small-model artifacts.
-        # SmolLM3 (3.1B) sometimes echoes format instructions, adds
-        # self-commentary, or wraps responses in quotes. These patterns
-        # are consistent enough to clean reliably.
-        if intent in DIRECT_RESPONSE_INTENTS and content:
-            # Strip format echo lines ("** identity", "**Lines 2+:**")
-            content = re.sub(
-                r"^\*{0,2}\s*(?:identity|off_topic|clarification|Lines?\s*\d\+?)\s*\*{0,2}[:\s]*\n*",
-                "", content, flags=re.IGNORECASE | re.MULTILINE,
-            ).strip()
-            # Strip self-commentary at end
-            content = re.sub(
-                r"\n+(?:The intent is classified|The user is asking|This (?:is|was) classified).*$",
-                "", content, flags=re.DOTALL | re.IGNORECASE,
-            ).strip()
-            # Strip wrapping quotes
-            if content.startswith('"') and content.endswith('"'):
-                content = content[1:-1].strip()
-
         return intent, content
 
     def _format_history(

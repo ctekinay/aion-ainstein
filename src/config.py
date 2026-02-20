@@ -31,10 +31,6 @@ class Settings(BaseSettings):
     # URL for Weaviate (Docker) to reach Ollama on host machine
     ollama_docker_url: str = Field(default="http://host.docker.internal:11434")
     ollama_model: str = Field(default="alibayram/smollm3:latest")
-    # Separate model for Persona intent classification. Smaller/faster
-    # models (3B) handle classification in 2-3s vs 8-15s on 20B.
-    # Falls back to ollama_model if not set. Context window must be >= 4K.
-    ollama_persona_model: Optional[str] = Field(default=None)
     ollama_embedding_model: str = Field(default="nomic-embed-text-v2-moe")
 
     # OpenAI Configuration (fallback/alternative)
@@ -47,17 +43,6 @@ class Settings(BaseSettings):
         """Get the current chat model based on provider."""
         if self.llm_provider == "ollama":
             return self.ollama_model
-        return self.openai_chat_model
-
-    @property
-    def persona_model(self) -> str:
-        """Get the Persona classification model.
-
-        For Ollama: uses ollama_persona_model if set, otherwise falls
-        back to ollama_model. For OpenAI: same chat model (already <1s).
-        """
-        if self.llm_provider == "ollama":
-            return self.ollama_persona_model or self.ollama_model
         return self.openai_chat_model
 
     @property
