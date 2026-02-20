@@ -25,3 +25,9 @@ skills:
     path: response-contract/SKILL.md
     description: "Enforce structured JSON output for RAG responses with count transparency"
     enabled: false
+
+  - name: persona-orchestrator
+    path: persona-orchestrator/SKILL.md
+    description: "Intent classification and query rewriting for the AInstein Persona layer"
+    enabled: true
+    inject_into_tree: false

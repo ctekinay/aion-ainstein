@@ -2257,6 +2257,27 @@
                     addThinkingStep(data.content, 'thinking_aloud');
                     break;
 
+                case 'persona_intent': {
+                    // Persona classification — show as first thinking step
+                    const intentLabels = {
+                        'retrieval': 'Searching knowledge base',
+                        'listing': 'Listing documents',
+                        'follow_up': 'Follow-up from conversation',
+                        'identity': 'About AInstein',
+                        'off_topic': 'Outside scope',
+                        'clarification': 'Needs clarification'
+                    };
+                    let label = intentLabels[data.intent] || data.intent;
+                    if (data.rewritten_query) {
+                        const truncated = data.rewritten_query.length > 80
+                            ? data.rewritten_query.substring(0, 80) + '...'
+                            : data.rewritten_query;
+                        label += ' \u2192 "' + truncated + '"';
+                    }
+                    addThinkingStep(label, 'status');
+                    break;
+                }
+
                 case 'user_prompt':
                     // Already shown, skip
                     break;

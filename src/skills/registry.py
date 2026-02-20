@@ -27,6 +27,7 @@ class SkillRegistryEntry:
     path: str
     description: str
     enabled: bool = True
+    inject_into_tree: bool = True
 
 
 class SkillRegistry:
@@ -68,6 +69,7 @@ class SkillRegistry:
                 path=skill_data.get("path", ""),
                 description=skill_data.get("description", ""),
                 enabled=skill_data.get("enabled", True),
+                inject_into_tree=skill_data.get("inject_into_tree", True),
             )
 
             if entry.name:
@@ -102,15 +104,22 @@ class SkillRegistry:
         return entry is not None and entry.enabled
 
     def get_all_skill_content(self) -> str:
-        """Get combined content from all enabled skills for prompt injection."""
-        skills = self.get_active_skills()
+        """Get combined content from all enabled skills for Tree prompt injection.
 
-        if not skills:
-            return ""
+        Only includes skills where inject_into_tree is True (the default).
+        Skills like persona-orchestrator set inject_into_tree: false because
+        their content is consumed by a different component, not the Tree.
+        """
+        if not self._loaded:
+            self.load_registry()
 
         parts = []
-        for skill in skills:
-            parts.append(skill.get_injectable_content())
+        for name, entry in self._entries.items():
+            if not entry.enabled or not entry.inject_into_tree:
+                continue
+            skill = self.loader.load_skill(name)
+            if skill:
+                parts.append(skill.get_injectable_content())
 
         return "\n\n---\n\n".join(parts)
 

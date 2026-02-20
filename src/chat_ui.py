@@ -33,6 +33,7 @@ from .skills import api as skills_api
 from .weaviate.client import get_weaviate_client
 from .weaviate.embeddings import embed_text, close_embeddings_client
 from .elysia_agents import ElysiaRAGSystem, ELYSIA_AVAILABLE
+from .persona import Persona
 
 logger = logging.getLogger(__name__)
 
@@ -40,13 +41,14 @@ logger = logging.getLogger(__name__)
 # Global state
 _weaviate_client = None
 _elysia_system = None
+_persona = None
 _db_path = Path(__file__).parent.parent / "chat_history.db"
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Lifespan context manager for startup/shutdown."""
-    global _weaviate_client, _elysia_system
+    global _weaviate_client, _elysia_system, _persona
 
     # Startup
     init_db()
@@ -64,6 +66,9 @@ async def lifespan(app: FastAPI):
     else:
         logger.warning("Elysia not available - running in comparison-only mode")
         _elysia_system = None
+
+    _persona = Persona()
+    logger.info("Persona orchestrator initialized")
 
     yield  # App is running
 
@@ -202,11 +207,17 @@ def init_db():
     except sqlite3.OperationalError:
         pass  # Column already exists
 
+    # Migration: Add turn_summary column for structured conversation context
+    try:
+        cursor.execute("ALTER TABLE messages ADD COLUMN turn_summary TEXT")
+    except sqlite3.OperationalError:
+        pass  # Column already exists
+
     conn.commit()
     conn.close()
 
 
-def save_message(conversation_id: str, role: str, content: str, sources: list[dict] = None, timing: dict = None):
+def save_message(conversation_id: str, role: str, content: str, sources: list[dict] = None, timing: dict = None, turn_summary: str = None):
     """Save a message to the database."""
     conn = sqlite3.connect(_db_path)
     cursor = conn.cursor()
@@ -216,8 +227,8 @@ def save_message(conversation_id: str, role: str, content: str, sources: list[di
     timing_json = json.dumps(timing) if timing else None
 
     cursor.execute(
-        "INSERT INTO messages (conversation_id, role, content, sources, timestamp, timing) VALUES (?, ?, ?, ?, ?, ?)",
-        (conversation_id, role, content, sources_json, timestamp, timing_json)
+        "INSERT INTO messages (conversation_id, role, content, sources, timestamp, timing, turn_summary) VALUES (?, ?, ?, ?, ?, ?, ?)",
+        (conversation_id, role, content, sources_json, timestamp, timing_json, turn_summary)
     )
 
     # Update conversation timestamp
@@ -254,7 +265,7 @@ def get_conversation_messages(conversation_id: str) -> list[dict]:
     cursor = conn.cursor()
 
     cursor.execute(
-        "SELECT role, content, sources, timestamp, timing FROM messages WHERE conversation_id = ? ORDER BY timestamp",
+        "SELECT role, content, sources, timestamp, timing, turn_summary FROM messages WHERE conversation_id = ? ORDER BY timestamp",
         (conversation_id,)
     )
 
@@ -266,6 +277,7 @@ def get_conversation_messages(conversation_id: str) -> list[dict]:
             "sources": json.loads(row[2]) if row[2] else None,
             "timestamp": row[3],
             "timing": json.loads(row[4]) if row[4] else None,
+            "turn_summary": row[5],
         })
 
     conn.close()
@@ -335,6 +347,42 @@ def delete_all_conversations():
 
     conn.commit()
     conn.close()
+
+
+def _build_turn_summary(response: str, sources: list[dict]) -> str:
+    """Build a structured turn summary from response and sources.
+
+    Instead of truncating the full response text (which loses semantics),
+    this extracts metadata from the sources to create a compact summary
+    that the Persona can use for follow-up resolution.
+    """
+    if not sources:
+        # No sources — truncate response text as fallback
+        return response[:200] + "..." if len(response) > 200 else response
+
+    # Count documents by type
+    type_counts = {}
+    titles = []
+    for src in sources:
+        doc_type = src.get("type", "Document")
+        type_counts[doc_type] = type_counts.get(doc_type, 0) + 1
+        title = src.get("title", "")
+        if title:
+            titles.append(title)
+
+    # Build summary parts
+    parts = []
+    for doc_type, count in sorted(type_counts.items()):
+        parts.append(f"{count} {doc_type}{'s' if count > 1 else ''}")
+
+    summary = f"Retrieved {', '.join(parts)}"
+    if titles:
+        title_list = "; ".join(titles[:5])
+        if len(titles) > 5:
+            title_list += f" (and {len(titles) - 5} more)"
+        summary += f": {title_list}"
+
+    return summary
 
 
 def run_elysia_query(question: str, result_queue: Queue, output_queue: Queue):
@@ -879,7 +927,7 @@ async def root():
 @app.post("/api/chat/stream")
 async def chat_stream(request: ChatRequest):
     """Stream chat response with thinking process via SSE."""
-    global _elysia_system
+    global _elysia_system, _persona
 
     if not _elysia_system:
         raise HTTPException(status_code=503, detail="System not initialized")
@@ -898,15 +946,34 @@ async def chat_stream(request: ChatRequest):
         title = request.message[:50] + "..." if len(request.message) > 50 else request.message
         update_conversation_title(conversation_id, title)
 
+    # Run Persona intent classification and query rewriting
+    persona_result = await _persona.process(request.message, messages)
+
     async def event_generator():
         # Send conversation ID first
         yield f"data: {json.dumps({'type': 'init', 'conversation_id': conversation_id})}\n\n"
 
+        # Emit Persona classification as the first thinking step
+        yield f"data: {json.dumps({'type': 'persona_intent', 'intent': persona_result.intent, 'rewritten_query': persona_result.rewritten_query})}\n\n"
+
+        # Direct response intents: respond immediately, no Tree needed
+        if persona_result.direct_response is not None:
+            start_ms = time.time()
+            timing = {"total_ms": int((time.time() - start_ms) * 1000)}
+            yield f"data: {json.dumps({'type': 'complete', 'response': persona_result.direct_response, 'sources': [], 'timing': timing})}\n\n"
+            save_message(
+                conversation_id, "assistant",
+                persona_result.direct_response, [], timing,
+                turn_summary=f"Direct response ({persona_result.intent})",
+            )
+            return
+
+        # Tree query: pass the rewritten query to Elysia
         final_response = None
         final_sources = []
         final_timing = None
 
-        async for event in stream_elysia_response(request.message):
+        async for event in stream_elysia_response(persona_result.rewritten_query):
             yield event
 
             # Parse event to capture final response for saving
@@ -919,9 +986,14 @@ async def chat_stream(request: ChatRequest):
             except:
                 pass
 
-        # Save assistant response with timing
+        # Save assistant response with structured turn summary
         if final_response:
-            save_message(conversation_id, "assistant", final_response, final_sources, final_timing)
+            turn_summary = _build_turn_summary(final_response, final_sources)
+            save_message(
+                conversation_id, "assistant",
+                final_response, final_sources, final_timing,
+                turn_summary=turn_summary,
+            )
 
     return StreamingResponse(
         event_generator(),
@@ -985,7 +1057,7 @@ async def chat_stream_compare(request: ComparisonRequest):
 @app.post("/api/chat", response_model=ChatResponse)
 async def chat(request: ChatRequest):
     """Process a chat message (non-streaming fallback)."""
-    global _elysia_system
+    global _elysia_system, _persona
 
     if not _elysia_system:
         raise HTTPException(status_code=503, detail="System not initialized")
@@ -1004,9 +1076,25 @@ async def chat(request: ChatRequest):
         title = request.message[:50] + "..." if len(request.message) > 50 else request.message
         update_conversation_title(conversation_id, title)
 
+    # Run Persona intent classification
+    persona_result = await _persona.process(request.message, messages)
+
+    # Direct response intents: respond immediately, no Tree needed
+    if persona_result.direct_response is not None:
+        save_message(
+            conversation_id, "assistant",
+            persona_result.direct_response, [],
+            turn_summary=f"Direct response ({persona_result.intent})",
+        )
+        return ChatResponse(
+            response=persona_result.direct_response,
+            sources=[],
+            conversation_id=conversation_id,
+        )
+
     try:
-        # Query Elysia system
-        response, objects = await _elysia_system.query(request.message)
+        # Query Elysia system with the rewritten query
+        response, objects = await _elysia_system.query(persona_result.rewritten_query)
 
         # Flatten objects
         flat_objects = []
@@ -1030,8 +1118,9 @@ async def chat(request: ChatRequest):
                 source["preview"] = content[:200] + "..." if len(content) > 200 else content
             sources.append(source)
 
-        # Save assistant response
-        save_message(conversation_id, "assistant", response, sources)
+        # Save assistant response with turn summary
+        turn_summary = _build_turn_summary(response, sources)
+        save_message(conversation_id, "assistant", response, sources, turn_summary=turn_summary)
 
         return ChatResponse(
             response=response,
