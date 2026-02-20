@@ -213,7 +213,13 @@ class ElysiaRAGSystem:
 
         self._use_openai = settings.llm_provider == "openai"
         self._collection_suffix = "_OpenAI" if self._use_openai else ""
+        self._prop_cache: dict[str, list[str]] = {}
         self._register_tools()
+
+    # Properties that are never useful in tool results: full_text is a
+    # redundant copy of the entire document, content_hash is an internal
+    # deduplication key.
+    _EXCLUDED_PROPS = frozenset({"full_text", "content_hash"})
 
     def _get_collection(self, base_name: str):
         """Get a Weaviate collection with the correct provider suffix.
@@ -225,6 +231,36 @@ class ElysiaRAGSystem:
             Weaviate collection object
         """
         return self.client.collections.get(f"{base_name}{self._collection_suffix}")
+
+    def _get_return_props(self, collection) -> list[str]:
+        """Get returnable property names from a collection's schema.
+
+        Discovers properties dynamically from the Weaviate schema and caches
+        them per collection. Excludes internal fields (full_text, content_hash)
+        that are never useful in tool results.
+        """
+        name = collection.name
+        if name not in self._prop_cache:
+            schema_props = collection.config.get().properties
+            self._prop_cache[name] = [
+                p.name for p in schema_props
+                if p.name not in self._EXCLUDED_PROPS
+            ]
+        return self._prop_cache[name]
+
+    def _build_result(self, obj, props: list[str], content_limit: int = 0) -> dict:
+        """Build a result dict from a Weaviate object using dynamic properties.
+
+        Returns all schema properties. Applies content_max_chars truncation
+        to the 'content' field only; everything else is returned as-is.
+        """
+        result = {}
+        for key in props:
+            val = obj.properties.get(key, "")
+            if key == "content" and content_limit and isinstance(val, str):
+                val = val[:content_limit]
+            result[key] = val
+        return result
 
     def _get_query_vector(self, query: str) -> Optional[list[float]]:
         """Compute query embedding for Ollama collections, None for OpenAI.
@@ -280,25 +316,23 @@ class ElysiaRAGSystem:
                 limit: Maximum number of results to return
 
             Returns:
-                List of matching vocabulary concepts with definitions
+                List of matching vocabulary concepts with all available metadata
             """
             # Config overrides the LLM's limit parameter — see thresholds.yaml
             limit = _get_retrieval_limits().get("vocabulary", limit)
             collection = self._get_collection("Vocabulary")
+            props = self._get_return_props(collection)
             query_vector = self._get_query_vector(query)
+            content_limit = _get_truncation().get("content_max_chars", 800)
             results = collection.query.hybrid(
                 query=query,
                 vector=query_vector,
                 limit=limit,
                 alpha=settings.alpha_vocabulary,
+                return_properties=props,
             )
             return [
-                {
-                    "label": obj.properties.get("pref_label", ""),
-                    "definition": obj.properties.get("definition", ""),
-                    "vocabulary": obj.properties.get("vocabulary_name", ""),
-                    "uri": obj.properties.get("uri", ""),
-                }
+                self._build_result(obj, props, content_limit)
                 for obj in results.objects
             ]
 
@@ -340,25 +374,73 @@ class ElysiaRAGSystem:
                 limit: Maximum number of results to return
 
             Returns:
-                List of matching ADRs with title, status, context, decision, consequences
+                List of matching ADRs with all available metadata and truncated content
             """
             # Config overrides the LLM's limit parameter — see thresholds.yaml
             limit = _get_retrieval_limits().get("adr", limit)
             collection = self._get_collection("ArchitecturalDecision")
+            props = self._get_return_props(collection)
+            content_limit = _get_truncation().get("content_max_chars", 800)
+            is_dar_query = bool(re.search(r"\bD\b|approv|DAR|who\s+(?:accepted|approved)", query, re.IGNORECASE))
 
-            # Detect ADR number in query for filter-based lookup
+            # Extract ALL ADR numbers from the query. Handles both:
+            # - "ADR.20 through ADR.25" (range with keyword)
+            # - "ADR.20 ADR.21 ADR.22 ..." (Tree-expanded list)
+            all_adr_numbers = re.findall(
+                r"(?:ADR|decision)[.\-\s]?0*(\d{1,4})", query, re.IGNORECASE
+            )
+            unique_adr_numbers = sorted(set(int(n) for n in all_adr_numbers))
+
+            if len(unique_adr_numbers) >= 2:
+                # Multiple ADR numbers — use range filter from min to max
+                start = str(min(unique_adr_numbers)).zfill(4)
+                end = str(max(unique_adr_numbers)).zfill(4)
+                # Range filter only — Weaviate breaks when combining range
+                # operators with not_equal on a different property. DAR/template
+                # exclusion is done in Python below.
+                adr_filter = (
+                    Filter.by_property("adr_number").greater_or_equal(start)
+                    & Filter.by_property("adr_number").less_or_equal(end)
+                )
+                results = collection.query.fetch_objects(
+                    filters=adr_filter, limit=500, return_properties=props,
+                )
+                seen = {}
+                for obj in results.objects:
+                    fp = obj.properties.get("file_path", "")
+                    doc_type = obj.properties.get("doc_type", "")
+                    title = obj.properties.get("title", "")
+                    if not fp or fp in seen:
+                        continue
+                    if not is_dar_query:
+                        if doc_type in ("adr_approval", "template", "index"):
+                            continue
+                        if title.startswith("Decision Approval Record"):
+                            continue
+                    seen[fp] = self._build_result(obj, props, content_limit)
+                return sorted(seen.values(), key=lambda x: x.get("file_path", ""))
+
+            # Detect single ADR number (e.g., "ADR.29", "decision 12")
             adr_match = re.search(r"(?:ADR[.\-\s]?)?(0*(\d{1,4}))\b", query, re.IGNORECASE)
             adr_filter = None
             if adr_match:
                 padded = adr_match.group(2).zfill(4)
-                # Check if query asks about approval/DAR — if not, exclude DARs
-                is_dar_query = bool(re.search(r"\bD\b|approv|DAR|who\s+(?:accepted|approved)", query, re.IGNORECASE))
                 if is_dar_query:
                     adr_filter = Filter.by_property("adr_number").equal(padded)
                 else:
                     adr_filter = (
                         Filter.by_property("adr_number").equal(padded)
                         & Filter.by_property("title").not_equal("Decision Approval Record List")
+                    )
+            else:
+                # No specific ADR number — exclude DARs, templates, and index
+                # pages by default. Without this, generic queries like "What ADRs
+                # exist?" return approval records alongside actual decisions.
+                if not is_dar_query:
+                    adr_filter = (
+                        Filter.by_property("doc_type").not_equal("adr_approval")
+                        & Filter.by_property("doc_type").not_equal("template")
+                        & Filter.by_property("doc_type").not_equal("index")
                     )
 
             query_vector = self._get_query_vector(query)
@@ -368,16 +450,10 @@ class ElysiaRAGSystem:
                 limit=limit,
                 alpha=settings.alpha_vocabulary,
                 filters=adr_filter,
+                return_properties=props,
             )
-            content_limit = _get_truncation().get("content_max_chars", 800)
             return [
-                {
-                    "title": obj.properties.get("title", ""),
-                    "status": obj.properties.get("status", ""),
-                    "section_name": obj.properties.get("section_name", ""),
-                    "chunk_type": obj.properties.get("chunk_type", ""),
-                    "content": (obj.properties.get("content", "") or "")[:content_limit],
-                }
+                self._build_result(obj, props, content_limit)
                 for obj in results.objects
             ]
 
@@ -421,18 +497,53 @@ class ElysiaRAGSystem:
                 limit: Maximum number of results to return
 
             Returns:
-                List of matching principles with title, content, doc_type
+                List of matching principles with all available metadata and truncated content
             """
             # Config overrides the LLM's limit parameter — see thresholds.yaml
             limit = _get_retrieval_limits().get("principle", limit)
             collection = self._get_collection("Principle")
+            props = self._get_return_props(collection)
+            content_limit = _get_truncation().get("content_max_chars", 800)
+            is_dar_query = bool(re.search(r"\bD\b|approv|DAR|who\s+(?:accepted|approved)", query, re.IGNORECASE))
 
-            # Detect PCP number in query for filter-based lookup
+            # Extract ALL PCP numbers from the query. Handles both:
+            # - "PCP.10 through PCP.18" (range with keyword)
+            # - "PCP.10 PCP.11 PCP.12 ..." (Tree-expanded list)
+            all_pcp_numbers = re.findall(
+                r"(?:PCP|principle)[.\-\s]?0*(\d{1,4})", query, re.IGNORECASE
+            )
+            unique_numbers = sorted(set(int(n) for n in all_pcp_numbers))
+
+            if len(unique_numbers) >= 2:
+                # Multiple PCP numbers — use range filter from min to max
+                start = str(min(unique_numbers)).zfill(4)
+                end = str(max(unique_numbers)).zfill(4)
+                # Range filter only — Weaviate breaks when combining range
+                # operators with not_equal on a different property. DAR
+                # exclusion is done in Python below.
+                pcp_filter = (
+                    Filter.by_property("principle_number").greater_or_equal(start)
+                    & Filter.by_property("principle_number").less_or_equal(end)
+                )
+                results = collection.query.fetch_objects(
+                    filters=pcp_filter, limit=500, return_properties=props,
+                )
+                seen = {}
+                for obj in results.objects:
+                    pn = obj.properties.get("principle_number", "")
+                    title = obj.properties.get("title", "")
+                    if not pn or pn in seen:
+                        continue
+                    if not is_dar_query and title.startswith("Principle Approval Record"):
+                        continue
+                    seen[pn] = self._build_result(obj, props, content_limit)
+                return sorted(seen.values(), key=lambda x: x.get("principle_number", ""))
+
+            # Detect single PCP number (e.g., "PCP.10", "principle 22")
             pcp_match = re.search(r"(?:PCP[.\-\s]?|principle\s+)(0*(\d{1,4}))\b", query, re.IGNORECASE)
             pcp_filter = None
             if pcp_match:
                 padded = pcp_match.group(2).zfill(4)
-                is_dar_query = bool(re.search(r"\bD\b|approv|DAR|who\s+(?:accepted|approved)", query, re.IGNORECASE))
                 if is_dar_query:
                     pcp_filter = Filter.by_property("principle_number").equal(padded)
                 else:
@@ -440,6 +551,12 @@ class ElysiaRAGSystem:
                         Filter.by_property("principle_number").equal(padded)
                         & Filter.by_property("title").not_equal("Decision Approval Record List")
                     )
+            else:
+                # No specific PCP number — exclude DAR chunks by default.
+                # doc_type is unreliable in Principle collection (DARs tagged
+                # as "principle"), so use title-based filtering.
+                if not is_dar_query:
+                    pcp_filter = Filter.by_property("title").not_equal("Principle Approval Record List")
 
             query_vector = self._get_query_vector(query)
             results = collection.query.hybrid(
@@ -448,15 +565,10 @@ class ElysiaRAGSystem:
                 limit=limit,
                 alpha=settings.alpha_vocabulary,
                 filters=pcp_filter,
+                return_properties=props,
             )
-            content_limit = _get_truncation().get("content_max_chars", 800)
             return [
-                {
-                    "title": obj.properties.get("title", ""),
-                    "section_name": obj.properties.get("section_name", ""),
-                    "chunk_type": obj.properties.get("chunk_type", ""),
-                    "content": (obj.properties.get("content", "") or "")[:content_limit],
-                }
+                self._build_result(obj, props, content_limit)
                 for obj in results.objects
             ]
 
@@ -491,25 +603,23 @@ class ElysiaRAGSystem:
                 limit: Maximum number of results to return
 
             Returns:
-                List of matching policy documents with title, content, file_type
+                List of matching policy documents with all available metadata and truncated content
             """
             # Config overrides the LLM's limit parameter — see thresholds.yaml
             limit = _get_retrieval_limits().get("policy", limit)
             collection = self._get_collection("PolicyDocument")
+            props = self._get_return_props(collection)
             query_vector = self._get_query_vector(query)
+            content_limit = _get_truncation().get("content_max_chars", 800)
             results = collection.query.hybrid(
                 query=query,
                 vector=query_vector,
                 limit=limit,
                 alpha=settings.alpha_vocabulary,
+                return_properties=props,
             )
-            content_limit = _get_truncation().get("content_max_chars", 800)
             return [
-                {
-                    "title": obj.properties.get("title", ""),
-                    "content": obj.properties.get("content", "")[:content_limit],
-                    "file_type": obj.properties.get("file_type", ""),
-                }
+                self._build_result(obj, props, content_limit)
                 for obj in results.objects
             ]
 
@@ -524,35 +634,38 @@ class ElysiaRAGSystem:
             - "How many architecture decisions are there?"
             - "What decisions have been documented?"
 
-            Returns all ADRs with title, status (accepted/proposed/deprecated), and filename.
+            Returns all ADRs with all available metadata.
             ADR numbering: ADR.0-2 (meta), ADR.10-12 (standards), ADR.20-31 (energy system).
 
             Returns:
-                Complete list of all ADRs with titles and status
+                Complete list of all ADRs with all available metadata
             """
             collection = self._get_collection("ArchitecturalDecision")
+            props = self._get_return_props(collection)
             results = collection.query.fetch_objects(
                 limit=500,  # High enough to get all chunks
-                return_properties=["title", "status", "file_path", "doc_type"],
+                return_properties=props,
             )
 
             # Deduplicate by file_path — each ADR may have multiple chunks.
             # Skip approval records (DARs), templates, and index pages.
+            # Uses both doc_type AND title-based filtering as safety net
+            # (doc_type can be unreliable — same pattern as list_all_principles).
+            content_limit = _get_truncation().get("content_max_chars", 800)
             seen = {}
             for obj in results.objects:
                 file_path = obj.properties.get("file_path", "")
                 doc_type = obj.properties.get("doc_type", "")
+                title = obj.properties.get("title", "")
                 if not file_path or file_path in seen:
                     continue
                 if doc_type in ("adr_approval", "template", "index"):
                     continue
-                seen[file_path] = {
-                    "title": obj.properties.get("title", "").split(" - ")[0],
-                    "status": obj.properties.get("status", ""),
-                    "file": file_path.split("/")[-1] if file_path else "",
-                }
+                if title.startswith("Decision Approval Record"):
+                    continue
+                seen[file_path] = self._build_result(obj, props, content_limit)
 
-            return sorted(seen.values(), key=lambda x: x.get("file", ""))
+            return sorted(seen.values(), key=lambda x: x.get("file_path", ""))
 
         # List all principles tool
         @tool(tree=self.tree)
@@ -565,16 +678,17 @@ class ElysiaRAGSystem:
             - "Show me the governance principles", "Please show them all"
             - "How many principles are there?", "Display all PCPs"
 
-            Returns all principles with PCP number, title, and doc_type.
+            Returns all principles with all available metadata.
             PCP numbering: PCP.10-20 (ESA), PCP.21-30 (Business), PCP.31-40 (Data Office).
 
             Returns:
-                Complete list of all principles with PCP numbers
+                Complete list of all principles with all available metadata
             """
             collection = self._get_collection("Principle")
+            props = self._get_return_props(collection)
             results = collection.query.fetch_objects(
                 limit=500,  # High enough to get all chunks
-                return_properties=["title", "principle_number", "doc_type"],
+                return_properties=props,
             )
 
             # Deduplicate by principle_number — each PCP may have multiple chunks.
@@ -582,6 +696,7 @@ class ElysiaRAGSystem:
             # principle_number but have titles starting with
             # "Principle Approval Record List". doc_type is unreliable
             # (ingestion tags them all as "principle").
+            content_limit = _get_truncation().get("content_max_chars", 800)
             seen = {}
             for obj in results.objects:
                 pn = obj.properties.get("principle_number", "")
@@ -590,13 +705,9 @@ class ElysiaRAGSystem:
                     continue
                 if title.startswith("Principle Approval Record List"):
                     continue
-                seen[pn] = {
-                    "pcp_number": pn,
-                    "title": title.split(" - ")[0],
-                    "type": obj.properties.get("doc_type", ""),
-                }
+                seen[pn] = self._build_result(obj, props, content_limit)
 
-            return sorted(seen.values(), key=lambda x: x.get("pcp_number", ""))
+            return sorted(seen.values(), key=lambda x: x.get("principle_number", ""))
 
         # Search documents by team/owner
         @tool(tree=self.tree)
@@ -624,97 +735,43 @@ class ElysiaRAGSystem:
                 limit: Maximum number of results per collection
 
             Returns:
-                List of documents with their type, title, and owner info
+                List of documents with all available metadata filtered by owner
             """
             results = []
             query_vector = self._get_query_vector(f"{team_name} {query}") if query else None
+            content_limit = _get_truncation().get("content_max_chars", 800)
 
-            # Search ADRs
-            try:
-                adr_collection = self._get_collection("ArchitecturalDecision")
-                if query:
-                    adr_results = adr_collection.query.hybrid(
-                        query=f"{team_name} {query}",
-                        vector=query_vector,
-                        limit=limit,
-                        alpha=settings.alpha_default,
-                    )
-                else:
-                    adr_results = adr_collection.query.fetch_objects(
-                        limit=limit * 2,
-                        return_properties=["title", "status", "owner_team", "owner_team_abbr", "owner_display"],
-                    )
+            for collection_type, base_name in [
+                ("ADR", "ArchitecturalDecision"),
+                ("Principle", "Principle"),
+                ("Policy", "PolicyDocument"),
+            ]:
+                try:
+                    collection = self._get_collection(base_name)
+                    props = self._get_return_props(collection)
+                    if query:
+                        coll_results = collection.query.hybrid(
+                            query=f"{team_name} {query}",
+                            vector=query_vector,
+                            limit=limit,
+                            alpha=settings.alpha_default,
+                            return_properties=props,
+                        )
+                    else:
+                        coll_results = collection.query.fetch_objects(
+                            limit=limit * 2,
+                            return_properties=props,
+                        )
 
-                for obj in adr_results.objects:
-                    owner = obj.properties.get("owner_team", "") or obj.properties.get("owner_team_abbr", "")
-                    owner_display = obj.properties.get("owner_display", "")
-                    if team_name.lower() in owner.lower() or team_name.lower() in owner_display.lower():
-                        results.append({
-                            "type": "ADR",
-                            "title": obj.properties.get("title", ""),
-                            "status": obj.properties.get("status", ""),
-                            "owner": owner_display or owner,
-                        })
-            except Exception as e:
-                logger.warning(f"Error searching ADRs by team: {e}")
-
-            # Search Principles
-            try:
-                principle_collection = self._get_collection("Principle")
-                if query:
-                    principle_results = principle_collection.query.hybrid(
-                        query=f"{team_name} {query}",
-                        vector=query_vector,
-                        limit=limit,
-                        alpha=settings.alpha_default,
-                    )
-                else:
-                    principle_results = principle_collection.query.fetch_objects(
-                        limit=limit * 2,
-                        return_properties=["title", "doc_type", "owner_team", "owner_team_abbr", "owner_display"],
-                    )
-
-                for obj in principle_results.objects:
-                    owner = obj.properties.get("owner_team", "") or obj.properties.get("owner_team_abbr", "")
-                    owner_display = obj.properties.get("owner_display", "")
-                    if team_name.lower() in owner.lower() or team_name.lower() in owner_display.lower():
-                        results.append({
-                            "type": "Principle",
-                            "title": obj.properties.get("title", ""),
-                            "doc_type": obj.properties.get("doc_type", ""),
-                            "owner": owner_display or owner,
-                        })
-            except Exception as e:
-                logger.warning(f"Error searching Principles by team: {e}")
-
-            # Search Policies
-            try:
-                policy_collection = self._get_collection("PolicyDocument")
-                if query:
-                    policy_results = policy_collection.query.hybrid(
-                        query=f"{team_name} {query}",
-                        vector=query_vector,
-                        limit=limit,
-                        alpha=settings.alpha_default,
-                    )
-                else:
-                    policy_results = policy_collection.query.fetch_objects(
-                        limit=limit * 2,
-                        return_properties=["title", "file_type", "owner_team", "owner_team_abbr", "owner_display"],
-                    )
-
-                for obj in policy_results.objects:
-                    owner = obj.properties.get("owner_team", "") or obj.properties.get("owner_team_abbr", "")
-                    owner_display = obj.properties.get("owner_display", "")
-                    if team_name.lower() in owner.lower() or team_name.lower() in owner_display.lower():
-                        results.append({
-                            "type": "Policy",
-                            "title": obj.properties.get("title", ""),
-                            "file_type": obj.properties.get("file_type", ""),
-                            "owner": owner_display or owner,
-                        })
-            except Exception as e:
-                logger.warning(f"Error searching Policies by team: {e}")
+                    for obj in coll_results.objects:
+                        owner = obj.properties.get("owner_team", "") or obj.properties.get("owner_team_abbr", "")
+                        owner_display = obj.properties.get("owner_display", "")
+                        if team_name.lower() in owner.lower() or team_name.lower() in owner_display.lower():
+                            item = self._build_result(obj, props, content_limit)
+                            item["type"] = collection_type
+                            results.append(item)
+                except Exception as e:
+                    logger.warning(f"Error searching {base_name} by team: {e}")
 
             return results
 
@@ -996,109 +1053,60 @@ class ElysiaRAGSystem:
         # Request metadata for abstention decisions
         metadata_request = MetadataQuery(score=True, distance=True)
 
-        # Search relevant collections
-        if any(term in question_lower for term in ["adr", "decision", "architecture"]):
+        content_limit = _get_truncation().get("content_max_chars", 800)
+
+        # Map collection base names to keyword triggers and type labels
+        collection_map = [
+            ("ArchitecturalDecision", "ADR", ["adr", "decision", "architecture"]),
+            ("Principle", "Principle", ["principle", "governance", "esa"]),
+            ("PolicyDocument", "Policy", ["policy", "data governance", "compliance"]),
+            ("Vocabulary", "Vocabulary", ["vocab", "concept", "definition", "cim", "iec",
+             "what is", "what does", "define", "meaning", "term", "standard", "archimate"]),
+        ]
+
+        # Search relevant collections based on keyword triggers
+        for base_name, type_label, keywords in collection_map:
+            if not any(term in question_lower for term in keywords):
+                continue
             try:
-                collection = self.client.collections.get(f"ArchitecturalDecision{suffix}")
+                collection = self.client.collections.get(f"{base_name}{suffix}")
+                props = self._get_return_props(collection)
+                coll_filter = content_filter if base_name != "PolicyDocument" else None
                 results = collection.query.hybrid(
-                    query=question, vector=query_vector, limit=5, alpha=settings.alpha_vocabulary,
-                    filters=content_filter, return_metadata=metadata_request
+                    query=question, vector=query_vector, limit=5,
+                    alpha=settings.alpha_vocabulary,
+                    filters=coll_filter, return_metadata=metadata_request,
+                    return_properties=props,
                 )
                 for obj in results.objects:
-                    all_results.append({
-                        "type": "ADR",
-                        "title": obj.properties.get("title", ""),
-                        "content": obj.properties.get("decision", "")[:500],
-                        "distance": obj.metadata.distance,
-                        "score": obj.metadata.score,
-                    })
+                    item = self._build_result(obj, props, content_limit)
+                    item["type"] = type_label
+                    item["distance"] = obj.metadata.distance
+                    item["score"] = obj.metadata.score
+                    all_results.append(item)
             except Exception as e:
-                logger.warning(f"Error searching ArchitecturalDecision{suffix}: {e}")
+                logger.warning(f"Error searching {base_name}{suffix}: {e}")
 
-        if any(term in question_lower for term in ["principle", "governance", "esa"]):
-            try:
-                collection = self.client.collections.get(f"Principle{suffix}")
-                results = collection.query.hybrid(
-                    query=question, vector=query_vector, limit=5, alpha=settings.alpha_vocabulary,
-                    filters=content_filter, return_metadata=metadata_request
-                )
-                for obj in results.objects:
-                    all_results.append({
-                        "type": "Principle",
-                        "title": obj.properties.get("title", ""),
-                        "content": obj.properties.get("content", "")[:500],
-                        "distance": obj.metadata.distance,
-                        "score": obj.metadata.score,
-                    })
-            except Exception as e:
-                logger.warning(f"Error searching Principle{suffix}: {e}")
-
-        if any(term in question_lower for term in ["policy", "data governance", "compliance"]):
-            try:
-                collection = self.client.collections.get(f"PolicyDocument{suffix}")
-                results = collection.query.hybrid(
-                    query=question, vector=query_vector, limit=5, alpha=settings.alpha_vocabulary,
-                    return_metadata=metadata_request
-                )
-                for obj in results.objects:
-                    all_results.append({
-                        "type": "Policy",
-                        "title": obj.properties.get("title", ""),
-                        "content": obj.properties.get("content", "")[:500],
-                        "distance": obj.metadata.distance,
-                        "score": obj.metadata.score,
-                    })
-            except Exception as e:
-                logger.warning(f"Error searching PolicyDocument{suffix}: {e}")
-
-        # Expanded keyword matching for vocabulary - catch "what is X" type questions
-        vocab_keywords = ["vocab", "concept", "definition", "cim", "iec", "what is", "what does", "define", "meaning", "term", "standard", "archimate"]
-        if any(term in question_lower for term in vocab_keywords):
-            try:
-                collection = self.client.collections.get(f"Vocabulary{suffix}")
-                results = collection.query.hybrid(
-                    query=question, vector=query_vector, limit=5, alpha=settings.alpha_vocabulary,
-                    return_metadata=metadata_request
-                )
-                for obj in results.objects:
-                    all_results.append({
-                        "type": "Vocabulary",
-                        "label": obj.properties.get("pref_label", ""),
-                        "definition": obj.properties.get("definition", ""),
-                        "distance": obj.metadata.distance,
-                        "score": obj.metadata.score,
-                    })
-            except Exception as e:
-                logger.warning(f"Error searching Vocabulary{suffix}: {e}")
-
-        # If no specific collection matched, search all including Vocabulary
+        # If no specific collection matched, search all
         if not all_results:
-            for coll_base in ["ArchitecturalDecision", "Principle", "PolicyDocument", "Vocabulary"]:
+            for base_name, type_label, _ in collection_map:
                 try:
-                    collection = self.client.collections.get(f"{coll_base}{suffix}")
+                    collection = self.client.collections.get(f"{base_name}{suffix}")
+                    props = self._get_return_props(collection)
                     results = collection.query.hybrid(
-                        query=question, vector=query_vector, limit=3, alpha=settings.alpha_vocabulary,
-                        return_metadata=metadata_request
+                        query=question, vector=query_vector, limit=3,
+                        alpha=settings.alpha_vocabulary,
+                        return_metadata=metadata_request,
+                        return_properties=props,
                     )
                     for obj in results.objects:
-                        if coll_base == "Vocabulary":
-                            all_results.append({
-                                "type": "Vocabulary",
-                                "label": obj.properties.get("pref_label", ""),
-                                "definition": obj.properties.get("definition", ""),
-                                "distance": obj.metadata.distance,
-                                "score": obj.metadata.score,
-                            })
-                        else:
-                            all_results.append({
-                                "type": coll_base,
-                                "title": obj.properties.get("title", ""),
-                                "content": obj.properties.get("content", obj.properties.get("decision", ""))[:300],
-                                "distance": obj.metadata.distance,
-                                "score": obj.metadata.score,
-                            })
+                        item = self._build_result(obj, props, content_limit)
+                        item["type"] = type_label
+                        item["distance"] = obj.metadata.distance
+                        item["score"] = obj.metadata.score
+                        all_results.append(item)
                 except Exception as e:
-                    logger.warning(f"Error searching {coll_base}{suffix}: {e}")
+                    logger.warning(f"Error searching {base_name}{suffix}: {e}")
 
         # Check if we should abstain from answering
         abstain, reason = should_abstain(question, all_results)
@@ -1262,33 +1270,32 @@ Guidelines:
         Returns:
             Tuple of (formatted response text, list of ADR objects)
         """
-        suffix = "_OpenAI" if settings.llm_provider == "openai" else ""
-
         try:
-            collection = self.client.collections.get(f"ArchitecturalDecision{suffix}")
+            collection = self._get_collection("ArchitecturalDecision")
+            props = self._get_return_props(collection)
             results = collection.query.fetch_objects(
                 limit=500,  # High enough to get all chunks
-                return_properties=["title", "status", "file_path", "doc_type"],
+                return_properties=props,
             )
 
             # Deduplicate by file_path — each ADR may have multiple chunks.
             # Skip approval records (DARs), templates, and index pages.
+            # Uses both doc_type AND title-based filtering as safety net.
+            content_limit = _get_truncation().get("content_max_chars", 800)
             seen = {}
             for obj in results.objects:
                 file_path = obj.properties.get("file_path", "")
                 doc_type = obj.properties.get("doc_type", "")
+                title = obj.properties.get("title", "")
                 if not file_path or file_path in seen:
                     continue
                 if doc_type in ("adr_approval", "template", "index"):
                     continue
-                seen[file_path] = {
-                    "type": "ADR",
-                    "title": obj.properties.get("title", "").split(" - ")[0],
-                    "status": obj.properties.get("status", ""),
-                    "file": file_path.split("/")[-1] if file_path else "",
-                }
+                if title.startswith("Decision Approval Record"):
+                    continue
+                seen[file_path] = self._build_result(obj, props, content_limit)
 
-            all_results = sorted(seen.values(), key=lambda x: x.get("file", ""))
+            all_results = sorted(seen.values(), key=lambda x: x.get("file_path", ""))
 
         except Exception as e:
             logger.warning(f"Error listing ADRs: {e}")
@@ -1300,8 +1307,9 @@ Guidelines:
         # Format response
         response_lines = [f"I found {len(all_results)} Architectural Decision Records (ADRs):\n"]
         for adr in all_results:
-            status_badge = f"[{adr['status']}]" if adr.get('status') else ""
-            response_lines.append(f"- **{adr['title']}** {status_badge}")
+            status_badge = f"[{adr.get('status', '')}]" if adr.get('status') else ""
+            title = (adr.get('title', '') or '').split(' - ')[0]
+            response_lines.append(f"- **{title}** {status_badge}")
 
         return "\n".join(response_lines), all_results
 
@@ -1320,17 +1328,17 @@ Guidelines:
         Returns:
             Tuple of (formatted response text, list of principle objects)
         """
-        suffix = "_OpenAI" if settings.llm_provider == "openai" else ""
-
         try:
-            collection = self.client.collections.get(f"Principle{suffix}")
+            collection = self._get_collection("Principle")
+            props = self._get_return_props(collection)
             results = collection.query.fetch_objects(
                 limit=500,  # High enough to get all chunks
-                return_properties=["title", "principle_number", "doc_type"],
+                return_properties=props,
             )
 
             # Deduplicate by principle_number — each PCP may have multiple chunks.
             # Skip approval record (DAR) chunks by title (doc_type is unreliable).
+            content_limit = _get_truncation().get("content_max_chars", 800)
             seen = {}
             for obj in results.objects:
                 pn = obj.properties.get("principle_number", "")
@@ -1339,13 +1347,9 @@ Guidelines:
                     continue
                 if title.startswith("Principle Approval Record List"):
                     continue
-                seen[pn] = {
-                    "type": "Principle",
-                    "pcp_number": pn,
-                    "title": title.split(" - ")[0],
-                    "doc_type": obj.properties.get("doc_type", ""),
-                }
-            all_results = sorted(seen.values(), key=lambda x: x.get("pcp_number", ""))
+                seen[pn] = self._build_result(obj, props, content_limit)
+
+            all_results = sorted(seen.values(), key=lambda x: x.get("principle_number", ""))
 
         except Exception as e:
             logger.warning(f"Error listing principles: {e}")
@@ -1357,9 +1361,11 @@ Guidelines:
         # Format response
         response_lines = [f"I found {len(all_results)} principles:\n"]
         for principle in all_results:
-            pcp = f"PCP.{int(principle['pcp_number'])}" if principle.get('pcp_number') else ""
-            doc_type = f"({principle['doc_type']})" if principle.get('doc_type') else ""
-            response_lines.append(f"- **{pcp} {principle['title']}** {doc_type}")
+            pn = principle.get('principle_number', '')
+            pcp = f"PCP.{int(pn)}" if pn else ""
+            title = (principle.get('title', '') or '').split(' - ')[0]
+            status_badge = f"[{principle.get('status', '')}]" if principle.get('status') else ""
+            response_lines.append(f"- **{pcp} {title}** {status_badge}")
 
         return "\n".join(response_lines), all_results
 
