@@ -392,12 +392,20 @@ class ElysiaRAGSystem:
             unique_adr_numbers = sorted(set(int(n) for n in all_adr_numbers))
 
             if len(unique_adr_numbers) >= 2:
-                # Multiple ADR numbers — use range filter from min to max
+                # Multiple ADR numbers — use range filter from min to max.
+                # Caveat: "Compare ADR.10 and ADR.35" produces a range that
+                # includes all 26 ADRs in between, not just the two asked
+                # about. The LLM still sees the original query and should
+                # focus on the mentioned documents; the extra data is noise
+                # but not harmful.
                 start = str(min(unique_adr_numbers)).zfill(4)
                 end = str(max(unique_adr_numbers)).zfill(4)
-                # Range filter only — Weaviate breaks when combining range
-                # operators with not_equal on a different property. DAR/template
-                # exclusion is done in Python below.
+                # WEAVIATE BUG: combining range operators (greater_or_equal /
+                # less_or_equal) with not_equal on a *different* property
+                # silently drops results. Observed: 80 chunks → 6 when adding
+                # title.not_equal("Decision Approval Record List") alongside
+                # adr_number range filters. Workaround: apply range filter in
+                # Weaviate, do DAR/template exclusion in the Python loop below.
                 adr_filter = (
                     Filter.by_property("adr_number").greater_or_equal(start)
                     & Filter.by_property("adr_number").less_or_equal(end)
@@ -515,12 +523,20 @@ class ElysiaRAGSystem:
             unique_numbers = sorted(set(int(n) for n in all_pcp_numbers))
 
             if len(unique_numbers) >= 2:
-                # Multiple PCP numbers — use range filter from min to max
+                # Multiple PCP numbers — use range filter from min to max.
+                # Caveat: "Compare PCP.10 and PCP.35" produces a range that
+                # includes all 26 PCPs in between, not just the two asked
+                # about. The LLM still sees the original query and should
+                # focus on the mentioned documents; the extra data is noise
+                # but not harmful.
                 start = str(min(unique_numbers)).zfill(4)
                 end = str(max(unique_numbers)).zfill(4)
-                # Range filter only — Weaviate breaks when combining range
-                # operators with not_equal on a different property. DAR
-                # exclusion is done in Python below.
+                # WEAVIATE BUG: combining range operators (greater_or_equal /
+                # less_or_equal) with not_equal on a *different* property
+                # silently drops results. Observed: 80 chunks → 6 when adding
+                # title.not_equal("Principle Approval Record List") alongside
+                # principle_number range filters. Workaround: apply range
+                # filter in Weaviate, do DAR exclusion in the Python loop below.
                 pcp_filter = (
                     Filter.by_property("principle_number").greater_or_equal(start)
                     & Filter.by_property("principle_number").less_or_equal(end)
