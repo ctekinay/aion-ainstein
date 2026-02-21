@@ -5,6 +5,7 @@ and agentic query processing.
 """
 
 import logging
+import time
 from typing import Optional, Any
 
 import re
@@ -324,6 +325,7 @@ class ElysiaRAGSystem:
             props = self._get_return_props(collection)
             query_vector = self._get_query_vector(query)
             content_limit = _get_truncation().get("content_max_chars", 800)
+            t0 = time.perf_counter()
             results = collection.query.hybrid(
                 query=query,
                 vector=query_vector,
@@ -331,6 +333,8 @@ class ElysiaRAGSystem:
                 alpha=settings.alpha_vocabulary,
                 return_properties=props,
             )
+            wv_ms = int((time.perf_counter() - t0) * 1000)
+            logger.info(f"[timing] search_vocabulary: weaviate={wv_ms}ms, results={len(results.objects)}")
             return [
                 self._build_result(obj, props, content_limit)
                 for obj in results.objects
@@ -410,9 +414,12 @@ class ElysiaRAGSystem:
                     Filter.by_property("adr_number").greater_or_equal(start)
                     & Filter.by_property("adr_number").less_or_equal(end)
                 )
+                t0 = time.perf_counter()
                 results = collection.query.fetch_objects(
                     filters=adr_filter, limit=500, return_properties=props,
                 )
+                wv_ms = int((time.perf_counter() - t0) * 1000)
+                logger.info(f"[timing] search_architecture_decisions(range): weaviate={wv_ms}ms, results={len(results.objects)}")
                 seen = {}
                 for obj in results.objects:
                     fp = obj.properties.get("file_path", "")
@@ -452,6 +459,7 @@ class ElysiaRAGSystem:
                     )
 
             query_vector = self._get_query_vector(query)
+            t0 = time.perf_counter()
             results = collection.query.hybrid(
                 query=query,
                 vector=query_vector,
@@ -460,6 +468,8 @@ class ElysiaRAGSystem:
                 filters=adr_filter,
                 return_properties=props,
             )
+            wv_ms = int((time.perf_counter() - t0) * 1000)
+            logger.info(f"[timing] search_architecture_decisions(hybrid): weaviate={wv_ms}ms, results={len(results.objects)}")
             return [
                 self._build_result(obj, props, content_limit)
                 for obj in results.objects
@@ -541,9 +551,12 @@ class ElysiaRAGSystem:
                     Filter.by_property("principle_number").greater_or_equal(start)
                     & Filter.by_property("principle_number").less_or_equal(end)
                 )
+                t0 = time.perf_counter()
                 results = collection.query.fetch_objects(
                     filters=pcp_filter, limit=500, return_properties=props,
                 )
+                wv_ms = int((time.perf_counter() - t0) * 1000)
+                logger.info(f"[timing] search_principles(range): weaviate={wv_ms}ms, results={len(results.objects)}")
                 seen = {}
                 for obj in results.objects:
                     pn = obj.properties.get("principle_number", "")
@@ -575,6 +588,7 @@ class ElysiaRAGSystem:
                     pcp_filter = Filter.by_property("title").not_equal("Principle Approval Record List")
 
             query_vector = self._get_query_vector(query)
+            t0 = time.perf_counter()
             results = collection.query.hybrid(
                 query=query,
                 vector=query_vector,
@@ -583,6 +597,8 @@ class ElysiaRAGSystem:
                 filters=pcp_filter,
                 return_properties=props,
             )
+            wv_ms = int((time.perf_counter() - t0) * 1000)
+            logger.info(f"[timing] search_principles(hybrid): weaviate={wv_ms}ms, results={len(results.objects)}")
             return [
                 self._build_result(obj, props, content_limit)
                 for obj in results.objects
@@ -627,6 +643,7 @@ class ElysiaRAGSystem:
             props = self._get_return_props(collection)
             query_vector = self._get_query_vector(query)
             content_limit = _get_truncation().get("content_max_chars", 800)
+            t0 = time.perf_counter()
             results = collection.query.hybrid(
                 query=query,
                 vector=query_vector,
@@ -634,6 +651,8 @@ class ElysiaRAGSystem:
                 alpha=settings.alpha_vocabulary,
                 return_properties=props,
             )
+            wv_ms = int((time.perf_counter() - t0) * 1000)
+            logger.info(f"[timing] search_policies: weaviate={wv_ms}ms, results={len(results.objects)}")
             return [
                 self._build_result(obj, props, content_limit)
                 for obj in results.objects
@@ -658,10 +677,13 @@ class ElysiaRAGSystem:
             """
             collection = self._get_collection("ArchitecturalDecision")
             props = self._get_return_props(collection)
+            t0 = time.perf_counter()
             results = collection.query.fetch_objects(
                 limit=500,  # High enough to get all chunks
                 return_properties=props,
             )
+            wv_ms = int((time.perf_counter() - t0) * 1000)
+            logger.info(f"[timing] list_all_adrs: weaviate={wv_ms}ms, chunks={len(results.objects)}")
 
             # Deduplicate by file_path — each ADR may have multiple chunks.
             # Skip approval records (DARs), templates, and index pages.
@@ -702,10 +724,13 @@ class ElysiaRAGSystem:
             """
             collection = self._get_collection("Principle")
             props = self._get_return_props(collection)
+            t0 = time.perf_counter()
             results = collection.query.fetch_objects(
                 limit=500,  # High enough to get all chunks
                 return_properties=props,
             )
+            wv_ms = int((time.perf_counter() - t0) * 1000)
+            logger.info(f"[timing] list_all_principles: weaviate={wv_ms}ms, chunks={len(results.objects)}")
 
             # Deduplicate by principle_number — each PCP may have multiple chunks.
             # Skip approval record (DAR) chunks — they share the same
@@ -807,6 +832,7 @@ class ElysiaRAGSystem:
             """
             base_names = ["Vocabulary", "ArchitecturalDecision", "Principle", "PolicyDocument"]
             stats = {}
+            t0 = time.perf_counter()
             for base_name in base_names:
                 full_name = f"{base_name}{self._collection_suffix}"
                 if self.client.collections.exists(full_name):
@@ -815,6 +841,8 @@ class ElysiaRAGSystem:
                     stats[base_name] = aggregate.total_count
                 else:
                     stats[base_name] = 0
+            wv_ms = int((time.perf_counter() - t0) * 1000)
+            logger.info(f"[timing] get_collection_stats: weaviate={wv_ms}ms")
             return stats
 
         logger.info("Registered Elysia tools: vocabulary, ADR, principles, policies, search_by_team")
@@ -868,14 +896,29 @@ class ElysiaRAGSystem:
             # unlike conversation_history which joins everything with spaces.
             last_text_content = None
 
+            # Per-iteration timing: track query start and iteration boundaries
+            query_start = time.perf_counter()
+            iteration_start = query_start
+            iteration_num = 0
+
             async for result in self.tree.async_run(
                 question, collection_names=our_collections
             ):
                 if result is None:
                     continue
 
+                # Log per-iteration timing on decision boundaries
+                rtype = result.get("type")
+                if rtype == "tree_update":
+                    now = time.perf_counter()
+                    if iteration_num > 0:
+                        iter_ms = int((now - iteration_start) * 1000)
+                        logger.info(f"[timing] tree iteration {iteration_num}: {iter_ms}ms")
+                    iteration_num += 1
+                    iteration_start = now
+
                 # Capture text from the last text result for the final response
-                if result.get("type") == "text":
+                if rtype == "text":
                     payload = result.get("payload", {})
                     objects_list = payload.get("objects", [])
                     text_parts = [
@@ -887,7 +930,17 @@ class ElysiaRAGSystem:
 
                 event = self._map_tree_result_to_event(result)
                 if event and event_queue:
+                    # Enrich every SSE event with elapsed_ms from query start
+                    event["elapsed_ms"] = int((time.perf_counter() - query_start) * 1000)
                     event_queue.put(event)
+
+            # Log final iteration timing
+            if iteration_num > 0:
+                iter_ms = int((time.perf_counter() - iteration_start) * 1000)
+                logger.info(f"[timing] tree iteration {iteration_num}: {iter_ms}ms")
+
+            total_tree_ms = int((time.perf_counter() - query_start) * 1000)
+            logger.info(f"[timing] tree total: {total_tree_ms}ms ({iteration_num} iterations)")
 
             # Restore logging level
             self.tree.settings.LOGGING_LEVEL_INT = original_log_level

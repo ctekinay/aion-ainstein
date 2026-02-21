@@ -958,8 +958,8 @@ async def chat_stream(request: ChatRequest):
         # Run Persona intent classification and query rewriting
         persona_result = await _persona.process(request.message, messages)
 
-        # Emit Persona classification result
-        yield f"data: {json.dumps({'type': 'persona_intent', 'intent': persona_result.intent, 'rewritten_query': persona_result.rewritten_query})}\n\n"
+        # Emit Persona classification result with latency
+        yield f"data: {json.dumps({'type': 'persona_intent', 'intent': persona_result.intent, 'rewritten_query': persona_result.rewritten_query, 'latency_ms': persona_result.latency_ms})}\n\n"
 
         # Direct response intents: respond immediately, no Tree needed
         if persona_result.direct_response is not None:

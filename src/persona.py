@@ -38,15 +38,20 @@ class PersonaResult:
     rewritten_query: Optional[str]
     direct_response: Optional[str]
     original_message: str
+    latency_ms: int = 0
 
 
 class Persona:
     """Thin LLM layer for intent classification, query rewriting, and routing."""
 
     def __init__(self):
-        self._use_openai = settings.llm_provider == "openai"
         self._loader = SkillLoader()
         self._cached_prompt: Optional[str] = None
+
+    @property
+    def _use_openai(self) -> bool:
+        """Read provider at call time so UI model switches take effect."""
+        return settings.llm_provider == "openai"
 
     async def process(
         self, user_message: str, conversation_history: list[dict]
@@ -71,11 +76,11 @@ class Persona:
             user_prompt_parts.append(f"CURRENT MESSAGE:\n{user_message}")
             user_prompt = "\n\n".join(user_prompt_parts)
 
-            raw = await self._classify(system_prompt, user_prompt)
+            raw, latency_ms = await self._classify(system_prompt, user_prompt)
             intent, content = self._parse_response(raw)
 
             logger.info(
-                f"Persona: intent={intent}, "
+                f"Persona: intent={intent}, latency={latency_ms}ms, "
                 f"original={user_message!r}, "
                 f"rewritten={content!r}"
             )
@@ -86,6 +91,7 @@ class Persona:
                     rewritten_query=None,
                     direct_response=content or user_message,
                     original_message=user_message,
+                    latency_ms=latency_ms,
                 )
 
             return PersonaResult(
@@ -93,6 +99,7 @@ class Persona:
                 rewritten_query=content or user_message,
                 direct_response=None,
                 original_message=user_message,
+                latency_ms=latency_ms,
             )
 
         except Exception as e:
@@ -118,14 +125,22 @@ class Persona:
         self._cached_prompt = _FALLBACK_PROMPT
         return self._cached_prompt
 
-    async def _classify(self, system_prompt: str, user_prompt: str) -> str:
-        """Make a single LLM call for intent classification + query rewriting."""
+    async def _classify(self, system_prompt: str, user_prompt: str) -> tuple[str, int]:
+        """Make a single LLM call for intent classification + query rewriting.
+
+        Returns:
+            Tuple of (response text, latency in ms).
+        """
         if self._use_openai:
             return await self._classify_openai(system_prompt, user_prompt)
         return await self._classify_ollama(system_prompt, user_prompt)
 
-    async def _classify_ollama(self, system_prompt: str, user_prompt: str) -> str:
-        """Classify via Ollama API."""
+    async def _classify_ollama(self, system_prompt: str, user_prompt: str) -> tuple[str, int]:
+        """Classify via Ollama API.
+
+        Returns:
+            Tuple of (response text, latency in ms).
+        """
         import httpx
 
         start = time.time()
@@ -152,10 +167,14 @@ class Persona:
             latency = int((time.time() - start) * 1000)
             logger.info(f"Persona classification (Ollama): {latency}ms")
 
-            return text.strip()
+            return text.strip(), latency
 
-    async def _classify_openai(self, system_prompt: str, user_prompt: str) -> str:
-        """Classify via OpenAI API."""
+    async def _classify_openai(self, system_prompt: str, user_prompt: str) -> tuple[str, int]:
+        """Classify via OpenAI API.
+
+        Returns:
+            Tuple of (response text, latency in ms).
+        """
         from openai import OpenAI
 
         start = time.time()
@@ -180,7 +199,7 @@ class Persona:
         latency = int((time.time() - start) * 1000)
         logger.info(f"Persona classification (OpenAI): {latency}ms")
 
-        return text.strip()
+        return text.strip(), latency
 
     def _parse_response(self, raw: str) -> tuple[str, str]:
         """Parse the LLM's two-line response into (intent, content).
