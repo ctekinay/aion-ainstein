@@ -30,3 +30,32 @@ Check these when upgrading the `elysia-ai` package.
 - **On update**: Diff the new `tree.run()` source against our replicated
   setup. If `run()` adds new initialization steps before `async_run()`,
   replicate them in `query()`.
+
+## 3. Tree LLM Provider Override (`_configure_tree_provider`)
+
+- **File**: `src/elysia_agents.py` `ElysiaRAGSystem._configure_tree_provider()`
+- **What**: Overrides Elysia's `settings.BASE_PROVIDER`, `BASE_MODEL`,
+  `COMPLEX_PROVIDER`, `COMPLEX_MODEL`, and `MODEL_API_BASE` with AInstein's
+  config values. Resets `tree._base_lm` and `tree._complex_lm` (private
+  lazy-loaded `dspy.LM` instances) to `None` to force reload.
+- **Why**: Elysia's `smart_setup()` auto-detects `OPENAI_API_KEY` in the
+  environment and defaults to gpt-4.1/gpt-4.1-mini, ignoring AInstein's
+  `LLM_PROVIDER` and `OPENAI_CHAT_MODEL` settings. Without this override,
+  the Tree uses OpenAI even when the user selects Ollama mode.
+- **Depends on** (elysia/tree/tree.py):
+  - `tree._base_lm` — private attribute, initialized to `None` in `__init__`
+    (line ~136), lazy-loaded via `@property base_lm` (line ~196)
+  - `tree._complex_lm` — same pattern (line ~137, property at line ~205)
+  - `tree.settings.BASE_PROVIDER`, `BASE_MODEL`, `COMPLEX_PROVIDER`,
+    `COMPLEX_MODEL`, `MODEL_API_BASE` — read by `load_base_lm()` /
+    `load_complex_lm()` in elysia/config.py
+- **Ollama provider**: Uses `ollama_chat` (not `ollama`) so litellm routes
+  to `/api/chat` instead of `/api/generate`. The completion endpoint enforces
+  JSON parsing that fails with models like gpt-oss:20b. Elysia's own
+  validation only checks `base_provider == "ollama"`, so `ollama_chat`
+  bypasses that check — we set `MODEL_API_BASE` explicitly anyway.
+- **On update**: Check if `_base_lm` / `_complex_lm` attribute names or
+  lazy-loading pattern changed. If Elysia adds a `configure()` method or
+  public API for resetting LM objects, prefer that over direct attribute
+  access. Search for `_base_lm` in the new tree.py source. Also check if
+  Elysia adds `ollama_chat` to its provider validation.

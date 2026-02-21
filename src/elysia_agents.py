@@ -212,10 +212,68 @@ class ElysiaRAGSystem:
         # while preventing the 5th repetition that's always a loop.
         self.tree.tree_data.recursion_limit = 4
 
-        self._use_openai = settings.llm_provider == "openai"
-        self._collection_suffix = "_OpenAI" if self._use_openai else ""
+        self._configure_tree_provider()
         self._prop_cache: dict[str, list[str]] = {}
         self._register_tools()
+
+    @property
+    def _use_openai(self) -> bool:
+        """Read provider at call time so UI model switches take effect."""
+        return settings.llm_provider == "openai"
+
+    @property
+    def _collection_suffix(self) -> str:
+        """Collection name suffix — read at call time for provider switches."""
+        return "_OpenAI" if self._use_openai else ""
+
+    def _configure_tree_provider(self):
+        """Force Elysia Tree to use AInstein's configured LLM provider/model.
+
+        Elysia's smart_setup() auto-detects OPENAI_API_KEY and defaults to
+        gpt-4.1/gpt-4.1-mini, ignoring AInstein's config. This overrides
+        Elysia's settings so the Tree uses whatever settings.llm_provider
+        and settings.openai_chat_model/ollama_model say.
+
+        Called at init and before each query() to handle runtime provider
+        switches from the UI.
+
+        See docs/MONKEY_PATCHES.md #3 for upgrade notes.
+        """
+        ts = self.tree.settings
+
+        if self._use_openai:
+            provider = "openai"
+            model = settings.openai_chat_model
+            api_base = getattr(settings, 'openai_base_url', None)
+        else:
+            # Use ollama_chat (not ollama) so litellm routes to /api/chat
+            # instead of /api/generate. The completion endpoint enforces
+            # JSON parsing that fails with models like gpt-oss:20b.
+            provider = "ollama_chat"
+            model = settings.ollama_model
+            api_base = settings.ollama_url
+
+        current = (provider, model, api_base)
+        if getattr(self, '_last_tree_config', None) == current:
+            return
+
+        ts.BASE_PROVIDER = provider
+        ts.BASE_MODEL = model
+        ts.COMPLEX_PROVIDER = provider
+        ts.COMPLEX_MODEL = model
+        if api_base:
+            ts.MODEL_API_BASE = api_base
+
+        # Reset Elysia's cached LM objects so they reload from new settings.
+        # These are private lazy-loaded attributes — see MONKEY_PATCHES.md #3.
+        self.tree._base_lm = None
+        self.tree._complex_lm = None
+
+        self._last_tree_config = current
+        logger.info(
+            f"Tree provider configured: {provider}/{model}"
+            + (f" via {api_base}" if api_base else "")
+        )
 
     # Properties that are never useful in tool results: full_text is a
     # redundant copy of the entire document, content_hash is an internal
@@ -881,6 +939,9 @@ class ElysiaRAGSystem:
         if skill_content:
             self.tree.tree_data.atlas.agent_description = skill_content
             logger.debug(f"Injected {len(skill_content)} chars of skill content into Tree atlas")
+
+        # Sync Tree's LLM with AInstein's config (handles runtime provider switches)
+        self._configure_tree_provider()
 
         try:
             # Replicate the one setup step from tree.run()
