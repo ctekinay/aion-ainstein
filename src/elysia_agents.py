@@ -218,8 +218,8 @@ class ElysiaRAGSystem:
 
     @property
     def _use_openai(self) -> bool:
-        """Read LLM provider at call time so UI model switches take effect."""
-        return settings.llm_provider == "openai"
+        """Read Tree's provider at call time so UI switches take effect."""
+        return settings.effective_tree_provider == "openai"
 
     @property
     def _use_openai_collections(self) -> bool:
@@ -255,14 +255,14 @@ class ElysiaRAGSystem:
 
         if self._use_openai:
             provider = "openai"
-            model = settings.openai_chat_model
+            model = settings.effective_tree_model
             api_base = getattr(settings, 'openai_base_url', None)
         else:
             # Use ollama_chat (not ollama) so litellm routes to /api/chat
             # instead of /api/generate. The completion endpoint enforces
             # JSON parsing that fails with models like gpt-oss:20b.
             provider = "ollama_chat"
-            model = settings.ollama_model
+            model = settings.effective_tree_model
             api_base = settings.ollama_url
 
         current = (provider, model, api_base)
@@ -1280,8 +1280,8 @@ Guidelines:
 - For technical terms, provide clear explanations"""
         user_prompt = f"Context:\n{context}\n\nQuestion: {question}"
 
-        # Generate response based on LLM provider
-        if settings.llm_provider == "ollama":
+        # Generate response based on Tree's LLM provider
+        if settings.effective_tree_provider == "ollama":
             response_text = await self._generate_with_ollama(system_prompt, user_prompt)
         else:
             response_text = await self._generate_with_openai(system_prompt, user_prompt)
@@ -1310,7 +1310,7 @@ Guidelines:
                 response = await client.post(
                     f"{settings.ollama_url}/api/generate",
                     json={
-                        "model": settings.ollama_model,
+                        "model": settings.effective_tree_model,
                         "prompt": full_prompt,
                         "stream": False,
                         "options": {"num_predict": 1000},
@@ -1350,7 +1350,7 @@ Guidelines:
         openai_client = OpenAI(**settings.get_openai_client_kwargs())
 
         # GPT-5.x models use max_completion_tokens instead of max_tokens
-        model = settings.openai_chat_model
+        model = settings.effective_tree_model
         completion_kwargs = {
             "model": model,
             "messages": [

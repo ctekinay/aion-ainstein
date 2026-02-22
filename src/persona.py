@@ -50,8 +50,8 @@ class Persona:
 
     @property
     def _use_openai(self) -> bool:
-        """Read provider at call time so UI model switches take effect."""
-        return settings.llm_provider == "openai"
+        """Read Persona's provider at call time so UI switches take effect."""
+        return settings.effective_persona_provider == "openai"
 
     async def process(
         self, user_message: str, conversation_history: list[dict]
@@ -150,7 +150,7 @@ class Persona:
             response = await client.post(
                 f"{settings.ollama_url}/api/generate",
                 json={
-                    "model": settings.ollama_model,
+                    "model": settings.effective_persona_model,
                     "prompt": full_prompt,
                     "stream": False,
                     "options": {"num_predict": 500},
@@ -180,7 +180,7 @@ class Persona:
         start = time.time()
         client = OpenAI(**settings.get_openai_client_kwargs())
 
-        model = settings.openai_chat_model
+        model = settings.effective_persona_model
         kwargs = {
             "model": model,
             "messages": [

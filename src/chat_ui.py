@@ -1220,11 +1220,12 @@ async def set_llm_settings(llm_settings: LLMSettings):
     # Update settings
     _current_llm_settings = llm_settings
 
-    # Also update the global config settings
+    # Update global config settings
     settings.llm_provider = llm_settings.provider
     if llm_settings.provider == "ollama":
         settings.ollama_model = llm_settings.model
-        settings.ollama_embedding_model = llm_settings.model
+        # Do NOT set ollama_embedding_model — it's a separate concern
+        # (nomic-embed-text-v2-moe) and should not change with chat model.
     else:
         settings.openai_chat_model = llm_settings.model
 

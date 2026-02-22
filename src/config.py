@@ -39,6 +39,19 @@ class Settings(BaseSettings):
     openai_embedding_model: str = Field(default="text-embedding-3-small")
     openai_chat_model: str = Field(default="gpt-5.2")
 
+    # Per-component LLM overrides (None = use global llm_provider / model).
+    # Allows Persona and Tree to use different providers, e.g. Persona on
+    # GitHub Models (fast, 8K limit OK) and Tree on Ollama (local, no limit).
+    persona_provider: Optional[Literal["openai", "ollama"]] = Field(default=None)
+    persona_model: Optional[str] = Field(default=None)
+    tree_provider: Optional[Literal["openai", "ollama"]] = Field(default=None)
+    tree_model: Optional[str] = Field(default=None)
+
+    # Separate Weaviate vectorizer key. Weaviate's text2vec-openai module
+    # needs a real OpenAI API key — not a GitHub PAT or Azure token.
+    # If None, falls back to openai_api_key.
+    weaviate_openai_api_key: Optional[str] = Field(default=None)
+
     def get_openai_client_kwargs(self) -> dict:
         """Build kwargs for OpenAI() client — supports custom base_url for GitHub Models."""
         kwargs = {"api_key": self.openai_api_key}
@@ -46,16 +59,49 @@ class Settings(BaseSettings):
             kwargs["base_url"] = self.openai_base_url
         return kwargs
 
+    # --- Per-component resolved settings ---
+    # These resolve per-component overrides to global defaults when not set.
+
+    @property
+    def effective_persona_provider(self) -> str:
+        return self.persona_provider or self.llm_provider
+
+    @property
+    def effective_persona_model(self) -> str:
+        if self.persona_model:
+            return self.persona_model
+        if self.effective_persona_provider == "ollama":
+            return self.ollama_model
+        return self.openai_chat_model
+
+    @property
+    def effective_tree_provider(self) -> str:
+        return self.tree_provider or self.llm_provider
+
+    @property
+    def effective_tree_model(self) -> str:
+        if self.tree_model:
+            return self.tree_model
+        if self.effective_tree_provider == "ollama":
+            return self.ollama_model
+        return self.openai_chat_model
+
+    @property
+    def effective_weaviate_openai_api_key(self) -> Optional[str]:
+        return self.weaviate_openai_api_key or self.openai_api_key
+
+    # --- Global convenience properties ---
+
     @property
     def chat_model(self) -> str:
-        """Get the current chat model based on provider."""
+        """Get the current chat model based on global provider."""
         if self.llm_provider == "ollama":
             return self.ollama_model
         return self.openai_chat_model
 
     @property
     def embedding_model(self) -> str:
-        """Get the current embedding model based on provider."""
+        """Get the current embedding model based on global provider."""
         if self.llm_provider == "ollama":
             return self.ollama_embedding_model
         return self.openai_embedding_model
