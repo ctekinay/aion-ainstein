@@ -136,6 +136,35 @@ class Settings(BaseSettings):
             return path
         return self.project_root / path
 
+    def validate_startup(self) -> list[str]:
+        """Validate configuration at startup. Returns list of error messages."""
+        errors = []
+
+        uses_openai = (
+            self.effective_persona_provider == "openai"
+            or self.effective_tree_provider == "openai"
+        )
+        if uses_openai and not self.openai_api_key:
+            errors.append(
+                "OPENAI_API_KEY required when persona or tree provider is 'openai'"
+            )
+
+        tree_native_openai = (
+            self.effective_tree_provider == "openai" and not self.openai_base_url
+        )
+        if tree_native_openai and not self.effective_weaviate_openai_api_key:
+            errors.append(
+                "WEAVIATE_OPENAI_API_KEY (or OPENAI_API_KEY) required for "
+                "text2vec-openai collections"
+            )
+
+        if self.persona_model and not self.persona_provider:
+            errors.append("PERSONA_MODEL set without PERSONA_PROVIDER")
+        if self.tree_model and not self.tree_provider:
+            errors.append("TREE_MODEL set without TREE_PROVIDER")
+
+        return errors
+
 
 # Global settings instance
 settings = Settings()

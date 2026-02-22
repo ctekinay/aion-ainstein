@@ -66,30 +66,48 @@ def config():
     table.add_row("WEAVIATE_URL", settings.weaviate_url, "OK")
     table.add_row("WEAVIATE_IS_LOCAL", str(settings.weaviate_is_local), "OK")
 
+    # Global LLM settings
+    table.add_row("LLM_PROVIDER", settings.llm_provider, "Global default")
+    if settings.llm_provider == "ollama":
+        table.add_row("OLLAMA_MODEL", settings.ollama_model, "OK")
+        table.add_row("OLLAMA_EMBEDDING_MODEL", settings.ollama_embedding_model, "OK")
+
     # OpenAI settings
-    api_key_status = "OK" if settings.openai_api_key else "[red]MISSING[/red]"
-    api_key_display = f"{settings.openai_api_key[:10]}..." if settings.openai_api_key else "[red]Not set[/red]"
+    api_key_status = "OK" if settings.openai_api_key else "[dim]Not set[/dim]"
+    api_key_display = f"{settings.openai_api_key[:10]}..." if settings.openai_api_key else "[dim]Not set[/dim]"
     table.add_row("OPENAI_API_KEY", api_key_display, api_key_status)
 
     if settings.openai_base_url:
         table.add_row("OPENAI_BASE_URL", settings.openai_base_url, "Custom endpoint")
 
-    embedding_status = "OK" if settings.openai_embedding_model in VALID_OPENAI_EMBEDDING_MODELS else "[red]INVALID[/red]"
-    table.add_row("OPENAI_EMBEDDING_MODEL", settings.openai_embedding_model, embedding_status)
+    if settings.llm_provider == "openai" or settings.openai_base_url:
+        table.add_row("OPENAI_CHAT_MODEL", settings.openai_chat_model, "OK")
+        embedding_status = "OK" if settings.openai_embedding_model in VALID_OPENAI_EMBEDDING_MODELS else "[red]INVALID[/red]"
+        table.add_row("OPENAI_EMBEDDING_MODEL", settings.openai_embedding_model, embedding_status)
 
-    chat_status = "OK" if settings.openai_chat_model in VALID_OPENAI_CHAT_MODELS else "[yellow]Custom[/yellow]"
-    table.add_row("OPENAI_CHAT_MODEL", settings.openai_chat_model, chat_status)
+    # Per-component overrides (only show when set)
+    if settings.persona_provider or settings.persona_model:
+        table.add_row("", "", "")
+        table.add_row("PERSONA_PROVIDER", settings.effective_persona_provider, "Override")
+        table.add_row("PERSONA_MODEL", settings.effective_persona_model, "Override")
+    if settings.tree_provider or settings.tree_model:
+        table.add_row("TREE_PROVIDER", settings.effective_tree_provider, "Override")
+        table.add_row("TREE_MODEL", settings.effective_tree_model, "Override")
+
+    # Separate Weaviate key
+    if settings.weaviate_openai_api_key:
+        wv_display = f"{settings.weaviate_openai_api_key[:10]}..."
+        table.add_row("WEAVIATE_OPENAI_API_KEY", wv_display, "Separate key")
+
+    # Effective configuration summary
+    table.add_row("", "", "")
+    table.add_row("Effective Persona", f"{settings.effective_persona_provider} / {settings.effective_persona_model}", "[dim]Resolved[/dim]")
+    table.add_row("Effective Tree", f"{settings.effective_tree_provider} / {settings.effective_tree_model}", "[dim]Resolved[/dim]")
 
     console.print(table)
 
-    # Show validation errors
-    errors = []
-    if not settings.openai_api_key:
-        errors.append("OPENAI_API_KEY is not set")
-    if settings.openai_embedding_model not in VALID_OPENAI_EMBEDDING_MODELS:
-        errors.append(f"OPENAI_EMBEDDING_MODEL '{settings.openai_embedding_model}' is not valid. Use one of: {', '.join(VALID_OPENAI_EMBEDDING_MODELS)}")
-    if settings.openai_chat_model not in VALID_OPENAI_CHAT_MODELS and not settings.openai_base_url:
-        errors.append(f"OPENAI_CHAT_MODEL '{settings.openai_chat_model}' is not valid. Use one of: {', '.join(VALID_OPENAI_CHAT_MODELS)}")
+    # Run startup validation
+    errors = settings.validate_startup()
 
     if errors:
         console.print("\n[bold red]Configuration Errors:[/bold red]")

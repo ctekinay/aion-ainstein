@@ -53,6 +53,33 @@ async def lifespan(app: FastAPI):
     # Startup
     init_db()
 
+    # Validate configuration before connecting to services
+    config_errors = settings.validate_startup()
+    for err in config_errors:
+        logger.error(f"Config: {err}")
+    if config_errors:
+        raise RuntimeError(
+            f"Configuration validation failed ({len(config_errors)} error(s)). "
+            "Check logs above and fix .env settings."
+        )
+
+    # Ollama reachability check (warning, not fatal)
+    if "ollama" in (
+        settings.effective_persona_provider,
+        settings.effective_tree_provider,
+    ):
+        try:
+            import httpx
+            httpx.get(f"{settings.ollama_url}/api/tags", timeout=5.0).raise_for_status()
+            logger.info(f"Ollama reachable at {settings.ollama_url}")
+        except Exception as e:
+            logger.warning(f"Ollama not reachable at {settings.ollama_url}: {e}")
+
+    logger.info(
+        f"Config: persona={settings.effective_persona_provider}/{settings.effective_persona_model}, "
+        f"tree={settings.effective_tree_provider}/{settings.effective_tree_model}"
+    )
+
     try:
         _weaviate_client = get_weaviate_client()
         logger.info("Connected to Weaviate")
