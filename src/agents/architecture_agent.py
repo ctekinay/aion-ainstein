@@ -56,7 +56,7 @@ Respond with only one word: LIST, SEARCH, SUMMARY, or COUNT"""
         else:
             try:
                 from openai import OpenAI
-                self._llm_client = ("openai", OpenAI(api_key=settings.openai_api_key))
+                self._llm_client = ("openai", OpenAI(**settings.get_openai_client_kwargs()))
                 return self._llm_client
             except ImportError:
                 logger.warning("OpenAI not available for intent classification")

@@ -166,6 +166,8 @@ AVAILABLE_MODELS = {
         {"id": "gpt-5.1", "name": "GPT-5.1"},
         {"id": "gpt-4o-mini", "name": "GPT-4o Mini (Budget)"},
         {"id": "gpt-4o", "name": "GPT-4o"},
+        {"id": "claude-sonnet-4-5-20250514", "name": "Claude Sonnet 4.5 (GitHub Models)"},
+        {"id": "Mistral-Large-2", "name": "Mistral Large 2 (GitHub Models)"},
     ],
 }
 
@@ -769,7 +771,7 @@ async def generate_with_openai(system_prompt: str, user_prompt: str, model: str)
     start_time = time.time()
 
     try:
-        openai_client = OpenAI(api_key=settings.openai_api_key)
+        openai_client = OpenAI(**settings.get_openai_client_kwargs())
 
         # GPT-5.x models use max_completion_tokens instead of max_tokens
         completion_kwargs = {

@@ -71,10 +71,13 @@ def config():
     api_key_display = f"{settings.openai_api_key[:10]}..." if settings.openai_api_key else "[red]Not set[/red]"
     table.add_row("OPENAI_API_KEY", api_key_display, api_key_status)
 
+    if settings.openai_base_url:
+        table.add_row("OPENAI_BASE_URL", settings.openai_base_url, "Custom endpoint")
+
     embedding_status = "OK" if settings.openai_embedding_model in VALID_OPENAI_EMBEDDING_MODELS else "[red]INVALID[/red]"
     table.add_row("OPENAI_EMBEDDING_MODEL", settings.openai_embedding_model, embedding_status)
 
-    chat_status = "OK" if settings.openai_chat_model in VALID_OPENAI_CHAT_MODELS else "[red]INVALID[/red]"
+    chat_status = "OK" if settings.openai_chat_model in VALID_OPENAI_CHAT_MODELS else "[yellow]Custom[/yellow]"
     table.add_row("OPENAI_CHAT_MODEL", settings.openai_chat_model, chat_status)
 
     console.print(table)
@@ -85,7 +88,7 @@ def config():
         errors.append("OPENAI_API_KEY is not set")
     if settings.openai_embedding_model not in VALID_OPENAI_EMBEDDING_MODELS:
         errors.append(f"OPENAI_EMBEDDING_MODEL '{settings.openai_embedding_model}' is not valid. Use one of: {', '.join(VALID_OPENAI_EMBEDDING_MODELS)}")
-    if settings.openai_chat_model not in VALID_OPENAI_CHAT_MODELS:
+    if settings.openai_chat_model not in VALID_OPENAI_CHAT_MODELS and not settings.openai_base_url:
         errors.append(f"OPENAI_CHAT_MODEL '{settings.openai_chat_model}' is not valid. Use one of: {', '.join(VALID_OPENAI_CHAT_MODELS)}")
 
     if errors:
@@ -142,12 +145,14 @@ def init(
     if needs_openai:
         if not settings.openai_api_key:
             errors.append("OPENAI_API_KEY is not set in .env file (required for OpenAI provider or --include-openai)")
-        if settings.openai_chat_model not in VALID_OPENAI_CHAT_MODELS:
-            errors.append(
-                f"OPENAI_CHAT_MODEL '{settings.openai_chat_model}' is not valid.\n"
-                f"    Valid models: {', '.join(VALID_OPENAI_CHAT_MODELS)}\n"
-                f"    Please update your .env file."
-            )
+        # Skip model validation when using a custom endpoint (GitHub Models, etc.)
+        if not settings.openai_base_url:
+            if settings.openai_chat_model not in VALID_OPENAI_CHAT_MODELS:
+                errors.append(
+                    f"OPENAI_CHAT_MODEL '{settings.openai_chat_model}' is not valid.\n"
+                    f"    Valid models: {', '.join(VALID_OPENAI_CHAT_MODELS)}\n"
+                    f"    Please update your .env file."
+                )
         if settings.openai_embedding_model not in VALID_OPENAI_EMBEDDING_MODELS:
             errors.append(
                 f"OPENAI_EMBEDDING_MODEL '{settings.openai_embedding_model}' is not valid.\n"

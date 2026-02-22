@@ -218,13 +218,25 @@ class ElysiaRAGSystem:
 
     @property
     def _use_openai(self) -> bool:
-        """Read provider at call time so UI model switches take effect."""
+        """Read LLM provider at call time so UI model switches take effect."""
         return settings.llm_provider == "openai"
 
     @property
+    def _use_openai_collections(self) -> bool:
+        """Whether to use OpenAI-embedded Weaviate collections.
+
+        OpenAI collections use Weaviate's text2vec-openai module for
+        server-side vectorization, which requires a real OpenAI API key.
+        Custom endpoints (GitHub Models, Azure OpenAI) can't be used by
+        Weaviate's vectorizer, so we fall back to local collections with
+        client-side embeddings.
+        """
+        return self._use_openai and not settings.openai_base_url
+
+    @property
     def _collection_suffix(self) -> str:
-        """Collection name suffix — read at call time for provider switches."""
-        return "_OpenAI" if self._use_openai else ""
+        """Collection name suffix — based on embedding provider, not LLM."""
+        return "_OpenAI" if self._use_openai_collections else ""
 
     def _configure_tree_provider(self):
         """Force Elysia Tree to use AInstein's configured LLM provider/model.
@@ -322,19 +334,19 @@ class ElysiaRAGSystem:
         return result
 
     def _get_query_vector(self, query: str) -> Optional[list[float]]:
-        """Compute query embedding for Ollama collections, None for OpenAI.
+        """Compute query embedding for local collections, None for OpenAI collections.
 
         OpenAI collections use server-side vectorization (text2vec-openai),
-        so no client-side vector is needed. Ollama collections use
+        so no client-side vector is needed. Local collections use
         Vectorizer.none() and require client-side embeddings.
 
         Args:
             query: The search query text
 
         Returns:
-            Embedding vector for Ollama, None for OpenAI
+            Embedding vector for local collections, None for OpenAI collections
         """
-        if self._use_openai:
+        if self._use_openai_collections:
             return None
         try:
             return embed_text(query)
@@ -1162,16 +1174,15 @@ class ElysiaRAGSystem:
             logger.info("Detected principles listing query, using direct fetch")
             return await self._handle_list_principles_query()
 
-        # Determine collection suffix based on provider
-        # Local collections use client-side embeddings (Nomic via Ollama)
-        # OpenAI collections use Weaviate's text2vec-openai vectorizer
-        use_openai_collections = settings.llm_provider == "openai"
-        suffix = "_OpenAI" if use_openai_collections else ""
+        # Determine collection suffix based on embedding provider (not LLM).
+        # OpenAI collections need a real OpenAI API key for text2vec-openai.
+        # Custom endpoints (GitHub Models) can't be used by Weaviate's vectorizer.
+        suffix = self._collection_suffix
 
         # For local collections, compute query embedding client-side
         # This is a workaround for Weaviate text2vec-ollama bug (#8406)
         query_vector = None
-        if not use_openai_collections:
+        if not self._use_openai_collections:
             try:
                 query_vector = embed_text(question)
             except Exception as e:
@@ -1336,7 +1347,7 @@ Guidelines:
         """
         from openai import OpenAI
 
-        openai_client = OpenAI(api_key=settings.openai_api_key)
+        openai_client = OpenAI(**settings.get_openai_client_kwargs())
 
         # GPT-5.x models use max_completion_tokens instead of max_tokens
         model = settings.openai_chat_model

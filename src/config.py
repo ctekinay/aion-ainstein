@@ -35,8 +35,16 @@ class Settings(BaseSettings):
 
     # OpenAI Configuration (fallback/alternative)
     openai_api_key: Optional[str] = Field(default=None)
+    openai_base_url: Optional[str] = Field(default=None)
     openai_embedding_model: str = Field(default="text-embedding-3-small")
     openai_chat_model: str = Field(default="gpt-5.2")
+
+    def get_openai_client_kwargs(self) -> dict:
+        """Build kwargs for OpenAI() client — supports custom base_url for GitHub Models."""
+        kwargs = {"api_key": self.openai_api_key}
+        if self.openai_base_url:
+            kwargs["base_url"] = self.openai_base_url
+        return kwargs
 
     @property
     def chat_model(self) -> str:

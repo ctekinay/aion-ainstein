@@ -178,7 +178,7 @@ class Persona:
         from openai import OpenAI
 
         start = time.time()
-        client = OpenAI(api_key=settings.openai_api_key)
+        client = OpenAI(**settings.get_openai_client_kwargs())
 
         model = settings.openai_chat_model
         kwargs = {
