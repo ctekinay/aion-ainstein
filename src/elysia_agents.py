@@ -214,6 +214,7 @@ class ElysiaRAGSystem:
 
         self._configure_tree_provider()
         self._prop_cache: dict[str, list[str]] = {}
+        self._collection_cache: dict[str, object] = {}
         self._register_tools()
 
     @property
@@ -281,6 +282,10 @@ class ElysiaRAGSystem:
         self.tree._base_lm = None
         self.tree._complex_lm = None
 
+        # Invalidate collection cache — provider change may change _collection_suffix
+        if hasattr(self, '_collection_cache'):
+            self._collection_cache.clear()
+
         self._last_tree_config = current
         logger.info(
             f"Tree provider configured: {provider}/{model}"
@@ -295,13 +300,32 @@ class ElysiaRAGSystem:
     def _get_collection(self, base_name: str):
         """Get a Weaviate collection with the correct provider suffix.
 
+        Checks existence and falls back to base collection (without suffix)
+        if the suffixed version doesn't exist. Caches validated handles.
+
         Args:
             base_name: Base collection name (e.g., "Vocabulary")
 
         Returns:
             Weaviate collection object
         """
-        return self.client.collections.get(f"{base_name}{self._collection_suffix}")
+        full_name = f"{base_name}{self._collection_suffix}"
+
+        if full_name in self._collection_cache:
+            return self._collection_cache[full_name]
+
+        if self.client.collections.exists(full_name):
+            coll = self.client.collections.get(full_name)
+        elif self._collection_suffix and self.client.collections.exists(base_name):
+            logger.warning(
+                f"Collection {full_name} not found, falling back to {base_name}"
+            )
+            coll = self.client.collections.get(base_name)
+        else:
+            raise ValueError(f"Collection {full_name} does not exist in Weaviate")
+
+        self._collection_cache[full_name] = coll
+        return coll
 
     def _get_return_props(self, collection) -> list[str]:
         """Get returnable property names from a collection's schema.
@@ -938,12 +962,25 @@ class ElysiaRAGSystem:
         # Always specify our collection names to bypass Elysia's metadata collection discovery
         # This avoids gRPC errors from Elysia's internal collections
         s = self._collection_suffix
-        our_collections = collection_names or [
+        requested = collection_names or [
             f"Vocabulary{s}",
             f"ArchitecturalDecision{s}",
             f"Principle{s}",
             f"PolicyDocument{s}",
         ]
+        # Validate collections exist — fall back to base name if suffixed missing
+        our_collections = []
+        for name in requested:
+            if self.client.collections.exists(name):
+                our_collections.append(name)
+            elif s and self.client.collections.exists(name.replace(s, "")):
+                fallback = name.replace(s, "")
+                logger.warning(f"Collection {name} not found, using {fallback}")
+                our_collections.append(fallback)
+            else:
+                logger.warning(f"Collection {name} not found, skipping")
+        if not our_collections:
+            raise ValueError("No valid collections found in Weaviate")
 
         # Inject active skill content into the Tree's atlas so it reaches
         # all ElysiaChainOfThought prompts, including cited_summarize
@@ -1179,14 +1216,8 @@ class ElysiaRAGSystem:
         # Custom endpoints (GitHub Models) can't be used by Weaviate's vectorizer.
         suffix = self._collection_suffix
 
-        # For local collections, compute query embedding client-side
-        # This is a workaround for Weaviate text2vec-ollama bug (#8406)
-        query_vector = None
-        if not self._use_openai_collections:
-            try:
-                query_vector = embed_text(question)
-            except Exception as e:
-                logger.error(f"Failed to compute query embedding: {e}")
+        # Single source of truth for embedding logic — see _get_query_vector()
+        query_vector = self._get_query_vector(question)
 
         # Filter to exclude index/template documents
         content_filter = Filter.by_property("doc_type").equal("content")
