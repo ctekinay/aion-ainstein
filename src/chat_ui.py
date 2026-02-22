@@ -110,6 +110,11 @@ class LLMSettings(BaseModel):
     """LLM provider and model settings."""
     provider: str = "ollama"  # "ollama" or "openai"
     model: str = "gpt-oss:20b"
+    # Per-component overrides (None = use global provider/model)
+    persona_provider: Optional[str] = None
+    persona_model: Optional[str] = None
+    tree_provider: Optional[str] = None
+    tree_model: Optional[str] = None
 
 
 class ChatRequest(BaseModel):
@@ -1202,6 +1207,14 @@ async def get_llm_settings():
         "current": {
             "provider": _current_llm_settings.provider,
             "model": _current_llm_settings.model,
+            "persona": {
+                "provider": settings.effective_persona_provider,
+                "model": settings.effective_persona_model,
+            },
+            "tree": {
+                "provider": settings.effective_tree_provider,
+                "model": settings.effective_tree_model,
+            },
         },
         "available_providers": ["ollama", "openai"],
         "available_models": AVAILABLE_MODELS,
@@ -1229,12 +1242,31 @@ async def set_llm_settings(llm_settings: LLMSettings):
     else:
         settings.openai_chat_model = llm_settings.model
 
-    logger.info(f"LLM settings updated: provider={llm_settings.provider}, model={llm_settings.model}")
+    # Per-component overrides
+    settings.persona_provider = llm_settings.persona_provider
+    settings.persona_model = llm_settings.persona_model
+    settings.tree_provider = llm_settings.tree_provider
+    settings.tree_model = llm_settings.tree_model
+
+    logger.info(
+        f"LLM settings updated: provider={llm_settings.provider}, "
+        f"model={llm_settings.model}, "
+        f"persona={settings.effective_persona_provider}/{settings.effective_persona_model}, "
+        f"tree={settings.effective_tree_provider}/{settings.effective_tree_model}"
+    )
 
     return {
         "status": "updated",
         "provider": llm_settings.provider,
         "model": llm_settings.model,
+        "persona": {
+            "provider": settings.effective_persona_provider,
+            "model": settings.effective_persona_model,
+        },
+        "tree": {
+            "provider": settings.effective_tree_provider,
+            "model": settings.effective_tree_model,
+        },
     }
 
 

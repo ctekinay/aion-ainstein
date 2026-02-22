@@ -1469,7 +1469,7 @@
             </div>
 
             <div class="settings-section">
-                <label class="settings-label">LLM Provider</label>
+                <label class="settings-label">Default LLM Provider</label>
                 <span class="settings-sublabel">Choose between local (Ollama) or cloud (OpenAI) LLM</span>
                 <select class="settings-select" id="llm-provider" onchange="updateModelOptions()">
                     <option value="ollama">Ollama (Local)</option>
@@ -1478,7 +1478,7 @@
             </div>
 
             <div class="settings-section">
-                <label class="settings-label">Model</label>
+                <label class="settings-label">Default Model</label>
                 <span class="settings-sublabel">Select the AI model to use for responses</span>
                 <select class="settings-select" id="llm-model">
                     <!-- Options populated dynamically -->
@@ -1489,10 +1489,47 @@
                 </div>
             </div>
 
+            <!-- Per-component settings (collapsible) -->
+            <div class="settings-section" style="border-top: 1px solid var(--border-color); padding-top: 12px; margin-top: 4px;">
+                <label class="settings-label" onclick="toggleAdvancedSettings()" style="cursor: pointer; user-select: none;">
+                    <span id="advanced-arrow">&#9654;</span> Per-Component Settings
+                </label>
+                <span class="settings-sublabel">Override provider/model separately for Persona and Tree</span>
+            </div>
+
+            <div id="advanced-settings" style="display: none;">
+                <div class="settings-section" style="padding-left: 12px; border-left: 2px solid var(--border-color);">
+                    <label class="settings-label" style="font-size: 0.85em;">Persona (Intent Classification)</label>
+                    <span class="settings-sublabel">Small prompt (~2K tokens) — fast models work well</span>
+                    <select class="settings-select" id="persona-provider" onchange="updateComponentModelOptions('persona')">
+                        <option value="">Use default</option>
+                        <option value="ollama">Ollama (Local)</option>
+                        <option value="openai">OpenAI (Cloud)</option>
+                    </select>
+                    <select class="settings-select" id="persona-model" style="margin-top: 6px;">
+                        <option value="">Use default</option>
+                    </select>
+                </div>
+
+                <div class="settings-section" style="padding-left: 12px; border-left: 2px solid var(--border-color);">
+                    <label class="settings-label" style="font-size: 0.85em;">Tree (RAG Engine)</label>
+                    <span class="settings-sublabel">Large prompt (~8K+ tokens) — needs models with high context limits</span>
+                    <select class="settings-select" id="tree-provider" onchange="updateComponentModelOptions('tree')">
+                        <option value="">Use default</option>
+                        <option value="ollama">Ollama (Local)</option>
+                        <option value="openai">OpenAI (Cloud)</option>
+                    </select>
+                    <select class="settings-select" id="tree-model" style="margin-top: 6px;">
+                        <option value="">Use default</option>
+                    </select>
+                </div>
+            </div>
+
             <div class="settings-info">
                 <span class="settings-info-icon">&#9432;</span>
                 <span class="settings-info-text">
                     Ollama runs locally and is free. OpenAI requires an API key configured in the server.
+                    Use per-component settings to run Persona on a fast cloud model while Tree stays local.
                 </span>
             </div>
 
@@ -1563,7 +1600,9 @@
         // LLM Settings
         let llmSettings = {
             provider: 'ollama',
-            model: 'gpt-oss:20b'
+            model: 'gpt-oss:20b',
+            persona: { provider: 'ollama', model: 'gpt-oss:20b' },
+            tree: { provider: 'ollama', model: 'gpt-oss:20b' }
         };
         let availableModels = {
             ollama: [
@@ -2714,10 +2753,46 @@
             const modal = document.getElementById('settings-modal');
             modal.classList.add('active');
 
-            // Set current values
+            // Set global default values
             document.getElementById('llm-provider').value = llmSettings.provider;
             updateModelOptions();
             document.getElementById('llm-model').value = llmSettings.model;
+
+            // Set per-component values (if overridden)
+            const persona = llmSettings.persona || {};
+            const tree = llmSettings.tree || {};
+            const hasPersonaOverride = persona.provider !== llmSettings.provider || persona.model !== llmSettings.model;
+            const hasTreeOverride = tree.provider !== llmSettings.provider || tree.model !== llmSettings.model;
+
+            // Persona overrides
+            const personaProviderEl = document.getElementById('persona-provider');
+            if (hasPersonaOverride && persona.provider) {
+                personaProviderEl.value = persona.provider;
+            } else {
+                personaProviderEl.value = '';
+            }
+            updateComponentModelOptions('persona');
+            if (hasPersonaOverride && persona.model) {
+                document.getElementById('persona-model').value = persona.model;
+            }
+
+            // Tree overrides
+            const treeProviderEl = document.getElementById('tree-provider');
+            if (hasTreeOverride && tree.provider) {
+                treeProviderEl.value = tree.provider;
+            } else {
+                treeProviderEl.value = '';
+            }
+            updateComponentModelOptions('tree');
+            if (hasTreeOverride && tree.model) {
+                document.getElementById('tree-model').value = tree.model;
+            }
+
+            // Show advanced section if overrides are active
+            if (hasPersonaOverride || hasTreeOverride) {
+                document.getElementById('advanced-settings').style.display = 'block';
+                document.getElementById('advanced-arrow').innerHTML = '&#9660;';
+            }
         }
 
         // Close settings modal
@@ -2734,15 +2809,26 @@
             }
         });
 
-        // Update model dropdown based on selected provider
+        // Toggle advanced per-component settings
+        function toggleAdvancedSettings() {
+            const section = document.getElementById('advanced-settings');
+            const arrow = document.getElementById('advanced-arrow');
+            if (section.style.display === 'none') {
+                section.style.display = 'block';
+                arrow.innerHTML = '&#9660;';
+            } else {
+                section.style.display = 'none';
+                arrow.innerHTML = '&#9654;';
+            }
+        }
+
+        // Update model dropdown based on selected provider (global default)
         function updateModelOptions() {
             const provider = document.getElementById('llm-provider').value;
             const modelSelect = document.getElementById('llm-model');
 
-            // Clear existing options
             modelSelect.innerHTML = '';
 
-            // Add options for selected provider
             const models = availableModels[provider] || [];
             models.forEach(model => {
                 const option = document.createElement('option');
@@ -2751,10 +2837,28 @@
                 modelSelect.appendChild(option);
             });
 
-            // Select current model if it exists in the list
             if (llmSettings.provider === provider) {
                 modelSelect.value = llmSettings.model;
             }
+        }
+
+        // Update model dropdown for a per-component selector
+        function updateComponentModelOptions(component) {
+            const providerEl = document.getElementById(component + '-provider');
+            const modelEl = document.getElementById(component + '-model');
+            const provider = providerEl.value;
+
+            modelEl.innerHTML = '<option value="">Use default</option>';
+
+            if (!provider) return; // "Use default" selected
+
+            const models = availableModels[provider] || [];
+            models.forEach(model => {
+                const option = document.createElement('option');
+                option.value = model.id;
+                option.textContent = model.name;
+                modelEl.appendChild(option);
+            });
         }
 
         // Update the current model badge in the modal and top-bar indicator
@@ -2764,12 +2868,29 @@
             const model = models.find(m => m.id === llmSettings.model);
             text.textContent = model ? model.name : llmSettings.model;
 
-            // Update top-bar model indicator
             const indicator = document.getElementById('model-indicator');
-            if (indicator) {
-                const providerLabel = llmSettings.provider === 'ollama' ? 'Ollama' : 'OpenAI';
-                const modelName = model ? model.name : llmSettings.model;
-                indicator.textContent = providerLabel + ' | ' + modelName;
+            if (!indicator) return;
+
+            const persona = llmSettings.persona || {};
+            const tree = llmSettings.tree || {};
+            const sameConfig = persona.provider === tree.provider && persona.model === tree.model;
+
+            if (sameConfig) {
+                // Simple display when both use same settings
+                const providerLabel = persona.provider === 'ollama' ? 'Ollama' : 'OpenAI';
+                const pModels = availableModels[persona.provider] || [];
+                const pModel = pModels.find(m => m.id === persona.model);
+                indicator.textContent = providerLabel + ' | ' + (pModel ? pModel.name : persona.model);
+            } else {
+                // Dual display when per-component overrides active
+                const pLabel = (persona.provider === 'ollama' ? 'Ollama' : 'OpenAI');
+                const tLabel = (tree.provider === 'ollama' ? 'Ollama' : 'OpenAI');
+                const pModels = availableModels[persona.provider] || [];
+                const tModels = availableModels[tree.provider] || [];
+                const pModel = pModels.find(m => m.id === persona.model);
+                const tModel = tModels.find(m => m.id === tree.model);
+                indicator.textContent = 'P: ' + pLabel + '/' + (pModel ? pModel.name : persona.model)
+                    + ' | T: ' + tLabel + '/' + (tModel ? tModel.name : tree.model);
             }
         }
 
@@ -2778,15 +2899,32 @@
             const provider = document.getElementById('llm-provider').value;
             const model = document.getElementById('llm-model').value;
 
+            // Per-component overrides (empty string = null/use default)
+            const personaProvider = document.getElementById('persona-provider').value || null;
+            const personaModel = document.getElementById('persona-model').value || null;
+            const treeProvider = document.getElementById('tree-provider').value || null;
+            const treeModel = document.getElementById('tree-model').value || null;
+
             try {
                 const response = await fetch('/api/settings/llm', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ provider, model })
+                    body: JSON.stringify({
+                        provider, model,
+                        persona_provider: personaProvider,
+                        persona_model: personaModel,
+                        tree_provider: treeProvider,
+                        tree_model: treeModel
+                    })
                 });
 
                 if (response.ok) {
-                    llmSettings = { provider, model };
+                    const result = await response.json();
+                    llmSettings = {
+                        provider, model,
+                        persona: result.persona,
+                        tree: result.tree
+                    };
                     updateModelBadge();
                     closeSettings();
                     console.log('LLM settings saved:', llmSettings);
