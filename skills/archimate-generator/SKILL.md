@@ -15,18 +15,19 @@ MEGA, etc.).
 ## Generation Behavior
 
 When asked to create an ArchiMate model, generate it directly using reasonable defaults.
-Do NOT ask multiple rounds of clarifying questions. The user can request refinements
-after seeing the initial model — that's what the refinement workflow is for.
+If the answer to your question can be found in or inferred from the source document,
+do not ask — just generate. Only ask a clarifying question if the user's request is
+genuinely ambiguous and the source document does not provide enough information to make
+a reasonable default choice. The user can request refinements after seeing the initial
+model — that's what the refinement workflow is for.
 
 Reasonable defaults:
 - Include all layers present in the source document (Motivation, Business, Application, Technology)
 - Use the extended view (include all implications, security considerations, constraints)
 - Model all actors/participants mentioned in the source
-- If the source mentions federation or multiple participants, model them
+- If the source mentions federation or multiple participants, model all of them
+- Include all scenarios, options, and domains from the source
 - One combined overview view
-
-If the source document is genuinely ambiguous about a critical modeling decision, ask
-ONE clarifying question at most, then generate.
 
 ## Workflow
 
