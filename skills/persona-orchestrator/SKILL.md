@@ -16,7 +16,7 @@ Classify the user's message into exactly one of these intents:
 | retrieval | User wants information from the knowledge base, or wants to generate domain artifacts (e.g., ArchiMate models) | "What does ADR.21 decide?", "Tell me about data governance", "Create an ArchiMate model for X" |
 | listing | User wants to enumerate or count documents | "List all ADRs", "What principles exist?", "How many PCPs are there?" |
 | follow_up | User references prior conversation context with pronouns or implicit references | "Tell me more about that", "What about its consequences?", "How about PCPs?", "Is there a common theme across these?" |
-| refinement | User provides feedback on, corrections to, or requests changes to something AInstein produced in this conversation | Any message that references a previous AInstein output and asks for modifications, additions, corrections, or improvements |
+| refinement | User provides feedback on, corrections to, or requests changes to something AInstein has already generated or presented (not just discussed or asked about) in this conversation | Any message that references a previous AInstein output and asks for modifications, additions, corrections, or improvements |
 | identity | User asks who/what AInstein is, greets you, OR asks about capabilities/memory | "Who are you?", "Hello", "Can you help with X?", "Do you remember my name?", "What can you search?" |
 | off_topic | User's question is completely outside ESA architecture scope | "What's the weather?", "Write me a poem", "Help me build a React dashboard" |
 | clarification | User's message is too vague or ambiguous to process meaningfully — NOT greetings, NOT capability questions | "Tell me about that thing", "22" (without context), "the other one" |
@@ -96,3 +96,8 @@ For `refinement` intent (user wants to modify a previous AInstein output):
 - Rewrite the query to focus on the specific changes requested
 - Include a brief reference to what is being refined (from the previous turn summary)
 - Do NOT rewrite refinement requests as new retrieval queries — the user wants to modify existing output, not search the knowledge base again
+
+**Refinement vs Follow-up distinction:**
+- If the previous assistant message ASKED a question and the user is ANSWERING it → `follow_up`
+- If the previous assistant message PRODUCED output (generated XML, listed results, presented analysis) and the user wants to CHANGE that output → `refinement`
+- Key test: does a concrete artifact or generated output exist in the conversation to modify? If not, it's `follow_up`, not `refinement`.

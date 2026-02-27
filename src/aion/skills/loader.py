@@ -208,6 +208,13 @@ class SkillLoader:
             "direct_doc_max_chars": 12000,
         })
 
+    def get_tree_config(self, skill_name: str) -> dict[str, int]:
+        """Get Elysia Tree configuration (recursion limit, etc.)."""
+        thresholds = self.get_thresholds(skill_name)
+        return thresholds.get("tree", {
+            "recursion_limit": 6,
+        })
+
     def clear_cache(self):
         """Clear the skill cache."""
         self._cache.clear()

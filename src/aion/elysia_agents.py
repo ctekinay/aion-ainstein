@@ -68,6 +68,10 @@ def _get_truncation() -> dict[str, int]:
     return _get_skill_config("get_truncation", _DEFAULT_TRUNCATION)
 
 
+def _get_tree_config() -> dict[str, int]:
+    return _get_skill_config("get_tree_config", {"recursion_limit": 6})
+
+
 def _get_skill_content(query: str, skill_tags: list[str] | None = None) -> str:
     """Get combined skill content for prompt injection.
 
@@ -246,11 +250,10 @@ class ElysiaRAGSystem:
         self.client = client
         self.tree = Tree()
 
-        # Limit: 5 iterations covers ArchiMate chains (generate → validate
-        # → fix → validate → present) and multi-collection KB queries
-        # (search 3 collections + summarize). Previous limit of 4 was too
-        # tight for ArchiMate's validate-fix-validate cycle.
-        self.tree.tree_data.recursion_limit = 5
+        # Default recursion limit — overridden at query time from
+        # thresholds.yaml (tree.recursion_limit) so changes take effect
+        # without restart. See _get_tree_config().
+        self.tree.tree_data.recursion_limit = 6
 
         self._configure_tree_provider()
         self._prop_cache: dict[str, list[str]] = {}
@@ -1193,12 +1196,12 @@ class ElysiaRAGSystem:
         # (ArchiMate XML, etc.) across turns for iterative refinement.
         @tool(tree=self.tree)
         async def save_artifact(filename: str, content: str, content_type: str, summary: str = "") -> dict:
-            """Save a generated artifact for later retrieval and refinement.
-
-            Call this tool after generating structured output (XML models,
-            JSON schemas, configuration files, etc.) that the user may want
-            to refine in follow-up messages. The artifact is stored
-            persistently and can be loaded with get_artifact.
+            """ALWAYS call this tool after generating any structured output
+            (ArchiMate XML, JSON schemas, configuration files, etc.).
+            Call save_artifact BEFORE writing the text response — the artifact
+            must be persisted so the user can request refinements in follow-up
+            messages. If you skip this tool, the generated content will be lost
+            between turns.
 
             Args:
                 filename: Descriptive filename (e.g., "oauth2-model.archimate.xml",
@@ -1221,11 +1224,12 @@ class ElysiaRAGSystem:
 
         @tool(tree=self.tree)
         async def get_artifact(content_type: str = "") -> dict:
-            """Load the most recent artifact from the current conversation.
-
-            Use this tool when the user wants to refine, modify, or review a
-            previously generated artifact. Returns the full content so you
-            can apply changes and save a new version.
+            """ALWAYS call this tool FIRST when the user wants to refine,
+            modify, or review a previously generated artifact. This loads the
+            full content from the previous turn so you can apply changes to
+            the complete artifact instead of reconstructing it from memory.
+            Without calling this tool, refinement requests will produce
+            incomplete or fragmented output.
 
             Args:
                 content_type: Optional filter (e.g., "archimate/xml",
@@ -1237,13 +1241,46 @@ class ElysiaRAGSystem:
             from src.aion.chat_ui import get_latest_artifact
 
             conv_id = self._current_conversation_id
+            logger.info(f"get_artifact called: conversation_id={conv_id}, content_type={content_type!r}")
             if not conv_id:
+                logger.warning("get_artifact: no conversation_id set")
                 return {"error": "No conversation context — cannot load artifact"}
 
             artifact = get_latest_artifact(conv_id, content_type=content_type or None)
             if not artifact:
+                logger.warning(f"get_artifact: no artifact found for conversation_id={conv_id}")
                 return {"error": "No artifact found in this conversation"}
-            return artifact
+
+            content = artifact.get("content", "")
+            logger.info(
+                f"get_artifact: found {artifact['filename']} "
+                f"({len(content)} chars) for {conv_id}"
+            )
+
+            # Inject the full artifact content into the Tree's atlas so it
+            # persists across all LLM iterations. Returning 10KB+ content
+            # as a tool result gets lost between Elysia's chain-of-thought
+            # iterations; injecting into the atlas makes it part of the
+            # system context that every subsequent LLM call sees.
+            current_atlas = self.tree.tree_data.atlas.agent_description or ""
+            artifact_block = (
+                f"\n\n## LOADED ARTIFACT: {artifact['filename']}\n"
+                f"Content type: {artifact['content_type']}\n"
+                f"Summary: {artifact.get('summary', 'N/A')}\n\n"
+                f"```\n{content}\n```\n"
+            )
+            self.tree.tree_data.atlas.agent_description = current_atlas + artifact_block
+            logger.info(
+                f"Injected artifact ({len(content)} chars) into Tree atlas"
+            )
+
+            # Return metadata only — the full content is in the atlas
+            return {
+                "filename": artifact["filename"],
+                "content_type": artifact["content_type"],
+                "summary": artifact.get("summary", ""),
+                "status": "Loaded into context — full content available for modification",
+            }
 
         logger.info("Registered Elysia tools: ADR, principles, policies, search_by_team, archimate(3), skosmos(3), artifacts(2)")
 
@@ -1299,6 +1336,10 @@ class ElysiaRAGSystem:
 
         # Sync Tree's LLM with AInstein's config (handles runtime provider switches)
         self._configure_tree_provider()
+
+        # Read recursion limit from config at query time (not init time)
+        # so changes to thresholds.yaml take effect without restart.
+        self.tree.tree_data.recursion_limit = _get_tree_config().get("recursion_limit", 6)
 
         try:
             # Clear stale state from the previous query — the Tree is a

@@ -504,13 +504,11 @@ async def _build_turn_summary(response: str, sources: list[dict]) -> str:
     """Build a structured turn summary from response and sources.
 
     Produces a compact semantic summary so the Persona can resolve follow-ups
-    like "Is there a common theme across these?" or "1" (referring to an option).
+    like "Is there a common theme across these?" or "2" (referring to an option).
 
     For listing responses, uses structured extraction (ADR/PCP ID ranges).
-    For retrieval responses with sources, uses type counts.
-    For all other responses (generation, options, clarification), uses a
-    lightweight LLM call to produce a one-sentence semantic summary.
-    Falls back to 500-char truncation if the LLM call fails.
+    For all other responses, uses an LLM call for a semantic summary.
+    Falls back to source-based type counts, then 500-char truncation.
     """
     if not response:
         return ""
@@ -530,7 +528,13 @@ async def _build_turn_summary(response: str, sources: list[dict]) -> str:
         id_range = f"PCP.{nums[0]} through PCP.{nums[-1]}"
         return f"Listed {len(nums)} principles ({id_range})"
 
-    # Retrieval responses with sources: type-count summary
+    # LLM summary: always attempt first. Produces a semantic one-sentence
+    # summary that captures options, generated content, questions, etc.
+    llm_summary = await _llm_summarize_turn(response)
+    if llm_summary:
+        return llm_summary
+
+    # Fallback when LLM summary fails: source-based type count
     if sources:
         type_counts = {}
         for src in sources:
@@ -539,14 +543,7 @@ async def _build_turn_summary(response: str, sources: list[dict]) -> str:
         parts = [f"{count} {dt}{'s' if count > 1 else ''}" for dt, count in sorted(type_counts.items())]
         return f"Retrieved {', '.join(parts)}"
 
-    # Non-retrieval responses (generation, options, clarification, etc.):
-    # Use a lightweight LLM call for a semantic summary.
-    llm_summary = await _llm_summarize_turn(response)
-    if llm_summary:
-        return llm_summary
-
-    # Fallback: 500-char truncation (generous enough for the Persona to
-    # resolve follow-ups including numbered options, artifact references, etc.)
+    # Last resort: 500-char truncation
     return response[:500] + "..." if len(response) > 500 else response
 
 

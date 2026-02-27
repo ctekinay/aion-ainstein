@@ -80,9 +80,6 @@ nul
 # Local tool config
 .claude/
 
-# Internal test data
-GOLD_STANDARD_TEST_QUESTIONS.md
-
 # Legacy scripts
 start_elysia.ps1
 stop_elysia.ps1

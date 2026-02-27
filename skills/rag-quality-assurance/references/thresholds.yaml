@@ -13,3 +13,5 @@ truncation:
   consequences_max_chars: 4000
   direct_doc_max_chars: 12000
   max_context_results: 10
+tree:
+  recursion_limit: 6
