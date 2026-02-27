@@ -19,14 +19,14 @@ from src.aion.skills.loader import SkillLoader
 logger = logging.getLogger(__name__)
 
 VALID_INTENTS = frozenset({
-    "retrieval", "listing", "follow_up", "identity", "off_topic", "clarification",
+    "retrieval", "listing", "follow_up", "refinement", "identity", "off_topic", "clarification",
 })
 
 # Intents where the Persona produces a direct response (no Tree needed)
 DIRECT_RESPONSE_INTENTS = frozenset({"identity", "off_topic", "clarification"})
 
 _FALLBACK_PROMPT = """\
-Classify the user's intent as one of: retrieval, listing, follow_up, identity, off_topic, clarification.
+Classify the user's intent as one of: retrieval, listing, follow_up, refinement, identity, off_topic, clarification.
 Respond with a single JSON object: {"intent": "<label>", "content": "<rewritten query or direct response>"}
 """
 

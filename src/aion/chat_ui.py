@@ -267,6 +267,22 @@ def init_db():
     except sqlite3.OperationalError:
         pass  # Column already exists
 
+    # Artifacts table — stores generated files (ArchiMate XML, etc.)
+    # so the Tree can load and refine them across turns.
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS artifacts (
+            id TEXT PRIMARY KEY,
+            conversation_id TEXT NOT NULL,
+            turn INTEGER NOT NULL,
+            filename TEXT NOT NULL,
+            content TEXT NOT NULL,
+            content_type TEXT NOT NULL,
+            summary TEXT,
+            created_at TEXT,
+            FOREIGN KEY (conversation_id) REFERENCES conversations(id)
+        )
+    """)
+
     conn.commit()
     conn.close()
 
@@ -401,23 +417,106 @@ def delete_all_conversations():
 
     cursor.execute("DELETE FROM messages")
     cursor.execute("DELETE FROM conversations")
+    cursor.execute("DELETE FROM artifacts")
 
     conn.commit()
     conn.close()
 
 
-def _build_turn_summary(response: str, sources: list[dict]) -> str:
+def save_artifact(
+    conversation_id: str,
+    filename: str,
+    content: str,
+    content_type: str,
+    summary: str = "",
+) -> str:
+    """Save a generated artifact (ArchiMate XML, etc.) for later retrieval.
+
+    Returns the artifact ID.
+    """
+    conn = sqlite3.connect(_db_path)
+    cursor = conn.cursor()
+
+    artifact_id = str(uuid.uuid4())
+    timestamp = datetime.now().isoformat()
+
+    # Determine turn number from message count
+    cursor.execute(
+        "SELECT COUNT(*) FROM messages WHERE conversation_id = ?",
+        (conversation_id,),
+    )
+    turn = cursor.fetchone()[0]
+
+    cursor.execute(
+        "INSERT INTO artifacts (id, conversation_id, turn, filename, content, content_type, summary, created_at) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+        (artifact_id, conversation_id, turn, filename, content, content_type, summary, timestamp),
+    )
+
+    conn.commit()
+    conn.close()
+    logger.info(f"Saved artifact {filename} ({len(content)} chars) for {conversation_id}")
+    return artifact_id
+
+
+def get_latest_artifact(conversation_id: str, content_type: str = None) -> dict | None:
+    """Get the most recent artifact for a conversation.
+
+    Args:
+        conversation_id: The conversation to search in.
+        content_type: Optional filter (e.g., "archimate/xml").
+
+    Returns:
+        Dict with id, filename, content, content_type, summary, or None.
+    """
+    conn = sqlite3.connect(_db_path)
+    cursor = conn.cursor()
+
+    if content_type:
+        cursor.execute(
+            "SELECT id, filename, content, content_type, summary FROM artifacts "
+            "WHERE conversation_id = ? AND content_type = ? ORDER BY turn DESC LIMIT 1",
+            (conversation_id, content_type),
+        )
+    else:
+        cursor.execute(
+            "SELECT id, filename, content, content_type, summary FROM artifacts "
+            "WHERE conversation_id = ? ORDER BY turn DESC LIMIT 1",
+            (conversation_id,),
+        )
+
+    row = cursor.fetchone()
+    conn.close()
+
+    if not row:
+        return None
+
+    return {
+        "id": row[0],
+        "filename": row[1],
+        "content": row[2],
+        "content_type": row[3],
+        "summary": row[4],
+    }
+
+
+async def _build_turn_summary(response: str, sources: list[dict]) -> str:
     """Build a structured turn summary from response and sources.
 
-    Produces a compact semantic summary (not individual titles) so the
-    Persona can resolve follow-ups like "Is there a common theme across these?"
-    without the rewritten query being truncated.
+    Produces a compact semantic summary so the Persona can resolve follow-ups
+    like "Is there a common theme across these?" or "1" (referring to an option).
+
+    For listing responses, uses structured extraction (ADR/PCP ID ranges).
+    For retrieval responses with sources, uses type counts.
+    For all other responses (generation, options, clarification), uses a
+    lightweight LLM call to produce a one-sentence semantic summary.
+    Falls back to 500-char truncation if the LLM call fails.
     """
     if not response:
         return ""
 
-    # Try to extract a document count and ID range from the response text.
-    # Listing responses mention many document IDs (3+); search responses mention 1-2.
+    # Listing responses: extract document count and ID range.
+    # This is data extraction (parsing structured identifiers), not intent detection.
     adr_ids = re.findall(r'\bADR[.\s]?(\d{1,3})\b', response)
     pcp_ids = re.findall(r'\bPCP[.\s]?(\d{1,3})\b', response)
 
@@ -431,7 +530,7 @@ def _build_turn_summary(response: str, sources: list[dict]) -> str:
         id_range = f"PCP.{nums[0]} through PCP.{nums[-1]}"
         return f"Listed {len(nums)} principles ({id_range})"
 
-    # For non-listing responses, produce a compact summary from sources
+    # Retrieval responses with sources: type-count summary
     if sources:
         type_counts = {}
         for src in sources:
@@ -440,8 +539,85 @@ def _build_turn_summary(response: str, sources: list[dict]) -> str:
         parts = [f"{count} {dt}{'s' if count > 1 else ''}" for dt, count in sorted(type_counts.items())]
         return f"Retrieved {', '.join(parts)}"
 
-    # Fallback: truncate response
-    return response[:200] + "..." if len(response) > 200 else response
+    # Non-retrieval responses (generation, options, clarification, etc.):
+    # Use a lightweight LLM call for a semantic summary.
+    llm_summary = await _llm_summarize_turn(response)
+    if llm_summary:
+        return llm_summary
+
+    # Fallback: 500-char truncation (generous enough for the Persona to
+    # resolve follow-ups including numbered options, artifact references, etc.)
+    return response[:500] + "..." if len(response) > 500 else response
+
+
+async def _llm_summarize_turn(response: str) -> str | None:
+    """Use the Persona's LLM to produce a one-sentence turn summary.
+
+    Returns None on failure so the caller can fall back to truncation.
+    """
+    # Truncate input to avoid sending huge payloads (e.g., full XML models)
+    text = response[:2000] if len(response) > 2000 else response
+
+    prompt = (
+        "Summarize the following assistant response in ONE concise sentence "
+        "(max 150 chars). Capture the key action or information conveyed — "
+        "e.g., what was generated, what options were offered, what question "
+        "was asked. If the response contains numbered options, list them.\n\n"
+        f"RESPONSE:\n{text}\n\nSUMMARY:"
+    )
+
+    try:
+        if settings.effective_persona_provider in ("github_models", "openai"):
+            return await _llm_summarize_openai(prompt)
+        return await _llm_summarize_ollama(prompt)
+    except Exception as e:
+        logger.warning(f"LLM turn summary failed, falling back to truncation: {e}")
+        return None
+
+
+async def _llm_summarize_openai(prompt: str) -> str | None:
+    """Summarize via OpenAI API (same provider as Persona)."""
+    from openai import OpenAI
+
+    client = OpenAI(**settings.get_openai_client_kwargs(settings.effective_persona_provider))
+    model = settings.effective_persona_model
+
+    kwargs = {
+        "model": model,
+        "messages": [{"role": "user", "content": prompt}],
+    }
+    model_base = model.rsplit("/", 1)[-1] if "/" in model else model
+    if model_base.startswith("gpt-5"):
+        kwargs["max_completion_tokens"] = 512
+    else:
+        kwargs["max_tokens"] = 150
+
+    response = client.chat.completions.create(**kwargs)
+    choice = response.choices[0] if response.choices else None
+    text = (choice.message.content or "").strip() if choice else ""
+    return text if text else None
+
+
+async def _llm_summarize_ollama(prompt: str) -> str | None:
+    """Summarize via Ollama API (same provider as Persona)."""
+    import httpx
+
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        resp = await client.post(
+            f"{settings.ollama_url}/api/generate",
+            json={
+                "model": settings.effective_persona_model,
+                "prompt": prompt,
+                "stream": False,
+                "options": {"num_predict": 150},
+            },
+        )
+        resp.raise_for_status()
+        text = resp.json().get("response", "").strip()
+        # Strip chain-of-thought tags
+        text = re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL)
+        text = re.sub(r"</?think>", "", text).strip()
+        return text if text else None
 
 
 async def _maybe_update_summary(conversation_id: str) -> None:
@@ -492,7 +668,8 @@ async def _maybe_update_summary(conversation_id: str) -> None:
 
 
 def run_elysia_query(question: str, result_queue: Queue, output_queue: Queue,
-                     skill_tags: list[str] | None = None):
+                     skill_tags: list[str] | None = None,
+                     conversation_id: str | None = None):
     """Run Elysia query in a thread, emitting typed events via output_queue.
 
     Events are emitted directly from Tree.async_run() results — no stdout
@@ -510,7 +687,8 @@ def run_elysia_query(question: str, result_queue: Queue, output_queue: Queue,
         try:
             response, objects = loop.run_until_complete(
                 _elysia_system.query(question, event_queue=output_queue,
-                                     skill_tags=skill_tags)
+                                     skill_tags=skill_tags,
+                                     conversation_id=conversation_id)
             )
         finally:
             pending = asyncio.all_tasks(loop)
@@ -541,7 +719,8 @@ def run_elysia_query(question: str, result_queue: Queue, output_queue: Queue,
 
 
 async def stream_elysia_response(question: str,
-                                 skill_tags: list[str] | None = None) -> AsyncGenerator[str, None]:
+                                 skill_tags: list[str] | None = None,
+                                 conversation_id: str | None = None) -> AsyncGenerator[str, None]:
     """Stream Elysia's thinking process as SSE events."""
     result_queue = Queue()
     output_queue = Queue()
@@ -554,7 +733,7 @@ async def stream_elysia_response(question: str,
     # Start query in background thread
     thread = Thread(target=run_elysia_query,
                     args=(question, result_queue, output_queue),
-                    kwargs={"skill_tags": skill_tags})
+                    kwargs={"skill_tags": skill_tags, "conversation_id": conversation_id})
     thread.daemon = True
     thread.start()
 
@@ -1097,7 +1276,8 @@ async def chat_stream(request: ChatRequest):
         final_timing = None
 
         async for event in stream_elysia_response(persona_result.rewritten_query,
-                                                     skill_tags=persona_result.skill_tags):
+                                                     skill_tags=persona_result.skill_tags,
+                                                     conversation_id=conversation_id):
             yield event
 
             # Parse event to capture final response for saving
@@ -1112,7 +1292,7 @@ async def chat_stream(request: ChatRequest):
 
         # Save assistant response with structured turn summary
         if final_response:
-            turn_summary = _build_turn_summary(final_response, final_sources)
+            turn_summary = await _build_turn_summary(final_response, final_sources)
             save_message(
                 conversation_id, "assistant",
                 final_response, final_sources, final_timing,
@@ -1228,6 +1408,7 @@ async def chat(request: ChatRequest):
         response, objects = await _elysia_system.query(
             persona_result.rewritten_query,
             skill_tags=persona_result.skill_tags,
+            conversation_id=conversation_id,
         )
 
         # Flatten objects
@@ -1253,7 +1434,7 @@ async def chat(request: ChatRequest):
             sources.append(source)
 
         # Save assistant response with turn summary
-        turn_summary = _build_turn_summary(response, sources)
+        turn_summary = await _build_turn_summary(response, sources)
         save_message(conversation_id, "assistant", response, sources, turn_summary=turn_summary)
         await _maybe_update_summary(conversation_id)
 

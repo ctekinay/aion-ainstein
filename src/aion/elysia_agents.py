@@ -1189,10 +1189,67 @@ class ElysiaRAGSystem:
             """
             return _skosmos_vocabs(lang=lang)
 
-        logger.info("Registered Elysia tools: ADR, principles, policies, search_by_team, archimate(3), skosmos(3)")
+        # Artifact tools — allow the Tree to save and load generated content
+        # (ArchiMate XML, etc.) across turns for iterative refinement.
+        @tool(tree=self.tree)
+        async def save_artifact(filename: str, content: str, content_type: str, summary: str = "") -> dict:
+            """Save a generated artifact for later retrieval and refinement.
+
+            Call this tool after generating structured output (XML models,
+            JSON schemas, configuration files, etc.) that the user may want
+            to refine in follow-up messages. The artifact is stored
+            persistently and can be loaded with get_artifact.
+
+            Args:
+                filename: Descriptive filename (e.g., "oauth2-model.archimate.xml",
+                    "data-governance-policy.json")
+                content: The full artifact content
+                content_type: MIME-like type (e.g., "archimate/xml", "application/json")
+                summary: Brief description (e.g., "28 elements, 33 relationships")
+
+            Returns:
+                Dict with artifact_id and filename
+            """
+            from src.aion.chat_ui import save_artifact as _save
+
+            conv_id = self._current_conversation_id
+            if not conv_id:
+                return {"error": "No conversation context — artifact not saved"}
+
+            artifact_id = _save(conv_id, filename, content, content_type, summary)
+            return {"artifact_id": artifact_id, "filename": filename, "summary": summary}
+
+        @tool(tree=self.tree)
+        async def get_artifact(content_type: str = "") -> dict:
+            """Load the most recent artifact from the current conversation.
+
+            Use this tool when the user wants to refine, modify, or review a
+            previously generated artifact. Returns the full content so you
+            can apply changes and save a new version.
+
+            Args:
+                content_type: Optional filter (e.g., "archimate/xml",
+                    "application/json"). Leave empty for any type.
+
+            Returns:
+                Dict with filename, content, content_type, summary — or error
+            """
+            from src.aion.chat_ui import get_latest_artifact
+
+            conv_id = self._current_conversation_id
+            if not conv_id:
+                return {"error": "No conversation context — cannot load artifact"}
+
+            artifact = get_latest_artifact(conv_id, content_type=content_type or None)
+            if not artifact:
+                return {"error": "No artifact found in this conversation"}
+            return artifact
+
+        logger.info("Registered Elysia tools: ADR, principles, policies, search_by_team, archimate(3), skosmos(3), artifacts(2)")
 
     async def query(self, question: str, collection_names: Optional[list[str]] = None,
-                    event_queue=None, skill_tags: list[str] | None = None) -> tuple[str, list[dict]]:
+                    event_queue=None, skill_tags: list[str] | None = None,
+                    conversation_id: str | None = None) -> tuple[str, list[dict]]:
         """Process a query using Elysia's decision tree.
 
         Iterates Tree.async_run() directly (bypassing tree.run() which wraps
@@ -1203,10 +1260,13 @@ class ElysiaRAGSystem:
             question: The user's question
             collection_names: Optional list of collection names to focus on
             event_queue: Optional Queue for streaming typed SSE events
+            conversation_id: Optional conversation ID for artifact storage
 
         Returns:
             Tuple of (response text, retrieved objects)
         """
+        # Store conversation_id so artifact tools can access it
+        self._current_conversation_id = conversation_id
         logger.info(f"Elysia processing: {question}")
 
         # Always specify our collection names to bypass Elysia's metadata collection discovery

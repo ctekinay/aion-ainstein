@@ -120,12 +120,32 @@ The tool checks:
 
 Do NOT present XML to the user without calling `validate_archimate` first.
 
-### Step 5: Present Output
+### Step 5: Save Artifact
+
+After validation passes, call **`save_artifact`** to persist the model:
+- `filename`: descriptive name like `adr29-oauth2-oidc.archimate.xml`
+- `content`: the complete validated XML
+- `content_type`: `archimate/xml`
+- `summary`: element and relationship counts (e.g., "28 elements, 33 relationships")
+
+This enables the user to request refinements in follow-up messages without regenerating from scratch.
+
+### Step 6: Present Output
 
 Present the validated XML in the chat response. Inform the user they can:
 - Save it as a `.xml` file
 - Import it into Archi (File → Import → Open Exchange XML)
 - Import it into any ArchiMate 3.2-compliant tool
+
+### Refinement Workflow
+
+When the user requests changes to a previously generated model:
+
+1. Call **`get_artifact`** with `content_type: "archimate/xml"` to load the previous model
+2. Apply the requested changes (add elements, fix relationships, expand views, etc.)
+3. Call **`validate_archimate`** on the modified XML
+4. Call **`save_artifact`** to persist the updated version
+5. Present the changes to the user with a summary of what was modified
 
 ---
 

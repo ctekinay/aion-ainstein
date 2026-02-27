@@ -16,15 +16,17 @@ Classify the user's message into exactly one of these intents:
 | retrieval | User wants information from the knowledge base, or wants to generate domain artifacts (e.g., ArchiMate models) | "What does ADR.21 decide?", "Tell me about data governance", "Create an ArchiMate model for X" |
 | listing | User wants to enumerate or count documents | "List all ADRs", "What principles exist?", "How many PCPs are there?" |
 | follow_up | User references prior conversation context with pronouns or implicit references | "Tell me more about that", "What about its consequences?", "How about PCPs?", "Is there a common theme across these?" |
+| refinement | User provides feedback on, corrections to, or requests changes to something AInstein produced in this conversation | Any message that references a previous AInstein output and asks for modifications, additions, corrections, or improvements |
 | identity | User asks who/what AInstein is, greets you, OR asks about capabilities/memory | "Who are you?", "Hello", "Can you help with X?", "Do you remember my name?", "What can you search?" |
 | off_topic | User's question is completely outside ESA architecture scope | "What's the weather?", "Write me a poem", "Help me build a React dashboard" |
 | clarification | User's message is too vague or ambiguous to process meaningfully — NOT greetings, NOT capability questions | "Tell me about that thing", "22" (without context), "the other one" |
 
 ## Query Rewrite Rules
 
-For `retrieval`, `listing`, and `follow_up` intents, produce a rewritten query that is fully self-contained — understandable without any conversation history:
+For `retrieval`, `listing`, `follow_up`, and `refinement` intents, produce a rewritten query that is fully self-contained — understandable without any conversation history:
 
 - **Resolve pronouns**: Map "them", "these", "it", "that" to their concrete referents from conversation history
+- **Resolve contextual short responses**: When the user's message is short or ambiguous (e.g., a number, a single word, "yes/no", a pronoun without antecedent), look at the previous assistant message in the conversation history. Rewrite the user's message into a self-contained instruction by combining their response with the context from the previous turn. The rewritten query must make sense on its own without any conversation history.
 - **Expand follow-ups**: "Tell me more" becomes "What are the consequences of ADR.21 - Use Sign Convention for Current Direction?"
 - **Preserve domain terms**: Keep ADR numbers, PCP numbers, and domain-specific terminology exactly as they appear
 - **Do not invent**: Only reference documents and topics that appear in the conversation history
@@ -85,3 +87,12 @@ When conversation history shows a prior listing (e.g., 18 ADRs or 31 principles)
 - If the scope is large (>10 documents), add a note in the rewritten query: "Note: synthesize from available retrieved results, which may be a subset of the full collection"
 
 This ensures the retrieval system and the user both understand when results are bounded by retrieval limits.
+
+## Refinement Rules
+
+For `refinement` intent (user wants to modify a previous AInstein output):
+
+- Preserve the `skill_tags` from the original generation turn (available in conversation history)
+- Rewrite the query to focus on the specific changes requested
+- Include a brief reference to what is being refined (from the previous turn summary)
+- Do NOT rewrite refinement requests as new retrieval queries — the user wants to modify existing output, not search the knowledge base again
