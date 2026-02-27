@@ -87,8 +87,8 @@ Queries such as "What ADRs exist?", "What is document 22?", "Define active power
                │
 ┌──────────────▼───────────────────────────────────────────────────────┐
 │                        SKOSMOS REST API                              │
-│  5,200+ SKOS concepts · IEC/CIM/EU vocabularies · ESAV terminology  │
-│  skosmos_search → skosmos_concept_details → skosmos_list_vocabs     │
+│  5,200+ SKOS concepts · IEC/CIM/EU vocabularies · ESAV terminology   │
+│  skosmos_search → skosmos_concept_details → skosmos_list_vocabs      │
 └──────────────┬───────────────────────────────────────────────────────┘
                │
 ┌──────────────▼───────────────────────────────────────────────────────┐
