@@ -34,7 +34,7 @@ from src.aion.memory.session_store import (
     update_running_summary,
 )
 from src.aion.memory.summarizer import generate_rolling_summary, SUMMARIZE_TRIGGER_COUNT
-from src.aion.persona import Persona
+from src.aion.persona import Persona, PermanentLLMError
 from src.aion.skills import api as skills_api
 from src.aion.weaviate.client import get_weaviate_client
 from src.aion.weaviate.embeddings import embed_text, close_embeddings_client
@@ -1413,9 +1413,14 @@ async def chat_stream(request: ChatRequest):
         yield f"data: {json.dumps({'type': 'status', 'content': 'Thinking...'})}\n\n"
 
         # Run Persona intent classification and query rewriting
-        persona_result = await _persona.process(
-            request.message, messages, conversation_id=conversation_id,
-        )
+        try:
+            persona_result = await _persona.process(
+                request.message, messages, conversation_id=conversation_id,
+            )
+        except PermanentLLMError as e:
+            logger.error(f"Permanent LLM error: {e}")
+            yield f"data: {json.dumps({'type': 'error', 'content': str(e)})}\n\n"
+            return
 
         # Emit Persona classification result with latency
         yield f"data: {json.dumps({'type': 'persona_intent', 'intent': persona_result.intent, 'rewritten_query': persona_result.rewritten_query, 'skill_tags': persona_result.skill_tags, 'doc_refs': persona_result.doc_refs, 'latency_ms': persona_result.latency_ms})}\n\n"
@@ -1574,9 +1579,12 @@ async def chat(request: ChatRequest):
         update_conversation_title(conversation_id, title)
 
     # Run Persona intent classification
-    persona_result = await _persona.process(
-        request.message, messages, conversation_id=conversation_id,
-    )
+    try:
+        persona_result = await _persona.process(
+            request.message, messages, conversation_id=conversation_id,
+        )
+    except PermanentLLMError as e:
+        raise HTTPException(status_code=503, detail=str(e))
 
     # Direct response intents: respond immediately, no Tree needed
     if persona_result.direct_response is not None:

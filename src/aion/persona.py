@@ -18,6 +18,18 @@ from src.aion.skills.loader import SkillLoader
 
 logger = logging.getLogger(__name__)
 
+
+class PermanentLLMError(Exception):
+    """LLM configuration errors that will never resolve by retrying.
+
+    Examples: model not found (404), invalid API key (401).
+    Raised from classify methods so that fallback handlers do not
+    swallow these — they must be surfaced to the user.
+    """
+
+    pass
+
+
 VALID_INTENTS = frozenset({
     "retrieval", "listing", "follow_up", "refinement", "generation",
     "identity", "off_topic", "clarification",
@@ -125,6 +137,8 @@ class Persona:
                 doc_refs=doc_refs,
             )
 
+        except PermanentLLMError:
+            raise  # Never swallow configuration errors — surface to user
         except Exception as e:
             logger.warning(f"Persona failed, falling back to passthrough: {e}")
             return PersonaResult(
@@ -196,7 +210,16 @@ class Persona:
                     "options": {"num_predict": 500},
                 },
             )
-            response.raise_for_status()
+            try:
+                response.raise_for_status()
+            except httpx.HTTPStatusError as e:
+                if e.response.status_code == 404:
+                    model = settings.effective_persona_model
+                    raise PermanentLLMError(
+                        f"Model '{model}' not found in Ollama. "
+                        f"Run 'ollama pull {model}' or check your model settings."
+                    ) from e
+                raise  # re-raise transient HTTP errors (429, 500, etc.)
             result = response.json()
             text = result.get("response", "")
 
@@ -215,12 +238,13 @@ class Persona:
         Returns:
             Tuple of (response text, latency in ms).
         """
-        from openai import OpenAI
+        from openai import OpenAI, NotFoundError, AuthenticationError
 
         start = time.time()
         client = OpenAI(**settings.get_openai_client_kwargs(settings.effective_persona_provider))
 
         model = settings.effective_persona_model
+        provider = settings.effective_persona_provider
         kwargs = {
             "model": model,
             "messages": [
@@ -240,7 +264,16 @@ class Persona:
         else:
             kwargs["max_tokens"] = 500
 
-        response = client.chat.completions.create(**kwargs)
+        try:
+            response = client.chat.completions.create(**kwargs)
+        except NotFoundError:
+            raise PermanentLLMError(
+                f"Model '{model}' not found on {provider}. Check your model settings."
+            )
+        except AuthenticationError:
+            raise PermanentLLMError(
+                f"Authentication failed for {provider}. Check your API key."
+            )
         choice = response.choices[0] if response.choices else None
         text = choice.message.content or "" if choice else ""
 

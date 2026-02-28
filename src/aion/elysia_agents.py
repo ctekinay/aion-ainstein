@@ -86,6 +86,30 @@ def _get_skill_content(query: str, skill_tags: list[str] | None = None) -> str:
         return ""
 
 
+def _is_permanent_llm_error(exc: Exception) -> bool:
+    """Check if an exception represents a permanent LLM configuration error.
+
+    Detects model-not-found (404) and auth failures (401) from OpenAI SDK,
+    httpx, and litellm by type name and status code. Uses string-based type
+    checking to avoid requiring litellm as a direct import.
+    """
+    type_name = type(exc).__name__
+    if type_name in ("NotFoundError", "AuthenticationError"):
+        return True
+    # httpx HTTP errors
+    status = getattr(getattr(exc, "response", None), "status_code", None)
+    if status in (401, 404):
+        return True
+    # litellm puts status in .status_code directly
+    status = getattr(exc, "status_code", None)
+    if status in (401, 404):
+        return True
+    # Check cause chain (litellm wraps the original error)
+    if exc.__cause__ and exc.__cause__ is not exc:
+        return _is_permanent_llm_error(exc.__cause__)
+    return False
+
+
 def should_abstain(query: str, results: list) -> tuple[bool, str]:
     """Determine if the system should abstain from answering.
 
@@ -1436,7 +1460,14 @@ class ElysiaRAGSystem:
                 logger.debug("Fell back to conversation_history")
 
         except Exception as e:
-            # If Elysia's tree fails, fall back to direct tool execution
+            # Permanent LLM errors (model not found, bad API key) must not
+            # be swallowed into the degraded _direct_query path.
+            if _is_permanent_llm_error(e):
+                from src.aion.persona import PermanentLLMError
+                raise PermanentLLMError(
+                    f"Model error: {e}. Check your model settings."
+                ) from e
+            # Transient errors: fall back to direct tool execution
             logger.warning(f"Elysia tree failed: {e}, using direct tool execution")
             final_response, objects = await self._direct_query(question)
 
