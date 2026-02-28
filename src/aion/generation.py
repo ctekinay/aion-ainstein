@@ -10,6 +10,7 @@ artifact, and returns.
 import logging
 import re
 import time
+import xml.etree.ElementTree as ET
 from queue import Queue
 from typing import Optional
 
@@ -19,15 +20,32 @@ from weaviate.classes.query import Filter, MetadataQuery
 from src.aion.config import settings
 from src.aion.skills.loader import SkillLoader
 from src.aion.skills.registry import get_skill_registry
-from src.aion.tools.archimate import validate_archimate as _validate_archimate
+from src.aion.tools.archimate import (
+    LAYER_MAP,
+    NS,
+    TAG,
+    XSI,
+    validate_archimate as _validate_archimate,
+)
 from src.aion.weaviate.embeddings import embed_text
 
 logger = logging.getLogger(__name__)
+
+ET.register_namespace("", NS)
+ET.register_namespace("xsi", XSI)
 
 # Validation tool dispatch — maps registry validation_tool names to callables.
 # New generation skills register their validator here.
 _VALIDATION_TOOLS = {
     "validate_archimate": _validate_archimate,
+}
+
+# Layer → Y coordinate for mechanical view repair layout.
+# Mirrors values from skills/archimate-view-generator/references/view-layout.md.
+_LAYER_Y = {
+    "Motivation": 20, "Strategy": 100, "Business": 180,
+    "Application": 260, "Technology": 340, "Physical": 420,
+    "Implementation": 500, "Composite": 580,
 }
 
 
@@ -53,6 +71,7 @@ class GenerationPipeline:
         doc_refs: list[str] | None = None,
         conversation_id: str | None = None,
         event_queue: Queue | None = None,
+        intent: str = "generation",
     ) -> tuple[str, list[dict]]:
         """Run the generation pipeline.
 
@@ -62,11 +81,13 @@ class GenerationPipeline:
             doc_refs: Structured document references (e.g., ["ADR.29"]).
             conversation_id: For artifact storage.
             event_queue: Optional Queue for SSE status events.
+            intent: "generation" (from scratch) or "refinement" (modify existing).
 
         Returns:
             Tuple of (response text with embedded content, source objects).
         """
         start = time.perf_counter()
+        is_refinement = intent == "refinement"
 
         # Look up the generation skill from the registry
         registry = get_skill_registry()
@@ -74,9 +95,27 @@ class GenerationPipeline:
         if not skill_entry:
             return "No generation skill found for the requested tags.", []
 
-        # Step 1: Fetch source content
-        self._emit(event_queue, "status", "Retrieving source content...", start)
-        sources, source_text = await self._fetch_content(query, doc_refs)
+        # Step 1: Fetch source content (for generation) or load artifact (for refinement)
+        sources = []
+        source_text = ""
+
+        if is_refinement and conversation_id:
+            self._emit(event_queue, "status", "Loading previous artifact...", start)
+            artifact = self._load_previous_artifact(conversation_id, skill_entry)
+            if artifact:
+                source_text = artifact["content"]
+                logger.info(
+                    f"[generation] refinement: loaded artifact "
+                    f"'{artifact['filename']}' ({len(source_text)} chars)"
+                )
+            else:
+                logger.warning("[generation] refinement: no previous artifact found, "
+                               "falling back to source content fetch")
+                is_refinement = False  # fall back to generation mode
+
+        if not source_text:
+            self._emit(event_queue, "status", "Retrieving source content...", start)
+            sources, source_text = await self._fetch_content(query, doc_refs)
 
         if not source_text:
             return (
@@ -86,7 +125,7 @@ class GenerationPipeline:
 
         logger.info(
             f"[generation] source content: {len(source_text)} chars "
-            f"from {len(sources)} sources"
+            f"from {len(sources)} sources (refinement={is_refinement})"
         )
 
         # Step 2: Build prompt — load ONLY the generation skill, not all skills.
@@ -95,12 +134,44 @@ class GenerationPipeline:
         loader = SkillLoader()
         skill = loader.load_skill(skill_entry.name)
         system_prompt = skill.content if skill else ""
-        user_prompt = (
-            f"SOURCE CONTENT:\n{source_text}\n\n"
-            f"USER REQUEST:\n{query}\n\n"
-            f"Respond with ONLY the XML document starting with <?xml. "
-            f"Do not include tool calls, commentary, or any other text."
-        )
+
+        if is_refinement:
+            user_prompt = (
+                f"EXISTING MODEL (do NOT remove or replace existing elements):\n"
+                f"{source_text}\n\n"
+                f"MODIFICATION REQUEST:\n{query}\n\n"
+                f"ADD the requested elements and relationships to the existing model. "
+                f"Keep ALL existing elements, relationships, and views intact. "
+                f"Return the complete modified model as XML starting with <?xml. "
+                f"Do not include tool calls, commentary, or any other text."
+            )
+        else:
+            user_prompt = (
+                f"SOURCE CONTENT:\n{source_text}\n\n"
+                f"USER REQUEST:\n{query}\n\n"
+                f"Respond with ONLY the XML document starting with <?xml. "
+                f"Do not include tool calls, commentary, or any other text."
+            )
+
+        # Log the full prompt for debugging (refinement vs generation)
+        if is_refinement:
+            logger.info(
+                f"[generation] REFINEMENT prompt built:\n"
+                f"  system_prompt: {len(system_prompt)} chars\n"
+                f"  existing model: {len(source_text)} chars\n"
+                f"  modification request: {query!r}\n"
+                f"  user_prompt total: {len(user_prompt)} chars\n"
+                f"  est_tokens: ~{(len(system_prompt) + len(user_prompt)) // 4}"
+            )
+        else:
+            logger.info(
+                f"[generation] GENERATION prompt built:\n"
+                f"  system_prompt: {len(system_prompt)} chars\n"
+                f"  source content: {len(source_text)} chars from {len(sources)} sources\n"
+                f"  user request: {query!r}\n"
+                f"  user_prompt total: {len(user_prompt)} chars\n"
+                f"  est_tokens: ~{(len(system_prompt) + len(user_prompt)) // 4}"
+            )
 
         # Step 3: LLM call
         self._emit(event_queue, "status", "Generating...", start)
@@ -477,6 +548,7 @@ class GenerationPipeline:
             return raw_output, {"valid": False, "errors": ["No XML found in output"]}
 
         xml = self._sanitize_xml(xml)
+        xml = await self._repair_view(xml, event_queue, start)
 
         for attempt in range(max_retries + 1):
             self._emit(
@@ -623,6 +695,308 @@ class GenerationPipeline:
         return "\n\n".join(parts)
 
     # ------------------------------------------------------------------
+    # View repair (runs before validation)
+    # ------------------------------------------------------------------
+
+    async def _repair_view(
+        self, xml: str, event_queue: Queue | None, start: float,
+    ) -> str:
+        """Detect and repair missing view nodes and connections.
+
+        Tier 1: Parse XML, find elements without nodes and relationships
+                without connections in any view.
+        Tier 2: If missing refs found, make a focused LLM call with only
+                the <views> section to get repairs.
+        Tier 3: If LLM call fails, mechanically add nodes/connections.
+        """
+        try:
+            root = ET.fromstring(xml)
+        except ET.ParseError:
+            return xml  # Let validation handle parse errors
+
+        # --- Collect model inventory ---
+        elements_node = root.find(TAG("elements"))
+        rels_node = root.find(TAG("relationships"))
+        if elements_node is None:
+            return xml
+
+        element_ids: dict[str, str] = {}  # identifier → xsi:type
+        element_names: dict[str, str] = {}  # identifier → name
+        for elem in elements_node.findall(TAG("element")):
+            eid = elem.get("identifier")
+            if eid:
+                element_ids[eid] = elem.get(f"{{{XSI}}}type", "")
+                name_el = elem.find(TAG("name"))
+                element_names[eid] = name_el.text if name_el is not None and name_el.text else ""
+
+        rel_map: dict[str, tuple[str, str, str]] = {}  # id → (source, target, type)
+        if rels_node is not None:
+            for rel in rels_node.findall(TAG("relationship")):
+                rid = rel.get("identifier")
+                src = rel.get("source")
+                tgt = rel.get("target")
+                if rid and src and tgt:
+                    rel_map[rid] = (src, tgt, rel.get(f"{{{XSI}}}type", ""))
+
+        if not element_ids:
+            return xml
+
+        # --- Detect missing refs across all views ---
+        views_node = root.find(TAG("views"))
+        if views_node is None:
+            return xml
+        diagrams = views_node.find(TAG("diagrams"))
+        if diagrams is None:
+            return xml
+        views = diagrams.findall(TAG("view"))
+        if not views:
+            return xml
+
+        all_erefs: set[str] = set()
+        # Track per-view data for the target (first) view
+        target_view = views[0]
+        target_vid = target_view.get("identifier", "")
+        target_erefs: set[str] = set()
+        target_nmap: dict[str, str] = {}  # elementRef → node identifier
+        target_rrefs: set[str] = set()
+
+        def collect_nodes(parent: ET.Element, erefs: set, nmap: dict):
+            for node in parent.findall(TAG("node")):
+                eref = node.get("elementRef")
+                nid = node.get("identifier")
+                if eref and nid:
+                    erefs.add(eref)
+                    nmap[eref] = nid
+                collect_nodes(node, erefs, nmap)
+
+        # Collect from all views (for "missing from ANY view" check)
+        for view in views:
+            v_erefs: set[str] = set()
+            v_nmap: dict[str, str] = {}
+            collect_nodes(view, v_erefs, v_nmap)
+            all_erefs |= v_erefs
+            if view is target_view:
+                target_erefs = v_erefs
+                target_nmap = v_nmap
+
+        for conn in target_view.findall(TAG("connection")):
+            rref = conn.get("relationshipRef")
+            if rref:
+                target_rrefs.add(rref)
+
+        # Elements with zero view representation
+        missing_elements = set(element_ids.keys()) - all_erefs
+
+        # Relationships missing connections in target view (including
+        # those that become representable after adding missing elements)
+        future_erefs = target_erefs | missing_elements
+        missing_connections = []
+        for rid, (src, tgt, _rtype) in rel_map.items():
+            if rid not in target_rrefs and src in future_erefs and tgt in future_erefs:
+                missing_connections.append(rid)
+
+        if not missing_elements and not missing_connections:
+            logger.info("[generation] view repair: no missing refs detected")
+            return xml
+
+        logger.info(
+            f"[generation] view repair: {len(missing_elements)} missing nodes, "
+            f"{len(missing_connections)} missing connections"
+        )
+        self._emit(event_queue, "status", "Repairing view...", start)
+
+        # --- Tier 2: Focused LLM call ---
+        repaired = await self._repair_view_llm(
+            xml, root, views_node,
+            missing_elements, missing_connections,
+            element_ids, element_names, rel_map,
+            target_vid, target_nmap,
+        )
+        if repaired:
+            logger.info("[generation] view repair: LLM repair successful")
+            return repaired
+
+        # --- Tier 3: Mechanical auto-repair ---
+        logger.info("[generation] view repair: LLM failed, using auto-repair")
+        return self._repair_view_mechanical(
+            root, target_view, target_vid,
+            missing_elements, missing_connections,
+            element_ids, rel_map, target_nmap,
+        )
+
+    async def _repair_view_llm(
+        self,
+        full_xml: str,
+        root: ET.Element,
+        views_node: ET.Element,
+        missing_elements: set[str],
+        missing_connections: list[str],
+        element_ids: dict[str, str],
+        element_names: dict[str, str],
+        rel_map: dict[str, tuple[str, str, str]],
+        target_vid: str,
+        target_nmap: dict[str, str],
+    ) -> str | None:
+        """Tier 2: Focused LLM call to repair view with good layout."""
+        view_num = target_vid.replace("id-v", "")
+
+        # Build element-to-node mapping (existing + planned new)
+        full_nmap = dict(target_nmap)
+        for eid in missing_elements:
+            code = eid.replace("id-", "")
+            full_nmap[eid] = f"nv{view_num}-{code}"
+
+        views_xml = ET.tostring(views_node, encoding="unicode")
+
+        # Build missing-refs description
+        lines = []
+        if missing_elements:
+            lines.append("MISSING NODES (add <node> for each):")
+            for eid in sorted(missing_elements):
+                etype = element_ids.get(eid, "?")
+                ename = element_names.get(eid, "")
+                nid = full_nmap[eid]
+                lines.append(f"  - {eid} ({etype}, \"{ename}\") → node id: {nid}")
+
+        if missing_connections:
+            lines.append("\nMISSING CONNECTIONS (add <connection> for each):")
+            for rid in sorted(missing_connections):
+                src_eid, tgt_eid, rtype = rel_map[rid]
+                src_node = full_nmap.get(src_eid, "?")
+                tgt_node = full_nmap.get(tgt_eid, "?")
+                rcode = rid.replace("id-", "")
+                lines.append(
+                    f"  - {rid} ({rtype}: {src_eid}→{tgt_eid}) → "
+                    f"connection id: cv{view_num}-{rcode}, "
+                    f"source: {src_node}, target: {tgt_node}"
+                )
+
+        system_prompt = (
+            "You fix ArchiMate 3.2 Open Exchange XML views. You receive a <views> section "
+            "and a list of missing nodes and connections. Add them to the appropriate view. "
+            "Node identifier convention: nv{view}-{code}. Connection: cv{view}-{code}. "
+            "Standard node size: w=\"120\" h=\"55\". Place new nodes near related existing "
+            "nodes. Connection source/target reference NODE identifiers, not element IDs. "
+            "Return ONLY the complete <views>...</views> section, nothing else."
+        )
+        user_prompt = (
+            f"CURRENT VIEWS SECTION:\n{views_xml}\n\n"
+            + "\n".join(lines)
+            + "\n\nReturn the complete updated <views>...</views> section."
+        )
+
+        try:
+            response = await self._call_llm(system_prompt, user_prompt)
+            if not response:
+                return None
+
+            # Extract <views>...</views> from response
+            resp = response.strip()
+            if "```" in resp:
+                resp = re.sub(r"^```(?:xml)?\s*\n?", "", resp)
+                resp = re.sub(r"\n?```\s*$", "", resp)
+                resp = resp.strip()
+
+            if "<views" not in resp or "</views>" not in resp:
+                logger.warning("[generation] view repair LLM: no <views> in response")
+                return None
+
+            # Parse the repaired views to validate structure
+            try:
+                new_views = ET.fromstring(resp)
+            except ET.ParseError:
+                logger.warning("[generation] view repair LLM: response XML parse failed")
+                return None
+
+            # Splice: remove old views, append new
+            root.remove(root.find(TAG("views")))
+            root.append(new_views)
+            return ET.tostring(root, encoding="unicode", xml_declaration=True)
+
+        except Exception as e:
+            logger.warning(f"[generation] view repair LLM failed: {e}")
+            return None
+
+    @staticmethod
+    def _repair_view_mechanical(
+        root: ET.Element,
+        target_view: ET.Element,
+        target_vid: str,
+        missing_elements: set[str],
+        missing_connections: list[str],
+        element_ids: dict[str, str],
+        rel_map: dict[str, tuple[str, str, str]],
+        target_nmap: dict[str, str],
+    ) -> str:
+        """Tier 3: Mechanically add missing nodes/connections."""
+        view_num = target_vid.replace("id-v", "")
+        nmap = dict(target_nmap)
+
+        # Find max y in existing nodes for placement below
+        max_y = 0
+        for node in target_view.iter(TAG("node")):
+            y = int(node.get("y", "0"))
+            h = int(node.get("h", "55"))
+            max_y = max(max_y, y + h)
+
+        # Place missing elements grouped by layer
+        x_pos = 20
+        y_pos = max_y + 40  # gap below existing content
+        added_nodes = 0
+
+        for eid in sorted(missing_elements):
+            etype = element_ids.get(eid, "")
+            layer = LAYER_MAP.get(etype, "Composite")
+            # Use layer Y if it's below existing content, otherwise stack below
+            layer_y = _LAYER_Y.get(layer, 580)
+            use_y = max(layer_y, y_pos) if added_nodes == 0 else y_pos
+
+            code = eid.replace("id-", "")
+            node_id = f"nv{view_num}-{code}"
+
+            node_el = ET.SubElement(target_view, TAG("node"))
+            node_el.set("identifier", node_id)
+            node_el.set("elementRef", eid)
+            node_el.set(f"{{{XSI}}}type", "Element")
+            node_el.set("x", str(x_pos))
+            node_el.set("y", str(use_y))
+            node_el.set("w", "120")
+            node_el.set("h", "55")
+
+            nmap[eid] = node_id
+            added_nodes += 1
+            x_pos += 160
+            if x_pos > 20 + 160 * 4:  # wrap after 5 per row
+                x_pos = 20
+                y_pos = use_y + 80
+
+        # Add missing connections
+        added_conns = 0
+        for rid in sorted(missing_connections):
+            src_eid, tgt_eid, _rtype = rel_map[rid]
+            src_node = nmap.get(src_eid)
+            tgt_node = nmap.get(tgt_eid)
+            if not src_node or not tgt_node:
+                continue
+
+            rcode = rid.replace("id-", "")
+            conn_id = f"cv{view_num}-{rcode}"
+
+            conn_el = ET.SubElement(target_view, TAG("connection"))
+            conn_el.set("identifier", conn_id)
+            conn_el.set("relationshipRef", rid)
+            conn_el.set(f"{{{XSI}}}type", "Relationship")
+            conn_el.set("source", src_node)
+            conn_el.set("target", tgt_node)
+            added_conns += 1
+
+        logger.info(
+            f"[generation] view repair: auto-repair added "
+            f"{added_nodes} nodes, {added_conns} connections"
+        )
+        return ET.tostring(root, encoding="unicode", xml_declaration=True)
+
+    # ------------------------------------------------------------------
     # Helpers
     # ------------------------------------------------------------------
 
@@ -711,6 +1085,22 @@ class GenerationPipeline:
                 if p.name not in self._EXCLUDED_PROPS
             ]
         return self._prop_cache[name]
+
+    @staticmethod
+    def _load_previous_artifact(
+        conversation_id: str, skill_entry,
+    ) -> dict | None:
+        """Load the most recent artifact for this conversation.
+
+        For refinement, we need the previous generation's output as the
+        base to modify. Filters by content_type matching the skill.
+        """
+        from src.aion.chat_ui import get_latest_artifact
+
+        content_type = (
+            "archimate/xml" if "archimate" in skill_entry.name else None
+        )
+        return get_latest_artifact(conversation_id, content_type)
 
     @staticmethod
     def _emit(

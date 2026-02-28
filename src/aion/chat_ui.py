@@ -690,6 +690,7 @@ def run_generation_query(
     skill_tags: list[str] | None = None,
     doc_refs: list[str] | None = None,
     conversation_id: str | None = None,
+    intent: str = "generation",
 ):
     """Run generation pipeline in a thread, emitting events via output_queue."""
     import asyncio
@@ -706,6 +707,7 @@ def run_generation_query(
                     doc_refs=doc_refs,
                     conversation_id=conversation_id,
                     event_queue=output_queue,
+                    intent=intent,
                 )
             )
         finally:
@@ -740,6 +742,7 @@ async def stream_generation_response(
     skill_tags: list[str] | None = None,
     doc_refs: list[str] | None = None,
     conversation_id: str | None = None,
+    intent: str = "generation",
 ) -> AsyncGenerator[str, None]:
     """Stream generation pipeline events as SSE, parallel to stream_elysia_response."""
     result_queue = Queue()
@@ -756,6 +759,7 @@ async def stream_generation_response(
             "skill_tags": skill_tags,
             "doc_refs": doc_refs,
             "conversation_id": conversation_id,
+            "intent": intent,
         },
     )
     thread.daemon = True
@@ -1457,6 +1461,7 @@ async def chat_stream(request: ChatRequest):
                 skill_tags=persona_result.skill_tags,
                 doc_refs=persona_result.doc_refs,
                 conversation_id=conversation_id,
+                intent=persona_result.intent,
             ):
                 yield event
                 try:

@@ -14,7 +14,12 @@ AInstein lets architects and engineers query Alliander's architecture knowledge 
 - **ArchiMate 3.2 Model Generation** — validated Open Exchange XML from architecture descriptions
 - **SKOSMOS Vocabulary Lookups** — term definitions, abbreviations, concept hierarchies via structured API
 
-Queries such as "What ADRs exist?", "What is document 22?", "Define active power", "Create an ArchiMate model for a web app", and "What are the consequences of ADR.29?" are handled by the AInstein Persona, which classifies intent, emits skill tags for domain-specific capabilities, and rewrites queries. The Elysia decision tree then selects the appropriate retrieval strategy — including SKOSMOS for vocabulary lookups and ArchiMate tools for model generation — disambiguates overlapping document numbers, and formats responses with proper citations.
+Queries are handled by the AInstein Persona, which classifies intent, emits skill tags for domain-specific capabilities, and rewrites queries. The Persona routes to the appropriate execution path:
+
+- **Retrieval queries** ("What ADRs exist?", "What is document 22?", "Define active power") go to the **Elysia Decision Tree**, which selects tools, searches collections, and formats responses with citations.
+- **Generation queries** ("Create an ArchiMate model for ADR.29") go to the **Generation Pipeline**, which fetches source content, builds a prompt from the matching skill, makes a single LLM call, validates, and saves the artifact for download.
+- **Refinement queries** ("Add a Technology layer to the model") go to the **Generation Pipeline** with the previous artifact loaded as context.
+- **Direct response queries** ("Who are you?", "What's the weather?") are answered by the Persona without any backend call.
 
 **Disclaimer:** Currently, the above-mentioned data sources are integrated stand-alone via the data/ folder. The short-term goal for AInstein is full integration with ESA repositories, tools, and other internal data sources directly. 
 
@@ -28,25 +33,39 @@ Queries such as "What ADRs exist?", "What is document 22?", "Define active power
                │
 ┌──────────────▼───────────────────────────────────────────────────────┐
 │                    AInstein Persona Layer                            │
-│  Intent classification (retrieval, identity, off-topic, follow-up)   │
+│  Intent classification: retrieval, listing, follow_up, generation,   │
+│    refinement, identity, off_topic, clarification                    │
 │  Query rewriting with conversation context (pronoun resolution)      │
-│  Direct response for non-retrieval intents (no Tree needed)          │
-└──────────────┬───────────────────────────────────────────────────────┘
-               │ retrieval / follow-up
-┌──────────────▼───────────────────────────────────────────────────────┐
-│                      Elysia Decision Tree                            │
-│  Routes queries to tools based on intent (list, lookup, summarize)   │
-│  Atlas = injected skill content (identity, formatting, ontology)     │
-├──────────────────────────────────────────────────────────────────────┤
-│  Tools:                                                              │
-│  search_architecture_decisions  search_principles  search_policies   │
-│  list_all_adrs  list_all_principles  search_by_team                  │
-│  get_collection_stats                                                │
-│  skosmos_search  skosmos_concept_details  skosmos_list_vocabularies  │
-│  validate_archimate  inspect_archimate_model  merge_archimate_view   │
-├──────────────────────────────────────────────────────────────────────┤
-│  Summarizers: cited_summarize                                        │
-└──────────────┬───────────────────────────────────────────────────────┘
+│  Skill tag emission for on-demand capabilities                       │
+│  Direct response for identity/off-topic/clarification                │
+└──────────┬────────────────────────────────────┬──────────────────────┘
+           │ retrieval / listing / follow_up    │ generation / refinement
+           │                                    │
+┌──────────▼──────────────────────────┐  ┌──────▼──────────────────────────┐
+│       Elysia Decision Tree          │  │      Generation Pipeline        │
+│  Tool selection via LLM planner     │  │  Direct LLM call (no planner)   │
+│  Atlas = injected skill content     │  │  Skill-driven prompt building   │
+├─────────────────────────────────────┤  ├─────────────────────────────────┤
+│  Tools:                             │  │  1. Fetch source content        │
+│  search_architecture_decisions      │  │  2. Load generation skill only  │
+│  search_principles                  │  │  3. Single LLM call             │
+│  search_policies                    │  │  4. XML sanitization            │
+│  list_all_adrs                      │  │  5. View repair (detect + fix)  │
+│  list_all_principles                │  │  6. Validation (+ retry)        │
+│  search_by_team                     │  │  7. Save artifact to SQLite     │
+│  get_collection_stats               │  │  8. Emit download card via SSE  │
+│  skosmos_search                     │  ├─────────────────────────────────┤
+│  skosmos_search                     │  │  For refinement: loads previous │
+│  skosmos_concept_details            │  │  artifact as LLM context        │
+│  skosmos_list_vocabularies          │  └────────────────┬────────────────┘
+│  validate_archimate                 │                   │
+│  inspect_archimate_model            │                   │
+│  merge_archimate_view               │            ┌──────▼──────────┐
+│  save_artifact  get_artifact        │            │   Artifacts     │
+├─────────────────────────────────────┤            │  SQLite store   │
+│  Summarizers: cited_summarize       │            │  SSE download   │
+└──────────────┬──────────────────────┘            │  card + API     │
+               │                                   └─────────────────┘
                │
 ┌──────────────▼───────────────────────────────────────────────────────┐
 │                     Skills Framework                                 │
@@ -190,7 +209,7 @@ skills/
     └── SKILL.md                     # SKOSMOS REST API search and concept lookup
 ```
 
-**How it works:** Always-on skills are concatenated and injected into the Elysia Tree's `atlas.agent_description` field before each query. On-demand skills are injected only when the Persona emits matching `skill_tags` (e.g., `["archimate"]` or `["vocabulary"]`). This keeps the prompt lean for standard KB queries while activating specialized knowledge when needed.
+**How it works:** Always-on skills are concatenated and injected into the Elysia Tree's `atlas.agent_description` field before each query. On-demand skills are injected only when the Persona emits matching `skill_tags` (e.g., `["archimate"]` or `["vocabulary"]`). This keeps the prompt lean for standard KB queries while activating specialized knowledge when needed. The Generation Pipeline loads only the matching generation skill (e.g., `archimate-generator`) — not the always-on skills — since it operates outside the Tree's retrieval context.
 
 **Thresholds:** The `rag-quality-assurance` skill has a `thresholds.yaml` that controls:
 - `abstention.distance_threshold` (0.5) — maximum vector distance before abstaining
@@ -205,7 +224,9 @@ esa-ainstein-artifacts/
 │   ├── cli.py                    # Typer CLI (init, chat, query, evaluate)
 │   ├── config.py                 # Pydantic settings from .env (3-provider config)
 │   ├── persona.py                # AInstein Persona — intent classification, query rewriting
+│   ├── generation.py             # Direct LLM generation pipeline (ArchiMate XML, etc.)
 │   ├── chat_ui.py                # FastAPI web server + API endpoints + SQLite conversation store
+│   │                             #   Execution router: generation → pipeline, retrieval → Tree
 │   ├── elysia_agents.py          # Elysia Tree integration, tool registration,
 │   │                             #   skill injection, abstention
 │   ├── tools/
@@ -307,6 +328,15 @@ AInstein stores conversation history and session data in a local SQLite database
 
 No additional setup is required — SQLite is part of the Python standard library.
 
+## Artifacts
+
+When AInstein generates structured output (e.g., ArchiMate XML), it saves the content as an artifact in the same SQLite database. The chat UI shows a download card with the filename, a summary (element/relationship counts), and a download button. Artifacts are accessible via:
+
+- **Download card** in the chat UI (appears automatically after generation)
+- **API endpoint** `GET /api/artifact/{id}/download` — returns the artifact content with the appropriate MIME type
+
+Artifacts persist across sessions and can be loaded for refinement in follow-up messages ("Add security constraints to the model").
+
 ## Upgrading / Migration
 
 ### Mandatory re-indexing after upgrade
@@ -327,7 +357,9 @@ The `--recreate` flag drops and recreates all collections, then re-ingests all d
 
 ## Known Limitations
 
-**ArchiMate XML generation requires a cloud model.** Local models (GPT-OSS:20B via Ollama) handle KB retrieval, vocabulary lookups, and text summarization well, but may refuse to generate structured ArchiMate XML. Switch to a cloud model (e.g., GPT-5.2 via OpenAI) in the Chat UI settings before requesting ArchiMate generation.
+**ArchiMate XML generation requires a cloud model.** Local models (GPT-OSS:20B via Ollama) handle KB retrieval, vocabulary lookups, and text summarization well, but may refuse to generate structured ArchiMate XML. Switch to a cloud model (e.g., GPT-5.2 via OpenAI) in the Chat UI settings before requesting ArchiMate generation. The generation pipeline validates output, sanitizes common LLM XML errors (e.g., unescaped `&`), repairs missing view references (elements/relationships without corresponding diagram nodes/connections), and retries on validation failure.
+
+**Invalid model names produce clear errors.** If you configure a model name that doesn't exist on the provider (e.g., a typo in the settings), the system surfaces a clear error message instead of silently degrading. Transient errors (timeouts, rate limits) still fall back gracefully.
 
 ## Troubleshooting
 

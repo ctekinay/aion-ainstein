@@ -1245,6 +1245,17 @@ class ElysiaRAGSystem:
                 return {"error": "No conversation context — artifact not saved"}
 
             artifact_id = _save(conv_id, filename, content, content_type, summary)
+
+            # Emit artifact SSE event so the frontend renders a download card
+            if self._current_event_queue:
+                self._current_event_queue.put({
+                    "type": "artifact",
+                    "artifact_id": artifact_id,
+                    "filename": filename,
+                    "content_type": content_type,
+                    "summary": summary,
+                })
+
             return {"artifact_id": artifact_id, "filename": filename, "summary": summary}
 
         @tool(tree=self.tree)
@@ -1330,9 +1341,10 @@ class ElysiaRAGSystem:
         Returns:
             Tuple of (response text, retrieved objects)
         """
-        # Store conversation_id and doc_refs so tools can access them
+        # Store per-query state so tools can access them via self
         self._current_conversation_id = conversation_id
         self._current_doc_refs = doc_refs or []
+        self._current_event_queue = event_queue
         logger.info(f"Elysia processing: {question}")
 
         # Always specify our collection names to bypass Elysia's metadata collection discovery
