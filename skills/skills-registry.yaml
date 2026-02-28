@@ -46,6 +46,8 @@ skills:
     inject_into_tree: true
     inject_mode: on_demand
     tags: [archimate]
+    execution: generation
+    validation_tool: validate_archimate
 
   - name: archimate-view-generator
     path: archimate-view-generator/SKILL.md

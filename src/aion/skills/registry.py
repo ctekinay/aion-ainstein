@@ -31,6 +31,8 @@ class SkillRegistryEntry:
     inject_into_tree: bool = True
     inject_mode: str = "always"  # "always" or "on_demand"
     tags: list[str] = field(default_factory=list)
+    execution: str = "tree"  # "tree" or "generation"
+    validation_tool: str = ""  # function name for post-generation validation
 
 
 class SkillRegistry:
@@ -75,6 +77,8 @@ class SkillRegistry:
                 inject_into_tree=skill_data.get("inject_into_tree", True),
                 inject_mode=skill_data.get("inject_mode", "always"),
                 tags=skill_data.get("tags", []),
+                execution=skill_data.get("execution", "tree"),
+                validation_tool=skill_data.get("validation_tool", ""),
             )
 
             if entry.name:
@@ -157,6 +161,50 @@ class SkillRegistry:
             self.load_registry()
 
         return self._entries.get(skill_name)
+
+    def get_execution_model(self, skill_tags: Sequence[str]) -> str:
+        """Determine execution model from active skill tags.
+
+        Returns "generation" if any enabled on-demand skill whose tags match
+        declares execution="generation". Otherwise returns "tree".
+        """
+        if not self._loaded:
+            self.load_registry()
+
+        if not skill_tags:
+            return "tree"
+
+        tag_set = set(skill_tags)
+        for entry in self._entries.values():
+            if not entry.enabled:
+                continue
+            if entry.execution != "generation":
+                continue
+            if tag_set.intersection(entry.tags):
+                return "generation"
+
+        return "tree"
+
+    def get_generation_skill(self, skill_tags: Sequence[str]) -> Optional[SkillRegistryEntry]:
+        """Find the generation skill entry matching the given tags.
+
+        Returns the first enabled skill with execution="generation" whose
+        tags overlap with skill_tags. Used by the generation pipeline to
+        look up the validation_tool for the active skill.
+        """
+        if not self._loaded:
+            self.load_registry()
+
+        if not skill_tags:
+            return None
+
+        tag_set = set(skill_tags)
+        for entry in self._entries.values():
+            if not entry.enabled or entry.execution != "generation":
+                continue
+            if tag_set.intersection(entry.tags):
+                return entry
+        return None
 
     def list_skills(self) -> list[SkillRegistryEntry]:
         """List all registered skills."""

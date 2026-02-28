@@ -258,6 +258,7 @@ class ElysiaRAGSystem:
         self._configure_tree_provider()
         self._prop_cache: dict[str, list[str]] = {}
         self._collection_cache: dict[str, object] = {}
+        self._current_doc_refs: list[str] = []
         self._register_tools()
 
     @property
@@ -493,30 +494,33 @@ class ElysiaRAGSystem:
             collection = self._get_collection("ArchitecturalDecision")
             props = self._get_return_props(collection)
             content_limit = _get_truncation().get("content_max_chars", 800)
-            is_dar_query = bool(re.search(r"\bD\b|approv|DAR|who\s+(?:accepted|approved)", query, re.IGNORECASE))
 
-            # Extract ALL ADR numbers from the query. Handles both:
-            # - "ADR.20 through ADR.25" (range with keyword)
-            # - "ADR.20 ADR.21 ADR.22 ..." (Tree-expanded list)
-            all_adr_numbers = re.findall(
-                r"(?:ADR|decision)[.\-\s]?0*(\d{1,4})", query, re.IGNORECASE
-            )
-            unique_adr_numbers = sorted(set(int(n) for n in all_adr_numbers))
+            # Use structured doc_refs from the Persona instead of regex.
+            # The Persona extracts document references in canonical form
+            # (e.g., "ADR.29", "ADR.22D") — no regex needed.
+            adr_refs = [r for r in self._current_doc_refs if r.startswith("ADR.")]
+            is_dar_query = any(r.endswith("D") for r in adr_refs)
+            # Strip trailing "D" to get the actual ADR numbers
+            adr_numbers = []
+            for ref in adr_refs:
+                num_str = ref.split(".")[1].replace("D", "")
+                try:
+                    adr_numbers.append(int(num_str))
+                except ValueError:
+                    pass
 
-            if len(unique_adr_numbers) >= 2:
+            if len(adr_numbers) >= 2:
                 # Multiple ADR numbers — use range filter from min to max.
                 # Caveat: "Compare ADR.10 and ADR.35" produces a range that
                 # includes all 26 ADRs in between, not just the two asked
                 # about. The LLM still sees the original query and should
                 # focus on the mentioned documents; the extra data is noise
                 # but not harmful.
-                start = str(min(unique_adr_numbers)).zfill(4)
-                end = str(max(unique_adr_numbers)).zfill(4)
+                start = str(min(adr_numbers)).zfill(4)
+                end = str(max(adr_numbers)).zfill(4)
                 # WEAVIATE BUG: combining range operators (greater_or_equal /
                 # less_or_equal) with not_equal on a *different* property
-                # silently drops results. Observed: 80 chunks → 6 when adding
-                # title.not_equal("Decision Approval Record List") alongside
-                # adr_number range filters. Workaround: apply range filter in
+                # silently drops results. Workaround: apply range filter in
                 # Weaviate, do DAR/template exclusion in the Python loop below.
                 adr_filter = (
                     Filter.by_property("adr_number").greater_or_equal(start)
@@ -543,11 +547,9 @@ class ElysiaRAGSystem:
                     seen[fp] = self._build_result(obj, props, content_limit)
                 return sorted(seen.values(), key=lambda x: x.get("file_path", ""))
 
-            # Detect single ADR number (e.g., "ADR.29", "decision 12")
-            adr_match = re.search(r"(?:ADR[.\-\s]?)?(0*(\d{1,4}))\b", query, re.IGNORECASE)
-            adr_filter = None
-            if adr_match:
-                padded = adr_match.group(2).zfill(4)
+            if len(adr_numbers) == 1:
+                # Single ADR number — exact filter
+                padded = str(adr_numbers[0]).zfill(4)
                 if is_dar_query:
                     adr_filter = Filter.by_property("adr_number").equal(padded)
                 else:
@@ -556,15 +558,14 @@ class ElysiaRAGSystem:
                         & Filter.by_property("title").not_equal("Decision Approval Record List")
                     )
             else:
-                # No specific ADR number — exclude DARs, templates, and index
-                # pages by default. Without this, generic queries like "What ADRs
-                # exist?" return approval records alongside actual decisions.
-                if not is_dar_query:
-                    adr_filter = (
-                        Filter.by_property("doc_type").not_equal("adr_approval")
-                        & Filter.by_property("doc_type").not_equal("template")
-                        & Filter.by_property("doc_type").not_equal("index")
-                    )
+                # No specific ADR number in doc_refs — exclude DARs, templates,
+                # and index pages by default. Without this, generic queries like
+                # "What ADRs exist?" return approval records alongside decisions.
+                adr_filter = (
+                    Filter.by_property("doc_type").not_equal("adr_approval")
+                    & Filter.by_property("doc_type").not_equal("template")
+                    & Filter.by_property("doc_type").not_equal("index")
+                )
 
             query_vector = self._get_query_vector(query)
             t0 = time.perf_counter()
@@ -630,31 +631,34 @@ class ElysiaRAGSystem:
             collection = self._get_collection("Principle")
             props = self._get_return_props(collection)
             content_limit = _get_truncation().get("content_max_chars", 800)
-            is_dar_query = bool(re.search(r"\bD\b|approv|DAR|who\s+(?:accepted|approved)", query, re.IGNORECASE))
 
-            # Extract ALL PCP numbers from the query. Handles both:
-            # - "PCP.10 through PCP.18" (range with keyword)
-            # - "PCP.10 PCP.11 PCP.12 ..." (Tree-expanded list)
-            all_pcp_numbers = re.findall(
-                r"(?:PCP|principle)[.\-\s]?0*(\d{1,4})", query, re.IGNORECASE
-            )
-            unique_numbers = sorted(set(int(n) for n in all_pcp_numbers))
+            # Use structured doc_refs from the Persona instead of regex.
+            # The Persona extracts document references in canonical form
+            # (e.g., "PCP.22", "PCP.10D") — no regex needed.
+            pcp_refs = [r for r in self._current_doc_refs if r.startswith("PCP.")]
+            is_dar_query = any(r.endswith("D") for r in pcp_refs)
+            # Strip trailing "D" to get the actual PCP numbers
+            pcp_numbers = []
+            for ref in pcp_refs:
+                num_str = ref.split(".")[1].replace("D", "")
+                try:
+                    pcp_numbers.append(int(num_str))
+                except ValueError:
+                    pass
 
-            if len(unique_numbers) >= 2:
+            if len(pcp_numbers) >= 2:
                 # Multiple PCP numbers — use range filter from min to max.
                 # Caveat: "Compare PCP.10 and PCP.35" produces a range that
                 # includes all 26 PCPs in between, not just the two asked
                 # about. The LLM still sees the original query and should
                 # focus on the mentioned documents; the extra data is noise
                 # but not harmful.
-                start = str(min(unique_numbers)).zfill(4)
-                end = str(max(unique_numbers)).zfill(4)
+                start = str(min(pcp_numbers)).zfill(4)
+                end = str(max(pcp_numbers)).zfill(4)
                 # WEAVIATE BUG: combining range operators (greater_or_equal /
                 # less_or_equal) with not_equal on a *different* property
-                # silently drops results. Observed: 80 chunks → 6 when adding
-                # title.not_equal("Principle Approval Record List") alongside
-                # principle_number range filters. Workaround: apply range
-                # filter in Weaviate, do DAR exclusion in the Python loop below.
+                # silently drops results. Workaround: apply range filter in
+                # Weaviate, do DAR exclusion in the Python loop below.
                 pcp_filter = (
                     Filter.by_property("principle_number").greater_or_equal(start)
                     & Filter.by_property("principle_number").less_or_equal(end)
@@ -676,11 +680,9 @@ class ElysiaRAGSystem:
                     seen[pn] = self._build_result(obj, props, content_limit)
                 return sorted(seen.values(), key=lambda x: x.get("principle_number", ""))
 
-            # Detect single PCP number (e.g., "PCP.10", "principle 22")
-            pcp_match = re.search(r"(?:PCP[.\-\s]?|principle\s+)(0*(\d{1,4}))\b", query, re.IGNORECASE)
-            pcp_filter = None
-            if pcp_match:
-                padded = pcp_match.group(2).zfill(4)
+            if len(pcp_numbers) == 1:
+                # Single PCP number — exact filter
+                padded = str(pcp_numbers[0]).zfill(4)
                 if is_dar_query:
                     pcp_filter = Filter.by_property("principle_number").equal(padded)
                 else:
@@ -689,11 +691,10 @@ class ElysiaRAGSystem:
                         & Filter.by_property("title").not_equal("Decision Approval Record List")
                     )
             else:
-                # No specific PCP number — exclude DAR chunks by default.
-                # doc_type is unreliable in Principle collection (DARs tagged
-                # as "principle"), so use title-based filtering.
-                if not is_dar_query:
-                    pcp_filter = Filter.by_property("title").not_equal("Principle Approval Record List")
+                # No specific PCP number in doc_refs — exclude DAR chunks
+                # by default. doc_type is unreliable in Principle collection
+                # (DARs tagged as "principle"), so use title-based filtering.
+                pcp_filter = Filter.by_property("title").not_equal("Principle Approval Record List")
 
             query_vector = self._get_query_vector(query)
             t0 = time.perf_counter()
@@ -1286,6 +1287,7 @@ class ElysiaRAGSystem:
 
     async def query(self, question: str, collection_names: Optional[list[str]] = None,
                     event_queue=None, skill_tags: list[str] | None = None,
+                    doc_refs: list[str] | None = None,
                     conversation_id: str | None = None) -> tuple[str, list[dict]]:
         """Process a query using Elysia's decision tree.
 
@@ -1297,13 +1299,16 @@ class ElysiaRAGSystem:
             question: The user's question
             collection_names: Optional list of collection names to focus on
             event_queue: Optional Queue for streaming typed SSE events
+            doc_refs: Structured document references from the Persona
+                (e.g., ["ADR.29"], ["PCP.22", "ADR.12"], [])
             conversation_id: Optional conversation ID for artifact storage
 
         Returns:
             Tuple of (response text, retrieved objects)
         """
-        # Store conversation_id so artifact tools can access it
+        # Store conversation_id and doc_refs so tools can access them
         self._current_conversation_id = conversation_id
+        self._current_doc_refs = doc_refs or []
         logger.info(f"Elysia processing: {question}")
 
         # Always specify our collection names to bypass Elysia's metadata collection discovery

@@ -14,4 +14,4 @@ truncation:
   direct_doc_max_chars: 12000
   max_context_results: 10
 tree:
-  recursion_limit: 6
+  recursion_limit: 4

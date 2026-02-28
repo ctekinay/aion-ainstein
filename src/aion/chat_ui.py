@@ -39,6 +39,8 @@ from src.aion.skills import api as skills_api
 from src.aion.weaviate.client import get_weaviate_client
 from src.aion.weaviate.embeddings import embed_text, close_embeddings_client
 from src.aion.elysia_agents import ElysiaRAGSystem, ELYSIA_AVAILABLE
+from src.aion.generation import GenerationPipeline
+from src.aion.skills.registry import get_skill_registry
 
 logger = logging.getLogger(__name__)
 
@@ -46,6 +48,7 @@ logger = logging.getLogger(__name__)
 # Global state
 _weaviate_client = None
 _elysia_system = None
+_generation_pipeline = None
 _persona = None
 _db_path = Path(__file__).parent.parent.parent / "chat_history.db"
 
@@ -53,7 +56,7 @@ _db_path = Path(__file__).parent.parent.parent / "chat_history.db"
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Lifespan context manager for startup/shutdown."""
-    global _weaviate_client, _elysia_system, _persona
+    global _weaviate_client, _elysia_system, _generation_pipeline, _persona
 
     # Startup
     init_db()
@@ -98,6 +101,9 @@ async def lifespan(app: FastAPI):
     else:
         logger.warning("Elysia not available - running in comparison-only mode")
         _elysia_system = None
+
+    _generation_pipeline = GenerationPipeline(_weaviate_client)
+    logger.info("Generation pipeline initialized")
 
     _persona = Persona()
     logger.info("Persona orchestrator initialized")
@@ -664,8 +670,165 @@ async def _maybe_update_summary(conversation_id: str) -> None:
         logger.warning(f"Rolling summary update failed: {e}")
 
 
+def _get_execution_model(intent: str, skill_tags: list[str] | None) -> str:
+    """Determine execution path based on intent and skill registry.
+
+    Intent is the sole routing gate. The registry's execution field
+    confirms the pipeline type but never overrides intent.
+    """
+    if intent == "generation":
+        return "generation"
+    if intent == "refinement" and skill_tags:
+        registry = get_skill_registry()
+        if registry.get_execution_model(skill_tags) == "generation":
+            return "generation"
+    return "tree"
+
+
+def run_generation_query(
+    question: str, result_queue: Queue, output_queue: Queue,
+    skill_tags: list[str] | None = None,
+    doc_refs: list[str] | None = None,
+    conversation_id: str | None = None,
+):
+    """Run generation pipeline in a thread, emitting events via output_queue."""
+    import asyncio
+
+    start_time = time.time()
+    try:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            response, objects = loop.run_until_complete(
+                _generation_pipeline.generate(
+                    question,
+                    skill_tags=skill_tags or [],
+                    doc_refs=doc_refs,
+                    conversation_id=conversation_id,
+                    event_queue=output_queue,
+                )
+            )
+        finally:
+            pending = asyncio.all_tasks(loop)
+            for task in pending:
+                task.cancel()
+            loop.run_until_complete(asyncio.gather(*pending, return_exceptions=True))
+            loop.close()
+
+        total_time_ms = int((time.time() - start_time) * 1000)
+        result_queue.put({
+            "response": response,
+            "objects": objects,
+            "error": None,
+            "timing": {"total_ms": total_time_ms},
+        })
+    except Exception as e:
+        logger.exception("Generation pipeline error")
+        total_time_ms = int((time.time() - start_time) * 1000)
+        result_queue.put({
+            "response": None,
+            "objects": None,
+            "error": str(e),
+            "timing": {"total_ms": total_time_ms},
+        })
+    finally:
+        output_queue.put(None)
+
+
+async def stream_generation_response(
+    question: str,
+    skill_tags: list[str] | None = None,
+    doc_refs: list[str] | None = None,
+    conversation_id: str | None = None,
+) -> AsyncGenerator[str, None]:
+    """Stream generation pipeline events as SSE, parallel to stream_elysia_response."""
+    result_queue = Queue()
+    output_queue = Queue()
+
+    logger.info(f"Starting generation pipeline: {question}")
+
+    yield f"data: {json.dumps({'type': 'status', 'content': 'Starting generation...'})}\n\n"
+
+    thread = Thread(
+        target=run_generation_query,
+        args=(question, result_queue, output_queue),
+        kwargs={
+            "skill_tags": skill_tags,
+            "doc_refs": doc_refs,
+            "conversation_id": conversation_id,
+        },
+    )
+    thread.daemon = True
+    thread.start()
+
+    event_count = 0
+    last_status_time = asyncio.get_event_loop().time()
+    start_time = asyncio.get_event_loop().time()
+
+    while thread.is_alive():
+        try:
+            event = output_queue.get(timeout=0.1)
+            if event is None:
+                break
+            event_count += 1
+            logger.info(f"Generation event {event_count}: {event['type']}")
+            yield f"data: {json.dumps(event)}\n\n"
+            last_status_time = asyncio.get_event_loop().time()
+        except Empty:
+            now = asyncio.get_event_loop().time()
+            if now - last_status_time > 3:
+                elapsed_sec = int(now - start_time)
+                yield f"data: {json.dumps({'type': 'heartbeat', 'elapsed_sec': elapsed_sec})}\n\n"
+                last_status_time = now
+            await asyncio.sleep(0.05)
+            continue
+
+    # Drain remaining events
+    while True:
+        try:
+            event = output_queue.get_nowait()
+            if event is None:
+                break
+            event_count += 1
+            logger.info(f"Draining generation event {event_count}: {event['type']}")
+            yield f"data: {json.dumps(event)}\n\n"
+        except Empty:
+            break
+
+    logger.info(f"Generation stream complete, sent {event_count} events")
+
+    thread.join(timeout=180)
+
+    try:
+        result = result_queue.get_nowait()
+        if result["error"]:
+            logger.error(f"Generation error: {result['error']}")
+            yield f"data: {json.dumps({'type': 'error', 'content': result['error']})}\n\n"
+        else:
+            final_response = result["response"] or ""
+            timing = result.get("timing", {})
+
+            # Build sources from retrieved objects
+            objects = result["objects"] or []
+            sources = []
+            for obj in objects[:5]:
+                if not isinstance(obj, dict):
+                    continue
+                sources.append({
+                    "type": obj.get("type", "Document"),
+                    "title": obj.get("title") or "Untitled",
+                    "preview": (obj.get("content") or "")[:200],
+                })
+
+            yield f"data: {json.dumps({'type': 'complete', 'response': final_response, 'sources': sources, 'timing': timing})}\n\n"
+    except Empty:
+        logger.error("Generation query timed out")
+        yield f"data: {json.dumps({'type': 'error', 'content': 'Generation timed out'})}\n\n"
+
+
 def run_elysia_query(question: str, result_queue: Queue, output_queue: Queue,
                      skill_tags: list[str] | None = None,
+                     doc_refs: list[str] | None = None,
                      conversation_id: str | None = None):
     """Run Elysia query in a thread, emitting typed events via output_queue.
 
@@ -685,6 +848,7 @@ def run_elysia_query(question: str, result_queue: Queue, output_queue: Queue,
             response, objects = loop.run_until_complete(
                 _elysia_system.query(question, event_queue=output_queue,
                                      skill_tags=skill_tags,
+                                     doc_refs=doc_refs,
                                      conversation_id=conversation_id)
             )
         finally:
@@ -717,6 +881,7 @@ def run_elysia_query(question: str, result_queue: Queue, output_queue: Queue,
 
 async def stream_elysia_response(question: str,
                                  skill_tags: list[str] | None = None,
+                                 doc_refs: list[str] | None = None,
                                  conversation_id: str | None = None) -> AsyncGenerator[str, None]:
     """Stream Elysia's thinking process as SSE events."""
     result_queue = Queue()
@@ -730,7 +895,8 @@ async def stream_elysia_response(question: str,
     # Start query in background thread
     thread = Thread(target=run_elysia_query,
                     args=(question, result_queue, output_queue),
-                    kwargs={"skill_tags": skill_tags, "conversation_id": conversation_id})
+                    kwargs={"skill_tags": skill_tags, "doc_refs": doc_refs,
+                            "conversation_id": conversation_id})
     thread.daemon = True
     thread.start()
 
@@ -1252,7 +1418,7 @@ async def chat_stream(request: ChatRequest):
         )
 
         # Emit Persona classification result with latency
-        yield f"data: {json.dumps({'type': 'persona_intent', 'intent': persona_result.intent, 'rewritten_query': persona_result.rewritten_query, 'skill_tags': persona_result.skill_tags, 'latency_ms': persona_result.latency_ms})}\n\n"
+        yield f"data: {json.dumps({'type': 'persona_intent', 'intent': persona_result.intent, 'rewritten_query': persona_result.rewritten_query, 'skill_tags': persona_result.skill_tags, 'doc_refs': persona_result.doc_refs, 'latency_ms': persona_result.latency_ms})}\n\n"
 
         # Direct response intents: respond immediately, no Tree needed
         if persona_result.direct_response is not None:
@@ -1267,25 +1433,51 @@ async def chat_stream(request: ChatRequest):
             await _maybe_update_summary(conversation_id)
             return
 
-        # Tree query: pass the rewritten query to Elysia
+        # Route to the appropriate execution path based on intent.
+        # Intent is the sole gate: "generation" and "refinement" (with
+        # generation skill_tags) go to the direct pipeline. Everything
+        # else goes to the Tree.
+        execution_model = _get_execution_model(
+            persona_result.intent, persona_result.skill_tags,
+        )
+        logger.info(f"Execution model: {execution_model} (intent={persona_result.intent})")
+
         final_response = None
         final_sources = []
         final_timing = None
 
-        async for event in stream_elysia_response(persona_result.rewritten_query,
-                                                     skill_tags=persona_result.skill_tags,
-                                                     conversation_id=conversation_id):
-            yield event
-
-            # Parse event to capture final response for saving
-            try:
-                data = json.loads(event.replace("data: ", "").strip())
-                if data.get("type") == "complete":
-                    final_response = data.get("response")
-                    final_sources = data.get("sources", [])
-                    final_timing = data.get("timing")
-            except:
-                pass
+        if execution_model == "generation":
+            async for event in stream_generation_response(
+                persona_result.rewritten_query,
+                skill_tags=persona_result.skill_tags,
+                doc_refs=persona_result.doc_refs,
+                conversation_id=conversation_id,
+            ):
+                yield event
+                try:
+                    data = json.loads(event.replace("data: ", "").strip())
+                    if data.get("type") == "complete":
+                        final_response = data.get("response")
+                        final_sources = data.get("sources", [])
+                        final_timing = data.get("timing")
+                except:
+                    pass
+        else:
+            async for event in stream_elysia_response(
+                persona_result.rewritten_query,
+                skill_tags=persona_result.skill_tags,
+                doc_refs=persona_result.doc_refs,
+                conversation_id=conversation_id,
+            ):
+                yield event
+                try:
+                    data = json.loads(event.replace("data: ", "").strip())
+                    if data.get("type") == "complete":
+                        final_response = data.get("response")
+                        final_sources = data.get("sources", [])
+                        final_timing = data.get("timing")
+                except:
+                    pass
 
         # Save assistant response with structured turn summary
         if final_response:
@@ -1405,6 +1597,7 @@ async def chat(request: ChatRequest):
         response, objects = await _elysia_system.query(
             persona_result.rewritten_query,
             skill_tags=persona_result.skill_tags,
+            doc_refs=persona_result.doc_refs,
             conversation_id=conversation_id,
         )
 
@@ -1481,6 +1674,35 @@ async def remove_all_conversations():
     """Delete all conversations."""
     delete_all_conversations()
     return {"status": "all_deleted"}
+
+
+@app.get("/api/artifact/{artifact_id}/download")
+async def download_artifact(artifact_id: str):
+    """Download an artifact by ID as a file."""
+    from fastapi.responses import Response
+
+    conn = sqlite3.connect(_db_path)
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT filename, content, content_type FROM artifacts WHERE id = ?",
+        (artifact_id,),
+    )
+    row = cursor.fetchone()
+    conn.close()
+
+    if not row:
+        return {"error": "Artifact not found"}
+
+    filename, content, content_type = row
+
+    # Map custom MIME types to standard ones for download
+    mime = "application/xml" if content_type == "archimate/xml" else "text/plain"
+
+    return Response(
+        content=content,
+        media_type=mime,
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 @app.get("/health")

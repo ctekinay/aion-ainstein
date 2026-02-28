@@ -19,7 +19,8 @@ from src.aion.skills.loader import SkillLoader
 logger = logging.getLogger(__name__)
 
 VALID_INTENTS = frozenset({
-    "retrieval", "listing", "follow_up", "refinement", "identity", "off_topic", "clarification",
+    "retrieval", "listing", "follow_up", "refinement", "generation",
+    "identity", "off_topic", "clarification",
 })
 
 # Intents where the Persona produces a direct response (no Tree needed)
@@ -41,6 +42,7 @@ class PersonaResult:
     original_message: str
     latency_ms: int = 0
     skill_tags: list[str] = field(default_factory=list)
+    doc_refs: list[str] = field(default_factory=list)
 
 
 class Persona:
@@ -92,10 +94,11 @@ class Persona:
             user_prompt = "\n\n".join(user_prompt_parts)
 
             raw, latency_ms = await self._classify(system_prompt, user_prompt)
-            intent, content, skill_tags = self._parse_response(raw)
+            intent, content, skill_tags, doc_refs = self._parse_response(raw)
 
             logger.info(
                 f"Persona: intent={intent}, skill_tags={skill_tags}, "
+                f"doc_refs={doc_refs}, "
                 f"latency={latency_ms}ms, "
                 f"original={user_message!r}, "
                 f"rewritten={content!r}"
@@ -109,6 +112,7 @@ class Persona:
                     original_message=user_message,
                     latency_ms=latency_ms,
                     skill_tags=skill_tags,
+                    doc_refs=doc_refs,
                 )
 
             return PersonaResult(
@@ -118,6 +122,7 @@ class Persona:
                 original_message=user_message,
                 latency_ms=latency_ms,
                 skill_tags=skill_tags,
+                doc_refs=doc_refs,
             )
 
         except Exception as e:
@@ -244,16 +249,17 @@ class Persona:
 
         return text.strip(), latency
 
-    def _parse_response(self, raw: str) -> tuple[str, str, list[str]]:
-        """Parse the Persona's JSON response into (intent, content, skill_tags).
+    def _parse_response(self, raw: str) -> tuple[str, str, list[str], list[str]]:
+        """Parse the Persona's JSON response into (intent, content, skill_tags, doc_refs).
 
-        Expected: {"intent": "...", "content": "...", "skill_tags": [...]}
+        Expected: {"intent": "...", "content": "...", "skill_tags": [...], "doc_refs": [...]}
         Falls back to line-based parsing if JSON fails (model compatibility).
         """
         skill_tags: list[str] = []
+        doc_refs: list[str] = []
 
         if not raw:
-            return "retrieval", "", skill_tags
+            return "retrieval", "", skill_tags, doc_refs
 
         text = raw.strip()
 
@@ -268,6 +274,9 @@ class Persona:
             raw_tags = data.get("skill_tags", [])
             if isinstance(raw_tags, list):
                 skill_tags = [str(t).strip().lower() for t in raw_tags if t]
+            raw_refs = data.get("doc_refs", [])
+            if isinstance(raw_refs, list):
+                doc_refs = [str(r).strip() for r in raw_refs if r]
         except (json.JSONDecodeError, AttributeError):
             # Fallback: line-based parsing for backward compat
             logger.warning("Persona returned non-JSON, using line-based fallback")
@@ -282,7 +291,7 @@ class Persona:
             logger.warning(f"Unrecognized intent '{intent}', defaulting to retrieval")
             intent = "retrieval"
 
-        return intent, content, skill_tags
+        return intent, content, skill_tags, doc_refs
 
     # Number of recent messages to include verbatim (full text).
     # Older messages are covered by the running summary.

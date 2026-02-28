@@ -12,22 +12,11 @@ architecture descriptions, project documents). The generated XML conforms to the
 Open Exchange specification and can be imported into any ArchiMate-compliant tool (Archi, BiZZdesign,
 MEGA, etc.).
 
-## Generation Behavior
+## Defaults
 
-When asked to create an ArchiMate model, generate it directly using reasonable defaults.
-If the answer to your question can be found in or inferred from the source document,
-do not ask — just generate. Only ask a clarifying question if the user's request is
-genuinely ambiguous and the source document does not provide enough information to make
-a reasonable default choice. The user can request refinements after seeing the initial
-model — that's what the refinement workflow is for.
-
-Reasonable defaults:
-- Include all layers present in the source document (Motivation, Business, Application, Technology)
-- Use the extended view (include all implications, security considerations, constraints)
-- Model all actors/participants mentioned in the source
-- If the source mentions federation or multiple participants, model all of them
-- Include all scenarios, options, and domains from the source
-- One combined overview view
+When generating a model, include all layers present in the source document and use the
+extended view (implications, security considerations, constraints). Model all actors and
+participants. One combined overview view.
 
 ## Workflow
 
@@ -137,31 +126,12 @@ The tool checks:
 
 Do NOT present XML to the user without calling `validate_archimate` first.
 
-### Step 5: Save Artifact (MANDATORY)
-
-You MUST call **`save_artifact`** BEFORE presenting output to the user. Without this step, the generated model is lost between turns and the user cannot request refinements.
-
-- `filename`: descriptive name like `adr29-oauth2-oidc.archimate.xml`
-- `content`: the complete validated XML
-- `content_type`: `archimate/xml`
-- `summary`: element and relationship counts (e.g., "28 elements, 33 relationships")
-
-### Step 6: Present Output
+### Step 5: Present Output
 
 Present the validated XML in the chat response. Inform the user they can:
 - Save it as a `.xml` file
 - Import it into Archi (File → Import → Open Exchange XML)
 - Import it into any ArchiMate 3.2-compliant tool
-
-### Refinement Workflow
-
-When the user requests changes to a previously generated model:
-
-1. You MUST call **`get_artifact`** with `content_type: "archimate/xml"` FIRST to load the complete previous model. Do NOT attempt to reconstruct the model from conversation context — this produces incomplete, fragmented XML.
-2. Apply the requested changes to the complete loaded XML (add elements, fix relationships, expand views, etc.)
-3. Call **`validate_archimate`** on the complete modified XML
-4. Call **`save_artifact`** to persist the updated version
-5. Present the complete, valid XML to the user with a summary of what was modified
 
 ---
 

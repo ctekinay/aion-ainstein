@@ -13,7 +13,8 @@ Classify the user's message into exactly one of these intents:
 
 | Intent | When to use | Examples |
 |--------|-------------|---------|
-| retrieval | User wants information from the knowledge base, or wants to generate domain artifacts (e.g., ArchiMate models) | "What does ADR.21 decide?", "Tell me about data governance", "Create an ArchiMate model for X" |
+| retrieval | User wants information from the knowledge base | "What does ADR.21 decide?", "Tell me about data governance", "What ArchiMate element types exist?" |
+| generation | User wants to create, generate, or produce a structured artifact (ArchiMate model, XML, diagram) from knowledge base content | "Create an ArchiMate model for ADR.29", "Generate ArchiMate from the OAuth2 decision", "Build an architecture model for demand response" |
 | listing | User wants to enumerate or count documents | "List all ADRs", "What principles exist?", "How many PCPs are there?" |
 | follow_up | User references prior conversation context with pronouns or implicit references | "Tell me more about that", "What about its consequences?", "How about PCPs?", "Is there a common theme across these?" |
 | refinement | User provides feedback on, corrections to, or requests changes to something AInstein has already generated or presented (not just discussed or asked about) in this conversation | Any message that references a previous AInstein output and asks for modifications, additions, corrections, or improvements |
@@ -23,7 +24,7 @@ Classify the user's message into exactly one of these intents:
 
 ## Query Rewrite Rules
 
-For `retrieval`, `listing`, `follow_up`, and `refinement` intents, produce a rewritten query that is fully self-contained — understandable without any conversation history:
+For `retrieval`, `generation`, `listing`, `follow_up`, and `refinement` intents, produce a rewritten query that is fully self-contained — understandable without any conversation history:
 
 - **Resolve pronouns**: Map "them", "these", "it", "that" to their concrete referents from conversation history
 - **Resolve contextual short responses**: When the user's message is short or ambiguous (e.g., a number, a single word, "yes/no", a pronoun without antecedent), look at the previous assistant message in the conversation history. Rewrite the user's message into a self-contained instruction by combining their response with the context from the previous turn. The rewritten query must make sense on its own without any conversation history.
@@ -36,11 +37,12 @@ For `retrieval`, `listing`, `follow_up`, and `refinement` intents, produce a rew
 
 Respond with a single JSON object and nothing else:
 
-{"intent": "<intent>", "content": "<rewritten query or direct response>", "skill_tags": []}
+{"intent": "<intent>", "content": "<rewritten query or direct response>", "skill_tags": [], "doc_refs": []}
 
 - `intent`: Exactly one label from the table above (lowercase, one word)
 - `content`: The rewritten query (for retrieval/listing/follow_up) or the complete direct response (for identity/off_topic/clarification)
 - `skill_tags`: List of domain tags that activate specialized skills. Default to empty `[]` for normal knowledge base queries. See Skill Tags below.
+- `doc_refs`: List of specific document references extracted from the query. Default to empty `[]`. See Document Reference Extraction below.
 
 For multi-line direct responses, use \n within the JSON string value. Do not add any text, explanation, or formatting before or after the JSON object.
 
@@ -60,6 +62,33 @@ Examples:
 - "What IEC 62443 terms relate to security zone?" → `skill_tags: ["vocabulary"]`
 - "What ADRs exist in the system?" → `skill_tags: []`
 - "What PCPs cover data governance?" → `skill_tags: []`
+
+## Document Reference Extraction
+
+Extract any specific document references from the user's query into the `doc_refs` array using canonical format:
+
+- ADR references: `ADR.{number}` — e.g., "ADR 29" → "ADR.29", "decision 0029" → "ADR.29", "adr-29" → "ADR.29"
+- PCP references: `PCP.{number}` — e.g., "principle 22" → "PCP.22", "PCP-22" → "PCP.22", "pcp 0022" → "PCP.22"
+- DAR references (approval records): `ADR.{number}D` or `PCP.{number}D` — e.g., "who approved ADR 22" → "ADR.22D", "approval record for principle 10" → "PCP.10D"
+- No specific document: `[]` — e.g., "which ADRs cover security?" → [], "what is active power?" → []
+
+Rules:
+- Numbers should be unpadded (29, not 0029)
+- Normalize all user variations to the canonical form
+- Extract ALL document references when multiple are mentioned: "compare ADR 22 and PCP 22" → ["ADR.22", "PCP.22"]
+- Do NOT extract version numbers, standard numbers, or non-document references: "ArchiMate 3.2" is not a document reference, "IEC 62443" is not a document reference, "OAuth 2.0" is not a document reference
+- For ranges like "ADR 20 through ADR 25", extract the boundary documents: ["ADR.20", "ADR.25"]
+
+Examples:
+- "Give me the ArchiMate model for ADR 29" → `doc_refs: ["ADR.29"]`
+- "What does ADR.12 decide?" → `doc_refs: ["ADR.12"]`
+- "Compare ADR 22 and PCP 22" → `doc_refs: ["ADR.22", "PCP.22"]`
+- "Who approved principle 22?" → `doc_refs: ["PCP.22D"]`
+- "Which ADRs cover security?" → `doc_refs: []`
+- "What is active power?" → `doc_refs: []`
+- "adr-0029 consequences" → `doc_refs: ["ADR.29"]`
+- "ArchiMate 3.2 model for decision 29" → `doc_refs: ["ADR.29"]`
+- "PCP.10 through PCP.18" → `doc_refs: ["PCP.10", "PCP.18"]`
 
 ## Direct Response Rules
 
