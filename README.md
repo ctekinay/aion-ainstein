@@ -20,7 +20,7 @@ Queries are handled by the AInstein Persona, which classifies intent, emits skil
 - **Retrieval queries** ("What ADRs exist?", "What is document 22?", "Define active power") go to the **Elysia Decision Tree**, which selects tools, searches collections, and formats responses with citations.
 - **Generation queries** ("Create an ArchiMate model for ADR.29") go to the **Generation Pipeline**, which fetches source content, builds a prompt from the matching skill, makes a single LLM call, validates, and saves the artifact for download. Token usage is tracked across all LLM calls (generation, view repair, validation retries) and reported in a single summary log line at completion.
 - **Refinement queries** ("Add a Technology layer to the model") go to the **Generation Pipeline** with the previous artifact loaded as context.
-- **Inspection queries** ("Describe the model you just generated", "What elements are in this ArchiMate file?") go to the **Inspection path**, which converts XML to compact YAML (~90% token reduction), sends it to the LLM for analysis, and streams the response. Models can come from conversation artifacts, file uploads (.xml/.yaml), or URLs.
+- **Inspection queries** ("Describe the model you just generated", "What elements are in this ArchiMate file?") go to the **Inspection path**, which converts XML to compact YAML (~90% token reduction), sends it to the LLM for analysis, and streams the response. Models can come from conversation artifacts, file uploads (.xml/.yaml), or URLs. GitHub URLs are fetched via MCP (Model Context Protocol) using the remote GitHub MCP server, with httpx fallback for non-GitHub URLs.
 - **Direct response queries** ("Who are you?", "What's the weather?") are answered by the Persona without any backend call.
 
 **Disclaimer:** Currently, the above-mentioned data sources are integrated stand-alone via the data/ folder. The short-term goal for AInstein is full integration with ESA repositories, tools, and other internal data sources directly. 
@@ -40,9 +40,9 @@ Queries are handled by the AInstein Persona, which classifies intent, emits skil
 │  Query rewriting with conversation context (pronoun resolution)      │
 │  Skill tag emission for on-demand capabilities                       │
 │  Direct response for identity/off-topic/clarification                │
-└──────────┬─────────────────────┬──────────────────────┬─────────────────┘
+└──────────┬─────────────────────┬──────────────────────┬──────────────┘
            │ retrieval / listing │ generation /         │ inspect
-           │ / follow_up        │ refinement           │
+           │ / follow_up         │ refinement           │
 ┌──────────▼──────────────────────────┐  ┌──────▼────────────────────────┐
 │       Elysia Decision Tree          │  │      Generation Pipeline      │
 │  Tool selection via LLM planner     │  │  Direct LLM call (no planner) │
@@ -72,8 +72,9 @@ Queries are handled by the AInstein Persona, which classifies intent, emits skil
                │              ┌──────────┴──────────┐
                │              │     Inspection      │
                │              │  XML → YAML → LLM   │
-               │              │  Sources: artifact,  │
-               │              │  file upload, URL    │
+               │              │  Sources: artifact, │
+               │              │  upload, URL (MCP/  │
+               │              │  httpx)             │
                │              └─────────────────────┘
                │
 ┌──────────────▼───────────────────────────────────────────────────────┐
@@ -238,6 +239,11 @@ esa-ainstein-artifacts/
 │   │                             #   Execution router: generation → pipeline, retrieval → Tree
 │   ├── elysia_agents.py          # Elysia Tree integration, tool registration,
 │   │                             #   skill injection, abstention
+│   ├── mcp/
+│   │   ├── config.yaml           # MCP server registry (URLs, auth, transport)
+│   │   ├── registry.py           # MCPServerConfig + load_registry() + get_server()
+│   │   ├── client.py             # Generic MCP client (streamable HTTP transport)
+│   │   └── github.py             # GitHub file fetching + URL parsing
 │   ├── tools/
 │   │   ├── archimate.py          # ArchiMate 3.2 validation, inspection, merge
 │   │   ├── yaml_to_xml.py        # ArchiMate YAML ↔ XML converter (generation + inspection)
@@ -290,6 +296,7 @@ esa-ainstein-artifacts/
 | `OPENAI_CHAT_MODEL` | `gpt-5.2` | OpenAI chat model |
 | `OPENAI_EMBEDDING_MODEL` | `text-embedding-3-large` | OpenAI embedding model |
 | `SKOSMOS_URL` | `http://localhost:8080` | SKOSMOS REST API endpoint for vocabulary lookups |
+| `GITHUB_TOKEN` | — | GitHub PAT for MCP file fetching (requires `repo` scope; authorize for org SSO if applicable) |
 | `PERSONA_PROVIDER` | — | Override LLM provider for AInstein Persona only |
 | `TREE_PROVIDER` | — | Override LLM provider for Elysia Tree only |
 
@@ -345,7 +352,7 @@ When AInstein generates structured output (e.g., ArchiMate XML), it saves the co
 - **Download card** in the chat UI (appears automatically after generation)
 - **API endpoint** `GET /api/artifact/{id}/download` — returns the artifact content with the appropriate MIME type
 - **File upload** — click the paperclip button to upload ArchiMate files (.xml, .yaml, .yml) for inspection and analysis
-- **URL fetch** — paste a URL to an ArchiMate file in the chat and ask for inspection
+- **URL fetch** — paste a GitHub URL (blob or raw) or any file URL to an ArchiMate file in the chat; GitHub URLs are fetched via MCP (authenticated, supports private repos), others via httpx
 
 Artifacts persist across sessions and can be loaded for refinement ("Add security constraints to the model") or inspection ("Describe the model you just generated").
 
