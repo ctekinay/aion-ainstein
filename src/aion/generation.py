@@ -175,7 +175,11 @@ class GenerationPipeline:
 
         # Step 3: LLM call
         self._emit(event_queue, "status", "Generating...", start)
-        raw_output = await self._call_llm(system_prompt, user_prompt)
+        raw_output, llm_stats = await self._call_llm(system_prompt, user_prompt)
+        total_tokens = {
+            "prompt_tokens": llm_stats["prompt_tokens"],
+            "completion_tokens": llm_stats["completion_tokens"],
+        }
 
         if not raw_output:
             return "The model did not produce output. Try a cloud model for generation tasks.", []
@@ -187,10 +191,11 @@ class GenerationPipeline:
             if validator:
                 raw_output, validation_result = await self._validate_with_retry(
                     raw_output, validator, system_prompt, user_prompt,
-                    event_queue, start,
+                    event_queue, start, total_tokens=total_tokens,
                 )
 
         # Step 5: Save artifact and emit download event
+        artifact_info = None
         if conversation_id:
             self._emit(event_queue, "status", "Saving artifact...", start)
             artifact_info = self._save_artifact(
@@ -219,12 +224,14 @@ class GenerationPipeline:
         valid = v.get("valid", False)
         refs = ",".join(doc_refs) if doc_refs else "semantic"
         model = settings.effective_tree_model
-        prompt_est = (len(system_prompt) + len(user_prompt)) // 4
+        pt = total_tokens["prompt_tokens"]
+        ct = total_tokens["completion_tokens"]
+        artifact_fn = artifact_info["filename"] if conversation_id and artifact_info else "none"
         logger.info(
             f"[generation] COMPLETE: refs={refs}, model={model}, "
-            f"prompt=~{prompt_est}tok, source={len(source_text)}ch, "
+            f"prompt={pt}tok, completion={ct}tok, "
             f"elements={ec}, relationships={rc}, valid={valid}, "
-            f"total={total_ms}ms"
+            f"artifact={artifact_fn}, total={total_ms}ms"
         )
 
         return response, sources
@@ -434,14 +441,18 @@ class GenerationPipeline:
     # Step 3: LLM call
     # ------------------------------------------------------------------
 
-    async def _call_llm(self, system_prompt: str, user_prompt: str) -> str:
-        """Make a single LLM call using the Tree's configured provider."""
+    async def _call_llm(
+        self, system_prompt: str, user_prompt: str,
+    ) -> tuple[str, dict]:
+        """Make a single LLM call. Returns (text, token_stats)."""
         provider = settings.effective_tree_provider
         if provider in ("github_models", "openai"):
             return await self._call_openai(system_prompt, user_prompt)
         return await self._call_ollama(system_prompt, user_prompt)
 
-    async def _call_openai(self, system_prompt: str, user_prompt: str) -> str:
+    async def _call_openai(
+        self, system_prompt: str, user_prompt: str,
+    ) -> tuple[str, dict]:
         from openai import OpenAI
 
         client = OpenAI(**settings.get_openai_client_kwargs(settings.effective_tree_provider))
@@ -478,19 +489,24 @@ class GenerationPipeline:
         text = response.choices[0].message.content or ""
 
         usage = getattr(response, "usage", None)
+        token_stats = {"prompt_tokens": 0, "completion_tokens": 0}
         if usage:
+            token_stats["prompt_tokens"] = usage.prompt_tokens or 0
+            token_stats["completion_tokens"] = usage.completion_tokens or 0
             logger.info(
                 f"[generation] LLM response: {len(text)} chars, {duration_ms}ms, "
-                f"tokens: prompt={usage.prompt_tokens}, "
-                f"completion={usage.completion_tokens}, "
-                f"total={usage.total_tokens}"
+                f"tokens: prompt={token_stats['prompt_tokens']}, "
+                f"completion={token_stats['completion_tokens']}, "
+                f"total={sum(token_stats.values())}"
             )
         else:
             logger.info(f"[generation] LLM response: {len(text)} chars, {duration_ms}ms")
 
-        return text
+        return text, token_stats
 
-    async def _call_ollama(self, system_prompt: str, user_prompt: str) -> str:
+    async def _call_ollama(
+        self, system_prompt: str, user_prompt: str,
+    ) -> tuple[str, dict]:
         import httpx
 
         model = settings.effective_tree_model
@@ -516,7 +532,8 @@ class GenerationPipeline:
                 },
             )
             response.raise_for_status()
-            text = response.json().get("response", "")
+            data = response.json()
+            text = data.get("response", "")
         duration_ms = int((time.perf_counter() - start) * 1000)
 
         # Strip <think> tags from reasoning models
@@ -524,9 +541,17 @@ class GenerationPipeline:
         text = re.sub(r"</?think>", "", text)
         text = text.strip()
 
-        logger.info(f"[generation] LLM response: {len(text)} chars, {duration_ms}ms")
+        token_stats = {
+            "prompt_tokens": data.get("prompt_eval_count", 0),
+            "completion_tokens": data.get("eval_count", 0),
+        }
+        logger.info(
+            f"[generation] LLM response: {len(text)} chars, {duration_ms}ms, "
+            f"tokens: prompt={token_stats['prompt_tokens']}, "
+            f"completion={token_stats['completion_tokens']}"
+        )
 
-        return text
+        return text, token_stats
 
     # ------------------------------------------------------------------
     # Step 4: Validation with retry
@@ -541,6 +566,7 @@ class GenerationPipeline:
         event_queue: Queue | None,
         start: float,
         max_retries: int = 2,
+        total_tokens: dict | None = None,
     ) -> tuple[str, dict]:
         """Validate generated output, retrying on errors."""
         xml = self._extract_xml(raw_output)
@@ -548,7 +574,7 @@ class GenerationPipeline:
             return raw_output, {"valid": False, "errors": ["No XML found in output"]}
 
         xml = self._sanitize_xml(xml)
-        xml = await self._repair_view(xml, event_queue, start)
+        xml = await self._repair_view(xml, event_queue, start, total_tokens)
 
         for attempt in range(max_retries + 1):
             self._emit(
@@ -565,6 +591,16 @@ class GenerationPipeline:
                 return xml, result
 
             errors = result.get("errors", [])
+
+            # Try mechanical sanitize before expensive LLM retry
+            sanitized = self._sanitize_xml(xml)
+            if sanitized != xml:
+                result = validator(sanitized)
+                if result.get("valid"):
+                    logger.info("Sanitize fixed validation errors, skipping LLM retry")
+                    return sanitized, result
+                xml = sanitized  # keep sanitized version for LLM retry
+
             if attempt < max_retries:
                 logger.info(f"Validation failed (attempt {attempt + 1}), retrying: {errors}")
                 self._emit(event_queue, "status", "Fixing validation errors...", start)
@@ -574,7 +610,10 @@ class GenerationPipeline:
                     + "\n".join(f"- {e}" for e in errors[:10])
                     + "\n\nGenerate the corrected output now."
                 )
-                new_output = await self._call_llm(system_prompt, retry_prompt)
+                new_output, retry_stats = await self._call_llm(system_prompt, retry_prompt)
+                if total_tokens:
+                    total_tokens["prompt_tokens"] += retry_stats["prompt_tokens"]
+                    total_tokens["completion_tokens"] += retry_stats["completion_tokens"]
                 xml = self._sanitize_xml(self._extract_xml(new_output) or xml)
             else:
                 logger.warning(f"Validation failed after {max_retries + 1} attempts: {errors}")
@@ -700,6 +739,7 @@ class GenerationPipeline:
 
     async def _repair_view(
         self, xml: str, event_queue: Queue | None, start: float,
+        total_tokens: dict | None = None,
     ) -> str:
         """Detect and repair missing view nodes and connections.
 
@@ -810,7 +850,7 @@ class GenerationPipeline:
             xml, root, views_node,
             missing_elements, missing_connections,
             element_ids, element_names, rel_map,
-            target_vid, target_nmap,
+            target_vid, target_nmap, total_tokens,
         )
         if repaired:
             logger.info("[generation] view repair: LLM repair successful")
@@ -836,6 +876,7 @@ class GenerationPipeline:
         rel_map: dict[str, tuple[str, str, str]],
         target_vid: str,
         target_nmap: dict[str, str],
+        total_tokens: dict | None = None,
     ) -> str | None:
         """Tier 2: Focused LLM call to repair view with good layout."""
         view_num = target_vid.replace("id-v", "")
@@ -886,7 +927,10 @@ class GenerationPipeline:
         )
 
         try:
-            response = await self._call_llm(system_prompt, user_prompt)
+            response, repair_stats = await self._call_llm(system_prompt, user_prompt)
+            if total_tokens:
+                total_tokens["prompt_tokens"] += repair_stats["prompt_tokens"]
+                total_tokens["completion_tokens"] += repair_stats["completion_tokens"]
             if not response:
                 return None
 

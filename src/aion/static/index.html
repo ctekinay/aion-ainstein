@@ -1445,6 +1445,9 @@
         .artifact-icon {
             font-size: 24px;
             flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            color: var(--text-secondary, #666);
         }
         .artifact-info {
             flex: 1;
@@ -2395,7 +2398,11 @@
             const card = document.createElement('div');
             card.className = 'artifact-card';
 
-            const icon = data.content_type === 'archimate/xml' ? '\u{1F3D7}' : '\u{1F4C4}';
+            const archimateIcon = '<svg width="26" height="26" viewBox="0 0 26 26" fill="none" xmlns="http://www.w3.org/2000/svg">'
+                + '<rect x="2" y="2" width="22" height="22" rx="1" stroke="currentColor" stroke-width="1.5" fill="none"/>'
+                + '<polygon points="18,2 24,8 18,8" fill="var(--bg-secondary, #f8f9fa)" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>'
+                + '</svg>';
+            const icon = data.content_type === 'archimate/xml' ? archimateIcon : '\u{1F4C4}';
             const summary = data.summary ? `<span class="artifact-summary">${escapeHtml(data.summary)}</span>` : '';
 
             card.innerHTML = `

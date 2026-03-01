@@ -68,6 +68,7 @@ Produce a complete ArchiMate 3.2 Open Exchange XML document.
 7. Views reference elements via `elementRef` on `<node>` and relationships via `relationshipRef` on `<connection>`
 8. Node identifiers in views must be different from element identifiers (use prefix like `nv1-`)
 9. Connection `source` and `target` reference **node identifiers** (not element identifiers)
+10. **View completeness**: every element MUST have a corresponding `<node>` in the view, and every relationship between viewed elements MUST have a corresponding `<connection>`
 
 **XML structure:**
 
