@@ -8,15 +8,15 @@ description: "Generates valid ArchiMate 3.2 Open Exchange XML models from text i
 ## Overview
 
 This skill generates valid ArchiMate 3.2 Open Exchange XML from unstructured input (code reviews,
-architecture descriptions, project documents). The generated XML conforms to the ArchiMate 3.2
-Open Exchange specification and can be imported into any ArchiMate-compliant tool (Archi, BiZZdesign,
-MEGA, etc.).
+architecture descriptions, project documents). You produce a lightweight YAML definition of
+elements and relationships. A deterministic converter transforms the YAML into valid XML with
+auto-generated views — you never write XML directly.
 
 ## Defaults
 
 When generating a model, include all layers present in the source document and use the
 extended view (implications, security considerations, constraints). Model all actors and
-participants. One combined overview view.
+participants.
 
 ## Workflow
 
@@ -32,7 +32,7 @@ Read the user's input and identify architectural concerns. Map them to ArchiMate
 - **Physical**: Equipment, facilities, distribution networks, materials
 - **Implementation**: Work packages, deliverables, implementation events, gaps, plateaus
 
-Consult `references/element-types.md` for the complete list of valid `xsi:type` values per layer.
+Consult `references/element-types.md` for the complete list of valid `type` values per layer.
 
 ### Step 2: Identify Relationships
 
@@ -53,86 +53,72 @@ element types. Key rules to remember:
 - **Triggering stays within same layer**: use Association or Flow for cross-layer
 - **Association is always allowed** between any two elements (use as fallback)
 
-### Step 3: Generate the XML
+### Step 3: Generate YAML Output
 
-Produce a complete ArchiMate 3.2 Open Exchange XML document.
+Produce a YAML document following this exact schema:
 
-**Critical XML rules:**
+```yaml
+model:
+  name: "<Model Name>"
+  documentation: "<Optional model description>"
 
-1. Root element `<model>` with namespace `http://www.opengroup.org/xsd/archimate/3.0/`
-2. Schema location: `http://www.opengroup.org/xsd/archimate/3.0/ http://www.opengroup.org/xsd/archimate/3.1/archimate3_Diagram.xsd`
-3. Every `identifier` attribute must be unique (use `id-` prefix + short code, e.g. `id-a1`, `id-r12`, `id-v1`)
-4. `<name xml:lang="en">` required for every element, relationship, and view
-5. Only use `xsi:type` values from the approved lists in `references/element-types.md`
-6. Relationships need `source` and `target` referencing valid element identifiers
-7. Views reference elements via `elementRef` on `<node>` and relationships via `relationshipRef` on `<connection>`
-8. Node identifiers in views must be different from element identifiers (use prefix like `nv1-`)
-9. Connection `source` and `target` reference **node identifiers** (not element identifiers)
-10. **View completeness**: every element MUST have a corresponding `<node>` in the view, and every relationship between viewed elements MUST have a corresponding `<connection>`
+elements:
+  - id: <short-code>
+    type: <ArchiMateElementType>
+    name: "<Element Name>"
+    documentation: "<Optional description>"
 
-**XML structure:**
-
-```xml
-<?xml version="1.0" encoding="UTF-8"?>
-<model xmlns="http://www.opengroup.org/xsd/archimate/3.0/"
-       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-       xsi:schemaLocation="http://www.opengroup.org/xsd/archimate/3.0/ http://www.opengroup.org/xsd/archimate/3.1/archimate3_Diagram.xsd"
-       identifier="id-model-001">
-  <name xml:lang="en">[Model Name]</name>
-  <documentation xml:lang="en">[Model description]</documentation>
-
-  <elements>
-    <element identifier="id-[code]" xsi:type="[ElementType]">
-      <name xml:lang="en">[Name]</name>
-      <documentation xml:lang="en">[Description]</documentation>
-    </element>
-  </elements>
-
-  <relationships>
-    <relationship identifier="id-r[n]" xsi:type="[RelType]"
-                  source="id-[src]" target="id-[tgt]">
-      <name xml:lang="en">[verb label]</name>
-    </relationship>
-  </relationships>
-
-  <views>
-    <diagrams>
-      <view identifier="id-v[n]" xsi:type="Diagram">
-        <name xml:lang="en">[View Name]</name>
-        <node identifier="nv[n]-[code]" elementRef="id-[code]"
-              xsi:type="Element" x="20" y="20" w="120" h="55"/>
-        <connection identifier="cv[n]-r[n]" relationshipRef="id-r[n]"
-                    xsi:type="Relationship" source="nv[n]-[src]" target="nv[n]-[tgt]"/>
-      </view>
-    </diagrams>
-  </views>
-</model>
+relationships:
+  - type: <ArchiMateRelationshipType>
+    source: <element-id>
+    target: <element-id>
+    name: "<Optional verb label>"
 ```
 
-### Step 4: Validate with Tool
+**Strict rules:**
 
-After generating the XML, call the **`validate_archimate`** tool with the complete XML string as input.
+1. Output ONLY `model`, `elements`, and `relationships` — **NO views, NO XML, NO namespaces**
+2. Every `type` in elements MUST be a valid ArchiMate 3.2 element type from `references/element-types.md`
+3. Every `type` in relationships MUST be one of: `Composition`, `Aggregation`, `Assignment`, `Realization`, `Serving`, `Access`, `Influence`, `Association`, `Triggering`, `Flow`, `Specialization`
+4. Every `source` and `target` in relationships MUST reference a valid element `id`
+5. Relationships do NOT have an `id` field — identifiers are generated automatically
+6. Do NOT include nested elements, property tags, or any XML-specific constructs
+7. Wrap the entire output in ```yaml code fences
+8. Do NOT include any text before or after the YAML code fence
 
-The tool checks:
-1. Well-formed XML structure
-2. Valid element `xsi:type` values
-3. Valid relationship `xsi:type` values
-4. Allowed source→target combinations per relationship type
-5. Referential integrity (all identifiers resolve correctly)
-6. View node and connection integrity
+**Example:**
 
-**If the tool returns errors:** Fix every reported error in the XML, then call `validate_archimate` again. Repeat until `"valid": true`.
+```yaml
+model:
+  name: "User Authentication Service"
 
-**If the tool returns only warnings:** Present the XML to the user with a note about the warnings. Warnings indicate relationships that may be unusual but are not strictly invalid.
+elements:
+  - id: b1
+    type: BusinessProcess
+    name: "Login Process"
+  - id: a1
+    type: ApplicationComponent
+    name: "Auth Service"
+  - id: a2
+    type: ApplicationInterface
+    name: "Login API"
+  - id: t1
+    type: SystemSoftware
+    name: "OAuth Provider"
 
-Do NOT present XML to the user without calling `validate_archimate` first.
-
-### Step 5: Present Output
-
-Present the validated XML in the chat response. Inform the user they can:
-- Save it as a `.xml` file
-- Import it into Archi (File → Import → Open Exchange XML)
-- Import it into any ArchiMate 3.2-compliant tool
+relationships:
+  - type: Serving
+    source: a1
+    target: b1
+    name: "authenticates"
+  - type: Composition
+    source: a1
+    target: a2
+  - type: Serving
+    source: t1
+    target: a1
+    name: "provides tokens"
+```
 
 ---
 
@@ -163,17 +149,16 @@ Present the validated XML in the chat response. Inform the user they can:
 
 Use short, readable identifiers with layer-prefix codes:
 
-- Motivation: `id-m1`, `id-m2`, ...
-- Strategy: `id-s1`, `id-s2`, ...
-- Business: `id-b1`, `id-b2`, ...
-- Application: `id-a1`, `id-a2`, ...
-- Technology: `id-t1`, `id-t2`, ...
-- Physical: `id-p1`, `id-p2`, ...
-- Implementation: `id-i1`, `id-i2`, ...
-- Relationships: `id-r1`, `id-r2`, ...
-- Views: `id-v1`, `id-v2`, ...
-- View nodes: `nv1-m1`, `nv1-a3`, ... (view number + element code)
-- View connections: `cv1-r1`, `cv1-r2`, ... (view number + relationship code)
+- Motivation: `m1`, `m2`, ...
+- Strategy: `s1`, `s2`, ...
+- Business: `b1`, `b2`, ...
+- Application: `a1`, `a2`, ...
+- Technology: `t1`, `t2`, ...
+- Physical: `p1`, `p2`, ...
+- Implementation: `i1`, `i2`, ...
+
+The converter automatically adds the `id-` prefix and generates all XML identifiers,
+view nodes, and connections. You only need to define elements and relationships.
 
 ---
 
@@ -181,6 +166,6 @@ Use short, readable identifiers with layer-prefix codes:
 
 ### Model capability boundary
 
-ArchiMate XML generation requires a model with strong structured output capabilities. Smaller local models (e.g., GPT-OSS:20B via Ollama) may refuse to generate XML or fall back to textual descriptions instead. Cloud models (e.g., GPT-5.2 via OpenAI) handle this reliably — the same prompts that fail locally produce valid, self-correcting XML with cloud models.
+ArchiMate generation requires a model with strong structured output capabilities. Smaller local models (e.g., GPT-OSS:20B via Ollama) may refuse to generate YAML or fall back to textual descriptions instead. Cloud models (e.g., GPT-5.2 via OpenAI) handle this reliably.
 
 **Recommendation:** Switch to a cloud model (e.g., GPT-5.2 via OpenAI) in the Chat UI settings before requesting ArchiMate generation. Standard KB queries (ADR/PCP/policy search, vocabulary lookups) work fine with local models.

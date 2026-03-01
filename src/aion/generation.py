@@ -27,6 +27,7 @@ from src.aion.tools.archimate import (
     XSI,
     validate_archimate as _validate_archimate,
 )
+from src.aion.tools.yaml_to_xml import yaml_to_archimate_xml
 from src.aion.weaviate.embeddings import embed_text
 
 logger = logging.getLogger(__name__)
@@ -99,19 +100,34 @@ class GenerationPipeline:
         sources = []
         source_text = ""
 
+        yaml_refinement = False
         if is_refinement and conversation_id:
             self._emit(event_queue, "status", "Loading previous artifact...", start)
-            artifact = self._load_previous_artifact(conversation_id, skill_entry)
-            if artifact:
-                source_text = artifact["content"]
+
+            # Try YAML companion first (for YAML-pipeline refinement)
+            yaml_artifact = self._load_previous_artifact_by_type(
+                conversation_id, "text/yaml",
+            )
+            if yaml_artifact:
+                source_text = yaml_artifact["content"]
+                yaml_refinement = True
                 logger.info(
-                    f"[generation] refinement: loaded artifact "
-                    f"'{artifact['filename']}' ({len(source_text)} chars)"
+                    f"[generation] refinement: loaded YAML companion "
+                    f"'{yaml_artifact['filename']}' ({len(source_text)} chars)"
                 )
             else:
-                logger.warning("[generation] refinement: no previous artifact found, "
-                               "falling back to source content fetch")
-                is_refinement = False  # fall back to generation mode
+                # Fall back to XML artifact (legacy models)
+                artifact = self._load_previous_artifact(conversation_id, skill_entry)
+                if artifact:
+                    source_text = artifact["content"]
+                    logger.info(
+                        f"[generation] refinement: loaded artifact "
+                        f"'{artifact['filename']}' ({len(source_text)} chars)"
+                    )
+                else:
+                    logger.warning("[generation] refinement: no previous artifact found, "
+                                   "falling back to source content fetch")
+                    is_refinement = False  # fall back to generation mode
 
         if not source_text:
             self._emit(event_queue, "status", "Retrieving source content...", start)
@@ -135,7 +151,17 @@ class GenerationPipeline:
         skill = loader.load_skill(skill_entry.name)
         system_prompt = skill.content if skill else ""
 
-        if is_refinement:
+        if is_refinement and yaml_refinement:
+            user_prompt = (
+                f"EXISTING MODEL YAML (do NOT remove or replace existing elements):\n"
+                f"{source_text}\n\n"
+                f"MODIFICATION REQUEST:\n{query}\n\n"
+                f"ADD the requested elements and relationships to the existing model. "
+                f"Keep ALL existing elements and relationships intact. "
+                f"Return the complete modified YAML. "
+                f"Do not include commentary or any other text."
+            )
+        elif is_refinement:
             user_prompt = (
                 f"EXISTING MODEL (do NOT remove or replace existing elements):\n"
                 f"{source_text}\n\n"
@@ -149,8 +175,8 @@ class GenerationPipeline:
             user_prompt = (
                 f"SOURCE CONTENT:\n{source_text}\n\n"
                 f"USER REQUEST:\n{query}\n\n"
-                f"Respond with ONLY the XML document starting with <?xml. "
-                f"Do not include tool calls, commentary, or any other text."
+                f"Generate the YAML following the schema in your instructions. "
+                f"Do not include commentary or any other text."
             )
 
         # Log the full prompt for debugging (refinement vs generation)
@@ -184,6 +210,73 @@ class GenerationPipeline:
         if not raw_output:
             return "The model did not produce output. Try a cloud model for generation tasks.", []
 
+        # Step 3b: YAML → XML conversion (archimate-generator uses YAML pipeline)
+        yaml_source = None
+        pipeline_info = {
+            "pipeline": "xml",
+            "yaml_detected": False,
+            "yaml_valid_first_attempt": None,
+            "yaml_retry_triggered": False,
+            "yaml_retry_succeeded": None,
+            "yaml_fallback_to_xml": False,
+            "convert_ms": None,
+        }
+        if skill_entry.name == "archimate-generator":
+            yaml_text = self._extract_yaml(raw_output)
+            if yaml_text:
+                pipeline_info["yaml_detected"] = True
+                convert_start = time.perf_counter()
+                try:
+                    raw_output, _info = yaml_to_archimate_xml(yaml_text)
+                    pipeline_info["convert_ms"] = int(
+                        (time.perf_counter() - convert_start) * 1000
+                    )
+                    pipeline_info["pipeline"] = "yaml"
+                    pipeline_info["yaml_valid_first_attempt"] = True
+                    yaml_source = yaml_text
+                except ValueError as e:
+                    pipeline_info["yaml_valid_first_attempt"] = False
+                    pipeline_info["yaml_retry_triggered"] = True
+                    # Log failing YAML for prompt debugging
+                    logger.warning(
+                        f"[generation] YAML conversion failed: {e}\n"
+                        f"[generation] Failing YAML (first 500 chars): "
+                        f"{yaml_text[:500]}"
+                    )
+                    self._emit(event_queue, "status", "Fixing YAML errors...", start)
+                    retry_prompt = (
+                        f"{user_prompt}\n\n"
+                        f"YOUR PREVIOUS YAML HAD ERRORS:\n{e}\n\n"
+                        f"Fix the errors and generate corrected YAML."
+                    )
+                    retry_output, retry_stats = await self._call_llm(
+                        system_prompt, retry_prompt,
+                    )
+                    total_tokens["prompt_tokens"] += retry_stats["prompt_tokens"]
+                    total_tokens["completion_tokens"] += retry_stats["completion_tokens"]
+                    yaml_text = self._extract_yaml(retry_output)
+                    if yaml_text:
+                        convert_start = time.perf_counter()
+                        try:
+                            raw_output, _info = yaml_to_archimate_xml(yaml_text)
+                            pipeline_info["convert_ms"] = int(
+                                (time.perf_counter() - convert_start) * 1000
+                            )
+                            pipeline_info["pipeline"] = "yaml"
+                            pipeline_info["yaml_retry_succeeded"] = True
+                            yaml_source = yaml_text
+                        except ValueError as e2:
+                            pipeline_info["yaml_retry_succeeded"] = False
+                            return f"YAML conversion failed after retry: {e2}", []
+                    else:
+                        pipeline_info["yaml_retry_succeeded"] = False
+                        return "The model did not produce valid YAML on retry.", []
+            else:
+                pipeline_info["yaml_fallback_to_xml"] = True
+                logger.warning(
+                    "[generation] No YAML in output, falling back to XML path"
+                )
+
         # Step 4: Validate (if the skill declares a validation tool)
         validation_result = None
         if skill_entry.validation_tool:
@@ -201,6 +294,7 @@ class GenerationPipeline:
             artifact_info = self._save_artifact(
                 conversation_id, raw_output,
                 skill_entry, validation_result, doc_refs,
+                yaml_source=yaml_source,
             )
             if artifact_info and event_queue:
                 event_queue.put({
@@ -227,8 +321,14 @@ class GenerationPipeline:
         pt = total_tokens["prompt_tokens"]
         ct = total_tokens["completion_tokens"]
         artifact_fn = artifact_info["filename"] if conversation_id and artifact_info else "none"
+        pl = pipeline_info["pipeline"]
+        yaml_ok = pipeline_info["yaml_valid_first_attempt"]
+        yaml_retry = pipeline_info["yaml_retry_triggered"]
+        cvt_ms = pipeline_info["convert_ms"]
         logger.info(
             f"[generation] COMPLETE: refs={refs}, model={model}, "
+            f"pipeline={pl}, yaml_valid={yaml_ok}, yaml_retry={yaml_retry}, "
+            f"convert_ms={cvt_ms}, "
             f"prompt={pt}tok, completion={ct}tok, "
             f"elements={ec}, relationships={rc}, valid={valid}, "
             f"artifact={artifact_fn}, total={total_ms}ms"
@@ -631,10 +731,13 @@ class GenerationPipeline:
         skill_entry,
         validation_result: dict | None,
         doc_refs: list[str] | None = None,
+        yaml_source: str | None = None,
     ) -> dict | None:
         """Save the generated content as an artifact.
 
         Returns dict with id, filename, content_type, summary on success.
+        If yaml_source is provided, also saves a companion .yaml artifact
+        for future refinement.
         """
         from src.aion.chat_ui import save_artifact
 
@@ -657,6 +760,19 @@ class GenerationPipeline:
                 conversation_id, filename, content, content_type, summary,
             )
             logger.info(f"Saved generation artifact: {filename} ({artifact_id})")
+
+            # Save companion YAML for future refinement
+            if yaml_source:
+                yaml_filename = filename.replace(".archimate.xml", ".archimate.yaml")
+                try:
+                    save_artifact(
+                        conversation_id, yaml_filename, yaml_source,
+                        "text/yaml", "Source YAML",
+                    )
+                    logger.info(f"Saved YAML companion: {yaml_filename}")
+                except Exception as e:
+                    logger.warning(f"Failed to save YAML companion: {e}")
+
             return {
                 "id": artifact_id,
                 "filename": filename,
@@ -1083,6 +1199,32 @@ class GenerationPipeline:
         return None
 
     @staticmethod
+    def _extract_yaml(text: str) -> str | None:
+        """Extract YAML from LLM response.
+
+        Strips markdown code fences (even with preamble text before them)
+        and validates that the content looks like ArchiMate YAML by
+        requiring multiple expected keys.
+        """
+        if not text:
+            return None
+
+        content = text.strip()
+
+        # Strip code fences — search for first ``` (LLM may prepend preamble)
+        fence_start = content.find("```")
+        if fence_start >= 0:
+            content = content[fence_start:]
+            content = re.sub(r"^```(?:ya?ml)?\s*\n?", "", content)
+            content = re.sub(r"\n?```\s*$", "", content)
+            content = content.strip()
+
+        # Require multiple YAML keys to avoid false-positives on retrieval text
+        if "elements:" in content and ("model:" in content or "relationships:" in content):
+            return content
+        return None
+
+    @staticmethod
     def _sanitize_xml(xml: str) -> str:
         """Fix trivial XML syntax issues that LLMs produce.
 
@@ -1144,6 +1286,14 @@ class GenerationPipeline:
         content_type = (
             "archimate/xml" if "archimate" in skill_entry.name else None
         )
+        return get_latest_artifact(conversation_id, content_type)
+
+    @staticmethod
+    def _load_previous_artifact_by_type(
+        conversation_id: str, content_type: str,
+    ) -> dict | None:
+        """Load the most recent artifact of a specific content type."""
+        from src.aion.chat_ui import get_latest_artifact
         return get_latest_artifact(conversation_id, content_type)
 
     @staticmethod
