@@ -1,4 +1,4 @@
-# AInstein
+# AInstein [![Alliander](https://img.shields.io/badge/maintained%20by-Alliander-orange.svg)](https://www.alliander.com)
 
 Agentic RAG and multi-skill AI system developed by Alliander's Energy System Architecture Group to support various architecture workstreams. Built on Weaviate (Vector DB) + Elysia decision trees with an AInstein Persona layer for intent classification and a Skills Framework for prompt engineering.
 
@@ -408,3 +408,11 @@ client.close()
 ```bash
 curl http://localhost:8081/api/skills | python -m json.tool
 ```
+## Contact
+**Maintained by the Energy System Architecture (ESA) Team at Alliander**
+
+- Organization: [Alliander](https://www.alliander.com)
+- Repository: [esa-ainstein-artifacts](https://github.com/Alliander/esa-ainstein-artifacts)
+
+For questions or support, please [open an issue](https://github.com/Alliander/esa-ainstein-artifacts/issues) or contact the ESA team.
+
