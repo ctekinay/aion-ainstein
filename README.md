@@ -43,7 +43,7 @@ Queries are handled by the AInstein Persona, which classifies intent, emits skil
 └──────────┬─────────────────────┬──────────────────────┬──────────────┘
            │ retrieval / listing │ generation /         │ inspect
            │ / follow_up         │ refinement           │
-┌──────────▼──────────────────────────┐  ┌──────▼────────────────────────┐
+┌──────────▼─────────────────────▼────┐  ┌──────────────▼────────────────┐
 │       Elysia Decision Tree          │  │      Generation Pipeline      │
 │  Tool selection via LLM planner     │  │  Direct LLM call (no planner) │
 │  Atlas = injected skill content     │  │  Skill-driven prompt building │
@@ -63,7 +63,7 @@ Queries are handled by the AInstein Persona, which classifies intent, emits skil
 │  inspect_archimate_model            │                  │
 │  merge_archimate_view               │           ┌──────▼──────────┐
 │  save_artifact  get_artifact        │           │   Artifacts     │
-├─────────────────────────────────────┤  ┌▼───────┤  SQLite store   │
+├─────────────────────────────────────┤  ▼────────┤  SQLite store   │
 │  Summarizers: cited_summarize       │  │        │  SSE download   │
 └──────────────┬──────────────────────┘  │        │  card + API     │
                │                         │        │  File upload    │
