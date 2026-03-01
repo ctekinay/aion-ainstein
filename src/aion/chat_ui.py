@@ -849,6 +849,7 @@ async def stream_inspect_response(
 
     yaml_content = None
     source_filename = None
+    source = None
 
     # Path 1: Load latest artifact from conversation (try XML first, then YAML)
     artifact = None
@@ -867,22 +868,42 @@ async def stream_inspect_response(
                 yield f"data: {json.dumps({'type': 'complete', 'response': f'Failed to parse the ArchiMate model: {e}', 'sources': [], 'timing': {}})}\n\n"
                 return
         source_filename = artifact.get("filename", "model.archimate.xml")
+        source = f"Artifact: {source_filename}"
 
     # Path 2: Detect URL in the query and fetch content
     if not yaml_content:
         url_match = re.search(r'https?://\S+', question)
         if url_match:
             url = url_match.group(0).rstrip('.,;:)')
-            yield f"data: {json.dumps({'type': 'status', 'content': 'Fetching model from URL...'})}\n\n"
             try:
-                import httpx
-                async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
-                    resp = await client.get(url)
-                    resp.raise_for_status()
-                    fetched = resp.text
+                from src.aion.mcp.github import get_file_contents as mcp_get_file, parse_github_url
+                parsed = parse_github_url(url)
+                if parsed:
+                    yield f"data: {json.dumps({'type': 'status', 'content': 'Fetching from GitHub...'})}\n\n"
+                    fetched = await mcp_get_file(
+                        owner=parsed["owner"], repo=parsed["repo"],
+                        path=parsed["path"], ref=parsed["ref"],
+                    )
+                    source_filename = parsed["path"].rsplit("/", 1)[-1]
+                    source = f"Fetched from GitHub: {url}"
+                else:
+                    yield f"data: {json.dumps({'type': 'status', 'content': 'Fetching model from URL...'})}\n\n"
+                    import httpx
+                    async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
+                        resp = await client.get(url)
+                        resp.raise_for_status()
+                        fetched = resp.text
+                    source_filename = url.rsplit("/", 1)[-1] if "/" in url else "fetched-model.xml"
+                    source = f"Fetched from URL: {url}"
 
-                source_filename = url.rsplit("/", 1)[-1] if "/" in url else "fetched-model.xml"
                 is_yaml = source_filename.endswith((".yaml", ".yml"))
+                is_xml = source_filename.endswith(".xml")
+
+                if not is_yaml and not is_xml:
+                    raise ValueError(
+                        f"Unsupported file type: {source_filename}. "
+                        "The inspect pipeline supports ArchiMate XML (.xml) and YAML (.yaml, .yml) files."
+                    )
 
                 if is_yaml:
                     _parse_and_validate(fetched)
@@ -891,17 +912,12 @@ async def stream_inspect_response(
                         save_artifact(conversation_id, source_filename, fetched, "text/yaml", f"Fetched from: {url}")
                 else:
                     yaml_content = xml_to_yaml(fetched)
-                    if not source_filename.endswith(".xml"):
-                        source_filename = "fetched-model.archimate.xml"
                     if conversation_id:
                         save_artifact(conversation_id, source_filename, fetched, "archimate/xml", f"Fetched from: {url}")
 
                 logger.info(f"Fetched ArchiMate model from URL: {url} ({len(fetched)} chars)")
-            except httpx.HTTPStatusError as e:
-                yield f"data: {json.dumps({'type': 'complete', 'response': f'Failed to fetch URL: HTTP {e.response.status_code}', 'sources': [], 'timing': {}})}\n\n"
-                return
             except ValueError as e:
-                yield f"data: {json.dumps({'type': 'complete', 'response': f'The URL does not contain a valid ArchiMate model: {e}', 'sources': [], 'timing': {}})}\n\n"
+                yield f"data: {json.dumps({'type': 'complete', 'response': f'Failed to fetch model: {e}', 'sources': [], 'timing': {}})}\n\n"
                 return
             except Exception as e:
                 yield f"data: {json.dumps({'type': 'complete', 'response': f'Failed to fetch URL: {e}', 'sources': [], 'timing': {}})}\n\n"
@@ -916,13 +932,15 @@ async def stream_inspect_response(
     yield f"data: {json.dumps({'type': 'status', 'content': 'Analyzing model...'})}\n\n"
 
     system_prompt = (
-        "You are an ArchiMate architecture model analyst. The user has provided "
-        "an ArchiMate model in YAML format (elements and relationships). "
-        "Analyze the model and answer the user's question. "
+        "You are AInstein, reviewing an ArchiMate model. "
+        "The complete model content is provided below — it has already been "
+        "successfully retrieved and converted. Analyze it directly. "
+        "Never state that you cannot access, see, or retrieve the model — "
+        "you have the full content. "
         "Be specific — reference element names, types, and relationships from the model. "
         "Use markdown formatting for readability."
     )
-    user_prompt = f"ARCHIMATE MODEL (YAML):\n```yaml\n{yaml_content}```\n\nQUESTION: {question}"
+    user_prompt = f"[Source: {source}]\n\nARCHIMATE MODEL (YAML):\n```yaml\n{yaml_content}```\n\nQUESTION: {question}"
 
     start_time = time.time()
     try:
