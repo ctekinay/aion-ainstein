@@ -149,17 +149,27 @@ class Persona:
             )
 
     def _get_persona_prompt(self) -> str:
-        """Load the persona-orchestrator skill content."""
+        """Load persona-orchestrator + ainstein-identity skill content.
+
+        The orchestrator provides classification rules. The identity skill
+        provides tone, personality, and conversation style — needed for
+        direct responses (identity, off_topic) that bypass the Tree.
+        """
         if self._cached_prompt is not None:
             return self._cached_prompt
 
         skill = self._loader.load_skill("persona-orchestrator")
         if skill:
-            self._cached_prompt = skill.content
-            return self._cached_prompt
+            prompt = skill.content
+        else:
+            logger.warning("persona-orchestrator skill not found, using fallback prompt")
+            prompt = _FALLBACK_PROMPT
 
-        logger.warning("persona-orchestrator skill not found, using fallback prompt")
-        self._cached_prompt = _FALLBACK_PROMPT
+        identity = self._loader.load_skill("ainstein-identity")
+        if identity:
+            prompt = f"{prompt}\n\n{identity.content}"
+
+        self._cached_prompt = prompt
         return self._cached_prompt
 
     def _get_user_profile_block(self) -> str:
