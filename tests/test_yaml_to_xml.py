@@ -1,10 +1,11 @@
-"""Tests for the YAML-to-ArchiMate XML converter."""
+"""Tests for the ArchiMate YAML ↔ XML converter."""
 
 import xml.etree.ElementTree as ET
 
 import pytest
+import yaml
 
-from src.aion.tools.yaml_to_xml import yaml_to_archimate_xml
+from src.aion.tools.yaml_to_xml import xml_to_yaml, yaml_to_archimate_xml
 
 NS = "http://www.opengroup.org/xsd/archimate/3.0/"
 XSI = "http://www.w3.org/2001/XMLSchema-instance"
@@ -355,3 +356,109 @@ class TestRoundtrip:
         xml_str, _ = yaml_to_archimate_xml(ELEMENTS_ONLY_YAML)
         result = validate_archimate(xml_str)
         assert result["valid"], f"Validation errors: {result.get('errors', [])}"
+
+
+# ---------------------------------------------------------------------------
+# XML → YAML (reverse converter)
+# ---------------------------------------------------------------------------
+
+class TestXmlToYaml:
+
+    def test_roundtrip_preserves_element_count(self):
+        """xml_to_yaml output fed back to yaml_to_archimate_xml keeps counts."""
+        xml1, info1 = yaml_to_archimate_xml(VALID_YAML)
+        yaml_back = xml_to_yaml(xml1)
+        xml2, info2 = yaml_to_archimate_xml(yaml_back)
+        assert info1["element_count"] == info2["element_count"]
+        assert info1["relationship_count"] == info2["relationship_count"]
+
+    def test_extracts_all_elements(self):
+        xml_str, _ = yaml_to_archimate_xml(VALID_YAML)
+        yaml_str = xml_to_yaml(xml_str)
+        data = yaml.safe_load(yaml_str)
+        assert len(data["elements"]) == 4
+
+    def test_extracts_all_relationships(self):
+        xml_str, _ = yaml_to_archimate_xml(VALID_YAML)
+        yaml_str = xml_to_yaml(xml_str)
+        data = yaml.safe_load(yaml_str)
+        assert len(data["relationships"]) == 3
+
+    def test_strips_id_prefix(self):
+        xml_str, _ = yaml_to_archimate_xml(VALID_YAML)
+        yaml_str = xml_to_yaml(xml_str)
+        data = yaml.safe_load(yaml_str)
+        for elem in data["elements"]:
+            assert not elem["id"].startswith("id-"), (
+                f"Element ID should have id- prefix stripped: {elem['id']}"
+            )
+
+    def test_relationship_source_target_stripped(self):
+        xml_str, _ = yaml_to_archimate_xml(VALID_YAML)
+        yaml_str = xml_to_yaml(xml_str)
+        data = yaml.safe_load(yaml_str)
+        for rel in data["relationships"]:
+            assert not rel["source"].startswith("id-")
+            assert not rel["target"].startswith("id-")
+
+    def test_relationships_have_no_id(self):
+        xml_str, _ = yaml_to_archimate_xml(VALID_YAML)
+        yaml_str = xml_to_yaml(xml_str)
+        data = yaml.safe_load(yaml_str)
+        for rel in data["relationships"]:
+            assert "id" not in rel
+
+    def test_omits_empty_documentation(self):
+        xml_str, _ = yaml_to_archimate_xml(ELEMENTS_ONLY_YAML)
+        yaml_str = xml_to_yaml(xml_str)
+        data = yaml.safe_load(yaml_str)
+        for elem in data["elements"]:
+            if "documentation" in elem:
+                assert elem["documentation"], "Empty documentation should be omitted"
+
+    def test_handles_special_characters(self):
+        """Elements with & and < in names survive the round-trip."""
+        special_yaml = """\
+model:
+  name: "Special Chars Test"
+elements:
+  - id: a1
+    type: ApplicationComponent
+    name: "Forecast & Schedule"
+    documentation: "Threshold < 30s"
+relationships: []
+"""
+        xml_str, _ = yaml_to_archimate_xml(special_yaml)
+        yaml_back = xml_to_yaml(xml_str)
+        assert "Forecast & Schedule" in yaml_back
+        assert "Threshold < 30s" in yaml_back
+
+    def test_empty_relationships_produces_empty_list(self):
+        xml_str, _ = yaml_to_archimate_xml(ELEMENTS_ONLY_YAML)
+        yaml_str = xml_to_yaml(xml_str)
+        data = yaml.safe_load(yaml_str)
+        assert data["relationships"] == []
+
+    def test_invalid_xml_raises(self):
+        with pytest.raises(ValueError, match="Invalid XML"):
+            xml_to_yaml("not xml at all")
+
+    def test_no_elements_raises(self):
+        minimal_xml = (
+            '<?xml version="1.0"?>'
+            '<model xmlns="http://www.opengroup.org/xsd/archimate/3.0/">'
+            '<name xml:lang="en">Empty</name>'
+            '</model>'
+        )
+        with pytest.raises(ValueError, match="No.*elements"):
+            xml_to_yaml(minimal_xml)
+
+    def test_roundtrip_validates(self):
+        """Full roundtrip: YAML → XML → YAML → XML → validate."""
+        from src.aion.tools.archimate import validate_archimate
+
+        xml1, _ = yaml_to_archimate_xml(VALID_YAML)
+        yaml_back = xml_to_yaml(xml1)
+        xml2, _ = yaml_to_archimate_xml(yaml_back)
+        result = validate_archimate(xml2)
+        assert result["valid"], f"Roundtrip validation errors: {result.get('errors', [])}"

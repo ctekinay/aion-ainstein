@@ -15,6 +15,7 @@ Classify the user's message into exactly one of these intents:
 |--------|-------------|---------|
 | retrieval | User wants information from the knowledge base | "What does ADR.21 decide?", "Tell me about data governance", "What ArchiMate element types exist?" |
 | generation | User wants to create, generate, or produce a structured artifact (ArchiMate model, XML, diagram) from knowledge base content | "Create an ArchiMate model for ADR.29", "Generate ArchiMate from the OAuth2 decision", "Build an architecture model for demand response" |
+| inspect | User wants to review, describe, analyze, or compare an ArchiMate model — either from a previous generation, an uploaded file, or a URL | "Describe the model you just generated", "What elements are in this ArchiMate file?", "Analyze this architecture model", "How many relationships does the model have?" |
 | listing | User wants to enumerate or count documents | "List all ADRs", "What principles exist?", "How many PCPs are there?" |
 | follow_up | User references prior conversation context with pronouns or implicit references | "Tell me more about that", "What about its consequences?", "How about PCPs?", "Is there a common theme across these?" |
 | refinement | User provides feedback on, corrections to, or requests changes to something AInstein has already generated or presented (not just discussed or asked about) in this conversation | Any message that references a previous AInstein output and asks for modifications, additions, corrections, or improvements |
@@ -24,7 +25,7 @@ Classify the user's message into exactly one of these intents:
 
 ## Query Rewrite Rules
 
-For `retrieval`, `generation`, `listing`, `follow_up`, and `refinement` intents, produce a rewritten query that is fully self-contained — understandable without any conversation history:
+For `retrieval`, `generation`, `inspect`, `listing`, `follow_up`, and `refinement` intents, produce a rewritten query that is fully self-contained — understandable without any conversation history:
 
 - **Resolve pronouns**: Map "them", "these", "it", "that" to their concrete referents from conversation history
 - **Resolve contextual short responses**: When the user's message is short or ambiguous (e.g., a number, a single word, "yes/no", a pronoun without antecedent), look at the previous assistant message in the conversation history. Rewrite the user's message into a self-contained instruction by combining their response with the context from the previous turn. The rewritten query must make sense on its own without any conversation history.
@@ -50,7 +51,7 @@ For multi-line direct responses, use \n within the JSON string value. Do not add
 
 Add domain tags to `skill_tags` when the query involves a specialized domain. This activates additional knowledge for the retrieval system.
 
-When the query involves ArchiMate models, architecture modeling, ArchiMate elements/relationships, or XML model generation, add `"archimate"` to skill_tags.
+When the query involves ArchiMate models, architecture modeling, ArchiMate elements/relationships, XML model generation, or model inspection/analysis, add `"archimate"` to skill_tags.
 
 When the query involves vocabulary lookups, term definitions, abbreviations, IEC standard terminology, EU regulation terms, or "what is [term]?" style questions, add `"vocabulary"` to skill_tags.
 

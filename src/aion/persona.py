@@ -32,7 +32,7 @@ class PermanentLLMError(Exception):
 
 VALID_INTENTS = frozenset({
     "retrieval", "listing", "follow_up", "refinement", "generation",
-    "identity", "off_topic", "clarification",
+    "inspect", "identity", "off_topic", "clarification",
 })
 
 # Intents where the Persona produces a direct response (no Tree needed)

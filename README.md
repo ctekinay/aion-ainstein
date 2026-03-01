@@ -12,6 +12,7 @@ AInstein lets architects and engineers query Alliander's architecture knowledge 
 - **5,200+ SKOS Vocabulary Concepts** — IEC 61970/61968/62325 standards, CIM models, domain ontologies via SKOSMOS REST API
 - **Policy Documents** — data governance, privacy, security policies
 - **ArchiMate 3.2 Model Generation** — validated Open Exchange XML from architecture descriptions
+- **ArchiMate Model Inspection** — analyze, describe, and compare ArchiMate models from conversation artifacts, file uploads, or URLs
 - **SKOSMOS Vocabulary Lookups** — term definitions, abbreviations, concept hierarchies via structured API
 
 Queries are handled by the AInstein Persona, which classifies intent, emits skill tags for domain-specific capabilities, and rewrites queries. The Persona routes to the appropriate execution path:
@@ -19,6 +20,7 @@ Queries are handled by the AInstein Persona, which classifies intent, emits skil
 - **Retrieval queries** ("What ADRs exist?", "What is document 22?", "Define active power") go to the **Elysia Decision Tree**, which selects tools, searches collections, and formats responses with citations.
 - **Generation queries** ("Create an ArchiMate model for ADR.29") go to the **Generation Pipeline**, which fetches source content, builds a prompt from the matching skill, makes a single LLM call, validates, and saves the artifact for download. Token usage is tracked across all LLM calls (generation, view repair, validation retries) and reported in a single summary log line at completion.
 - **Refinement queries** ("Add a Technology layer to the model") go to the **Generation Pipeline** with the previous artifact loaded as context.
+- **Inspection queries** ("Describe the model you just generated", "What elements are in this ArchiMate file?") go to the **Inspection path**, which converts XML to compact YAML (~90% token reduction), sends it to the LLM for analysis, and streams the response. Models can come from conversation artifacts, file uploads (.xml/.yaml), or URLs.
 - **Direct response queries** ("Who are you?", "What's the weather?") are answered by the Persona without any backend call.
 
 **Disclaimer:** Currently, the above-mentioned data sources are integrated stand-alone via the data/ folder. The short-term goal for AInstein is full integration with ESA repositories, tools, and other internal data sources directly. 
@@ -34,38 +36,45 @@ Queries are handled by the AInstein Persona, which classifies intent, emits skil
 ┌──────────────▼───────────────────────────────────────────────────────┐
 │                    AInstein Persona Layer                            │
 │  Intent classification: retrieval, listing, follow_up, generation,   │
-│    refinement, identity, off_topic, clarification                    │
+│    refinement, inspect, identity, off_topic, clarification           │
 │  Query rewriting with conversation context (pronoun resolution)      │
 │  Skill tag emission for on-demand capabilities                       │
 │  Direct response for identity/off-topic/clarification                │
-└──────────┬────────────────────────────────────┬──────────────────────┘
-           │ retrieval / listing / follow_up    │ generation / refinement
-           │                                    │
-┌──────────▼──────────────────────────┐  ┌──────▼──────────────────────────┐
-│       Elysia Decision Tree          │  │      Generation Pipeline        │
-│  Tool selection via LLM planner     │  │  Direct LLM call (no planner)   │
-│  Atlas = injected skill content     │  │  Skill-driven prompt building   │
-├─────────────────────────────────────┤  ├─────────────────────────────────┤
-│  Tools:                             │  │  1. Fetch source content        │
-│  search_architecture_decisions      │  │  2. Load generation skill only  │
-│  search_principles                  │  │  3. Single LLM call             │
-│  search_policies                    │  │  4. XML sanitization            │
-│  list_all_adrs                      │  │  5. View repair (detect + fix)  │
-│  list_all_principles                │  │  6. Validation (+ retry)        │
-│  search_by_team                     │  │  7. Save artifact to SQLite     │
-│  get_collection_stats               │  │  8. Emit download card via SSE  │
-│  skosmos_search                     │  ├─────────────────────────────────┤
-│  skosmos_search                     │  │  For refinement: loads previous │
-│  skosmos_concept_details            │  │  artifact as LLM context        │
-│  skosmos_list_vocabularies          │  └────────────────┬────────────────┘
-│  validate_archimate                 │                   │
-│  inspect_archimate_model            │                   │
-│  merge_archimate_view               │            ┌──────▼──────────┐
-│  save_artifact  get_artifact        │            │   Artifacts     │
-├─────────────────────────────────────┤            │  SQLite store   │
-│  Summarizers: cited_summarize       │            │  SSE download   │
-└──────────────┬──────────────────────┘            │  card + API     │
-               │                                   └─────────────────┘
+└──────────┬─────────────────────┬──────────────────────┬─────────────────┘
+           │ retrieval / listing │ generation /         │ inspect
+           │ / follow_up        │ refinement           │
+┌──────────▼──────────────────────────┐  ┌──────▼────────────────────────┐
+│       Elysia Decision Tree          │  │      Generation Pipeline      │
+│  Tool selection via LLM planner     │  │  Direct LLM call (no planner) │
+│  Atlas = injected skill content     │  │  Skill-driven prompt building │
+├─────────────────────────────────────┤  ├───────────────────────────────┤
+│  Tools:                             │  │  1. Fetch source content      │
+│  search_architecture_decisions      │  │  2. Load generation skill     │
+│  search_principles                  │  │  3. Single LLM call           │
+│  search_policies                    │  │  4. XML sanitization          │
+│  list_all_adrs                      │  │  5. View repair (detect+fix)  │
+│  list_all_principles                │  │  6. Validation (+ retry)      │
+│  search_by_team                     │  │  7. Save artifact to SQLite   │
+│  get_collection_stats               │  │  8. Emit download card (SSE)  │
+│  skosmos_search                     │  ├───────────────────────────────┤
+│  skosmos_concept_details            │  │  For refinement: loads prev.  │
+│  skosmos_list_vocabularies          │  │  artifact as LLM context      │
+│  validate_archimate                 │  └───────────────┬───────────────┘
+│  inspect_archimate_model            │                  │
+│  merge_archimate_view               │           ┌──────▼──────────┐
+│  save_artifact  get_artifact        │           │   Artifacts     │
+├─────────────────────────────────────┤  ┌▼───────┤  SQLite store   │
+│  Summarizers: cited_summarize       │  │        │  SSE download   │
+└──────────────┬──────────────────────┘  │        │  card + API     │
+               │                         │        │  File upload    │
+               │                         │        └─────────────────┘
+               │                         │
+               │              ┌──────────┴──────────┐
+               │              │     Inspection      │
+               │              │  XML → YAML → LLM   │
+               │              │  Sources: artifact,  │
+               │              │  file upload, URL    │
+               │              └─────────────────────┘
                │
 ┌──────────────▼───────────────────────────────────────────────────────┐
 │                     Skills Framework                                 │
@@ -231,6 +240,7 @@ esa-ainstein-artifacts/
 │   │                             #   skill injection, abstention
 │   ├── tools/
 │   │   ├── archimate.py          # ArchiMate 3.2 validation, inspection, merge
+│   │   ├── yaml_to_xml.py        # ArchiMate YAML ↔ XML converter (generation + inspection)
 │   │   └── skosmos.py            # SKOSMOS REST API wrappers (search, concept details)
 │   ├── weaviate/
 │   │   ├── client.py             # Weaviate connection factory
@@ -334,8 +344,10 @@ When AInstein generates structured output (e.g., ArchiMate XML), it saves the co
 
 - **Download card** in the chat UI (appears automatically after generation)
 - **API endpoint** `GET /api/artifact/{id}/download` — returns the artifact content with the appropriate MIME type
+- **File upload** — click the paperclip button to upload ArchiMate files (.xml, .yaml, .yml) for inspection and analysis
+- **URL fetch** — paste a URL to an ArchiMate file in the chat and ask for inspection
 
-Artifacts persist across sessions and can be loaded for refinement in follow-up messages ("Add security constraints to the model").
+Artifacts persist across sessions and can be loaded for refinement ("Add security constraints to the model") or inspection ("Describe the model you just generated").
 
 ## Upgrading / Migration
 

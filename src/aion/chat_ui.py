@@ -678,6 +678,8 @@ def _get_execution_model(intent: str, skill_tags: list[str] | None) -> str:
     """
     if intent == "generation":
         return "generation"
+    if intent == "inspect":
+        return "inspect"
     if intent == "refinement" and skill_tags:
         registry = get_skill_registry()
         if registry.get_execution_model(skill_tags) == "generation":
@@ -828,6 +830,153 @@ async def stream_generation_response(
     except Empty:
         logger.error("Generation query timed out")
         yield f"data: {json.dumps({'type': 'error', 'content': 'Generation timed out'})}\n\n"
+
+
+async def stream_inspect_response(
+    question: str,
+    conversation_id: str | None = None,
+) -> AsyncGenerator[str, None]:
+    """Stream model inspection response as SSE events.
+
+    Three input paths (tried in order):
+    1. Load latest ArchiMate artifact from the conversation (XML or YAML)
+    2. Detect a URL in the query, fetch it, validate as ArchiMate content
+    3. No model found — prompt user to generate or upload
+    """
+    from src.aion.tools.yaml_to_xml import xml_to_yaml, _parse_and_validate
+
+    yield f"data: {json.dumps({'type': 'status', 'content': 'Loading model...'})}\n\n"
+
+    yaml_content = None
+    source_filename = None
+
+    # Path 1: Load latest artifact from conversation (try XML first, then YAML)
+    artifact = None
+    if conversation_id:
+        artifact = get_latest_artifact(conversation_id, content_type="archimate/xml")
+        if not artifact:
+            artifact = get_latest_artifact(conversation_id, content_type="text/yaml")
+
+    if artifact:
+        if artifact["content_type"] == "text/yaml":
+            yaml_content = artifact["content"]
+        else:
+            try:
+                yaml_content = xml_to_yaml(artifact["content"])
+            except ValueError as e:
+                yield f"data: {json.dumps({'type': 'complete', 'response': f'Failed to parse the ArchiMate model: {e}', 'sources': [], 'timing': {}})}\n\n"
+                return
+        source_filename = artifact.get("filename", "model.archimate.xml")
+
+    # Path 2: Detect URL in the query and fetch content
+    if not yaml_content:
+        url_match = re.search(r'https?://\S+', question)
+        if url_match:
+            url = url_match.group(0).rstrip('.,;:)')
+            yield f"data: {json.dumps({'type': 'status', 'content': 'Fetching model from URL...'})}\n\n"
+            try:
+                import httpx
+                async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
+                    resp = await client.get(url)
+                    resp.raise_for_status()
+                    fetched = resp.text
+
+                source_filename = url.rsplit("/", 1)[-1] if "/" in url else "fetched-model.xml"
+                is_yaml = source_filename.endswith((".yaml", ".yml"))
+
+                if is_yaml:
+                    _parse_and_validate(fetched)
+                    yaml_content = fetched
+                    if conversation_id:
+                        save_artifact(conversation_id, source_filename, fetched, "text/yaml", f"Fetched from: {url}")
+                else:
+                    yaml_content = xml_to_yaml(fetched)
+                    if not source_filename.endswith(".xml"):
+                        source_filename = "fetched-model.archimate.xml"
+                    if conversation_id:
+                        save_artifact(conversation_id, source_filename, fetched, "archimate/xml", f"Fetched from: {url}")
+
+                logger.info(f"Fetched ArchiMate model from URL: {url} ({len(fetched)} chars)")
+            except httpx.HTTPStatusError as e:
+                yield f"data: {json.dumps({'type': 'complete', 'response': f'Failed to fetch URL: HTTP {e.response.status_code}', 'sources': [], 'timing': {}})}\n\n"
+                return
+            except ValueError as e:
+                yield f"data: {json.dumps({'type': 'complete', 'response': f'The URL does not contain a valid ArchiMate model: {e}', 'sources': [], 'timing': {}})}\n\n"
+                return
+            except Exception as e:
+                yield f"data: {json.dumps({'type': 'complete', 'response': f'Failed to fetch URL: {e}', 'sources': [], 'timing': {}})}\n\n"
+                return
+
+    # Path 3: No model found
+    if not yaml_content:
+        yield f"data: {json.dumps({'type': 'complete', 'response': 'No ArchiMate model found in this conversation. Generate a model first, upload an ArchiMate XML/YAML file, or paste a URL to one.', 'sources': [], 'timing': {}})}\n\n"
+        return
+
+    # LLM analysis
+    yield f"data: {json.dumps({'type': 'status', 'content': 'Analyzing model...'})}\n\n"
+
+    system_prompt = (
+        "You are an ArchiMate architecture model analyst. The user has provided "
+        "an ArchiMate model in YAML format (elements and relationships). "
+        "Analyze the model and answer the user's question. "
+        "Be specific — reference element names, types, and relationships from the model. "
+        "Use markdown formatting for readability."
+    )
+    user_prompt = f"ARCHIMATE MODEL (YAML):\n```yaml\n{yaml_content}```\n\nQUESTION: {question}"
+
+    start_time = time.time()
+    try:
+        if settings.effective_tree_provider in ("github_models", "openai"):
+            from openai import OpenAI
+            client = OpenAI(**settings.get_openai_client_kwargs(settings.effective_tree_provider))
+            model = settings.effective_tree_model
+            kwargs = {
+                "model": model,
+                "messages": [
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt},
+                ],
+            }
+            model_base = model.rsplit("/", 1)[-1] if "/" in model else model
+            if model_base.startswith("gpt-5"):
+                kwargs["max_completion_tokens"] = 4096
+            else:
+                kwargs["max_tokens"] = 2000
+            response = client.chat.completions.create(**kwargs)
+            choice = response.choices[0] if response.choices else None
+            response_text = (choice.message.content or "").strip() if choice else ""
+        else:
+            import httpx
+            async with httpx.AsyncClient(timeout=120.0) as client:
+                resp = await client.post(
+                    f"{settings.ollama_url}/api/generate",
+                    json={
+                        "model": settings.effective_tree_model,
+                        "prompt": f"{system_prompt}\n\n{user_prompt}",
+                        "stream": False,
+                        "options": {"num_predict": 2000},
+                    },
+                )
+                resp.raise_for_status()
+                response_text = resp.json().get("response", "")
+                response_text = re.sub(r"<think>.*?</think>", "", response_text, flags=re.DOTALL)
+                response_text = re.sub(r"</?think>", "", response_text).strip()
+
+        total_ms = int((time.time() - start_time) * 1000)
+        timing = {"total_ms": total_ms}
+
+        sources = [{
+            "type": "ArchiMate Model",
+            "title": source_filename or "model.archimate.xml",
+            "preview": f"Model with {yaml_content.count('- id:')} elements",
+        }]
+
+        logger.info(f"Inspect complete: {total_ms}ms, {len(response_text)} chars")
+        yield f"data: {json.dumps({'type': 'complete', 'response': response_text, 'sources': sources, 'timing': timing})}\n\n"
+
+    except Exception as e:
+        logger.exception("Inspect LLM error")
+        yield f"data: {json.dumps({'type': 'error', 'content': f'Analysis failed: {e}'})}\n\n"
 
 
 def run_elysia_query(question: str, result_queue: Queue, output_queue: Queue,
@@ -1472,6 +1621,20 @@ async def chat_stream(request: ChatRequest):
                         final_timing = data.get("timing")
                 except:
                     pass
+        elif execution_model == "inspect":
+            async for event in stream_inspect_response(
+                persona_result.rewritten_query,
+                conversation_id=conversation_id,
+            ):
+                yield event
+                try:
+                    data = json.loads(event.replace("data: ", "").strip())
+                    if data.get("type") == "complete":
+                        final_response = data.get("response")
+                        final_sources = data.get("sources", [])
+                        final_timing = data.get("timing")
+                except:
+                    pass
         else:
             async for event in stream_elysia_response(
                 persona_result.rewritten_query,
@@ -1716,6 +1879,68 @@ async def download_artifact(artifact_id: str):
         media_type=mime,
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
+
+
+@app.post("/api/chat/upload")
+async def upload_file(request: Request):
+    """Upload an ArchiMate model file (.xml, .yaml, .yml) for inspection.
+
+    Accepts multipart form data with 'file' and optional 'conversation_id'.
+    Validates the file based on extension: XML via xml_to_yaml(), YAML via
+    _parse_and_validate(). Stores as artifact and returns metadata.
+    """
+    from src.aion.tools.yaml_to_xml import xml_to_yaml, _parse_and_validate
+
+    form = await request.form()
+    file = form.get("file")
+    conversation_id = form.get("conversation_id")
+
+    if not file or not hasattr(file, "filename"):
+        raise HTTPException(status_code=400, detail="No file uploaded")
+
+    filename = file.filename or "uploaded-model.xml"
+    content = (await file.read()).decode("utf-8")
+    await file.close()
+
+    if filename.endswith((".yaml", ".yml")):
+        try:
+            _parse_and_validate(content)
+        except ValueError as e:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid ArchiMate YAML: {e}",
+            )
+        content_type = "text/yaml"
+    elif filename.endswith(".xml"):
+        try:
+            xml_to_yaml(content)
+        except ValueError as e:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid ArchiMate XML: {e}",
+            )
+        content_type = "archimate/xml"
+    else:
+        raise HTTPException(
+            status_code=400,
+            detail="Unsupported file type. Upload .xml, .yaml, or .yml",
+        )
+
+    if not conversation_id:
+        conversation_id = create_conversation(f"Inspection: {filename}")
+
+    artifact_id = save_artifact(
+        conversation_id, filename, content, content_type,
+        summary=f"Uploaded file: {filename}",
+    )
+
+    logger.info(f"Upload: {filename} ({content_type}) → artifact {artifact_id}")
+
+    return {
+        "conversation_id": conversation_id,
+        "artifact_id": artifact_id,
+        "filename": filename,
+    }
 
 
 @app.get("/health")

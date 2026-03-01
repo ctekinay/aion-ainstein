@@ -1,9 +1,11 @@
-"""YAML-to-ArchiMate XML converter.
+"""ArchiMate YAML ↔ XML converter.
 
-Converts a lightweight YAML representation (elements + relationships only)
-into a complete ArchiMate 3.2 Open Exchange XML document with auto-generated
-grid views. The LLM produces YAML; this module handles all XML complexity
-deterministically.
+Forward (yaml_to_archimate_xml): Converts a lightweight YAML
+representation (elements + relationships only) into a complete
+ArchiMate 3.2 Open Exchange XML document with auto-generated grid views.
+
+Reverse (xml_to_yaml): Converts ArchiMate Open Exchange XML back to
+compact YAML for LLM inspection and reasoning (~90% token reduction).
 """
 
 import logging
@@ -338,3 +340,141 @@ def _generate_view(root: ET.Element, data: dict) -> None:
         c.set(f"{{{XSI}}}type", "Relationship")
         c.set("source", conn["source"])
         c.set("target", conn["target"])
+
+
+# ---------------------------------------------------------------------------
+# Reverse: XML → YAML
+# ---------------------------------------------------------------------------
+
+_TAG = lambda t: f"{{{NS}}}{t}"
+
+
+def xml_to_yaml(xml_str: str) -> str:
+    """Convert ArchiMate Open Exchange XML to compact YAML.
+
+    Extracts elements and relationships, discards views (they are
+    regenerated deterministically by yaml_to_archimate_xml). Produces
+    the same YAML format that yaml_to_archimate_xml accepts as input.
+
+    Args:
+        xml_str: Valid ArchiMate 3.2 Open Exchange XML string.
+
+    Returns:
+        YAML string with model, elements, and relationships.
+
+    Raises:
+        ValueError: If XML cannot be parsed or has no elements.
+    """
+    try:
+        root = ET.fromstring(xml_str)
+    except ET.ParseError as e:
+        raise ValueError(f"Invalid XML: {e}") from e
+
+    # Model metadata
+    name_el = root.find(_TAG("name"))
+    model_name = name_el.text.strip() if name_el is not None and name_el.text else "Untitled"
+    doc_el = root.find(_TAG("documentation"))
+    model_doc = doc_el.text.strip() if doc_el is not None and doc_el.text else ""
+
+    # Elements
+    elements_node = root.find(_TAG("elements"))
+    if elements_node is None:
+        raise ValueError("No <elements> section found in XML")
+
+    elements = []
+    element_ids: set[str] = set()
+    for elem in elements_node.findall(_TAG("element")):
+        eid = elem.get("identifier", "")
+        etype = elem.get(f"{{{XSI}}}type", "")
+        if not eid or etype not in VALID_ELEMENT_TYPES:
+            continue  # Skip junctions and unknown types
+        en = elem.find(_TAG("name"))
+        ename = en.text.strip() if en is not None and en.text else ""
+        if not ename:
+            continue
+        ed = elem.find(_TAG("documentation"))
+        edoc = ed.text.strip() if ed is not None and ed.text else ""
+
+        short_id = eid.removeprefix("id-")
+        element_ids.add(eid)
+        entry: dict = {"id": short_id, "type": etype, "name": ename}
+        if edoc:
+            entry["documentation"] = edoc
+        elements.append(entry)
+
+    if not elements:
+        raise ValueError("No valid elements found in XML")
+
+    # Relationships
+    rels_node = root.find(_TAG("relationships"))
+    relationships: list[dict] = []
+    if rels_node is not None:
+        for rel in rels_node.findall(_TAG("relationship")):
+            rtype = rel.get(f"{{{XSI}}}type", "")
+            source = rel.get("source", "")
+            target = rel.get("target", "")
+            if not rtype or rtype not in VALID_RELATIONSHIP_TYPES:
+                continue
+            if source not in element_ids or target not in element_ids:
+                continue  # Skip relationships referencing missing elements
+            rn = rel.find(_TAG("name"))
+            rname = rn.text.strip() if rn is not None and rn.text else ""
+
+            entry = {
+                "type": rtype,
+                "source": source.removeprefix("id-"),
+                "target": target.removeprefix("id-"),
+            }
+            if rname:
+                entry["name"] = rname
+            relationships.append(entry)
+
+    # Build YAML string with layer grouping for readability
+    lines = ["model:"]
+    lines.append(f'  name: "{_yaml_escape(model_name)}"')
+    if model_doc:
+        lines.append(f'  documentation: "{_yaml_escape(model_doc)}"')
+    lines.append("")
+    lines.append("elements:")
+
+    # Group by layer for readability
+    layer_groups: dict[str, list[dict]] = defaultdict(list)
+    for elem in elements:
+        layer = LAYER_MAP.get(elem["type"], "Composite")
+        layer_groups[layer].append(elem)
+
+    for layer in LAYER_ORDER:
+        group = layer_groups.get(layer)
+        if not group:
+            continue
+        lines.append(f"  # {layer}")
+        for elem in group:
+            lines.append(f"  - id: {elem['id']}")
+            lines.append(f"    type: {elem['type']}")
+            lines.append(f'    name: "{_yaml_escape(elem["name"])}"')
+            if elem.get("documentation"):
+                lines.append(f'    documentation: "{_yaml_escape(elem["documentation"])}"')
+
+    lines.append("")
+    if relationships:
+        lines.append("relationships:")
+        for rel in relationships:
+            lines.append(f"  - type: {rel['type']}")
+            lines.append(f"    source: {rel['source']}")
+            lines.append(f"    target: {rel['target']}")
+            if rel.get("name"):
+                lines.append(f'    name: "{_yaml_escape(rel["name"])}"')
+    else:
+        lines.append("relationships: []")
+
+    result = "\n".join(lines) + "\n"
+    logger.info(
+        f"[xml_to_yaml] Converted: {len(elements)} elements, "
+        f"{len(relationships)} relationships, {len(result)} chars"
+    )
+    return result
+
+
+def _yaml_escape(text: str) -> str:
+    """Escape characters that need quoting inside YAML double-quoted strings."""
+    return text.replace("\\", "\\\\").replace('"', '\\"')
