@@ -19,7 +19,7 @@ Queries are handled by the AInstein Persona, which classifies intent, emits skil
 
 - **Retrieval queries** ("What ADRs exist?", "What is document 22?", "Define active power") go to the **Elysia Decision Tree**, which selects tools, searches collections, and formats responses with citations.
 - **Generation queries** ("Create an ArchiMate model for ADR.29") go to the **Generation Pipeline**, which fetches source content, builds a prompt from the matching skill, makes a single LLM call, validates, and saves the artifact for download. Token usage is tracked across all LLM calls (generation, view repair, validation retries) and reported in a single summary log line at completion.
-- **Refinement queries** ("Add a Technology layer to the model") go to the **Generation Pipeline** with the previous artifact loaded as context.
+- **Refinement queries** ("Add a Technology layer to the model") go to the **Generation Pipeline** with the previous artifact loaded as context. The LLM returns a structured YAML diff envelope (~200 tokens) instead of regenerating the full model (~4,600 tokens). A deterministic merge engine applies the diff; if parsing fails, the pipeline falls back transparently to full regeneration.
 - **Inspection queries** ("Describe the model you just generated", "What elements are in this ArchiMate file?") go to the **Inspection path**, which converts XML to compact YAML (~90% token reduction), sends it to the LLM for analysis, and streams the response. Models can come from conversation artifacts, file uploads (.xml/.yaml), or URLs. GitHub URLs are fetched via MCP (Model Context Protocol) using the remote GitHub MCP server, with httpx fallback for non-GitHub URLs.
 - **Direct response queries** ("Who are you?", "What's the weather?") are answered by the Persona without any backend call.
 
@@ -57,8 +57,8 @@ Queries are handled by the AInstein Persona, which classifies intent, emits skil
 │  search_by_team                     │  │  7. Save artifact to SQLite   │
 │  get_collection_stats               │  │  8. Emit download card (SSE)  │
 │  skosmos_search                     │  ├───────────────────────────────┤
-│  skosmos_concept_details            │  │  For refinement: loads prev.  │
-│  skosmos_list_vocabularies          │  │  artifact as LLM context      │
+│  skosmos_concept_details            │  │  Refinement: YAML diff merge  │
+│  skosmos_list_vocabularies          │  │  with full-regen fallback     │
 │  validate_archimate                 │  └───────────────┬───────────────┘
 │  inspect_archimate_model            │                  │
 │  merge_archimate_view               │           ┌──────▼──────────┐
@@ -348,7 +348,7 @@ No additional setup is required — SQLite is part of the Python standard librar
 
 ## Artifacts
 
-When AInstein generates structured output (e.g., ArchiMate XML), it saves the content as an artifact in the same SQLite database. The chat UI shows a download card with the filename, a summary (element/relationship counts), and a download button. Artifacts are accessible via:
+When AInstein generates structured output (e.g., ArchiMate XML), it saves the content as an artifact in the same SQLite database. The chat UI shows a download card with the filename, a summary (element/relationship counts), and download buttons. ArchiMate artifacts show dual download buttons (XML + YAML); other artifacts show a single button. Artifacts are accessible via:
 
 - **Download card** in the chat UI (appears automatically after generation)
 - **API endpoint** `GET /api/artifact/{id}/download` — returns the artifact content with the appropriate MIME type

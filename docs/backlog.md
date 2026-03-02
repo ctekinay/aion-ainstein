@@ -8,49 +8,6 @@ n/a
 
 ## Medium Priority
 
-### Diff-Based Refinement
-Replace full-model regeneration with a structured delta approach. The
-LLM sees the full model for context but returns only a YAML diff. A
-deterministic merge engine applies the diff mechanically.
-
-**Format:** Pure YAML envelope (no XML-inside-YAML mixing):
-```yaml
-refinement:
-  add:
-    elements:
-      - id: t1
-        type: Node
-        name: "API Gateway Runtime"
-    relationships:
-      - type: Serving
-        source: t1
-        target: a8
-  modify:
-    a1:
-      name: "Authorization Server (OAuth2) + OpenID Provider"
-  remove:
-    elements: [a99]
-```
-
-**Merge engine policy:**
-- `add` — append elements/relationships to existing YAML
-- `modify` — find element by ID, patch specified fields
-- `remove` — cascade-with-warning: remove element, remove all
-  dangling relationships (where element is source or target),
-  include cleanup note in response to user
-
-**Files to modify:** `generation.py` (refinement prompt + merge
-function), possibly `tools/archimate.py` (merge engine).
-
-**Validation:** existing pipeline (YAML→XML, schema check, view
-repair) runs on the merged result. Fallback: if diff parsing fails,
-fall back to full-regeneration (current behavior).
-
-**Before implementing:** run one refinement both ways on the same
-model and measure actual token reduction. The YAML pivot already cut
-full-regeneration from ~34K to ~9K tokens — measure the real delta
-before claiming a percentage.
-
 ### Dynamic Model Catalog
 Populate the settings dropdown by querying the provider's model list
 at runtime (OpenAI `/v1/models`, Ollama `/api/tags`). Prevents invalid model name errors that currently cause silent degradation.
@@ -108,6 +65,17 @@ When the user starts a new chat, the thinking traces (retrieval steps, intent cl
 **Expected behavior:** Thinking traces are part of the conversation record. Returning to an old chat and enabling "Show thinking" should display the original traces for each response.
 
 ## Completed
+
+### Diff-Based Refinement
+LLM returns a structured YAML diff envelope (~163 completion tokens)
+instead of regenerating the full model (~4,625 tokens). A deterministic
+merge engine (`apply_yaml_diff()` in `yaml_to_xml.py`) applies
+add/modify/remove operations with cascade-on-delete for dangling
+relationships. Falls back transparently to full regeneration if the
+diff is malformed or the model ignores the format. YAML companion
+artifact now visible via dual download buttons (XML + YAML). Change
+summary shown in response after successful diff merge. Measured:
+96.5% token reduction, 91.5% latency reduction on refinement.
 
 ### Progressive Skill Loading
 Implemented via `inject_mode: on_demand` with `tags` in the skill
