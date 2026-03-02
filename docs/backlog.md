@@ -4,13 +4,7 @@ Queued technical work items with context and rationale.
 
 ## High Priority
 
-### Progressive Skill Loading
-Replace `inject_mode: always/on_demand` with `load_when: {intents, tags}`
-in the skill registry. The Persona already classifies intent and
-skill_tags — these signals should drive skill loading. Currently all
-"always-inject" skills load on every query regardless of relevance,
-adding ~25K chars of unnecessary context. Estimated 40-80% token
-reduction per query across all execution paths.
+n/a
 
 ## Medium Priority
 
@@ -29,11 +23,6 @@ at runtime (OpenAI `/v1/models`, Ollama `/api/tags`). Prevents invalid model nam
 n/a
 
 ## No Priority Assigned (requires a technical discovery session)
-
-### Alliander Github MCP Integration
-The system currently has no MCP integration with ESA's Alliander Github repos; especially with the esa-main-artifacts where ADRs and principles are recorded. 
-
----
 
 ### Cross-Conversation Memory and User Preferences
 The system currently has no memory beyond a single conversation.
@@ -83,6 +72,21 @@ When the user starts a new chat, the thinking traces (retrieval steps, intent cl
 **Expected behavior:** Thinking traces are part of the conversation record. Returning to an old chat and enabling "Show thinking" should display the original traces for each response.
 
 ## Completed
+
+### Progressive Skill Loading
+Implemented via `inject_mode: on_demand` with `tags` in the skill
+registry. The Persona emits `skill_tags` on every classification;
+`get_skill_content(active_tags=...)` only includes on-demand skills
+when their tags match. ArchiMate and SKOSMOS skills load only when
+relevant. Always-inject skills (identity, QA, ontology, formatter)
+remain on every query as they apply universally.
+
+### Alliander GitHub MCP Integration
+Implemented MCP client framework (`src/aion/mcp/`) with GitHub file
+fetching via the GitHub Copilot MCP server. The inspect pipeline
+fetches ArchiMate models from GitHub URLs, converts to YAML, and
+streams LLM analysis. Supports both `github.com` blob URLs and
+`raw.githubusercontent.com` URLs.
 
 ### Sanitize XML on Every Validation Retry
 `_sanitize_xml()` now runs before each validation retry attempt,

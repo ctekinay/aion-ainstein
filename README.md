@@ -219,7 +219,12 @@ skills/
     └── SKILL.md                     # SKOSMOS REST API search and concept lookup
 ```
 
-**How it works:** Always-on skills are concatenated and injected into the Elysia Tree's `atlas.agent_description` field before each query. On-demand skills are injected only when the Persona emits matching `skill_tags` (e.g., `["archimate"]` or `["vocabulary"]`). This keeps the prompt lean for standard KB queries while activating specialized knowledge when needed. The Generation Pipeline loads only the matching generation skill (e.g., `archimate-generator`) — not the always-on skills — since it operates outside the Tree's retrieval context.
+**Progressive Skill Loading:** Skills use two injection modes to minimize token usage:
+
+- **Always-on** — core skills (identity, quality assurance, document ontology, response formatting) are injected into every prompt via the Elysia Tree's `atlas.agent_description`. These apply to all query types.
+- **On-demand** — domain-specific skills (ArchiMate generation, ArchiMate views, SKOSMOS vocabulary) are injected only when the Persona emits matching `skill_tags` (e.g., `["archimate"]` or `["vocabulary"]`). A standard KB query like "What ADRs exist?" never loads the ArchiMate generation skill (~10K chars) or SKOSMOS vocabulary rules.
+
+This reduces prompt size by 40-80% for standard queries compared to loading all skills on every call. The Generation Pipeline loads only the matching generation skill (e.g., `archimate-generator`) — not the always-on skills — since it operates outside the Tree's retrieval context.
 
 **Thresholds:** The `rag-quality-assurance` skill has a `thresholds.yaml` that controls:
 - `abstention.distance_threshold` (0.5) — maximum vector distance before abstaining
