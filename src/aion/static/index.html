@@ -1497,9 +1497,15 @@
             color: var(--text-secondary, #666);
             margin-top: 2px;
         }
+        .artifact-downloads {
+            display: flex;
+            gap: 4px;
+            flex-shrink: 0;
+        }
         .artifact-download {
             flex-shrink: 0;
             display: flex;
+            flex-direction: column;
             align-items: center;
             justify-content: center;
             width: 36px;
@@ -1507,10 +1513,18 @@
             border-radius: 6px;
             color: var(--text-secondary, #666);
             transition: background 0.15s, color 0.15s;
+            text-decoration: none;
         }
         .artifact-download:hover {
             background: var(--hover-bg, #e8e8e8);
             color: var(--text-primary, #333);
+        }
+        .artifact-dl-label {
+            font-size: 9px;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            line-height: 1;
+            opacity: 0.7;
         }
     </style>
 </head>
@@ -2479,6 +2493,25 @@
                 + '</svg>';
             const icon = data.content_type === 'archimate/xml' ? archimateIcon : '\u{1F4C4}';
             const summary = data.summary ? `<span class="artifact-summary">${escapeHtml(data.summary)}</span>` : '';
+            const dlSvg = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>';
+
+            let downloadButtons;
+            if (data.yaml_companion_id) {
+                downloadButtons = `
+                    <div class="artifact-downloads">
+                        <a href="/api/artifact/${data.artifact_id}/download" class="artifact-download" download="${escapeHtml(data.filename)}" title="Download XML">
+                            <span class="artifact-dl-label">XML</span>${dlSvg}
+                        </a>
+                        <a href="/api/artifact/${data.yaml_companion_id}/download" class="artifact-download" download="${escapeHtml(data.yaml_filename || 'model.yaml')}" title="Download YAML">
+                            <span class="artifact-dl-label">YAML</span>${dlSvg}
+                        </a>
+                    </div>`;
+            } else {
+                downloadButtons = `
+                    <a href="/api/artifact/${data.artifact_id}/download" class="artifact-download" download="${escapeHtml(data.filename)}" title="Download">
+                        ${dlSvg}
+                    </a>`;
+            }
 
             card.innerHTML = `
                 <div class="artifact-card-inner">
@@ -2487,9 +2520,7 @@
                         <div class="artifact-filename">${escapeHtml(data.filename)}</div>
                         ${summary}
                     </div>
-                    <a href="/api/artifact/${data.artifact_id}/download" class="artifact-download" download="${escapeHtml(data.filename)}" title="Download">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                    </a>
+                    ${downloadButtons}
                 </div>
             `;
 

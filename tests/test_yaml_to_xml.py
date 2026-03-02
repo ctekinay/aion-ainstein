@@ -5,7 +5,7 @@ import xml.etree.ElementTree as ET
 import pytest
 import yaml
 
-from src.aion.tools.yaml_to_xml import xml_to_yaml, yaml_to_archimate_xml
+from src.aion.tools.yaml_to_xml import apply_yaml_diff, xml_to_yaml, yaml_to_archimate_xml
 
 NS = "http://www.opengroup.org/xsd/archimate/3.0/"
 XSI = "http://www.w3.org/2001/XMLSchema-instance"
@@ -462,3 +462,252 @@ relationships: []
         xml2, _ = yaml_to_archimate_xml(yaml_back)
         result = validate_archimate(xml2)
         assert result["valid"], f"Roundtrip validation errors: {result.get('errors', [])}"
+
+
+# ---------------------------------------------------------------------------
+# Diff-based refinement: apply_yaml_diff
+# ---------------------------------------------------------------------------
+
+class TestApplyYamlDiff:
+    """Tests for the diff-based merge engine."""
+
+    def test_add_elements_and_relationships(self):
+        diff = """\
+refinement:
+  add:
+    elements:
+      - id: t2
+        type: Node
+        name: "API Gateway"
+    relationships:
+      - type: Serving
+        source: t2
+        target: a1
+"""
+        merged, summary = apply_yaml_diff(VALID_YAML, diff)
+        data = yaml.safe_load(merged)
+        assert len(data["elements"]) == 5
+        assert any(e["id"] == "t2" for e in data["elements"])
+        # Relationship count: 3 original + 1 new
+        assert len(data["relationships"]) == 4
+        assert summary["added_elements"] == 1
+        assert summary["added_relationships"] == 1
+        assert summary["modified"] == 0
+        assert summary["removed_elements"] == 0
+
+    def test_modify_element_name(self):
+        diff = """\
+refinement:
+  modify:
+    a1:
+      name: "Renamed Order Service"
+"""
+        merged, summary = apply_yaml_diff(VALID_YAML, diff)
+        data = yaml.safe_load(merged)
+        a1 = next(e for e in data["elements"] if e["id"] == "a1")
+        assert a1["name"] == "Renamed Order Service"
+        # Type should be unchanged
+        assert a1["type"] == "ApplicationComponent"
+        assert summary["modified"] == 1
+
+    def test_modify_element_documentation(self):
+        diff = """\
+refinement:
+  modify:
+    b1:
+      documentation: "Updated process description"
+"""
+        merged, summary = apply_yaml_diff(VALID_YAML, diff)
+        data = yaml.safe_load(merged)
+        b1 = next(e for e in data["elements"] if e["id"] == "b1")
+        assert b1.get("documentation") == "Updated process description"
+        assert summary["modified"] == 1
+
+    def test_modify_model_metadata(self):
+        diff = """\
+refinement:
+  modify:
+    model:
+      name: "Updated Model Name"
+      documentation: "New description"
+"""
+        merged, summary = apply_yaml_diff(VALID_YAML, diff)
+        data = yaml.safe_load(merged)
+        assert data["model"]["name"] == "Updated Model Name"
+        assert data["model"]["documentation"] == "New description"
+        assert summary["modified"] == 1
+
+    def test_remove_element_cascades_relationships(self):
+        """Removing a1 should cascade-remove relationships where a1 is source or target."""
+        diff = """\
+refinement:
+  remove:
+    elements: [a1]
+"""
+        merged, summary = apply_yaml_diff(VALID_YAML, diff)
+        data = yaml.safe_load(merged)
+        # a1 removed → 3 elements left
+        assert len(data["elements"]) == 3
+        assert not any(e["id"] == "a1" for e in data["elements"])
+        # a1 was source in Serving:a1→b1 and Composition:a1→a2,
+        # and target in Serving:t1→a1 — all 3 should be removed
+        assert len(data["relationships"]) == 0
+        assert summary["removed_elements"] == 1
+        assert summary["removed_relationships"] == 3
+        assert len(summary["cascade_notes"]) == 3
+
+    def test_cascade_note_format(self):
+        diff = """\
+refinement:
+  remove:
+    elements: [a2]
+"""
+        _, summary = apply_yaml_diff(VALID_YAML, diff)
+        # a2 is target in Composition:a1→a2 — one cascaded removal
+        assert summary["removed_relationships"] == 1
+        note = summary["cascade_notes"][0]
+        assert "Composition" in note
+        assert "a1" in note
+        assert "a2" in note
+
+    def test_invalid_modify_nonexistent_id(self):
+        diff = """\
+refinement:
+  modify:
+    nonexistent:
+      name: "Ghost"
+"""
+        with pytest.raises(ValueError, match="not found"):
+            apply_yaml_diff(VALID_YAML, diff)
+
+    def test_invalid_add_duplicate_id(self):
+        diff = """\
+refinement:
+  add:
+    elements:
+      - id: a1
+        type: ApplicationComponent
+        name: "Duplicate"
+"""
+        with pytest.raises(ValueError, match="already exists"):
+            apply_yaml_diff(VALID_YAML, diff)
+
+    def test_invalid_add_bad_type(self):
+        diff = """\
+refinement:
+  add:
+    elements:
+      - id: x1
+        type: FakeType
+        name: "Bad"
+"""
+        with pytest.raises(ValueError, match="invalid type"):
+            apply_yaml_diff(VALID_YAML, diff)
+
+    def test_invalid_modify_forbidden_field(self):
+        diff = """\
+refinement:
+  modify:
+    a1:
+      type: BusinessProcess
+"""
+        with pytest.raises(ValueError, match="cannot patch field 'type'"):
+            apply_yaml_diff(VALID_YAML, diff)
+
+    def test_invalid_missing_refinement_key(self):
+        diff = """\
+add:
+  elements:
+    - id: x1
+      type: Node
+      name: "No refinement wrapper"
+"""
+        with pytest.raises(ValueError, match="refinement"):
+            apply_yaml_diff(VALID_YAML, diff)
+
+    def test_mixed_valid_invalid_is_all_or_nothing(self):
+        """3 valid adds + 1 invalid modify → entire diff rejected."""
+        diff = """\
+refinement:
+  add:
+    elements:
+      - id: x1
+        type: Node
+        name: "Good 1"
+      - id: x2
+        type: Node
+        name: "Good 2"
+      - id: x3
+        type: Node
+        name: "Good 3"
+  modify:
+    nonexistent:
+      name: "Bad"
+"""
+        with pytest.raises(ValueError, match="not found"):
+            apply_yaml_diff(VALID_YAML, diff)
+        # Base model should be unchanged (all-or-nothing verified by
+        # the fact that ValueError was raised before serialization)
+
+    def test_empty_sections_work(self):
+        """Diff with only add (no modify/remove) should succeed."""
+        diff = """\
+refinement:
+  add:
+    elements:
+      - id: n1
+        type: Node
+        name: "New Node"
+"""
+        merged, summary = apply_yaml_diff(VALID_YAML, diff)
+        data = yaml.safe_load(merged)
+        assert len(data["elements"]) == 5
+        assert summary["added_elements"] == 1
+        assert summary["modified"] == 0
+        assert summary["removed_elements"] == 0
+
+    def test_id_normalization_strips_prefix(self):
+        """Diff with id- prefix should work (stripped automatically)."""
+        diff = """\
+refinement:
+  add:
+    elements:
+      - id: id-n1
+        type: Node
+        name: "Prefixed ID"
+    relationships:
+      - type: Serving
+        source: id-n1
+        target: id-a1
+"""
+        merged, summary = apply_yaml_diff(VALID_YAML, diff)
+        data = yaml.safe_load(merged)
+        assert any(e["id"] == "n1" for e in data["elements"])
+        assert summary["added_elements"] == 1
+        assert summary["added_relationships"] == 1
+
+    def test_roundtrip_after_merge(self):
+        """Merged YAML → _parse_and_validate → yaml_to_archimate_xml → validate."""
+        from src.aion.tools.archimate import validate_archimate
+
+        diff = """\
+refinement:
+  add:
+    elements:
+      - id: t2
+        type: Node
+        name: "Load Balancer"
+    relationships:
+      - type: Serving
+        source: t2
+        target: a1
+  modify:
+    b1:
+      name: "Updated Order Processing"
+"""
+        merged, _ = apply_yaml_diff(VALID_YAML, diff)
+        xml_str, info = yaml_to_archimate_xml(merged)
+        assert info["element_count"] == 5
+        assert info["relationship_count"] == 4
+        result = validate_archimate(xml_str)
+        assert result["valid"], f"Validation errors: {result.get('errors', [])}"

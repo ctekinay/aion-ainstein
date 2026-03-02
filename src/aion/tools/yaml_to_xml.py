@@ -429,11 +429,35 @@ def xml_to_yaml(xml_str: str) -> str:
                 entry["name"] = rname
             relationships.append(entry)
 
-    # Build YAML string with layer grouping for readability
+    result = _serialize_yaml(
+        {"name": model_name, "documentation": model_doc},
+        elements,
+        relationships,
+    )
+    logger.info(
+        f"[xml_to_yaml] Converted: {len(elements)} elements, "
+        f"{len(relationships)} relationships, {len(result)} chars"
+    )
+    return result
+
+
+def _serialize_yaml(
+    model: dict, elements: list[dict], relationships: list[dict],
+) -> str:
+    """Serialize model data to human-readable YAML string with layer grouping.
+
+    Args:
+        model: Dict with 'name' and optional 'documentation'.
+        elements: List of element dicts with short IDs (no 'id-' prefix).
+        relationships: List of relationship dicts with short source/target IDs.
+
+    Returns:
+        YAML string ready for round-tripping through _parse_and_validate().
+    """
     lines = ["model:"]
-    lines.append(f'  name: "{_yaml_escape(model_name)}"')
-    if model_doc:
-        lines.append(f'  documentation: "{_yaml_escape(model_doc)}"')
+    lines.append(f'  name: "{_yaml_escape(model["name"])}"')
+    if model.get("documentation"):
+        lines.append(f'  documentation: "{_yaml_escape(model["documentation"])}"')
     lines.append("")
     lines.append("elements:")
 
@@ -467,14 +491,206 @@ def xml_to_yaml(xml_str: str) -> str:
     else:
         lines.append("relationships: []")
 
-    result = "\n".join(lines) + "\n"
-    logger.info(
-        f"[xml_to_yaml] Converted: {len(elements)} elements, "
-        f"{len(relationships)} relationships, {len(result)} chars"
-    )
-    return result
+    return "\n".join(lines) + "\n"
 
 
 def _yaml_escape(text: str) -> str:
     """Escape characters that need quoting inside YAML double-quoted strings."""
     return text.replace("\\", "\\\\").replace('"', '\\"')
+
+
+# ---------------------------------------------------------------------------
+# Diff-based refinement: merge engine
+# ---------------------------------------------------------------------------
+
+# Fields that can be patched via modify (not id — that's the lookup key,
+# not type — changing ArchiMate layer should be remove+add)
+_PATCHABLE_ELEMENT_FIELDS = {"name", "documentation"}
+
+
+def apply_yaml_diff(base_yaml: str, diff_yaml: str) -> tuple[str, dict]:
+    """Apply a structured YAML diff envelope to an existing ArchiMate model.
+
+    The diff envelope uses a ``refinement:`` root key with ``add``,
+    ``modify``, and ``remove`` sections.  All operations are validated
+    before any mutation; if any operation is invalid the entire diff is
+    rejected (all-or-nothing).
+
+    Args:
+        base_yaml: Existing model as YAML (short IDs, no ``id-`` prefix).
+        diff_yaml: Diff envelope with ``refinement:`` root key.
+
+    Returns:
+        Tuple of (merged_yaml_string, change_summary_dict).
+
+    Raises:
+        ValueError: If the diff is structurally invalid or references
+            nonexistent IDs.
+    """
+    # -- Parse inputs -------------------------------------------------------
+    try:
+        base = yaml.safe_load(base_yaml)
+    except yaml.YAMLError as e:
+        raise ValueError(f"Base YAML parse error: {e}") from e
+    try:
+        diff = yaml.safe_load(diff_yaml)
+    except yaml.YAMLError as e:
+        raise ValueError(f"Diff YAML parse error: {e}") from e
+
+    if not isinstance(diff, dict) or "refinement" not in diff:
+        raise ValueError("Diff must have a 'refinement' root key")
+
+    ref = diff["refinement"]
+    if not isinstance(ref, dict):
+        raise ValueError("'refinement' must be a mapping")
+
+    # -- Build mutable structures from base ---------------------------------
+    model = dict(base.get("model", {}))
+    elements: list[dict] = [dict(e) for e in base.get("elements", [])]
+    relationships: list[dict] = [dict(r) for r in base.get("relationships", [])]
+
+    # Index by short ID (strip id- prefix if present in base)
+    element_index: dict[str, dict] = {}
+    for elem in elements:
+        sid = str(elem.get("id", "")).removeprefix("id-")
+        elem["id"] = sid  # normalize to short
+        element_index[sid] = elem
+
+    # Normalize relationship source/target to short IDs
+    for rel in relationships:
+        rel["source"] = str(rel.get("source", "")).removeprefix("id-")
+        rel["target"] = str(rel.get("target", "")).removeprefix("id-")
+
+    summary = {
+        "added_elements": 0,
+        "added_relationships": 0,
+        "modified": 0,
+        "removed_elements": 0,
+        "removed_relationships": 0,
+        "cascade_notes": [],
+    }
+
+    # -- ADD elements (before relationships so new IDs are available) --------
+    add_section = ref.get("add", {}) or {}
+    for new_elem in add_section.get("elements", []) or []:
+        if not isinstance(new_elem, dict):
+            raise ValueError("Each added element must be a mapping")
+        eid = str(new_elem.get("id", "")).strip().removeprefix("id-")
+        if not eid:
+            raise ValueError("Added element missing 'id'")
+        etype = str(new_elem.get("type", "")).strip()
+        if etype not in VALID_ELEMENT_TYPES:
+            raise ValueError(
+                f"Added element '{eid}': invalid type '{etype}'"
+            )
+        ename = str(new_elem.get("name", "")).strip()
+        if not ename:
+            raise ValueError(f"Added element '{eid}': 'name' is required")
+        if eid in element_index:
+            raise ValueError(f"Added element '{eid}': ID already exists in model")
+
+        entry = {"id": eid, "type": etype, "name": ename}
+        edoc = str(new_elem.get("documentation", "")).strip()
+        if edoc:
+            entry["documentation"] = edoc
+        elements.append(entry)
+        element_index[eid] = entry
+        summary["added_elements"] += 1
+
+    # -- ADD relationships --------------------------------------------------
+    for new_rel in add_section.get("relationships", []) or []:
+        if not isinstance(new_rel, dict):
+            raise ValueError("Each added relationship must be a mapping")
+        rtype = str(new_rel.get("type", "")).strip()
+        if rtype not in VALID_RELATIONSHIP_TYPES:
+            raise ValueError(f"Added relationship: invalid type '{rtype}'")
+        src = str(new_rel.get("source", "")).strip().removeprefix("id-")
+        tgt = str(new_rel.get("target", "")).strip().removeprefix("id-")
+        if not src or not tgt:
+            raise ValueError("Added relationship: 'source' and 'target' required")
+        if src not in element_index:
+            raise ValueError(
+                f"Added relationship: source '{src}' not found in model"
+            )
+        if tgt not in element_index:
+            raise ValueError(
+                f"Added relationship: target '{tgt}' not found in model"
+            )
+        entry = {"type": rtype, "source": src, "target": tgt}
+        rname = str(new_rel.get("name", "")).strip()
+        if rname:
+            entry["name"] = rname
+        relationships.append(entry)
+        summary["added_relationships"] += 1
+
+    # -- MODIFY elements + model metadata -----------------------------------
+    modify_section = ref.get("modify", {}) or {}
+    for key, patches in modify_section.items():
+        if not isinstance(patches, dict):
+            raise ValueError(f"Modify '{key}': value must be a mapping of fields")
+
+        if key == "model":
+            # Patch model metadata
+            for field, value in patches.items():
+                if field not in {"name", "documentation"}:
+                    raise ValueError(
+                        f"Modify model: unknown field '{field}' "
+                        f"(allowed: name, documentation)"
+                    )
+                model[field] = str(value).strip()
+            summary["modified"] += 1
+            continue
+
+        # Patch element
+        eid = str(key).strip().removeprefix("id-")
+        if eid not in element_index:
+            raise ValueError(f"Modify '{eid}': element not found in model")
+        elem = element_index[eid]
+        for field, value in patches.items():
+            if field not in _PATCHABLE_ELEMENT_FIELDS:
+                raise ValueError(
+                    f"Modify '{eid}': cannot patch field '{field}' "
+                    f"(allowed: {', '.join(sorted(_PATCHABLE_ELEMENT_FIELDS))})"
+                )
+            elem[field] = str(value).strip()
+        summary["modified"] += 1
+
+    # -- REMOVE elements (with cascade) -------------------------------------
+    remove_section = ref.get("remove", {}) or {}
+    for rid in remove_section.get("elements", []) or []:
+        eid = str(rid).strip().removeprefix("id-")
+        if eid not in element_index:
+            raise ValueError(f"Remove '{eid}': element not found in model")
+
+        # Remove element
+        del element_index[eid]
+        elements[:] = [e for e in elements if e["id"] != eid]
+        summary["removed_elements"] += 1
+
+        # Cascade: remove dangling relationships
+        kept = []
+        for rel in relationships:
+            if rel["source"] == eid or rel["target"] == eid:
+                summary["removed_relationships"] += 1
+                summary["cascade_notes"].append(
+                    f"Removed {rel['type']} relationship: "
+                    f"{rel['source']}\u2192{rel['target']} "
+                    f"(dangling after {eid} removal)"
+                )
+            else:
+                kept.append(rel)
+        relationships[:] = kept
+
+    # -- Serialize and validate ---------------------------------------------
+    merged_yaml = _serialize_yaml(model, elements, relationships)
+
+    # Run through _parse_and_validate to catch any structural issues
+    _parse_and_validate(merged_yaml)
+
+    logger.info(
+        f"[apply_yaml_diff] Merged: "
+        f"+{summary['added_elements']}e +{summary['added_relationships']}r, "
+        f"~{summary['modified']}mod, "
+        f"-{summary['removed_elements']}e -{summary['removed_relationships']}r"
+    )
+    return merged_yaml, summary

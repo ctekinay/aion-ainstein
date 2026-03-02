@@ -153,13 +153,47 @@ class GenerationPipeline:
 
         if is_refinement and yaml_refinement:
             user_prompt = (
-                f"EXISTING MODEL YAML (do NOT remove or replace existing elements):\n"
-                f"{source_text}\n\n"
+                f"EXISTING MODEL (read-only context — do NOT reproduce this):\n"
+                f"```yaml\n{source_text}```\n\n"
                 f"MODIFICATION REQUEST:\n{query}\n\n"
-                f"ADD the requested elements and relationships to the existing model. "
-                f"Keep ALL existing elements and relationships intact. "
-                f"Return the complete modified YAML. "
-                f"Do not include commentary or any other text."
+                f"Return ONLY a YAML diff envelope describing the changes. Format:\n\n"
+                f"```yaml\n"
+                f"refinement:\n"
+                f"  add:\n"
+                f"    elements:\n"
+                f"      - id: <short-code>\n"
+                f"        type: <ArchiMateElementType>\n"
+                f"        name: \"<display name>\"\n"
+                f"    relationships:\n"
+                f"      - type: <RelationshipType>\n"
+                f"        source: <element-id>\n"
+                f"        target: <element-id>\n"
+                f"  modify:\n"
+                f"    <element-id>:\n"
+                f"      name: \"<new name>\"\n"
+                f"  remove:\n"
+                f"    elements: [<id>, ...]\n"
+                f"```\n\n"
+                f"Rules:\n"
+                f"- Omit sections with no changes (e.g., no removals → omit remove:)\n"
+                f"- Use short element IDs (a1, t1, etc.) without the id- prefix\n"
+                f"- Source/target in relationships must reference existing or newly added element IDs\n"
+                f"- Do NOT return the full model — only the diff\n"
+                f"- Wrap the output in ```yaml code fences\n"
+                f"- Do not include commentary before or after the YAML\n\n"
+                f"EXAMPLE — adding an API Gateway that serves the web application:\n"
+                f"```yaml\n"
+                f"refinement:\n"
+                f"  add:\n"
+                f"    elements:\n"
+                f"      - id: t1\n"
+                f"        type: Node\n"
+                f'        name: "API Gateway Runtime"\n'
+                f"    relationships:\n"
+                f"      - type: Serving\n"
+                f"        source: t1\n"
+                f"        target: a8\n"
+                f"```"
             )
         elif is_refinement:
             user_prompt = (
@@ -212,6 +246,7 @@ class GenerationPipeline:
 
         # Step 3b: YAML → XML conversion (archimate-generator uses YAML pipeline)
         yaml_source = None
+        change_summary = None
         pipeline_info = {
             "pipeline": "xml",
             "yaml_detected": False,
@@ -220,11 +255,23 @@ class GenerationPipeline:
             "yaml_retry_succeeded": None,
             "yaml_fallback_to_xml": False,
             "convert_ms": None,
+            "diff_merge": None,
         }
         if skill_entry.name == "archimate-generator":
             yaml_text = self._extract_yaml(raw_output)
             if yaml_text:
                 pipeline_info["yaml_detected"] = True
+
+                # Diff-based refinement: try merging a diff envelope first
+                if is_refinement and yaml_refinement:
+                    merge_result = self._try_diff_merge(yaml_text, source_text)
+                    if merge_result:
+                        yaml_text, change_summary = merge_result
+                        pipeline_info["diff_merge"] = True
+                        self._emit(event_queue, "status", "Applying changes...", start)
+                    else:
+                        pipeline_info["diff_merge"] = False
+
                 convert_start = time.perf_counter()
                 try:
                     raw_output, _info = yaml_to_archimate_xml(yaml_text)
@@ -297,17 +344,23 @@ class GenerationPipeline:
                 yaml_source=yaml_source,
             )
             if artifact_info and event_queue:
-                event_queue.put({
+                event_data = {
                     "type": "artifact",
                     "artifact_id": artifact_info["id"],
                     "filename": artifact_info["filename"],
                     "content_type": artifact_info["content_type"],
                     "summary": artifact_info["summary"],
                     "elapsed_ms": int((time.perf_counter() - start) * 1000),
-                })
+                }
+                if artifact_info.get("yaml_companion_id"):
+                    event_data["yaml_companion_id"] = artifact_info["yaml_companion_id"]
+                    event_data["yaml_filename"] = artifact_info["yaml_filename"]
+                event_queue.put(event_data)
 
         # Step 6: Build response
-        response = self._build_response(raw_output, validation_result)
+        response = self._build_response(
+            raw_output, validation_result, change_summary=change_summary,
+        )
 
         total_ms = int((time.perf_counter() - start) * 1000)
 
@@ -325,10 +378,11 @@ class GenerationPipeline:
         yaml_ok = pipeline_info["yaml_valid_first_attempt"]
         yaml_retry = pipeline_info["yaml_retry_triggered"]
         cvt_ms = pipeline_info["convert_ms"]
+        diff_merge = pipeline_info["diff_merge"]
         logger.info(
             f"[generation] COMPLETE: refs={refs}, model={model}, "
             f"pipeline={pl}, yaml_valid={yaml_ok}, yaml_retry={yaml_retry}, "
-            f"convert_ms={cvt_ms}, "
+            f"diff_merge={diff_merge}, convert_ms={cvt_ms}, "
             f"prompt={pt}tok, completion={ct}tok, "
             f"elements={ec}, relationships={rc}, valid={valid}, "
             f"artifact={artifact_fn}, total={total_ms}ms"
@@ -762,10 +816,12 @@ class GenerationPipeline:
             logger.info(f"Saved generation artifact: {filename} ({artifact_id})")
 
             # Save companion YAML for future refinement
+            yaml_companion_id = None
+            yaml_filename = None
             if yaml_source:
                 yaml_filename = filename.replace(".archimate.xml", ".archimate.yaml")
                 try:
-                    save_artifact(
+                    yaml_companion_id = save_artifact(
                         conversation_id, yaml_filename, yaml_source,
                         "text/yaml", "Source YAML",
                     )
@@ -778,6 +834,8 @@ class GenerationPipeline:
                 "filename": filename,
                 "content_type": content_type,
                 "summary": summary,
+                "yaml_companion_id": yaml_companion_id,
+                "yaml_filename": yaml_filename,
             }
         except Exception as e:
             logger.warning(f"Failed to save generation artifact: {e}")
@@ -811,9 +869,45 @@ class GenerationPipeline:
     # ------------------------------------------------------------------
 
     @staticmethod
-    def _build_response(content: str, validation_result: dict | None) -> str:
+    def _build_response(
+        content: str,
+        validation_result: dict | None,
+        change_summary: dict | None = None,
+    ) -> str:
         """Build the user-facing response with validation summary."""
         parts = []
+
+        # Diff-based refinement: show what changed
+        if change_summary:
+            items = []
+            ae = change_summary.get("added_elements", 0)
+            ar = change_summary.get("added_relationships", 0)
+            m = change_summary.get("modified", 0)
+            re_ = change_summary.get("removed_elements", 0)
+            rr = change_summary.get("removed_relationships", 0)
+            if ae or ar:
+                sub = []
+                if ae:
+                    sub.append(f"{ae} element{'s' if ae != 1 else ''}")
+                if ar:
+                    sub.append(f"{ar} relationship{'s' if ar != 1 else ''}")
+                items.append(f"Added {', '.join(sub)}")
+            if m:
+                items.append(f"Modified {m} element{'s' if m != 1 else ''}")
+            if re_ or rr:
+                sub = []
+                if re_:
+                    sub.append(f"{re_} element{'s' if re_ != 1 else ''}")
+                if rr:
+                    sub.append(f"{rr} relationship{'s' if rr != 1 else ''}")
+                items.append(f"Removed {', '.join(sub)}")
+            if items:
+                parts.append("**Changes applied:** " + ". ".join(items) + ".")
+            cascade = change_summary.get("cascade_notes", [])
+            if cascade:
+                parts.append(
+                    "**Cascade cleanup:** " + "; ".join(cascade) + "."
+                )
 
         if validation_result:
             if validation_result.get("valid"):
@@ -1219,10 +1313,45 @@ class GenerationPipeline:
             content = re.sub(r"\n?```\s*$", "", content)
             content = content.strip()
 
-        # Require multiple YAML keys to avoid false-positives on retrieval text
+        # Require expected YAML keys to avoid false-positives on retrieval text.
+        # Full model: elements: + (model: or relationships:)
+        # Diff envelope: refinement: + (add: or modify: or remove:)
         if "elements:" in content and ("model:" in content or "relationships:" in content):
             return content
+        if "refinement:" in content and any(
+            k in content for k in ("add:", "modify:", "remove:")
+        ):
+            return content
         return None
+
+    @staticmethod
+    def _try_diff_merge(
+        yaml_text: str, base_yaml: str,
+    ) -> tuple[str, dict] | None:
+        """Attempt to parse yaml_text as a diff envelope and merge with base.
+
+        Returns (merged_yaml, change_summary) on success, None on failure
+        (indicating fallback to full-regeneration should be used).
+        """
+        from src.aion.tools.yaml_to_xml import apply_yaml_diff
+
+        if "refinement:" not in yaml_text:
+            return None
+
+        try:
+            merged_yaml, summary = apply_yaml_diff(base_yaml, yaml_text)
+            logger.info(
+                f"[generation] diff merge succeeded: "
+                f"added={summary['added_elements']}e+{summary['added_relationships']}r, "
+                f"modified={summary['modified']}, "
+                f"removed={summary['removed_elements']}e+{summary['removed_relationships']}r"
+            )
+            return merged_yaml, summary
+        except (ValueError, KeyError, TypeError) as e:
+            logger.warning(
+                f"[generation] diff merge failed, falling back to full regen: {e}"
+            )
+            return None
 
     @staticmethod
     def _sanitize_xml(xml: str) -> str:

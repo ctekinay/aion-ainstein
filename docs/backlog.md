@@ -10,10 +10,46 @@ n/a
 
 ### Diff-Based Refinement
 Replace full-model regeneration with a structured delta approach. The
-LLM returns a refinement envelope (`<add>`, `<modify>`, `<remove>`
-sections) instead of the complete modified model. The pipeline applies
-the delta mechanically. Benefits: ~80% token reduction on refinement,
-elimination of element loss risk, faster execution.
+LLM sees the full model for context but returns only a YAML diff. A
+deterministic merge engine applies the diff mechanically.
+
+**Format:** Pure YAML envelope (no XML-inside-YAML mixing):
+```yaml
+refinement:
+  add:
+    elements:
+      - id: t1
+        type: Node
+        name: "API Gateway Runtime"
+    relationships:
+      - type: Serving
+        source: t1
+        target: a8
+  modify:
+    a1:
+      name: "Authorization Server (OAuth2) + OpenID Provider"
+  remove:
+    elements: [a99]
+```
+
+**Merge engine policy:**
+- `add` — append elements/relationships to existing YAML
+- `modify` — find element by ID, patch specified fields
+- `remove` — cascade-with-warning: remove element, remove all
+  dangling relationships (where element is source or target),
+  include cleanup note in response to user
+
+**Files to modify:** `generation.py` (refinement prompt + merge
+function), possibly `tools/archimate.py` (merge engine).
+
+**Validation:** existing pipeline (YAML→XML, schema check, view
+repair) runs on the merged result. Fallback: if diff parsing fails,
+fall back to full-regeneration (current behavior).
+
+**Before implementing:** run one refinement both ways on the same
+model and measure actual token reduction. The YAML pivot already cut
+full-regeneration from ~34K to ~9K tokens — measure the real delta
+before claiming a percentage.
 
 ### Dynamic Model Catalog
 Populate the settings dropdown by querying the provider's model list
