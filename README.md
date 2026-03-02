@@ -177,10 +177,6 @@ python -m src.aion.cli init --chunked        # Ingest with section-based chunkin
 python -m src.aion.cli init --recreate       # Recreate collections from scratch
 python -m src.aion.cli chat --port 8081      # Start web UI
 python -m src.aion.cli query "question"      # Single query from terminal (bypasses AInstein Persona)
-python -m src.aion.cli elysia                # Interactive Elysia session
-python -m src.aion.cli status                # Show collection statistics
-python -m src.aion.cli search "term"         # Direct hybrid search
-python -m src.aion.cli evaluate              # Compare Ollama vs OpenAI quality
 ```
 
 ## Web UI
