@@ -90,3 +90,6 @@ stop_elysia.ps1
 # Data directories (not part of the codebase)
 data/
 images/
+
+# Archive and backup files
+archive/

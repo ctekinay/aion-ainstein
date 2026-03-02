@@ -1,6 +1,7 @@
 ---
 name: response-formatter
-description: Per-collection formatting templates for list responses, field visibility rules, and response style guidelines.
+description: Per-collection formatting templates for list responses, field visibility
+  rules, and response style guidelines.
 ---
 
 # Response Formatter
@@ -79,9 +80,11 @@ When `search_by_team` returns results across collections, include the collection
 ### Summary Line
 End every list response with a count: **Total: [N] items**
 
+
 **Critical:** Count the actual number of items you listed. Do NOT calculate the count from ID ranges (e.g., ADR.00 to ADR.31 does NOT mean 32 — count only the items that actually exist in the retrieved context).
 
 ### List Style
+
 Use numbered lists for sequential or ranked items. Use bullet points for unordered collections. No gaps between items in the list.
 
 ### When NOT to Format as a List
