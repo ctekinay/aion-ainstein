@@ -86,4 +86,7 @@ testpaths = ["tests"]
 
 [tool.uv]
 package = true
-environment = "venv312"
+override-dependencies = [
+    # elysia-ai==0.2.8 pins python-multipart==0.0.18 which has GHSA-cfh3-3jmp-rvhc
+    "python-multipart>=0.0.20",
+]
