@@ -192,7 +192,7 @@ class SkillContentUpdate(BaseModel):
     body: Optional[str] = None
 
 
-class SkillToggleRequest(BaseModel):
+class ToggleRequest(BaseModel):
     enabled: bool
 
 
@@ -2106,7 +2106,7 @@ async def list_groups():
 
 
 @app.put("/api/skills/groups/{group_name}/enabled")
-async def toggle_group(group_name: str, request: SkillToggleRequest):
+async def toggle_group(group_name: str, request: ToggleRequest):
     """Toggle group enabled/disabled status."""
     try:
         return skills_api.toggle_group_enabled(group_name, request.enabled)
@@ -2128,7 +2128,7 @@ async def get_skill(skill_name: str):
 
 
 @app.put("/api/skills/{skill_name}/enabled")
-async def toggle_skill(skill_name: str, request: SkillToggleRequest):
+async def toggle_skill(skill_name: str, request: ToggleRequest):
     """Toggle skill enabled/disabled status."""
     try:
         return skills_api.toggle_skill_enabled(skill_name, request.enabled)

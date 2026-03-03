@@ -175,7 +175,7 @@ class SkillRegistry:
         for name, entry in self._entries.items():
             if not entry.enabled:
                 continue
-            skill = self.loader.load_skill(name)
+            skill = self.loader.load_skill(name, skill_type=entry.type)
             if skill:
                 active_skills.append(skill)
 

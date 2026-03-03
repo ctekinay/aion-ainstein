@@ -318,7 +318,7 @@ Every pattern shown here is confirmed to appear in that reference file.
           xsi:type="Element"
           x="0" y="0" w="120" h="55">
           <style>
-            <fillColor r="204" g="204" b="255" a="100"/>
+            <fillColor r="181" g="255" b="255" a="100"/>
             <lineColor r="0" g="0" b="0" a="100"/>
             <font name="Arial Narrow" size="12">
               <color r="0" g="0" b="0"/>
@@ -331,7 +331,7 @@ Every pattern shown here is confirmed to appear in that reference file.
           xsi:type="Element"
           x="200" y="0" w="120" h="55">
           <style>
-            <fillColor r="204" g="204" b="255" a="100"/>
+            <fillColor r="181" g="255" b="255" a="100"/>
             <lineColor r="0" g="0" b="0" a="100"/>
             <font name="Arial Narrow" size="12">
               <color r="0" g="0" b="0"/>
@@ -344,7 +344,7 @@ Every pattern shown here is confirmed to appear in that reference file.
           xsi:type="Element"
           x="400" y="0" w="120" h="55">
           <style>
-            <fillColor r="255" g="255" b="128" a="100"/>
+            <fillColor r="255" g="255" b="181" a="100"/>
             <lineColor r="0" g="0" b="0" a="100"/>
             <font name="Arial Narrow" size="12">
               <color r="0" g="0" b="0"/>
@@ -407,7 +407,7 @@ Every pattern shown here is confirmed to appear in that reference file.
             xsi:type="Element"
             x="20" y="60" w="120" h="55">
             <style>
-              <fillColor r="200" g="230" b="200" a="100"/>
+              <fillColor r="201" g="231" b="183" a="100"/>
               <lineColor r="0" g="0" b="0" a="100"/>
               <font name="Arial Narrow" size="12">
                 <color r="0" g="0" b="0"/>
@@ -420,7 +420,7 @@ Every pattern shown here is confirmed to appear in that reference file.
             xsi:type="Element"
             x="200" y="60" w="120" h="55">
             <style>
-              <fillColor r="200" g="230" b="200" a="100"/>
+              <fillColor r="201" g="231" b="183" a="100"/>
               <lineColor r="0" g="0" b="0" a="100"/>
               <font name="Arial Narrow" size="12">
                 <color r="0" g="0" b="0"/>
@@ -481,15 +481,15 @@ The `<name>` element uses the standard XML closing tag `</name>`:
 ```
 
 ### Style colors by layer (ArchiMate convention)
-| Layer | Fill color (r,g,b) |
-|---|---|
-| Motivation | `255, 255, 128` (yellow) |
-| Strategy | `240, 220, 180` (tan) |
-| Business | `255, 255, 128` (yellow) |
-| Application | `204, 204, 255` (light blue) |
-| Technology | `200, 230, 200` (light green) |
-| Physical | `210, 255, 210` (green) |
-| Implementation | `255, 220, 200` (orange-ish) |
+| Layer | Fill color (r,g,b) | Hex |
+|---|---|---|
+| Motivation | `204, 204, 255` (purple/lavender) | #CCCCFF |
+| Strategy | `245, 222, 179` (wheat) | #F5DEB3 |
+| Business | `255, 255, 181` (yellow) | #FFFFB5 |
+| Application | `181, 255, 255` (cyan) | #B5FFFF |
+| Technology | `201, 231, 183` (green) | #C9E7B7 |
+| Physical | `201, 231, 183` (green) | #C9E7B7 |
+| Implementation | `255, 181, 192` (pink) | #FFB5C0 |
 
 ---
 

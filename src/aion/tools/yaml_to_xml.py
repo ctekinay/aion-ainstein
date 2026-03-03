@@ -18,6 +18,8 @@ from collections import defaultdict
 import yaml
 
 from src.aion.tools.archimate import (
+    ALLOWED_PATTERNS,
+    COMPOSITE,
     LAYER_MAP,
     LAYER_ORDER,
     NS,
@@ -142,6 +144,9 @@ def _parse_and_validate(yaml_str: str) -> dict:
             "documentation": str(elem.get("documentation", "")).strip(),
         })
 
+    # Build element type index for relationship validation
+    element_type_index = {e["id"]: e["type"] for e in normalized_elements}
+
     # Relationships
     relationships = raw.get("relationships", [])
     if not isinstance(relationships, list):
@@ -180,6 +185,22 @@ def _parse_and_validate(yaml_str: str) -> dict:
                 f"Relationship {i}: target '{target}' does not reference "
                 f"a valid element id"
             )
+
+        # Validate source→target pair against ALLOWED_PATTERNS
+        if rtype != "Association":
+            src_type = element_type_index.get(full_source, "")
+            tgt_type = element_type_index.get(full_target, "")
+            if src_type not in COMPOSITE and tgt_type not in COMPOSITE:
+                patterns = ALLOWED_PATTERNS.get(rtype, [])
+                allowed = any(
+                    src_type in sp and tgt_type in tp for sp, tp in patterns
+                )
+                if not allowed:
+                    logger.warning(
+                        f"[yaml_to_xml] Relationship {i} ({rtype}): "
+                        f"{src_type} -> {tgt_type} may not be a valid "
+                        f"ArchiMate 3.2 relationship"
+                    )
 
         # Derive deterministic ID
         src_code = full_source.removeprefix("id-")

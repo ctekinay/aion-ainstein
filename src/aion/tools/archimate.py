@@ -430,7 +430,7 @@ def inspect_archimate_model(xml_content: str) -> dict:
 def _find_or_create(parent: ET.Element, tag: str) -> ET.Element:
     child = parent.find(TAG(tag))
     if child is None:
-        child = ET.SubElement(parent, tag)
+        child = ET.SubElement(parent, TAG(tag))
     return child
 
 

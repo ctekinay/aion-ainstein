@@ -276,6 +276,67 @@ relationships: []
         assert widths["id-l1"] > widths["id-s1"], \
             "Long-named element should be wider"
 
+    def test_junction_elements_through_pipeline(self):
+        """AndJunction and OrJunction flow through YAML→XML→view→validation."""
+        from src.aion.tools.archimate import validate_archimate
+
+        yaml_str = """\
+model:
+  name: "Junction Test"
+elements:
+  - id: bp1
+    type: BusinessProcess
+    name: "Check Order"
+  - id: bp2
+    type: BusinessProcess
+    name: "Ship Order"
+  - id: bp3
+    type: BusinessProcess
+    name: "Cancel Order"
+  - id: j1
+    type: AndJunction
+    name: "Split"
+  - id: j2
+    type: OrJunction
+    name: "Merge"
+relationships:
+  - type: Triggering
+    source: bp1
+    target: j1
+  - type: Triggering
+    source: j1
+    target: bp2
+  - type: Triggering
+    source: j1
+    target: bp3
+  - type: Triggering
+    source: bp2
+    target: j2
+  - type: Triggering
+    source: bp3
+    target: j2
+"""
+        xml_str, info = yaml_to_archimate_xml(yaml_str)
+        assert info["element_count"] == 5
+        assert info["relationship_count"] == 5
+
+        # Junction elements appear in XML
+        root = ET.fromstring(xml_str)
+        elements = root.find(TAG("elements"))
+        types = {e.get(f"{{{XSI}}}type") for e in elements.findall(TAG("element"))}
+        assert "AndJunction" in types
+        assert "OrJunction" in types
+
+        # All elements have view nodes
+        view = root.find(TAG("views")).find(TAG("diagrams")).findall(TAG("view"))[0]
+        node_erefs = {n.get("elementRef") for n in view.findall(TAG("node"))}
+        assert "id-j1" in node_erefs
+        assert "id-j2" in node_erefs
+
+        # Validates without errors
+        result = validate_archimate(xml_str)
+        assert result["valid"], f"Validation errors: {result['errors']}"
+
 
 # ---------------------------------------------------------------------------
 # Validation errors
