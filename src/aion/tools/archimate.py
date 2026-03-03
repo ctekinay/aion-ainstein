@@ -251,6 +251,9 @@ def validate_archimate(xml_content: str) -> dict:
                 continue
             if etype not in VALID_ELEMENT_TYPES:
                 errors.append(f"Invalid element type '{etype}' for element {eid}")
+            doc_el = elem.find(TAG("documentation"))
+            if doc_el is None or not (doc_el.text or "").strip():
+                warnings.append(f"Element {eid} has no documentation")
             element_ids[eid] = etype
 
     relationships_node = root.find(TAG("relationships"))

@@ -131,6 +131,11 @@ def _parse_and_validate(yaml_str: str) -> dict:
         if not ename:
             raise ValueError(f"Element '{eid}': 'name' is required")
 
+        if not elem.get("documentation", "").strip():
+            logger.warning(
+                f"[yaml_to_xml] Element '{eid}' ({etype}) has no documentation"
+            )
+
         # Normalize ID: add 'id-' prefix if missing
         full_id = eid if eid.startswith("id-") else f"id-{eid}"
         if full_id in element_ids:
