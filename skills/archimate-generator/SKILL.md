@@ -122,29 +122,6 @@ relationships:
 
 ---
 
-## Quick Reference: Code Review → ArchiMate Mapping
-
-| Code Review Finding | ArchiMate Element |
-|---|---|
-| Microservice / service | `ApplicationComponent` |
-| API / interface | `ApplicationInterface` |
-| Database | `DataObject` (app layer) or `Artifact` (tech layer) |
-| Message queue | `ApplicationComponent` + `Flow` |
-| Frontend app | `ApplicationComponent` |
-| User / actor | `BusinessActor` or `BusinessRole` |
-| Business process | `BusinessProcess` |
-| Infrastructure node | `Node` or `Device` |
-| Docker / K8s | `SystemSoftware` |
-| Network | `CommunicationNetwork` |
-| Library / module | `ApplicationComponent` |
-| Use case | `ApplicationFunction` or `BusinessFunction` |
-| Deployment | `Artifact` assigned to `Node` |
-| Dependency call | `Serving` or `Access` |
-| Trigger / event | `ApplicationEvent` or `BusinessEvent` |
-| Data flow | `Flow` |
-
----
-
 ## ID Convention
 
 Use short, readable identifiers with layer-prefix codes:
@@ -159,13 +136,3 @@ Use short, readable identifiers with layer-prefix codes:
 
 The converter automatically adds the `id-` prefix and generates all XML identifiers,
 view nodes, and connections. You only need to define elements and relationships.
-
----
-
-## Known Limitations
-
-### Model capability boundary
-
-ArchiMate generation requires a model with strong structured output capabilities. Smaller local models (e.g., GPT-OSS:20B via Ollama) may refuse to generate YAML or fall back to textual descriptions instead. Cloud models (e.g., GPT-5.2 via OpenAI) handle this reliably.
-
-**Recommendation:** Switch to a cloud model (e.g., GPT-5.2 via OpenAI) in the Chat UI settings before requesting ArchiMate generation. Standard KB queries (ADR/PCP/policy search, vocabulary lookups) work fine with local models.
