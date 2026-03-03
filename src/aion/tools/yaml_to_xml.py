@@ -19,10 +19,22 @@ import yaml
 
 from src.aion.tools.archimate import (
     ALLOWED_PATTERNS,
+    APP_ACTIVE,
+    APP_BEHAVIOR,
+    APP_PASSIVE,
+    BIZ_ACTIVE,
+    BIZ_BEHAVIOR,
+    BIZ_PASSIVE,
     COMPOSITE,
+    IMPL,
     LAYER_MAP,
     LAYER_ORDER,
+    MOTIVATION,
     NS,
+    PHYSICAL,
+    TECH_ACTIVE,
+    TECH_BEHAVIOR,
+    TECH_PASSIVE,
     TYPE_RANK,
     VALID_ELEMENT_TYPES,
     VALID_RELATIONSHIP_TYPES,
@@ -45,6 +57,50 @@ CELL_H = ELEMENT_H + GAP_V   # 80 px per row
 WRAP_THRESHOLD = 5        # max elements per row before wrapping
 WIDE_NAME_THRESHOLD = 15  # name length triggering wide element
 LAYER_GAP = 40            # extra vertical gap between layers (px)
+
+# ---------------------------------------------------------------------------
+# Viewpoint definitions — element type sets per standard ArchiMate viewpoint
+# ---------------------------------------------------------------------------
+VIEWPOINTS: dict[str, set[str] | None] = {
+    "application": APP_ACTIVE | APP_BEHAVIOR | APP_PASSIVE,
+    "technology": TECH_ACTIVE | TECH_BEHAVIOR | TECH_PASSIVE,
+    "business": BIZ_ACTIVE | BIZ_BEHAVIOR | BIZ_PASSIVE,
+    "motivation": MOTIVATION,
+    "physical": PHYSICAL,
+    "implementation": IMPL,
+    "application_cooperation": (
+        APP_ACTIVE | APP_BEHAVIOR | APP_PASSIVE
+        | TECH_ACTIVE | TECH_BEHAVIOR
+    ),
+    "layered": None,  # None = all elements (same as overview)
+}
+
+# Deterministic view indices per viewpoint (overview = 1, viewpoints start at 2)
+_VP_VIEW_INDEX = {name: idx + 2 for idx, name in enumerate(sorted(VIEWPOINTS))}
+
+
+def _filter_for_viewpoint(data: dict, viewpoint: str) -> dict:
+    """Return data with elements/relationships filtered to a viewpoint.
+
+    Elements not in the viewpoint's type set are removed.
+    Relationships where either endpoint was removed are also removed.
+    """
+    allowed_types = VIEWPOINTS.get(viewpoint)
+    if allowed_types is None:
+        return data  # None = all elements (e.g. "layered")
+
+    filtered_elements = [e for e in data["elements"] if e["type"] in allowed_types]
+    kept_ids = {e["id"] for e in filtered_elements}
+    filtered_rels = [
+        r for r in data["relationships"]
+        if r["source"] in kept_ids and r["target"] in kept_ids
+    ]
+
+    return {
+        "model": data["model"],
+        "elements": filtered_elements,
+        "relationships": filtered_rels,
+    }
 
 
 def yaml_to_archimate_xml(yaml_str: str) -> tuple[str, dict]:
@@ -75,6 +131,76 @@ def yaml_to_archimate_xml(yaml_str: str) -> tuple[str, dict]:
     }
     logger.info(
         f"[yaml_to_xml] Converted: {info['element_count']} elements, "
+        f"{info['relationship_count']} relationships"
+    )
+    return xml_str, info
+
+
+def generate_viewpoint_xml(
+    yaml_str: str,
+    viewpoint: str,
+) -> tuple[str, dict]:
+    """Generate a single viewpoint view as an XML fragment.
+
+    The returned XML is a <model> wrapper containing only the <views>
+    section with a single view diagram. Use merge_archimate_view() to
+    add it to an existing model.
+
+    Args:
+        yaml_str: Same YAML format as yaml_to_archimate_xml().
+        viewpoint: One of VIEWPOINTS keys (e.g. "application",
+            "technology", "business").
+
+    Returns:
+        Tuple of (xml_fragment, info_dict).
+
+    Raises:
+        ValueError: If viewpoint is unknown or yields <2 elements.
+    """
+    vp_lower = viewpoint.lower().replace(" ", "_")
+    if vp_lower not in VIEWPOINTS:
+        raise ValueError(
+            f"Unknown viewpoint '{viewpoint}'. "
+            f"Valid: {', '.join(sorted(VIEWPOINTS))}"
+        )
+
+    data = _parse_and_validate(yaml_str)
+    filtered = _filter_for_viewpoint(data, vp_lower)
+    if len(filtered["elements"]) < 2:
+        raise ValueError(
+            f"Viewpoint '{viewpoint}' yields {len(filtered['elements'])} "
+            f"elements (minimum 2 required)"
+        )
+
+    # Build the view via _generate_view, then extract the <view> element
+    # and place it as a direct child of root. merge_archimate_view()
+    # handles this via its fallback path (frag_root.findall(TAG("view")))
+    root = ET.Element(f"{{{NS}}}model", attrib={"identifier": "id-fragment"})
+    vp_label = viewpoint.replace("_", " ").title()
+    vp_index = _VP_VIEW_INDEX[vp_lower]
+    _generate_view(root, filtered, view_index=vp_index, viewpoint_name=vp_label)
+
+    # Restructure: move <view> out of <views>/<diagrams> to root level
+    views_el = root.find(f"{{{NS}}}views")
+    if views_el is not None:
+        diagrams_el = views_el.find(f"{{{NS}}}diagrams")
+        if diagrams_el is not None:
+            for view_el in list(diagrams_el):
+                root.append(view_el)
+        root.remove(views_el)
+
+    ET.register_namespace("", NS)
+    ET.register_namespace("xsi", XSI)
+    xml_str = ET.tostring(root, encoding="unicode", xml_declaration=True)
+
+    info = {
+        "viewpoint": vp_lower,
+        "element_count": len(filtered["elements"]),
+        "relationship_count": len(filtered["relationships"]),
+    }
+    logger.info(
+        f"[yaml_to_xml] Viewpoint '{vp_lower}': "
+        f"{info['element_count']} elements, "
         f"{info['relationship_count']} relationships"
     )
     return xml_str, info
@@ -439,33 +565,47 @@ def _sugiyama_positions(
     return nodes, connections
 
 
-def _generate_view(root: ET.Element, data: dict) -> None:
-    """Add a single overview view using Sugiyama hierarchical layout."""
+def _generate_view(
+    root: ET.Element,
+    data: dict,
+    view_index: int = 1,
+    viewpoint_name: str = "Overview",
+) -> None:
+    """Add a view using Sugiyama hierarchical layout.
+
+    Can be called multiple times on the same root to add multiple views
+    with different viewpoint_name and view_index values.
+    """
     nodes, connections = _sugiyama_positions(data)
 
-    # Assign node IDs using existing scheme: nv1-{short_code}
+    # Assign node IDs: nv{view_index}-{short_code}
     node_map: dict[str, str] = {}  # element_id → node_id
     for node in nodes:
         code = node["elementRef"].removeprefix("id-")
-        nid = f"nv1-{code}"
+        nid = f"nv{view_index}-{code}"
         node_map[node["elementRef"]] = nid
         node["id"] = nid
 
     # Resolve connection node references
     for conn in connections:
-        conn["id"] = f"cv1-{conn['relationshipRef'].removeprefix('id-')}"
+        conn["id"] = f"cv{view_index}-{conn['relationshipRef'].removeprefix('id-')}"
         conn["source_nid"] = node_map[conn["source"]]
         conn["target_nid"] = node_map[conn["target"]]
 
-    # Assemble XML view structure
-    views_el = ET.SubElement(root, f"{{{NS}}}views")
-    diagrams_el = ET.SubElement(views_el, f"{{{NS}}}diagrams")
+    # Find or create <views>/<diagrams> (safe for multiple calls)
+    views_el = root.find(f"{{{NS}}}views")
+    if views_el is None:
+        views_el = ET.SubElement(root, f"{{{NS}}}views")
+    diagrams_el = views_el.find(f"{{{NS}}}diagrams")
+    if diagrams_el is None:
+        diagrams_el = ET.SubElement(views_el, f"{{{NS}}}diagrams")
+
     view_el = ET.SubElement(diagrams_el, f"{{{NS}}}view")
-    view_el.set("identifier", "id-v1")
+    view_el.set("identifier", f"id-v{view_index}")
     view_el.set(f"{{{XSI}}}type", "Diagram")
     vname = ET.SubElement(view_el, f"{{{NS}}}name")
     vname.set("xml:lang", "en")
-    vname.text = f"{data['model']['name']} — Overview"
+    vname.text = f"{data['model']['name']} — {viewpoint_name}"
 
     for node in nodes:
         n = ET.SubElement(view_el, f"{{{NS}}}node")

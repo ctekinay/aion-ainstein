@@ -913,3 +913,173 @@ refinement:
         assert summary["removed_elements"] == 0
         assert len(summary["warnings"]) == 1
         assert "New Server" in merged
+
+
+# ---------------------------------------------------------------------------
+# Viewpoint tests
+# ---------------------------------------------------------------------------
+
+MULTI_LAYER_YAML = """\
+model:
+  name: "Multi-Layer Architecture"
+
+elements:
+  - id: g1
+    type: Goal
+    name: "Reduce Manual Work"
+  - id: r1
+    type: Requirement
+    name: "Automate Approvals"
+  - id: ba1
+    type: BusinessActor
+    name: "Process Owner"
+  - id: bp1
+    type: BusinessProcess
+    name: "Approval Workflow"
+  - id: ac1
+    type: ApplicationComponent
+    name: "Workflow Engine"
+  - id: as1
+    type: ApplicationService
+    name: "Approval Service"
+  - id: n1
+    type: Node
+    name: "App Server"
+  - id: ss1
+    type: SystemSoftware
+    name: "Java Runtime"
+
+relationships:
+  - type: Realization
+    source: bp1
+    target: r1
+  - type: Serving
+    source: ac1
+    target: bp1
+  - type: Composition
+    source: ac1
+    target: as1
+  - type: Serving
+    source: n1
+    target: ac1
+  - type: Assignment
+    source: n1
+    target: ss1
+"""
+
+
+class TestViewpoints:
+
+    def test_viewpoints_constant_covers_all_layers(self):
+        """Every non-Composite/Junction element type appears in at least one viewpoint."""
+        from src.aion.tools.archimate import VALID_ELEMENT_TYPES
+        from src.aion.tools.yaml_to_xml import VIEWPOINTS
+
+        excluded = {"Grouping", "Location", "AndJunction", "OrJunction"}
+        all_viewpoint_types: set[str] = set()
+        for types in VIEWPOINTS.values():
+            if types is not None:
+                all_viewpoint_types |= types
+
+        uncovered = VALID_ELEMENT_TYPES - excluded - all_viewpoint_types
+        assert uncovered == set(), (
+            f"Element types not covered by any viewpoint: {uncovered}"
+        )
+
+    def test_filter_for_viewpoint_application(self):
+        """Application viewpoint keeps only application-layer elements."""
+        from src.aion.tools.yaml_to_xml import _filter_for_viewpoint, _parse_and_validate
+
+        data = _parse_and_validate(MULTI_LAYER_YAML)
+        filtered = _filter_for_viewpoint(data, "application")
+
+        element_ids = {e["id"] for e in filtered["elements"]}
+        assert element_ids == {"id-ac1", "id-as1"}
+
+        # Only the intra-application relationship should survive
+        assert len(filtered["relationships"]) == 1
+        rel = filtered["relationships"][0]
+        assert rel["type"] == "Composition"
+
+    def test_filter_for_viewpoint_layered_returns_all(self):
+        """Layered viewpoint returns all elements unfiltered."""
+        from src.aion.tools.yaml_to_xml import _filter_for_viewpoint, _parse_and_validate
+
+        data = _parse_and_validate(MULTI_LAYER_YAML)
+        filtered = _filter_for_viewpoint(data, "layered")
+
+        assert len(filtered["elements"]) == len(data["elements"])
+        assert len(filtered["relationships"]) == len(data["relationships"])
+
+    def test_generate_viewpoint_xml_application(self):
+        """Application viewpoint generates valid XML with only app elements."""
+        from src.aion.tools.yaml_to_xml import generate_viewpoint_xml
+
+        xml_str, info = generate_viewpoint_xml(MULTI_LAYER_YAML, "application")
+        assert info["viewpoint"] == "application"
+        assert info["element_count"] == 2
+
+        root = ET.fromstring(xml_str)
+        # Fragment has <view> as direct child of root (for merge compat)
+        view = root.find(TAG("view"))
+        assert view is not None
+
+        nodes = view.findall(TAG("node"))
+        assert len(nodes) == 2
+        refs = {n.get("elementRef") for n in nodes}
+        assert refs == {"id-ac1", "id-as1"}
+
+        name_el = view.find(TAG("name"))
+        assert "Application" in name_el.text
+
+    def test_generate_viewpoint_xml_unknown_raises(self):
+        """Unknown viewpoint raises ValueError."""
+        from src.aion.tools.yaml_to_xml import generate_viewpoint_xml
+
+        with pytest.raises(ValueError, match="Unknown viewpoint"):
+            generate_viewpoint_xml(MULTI_LAYER_YAML, "nonexistent")
+
+    def test_generate_viewpoint_xml_too_few_elements_raises(self):
+        """Viewpoint yielding <2 elements raises ValueError."""
+        from src.aion.tools.yaml_to_xml import generate_viewpoint_xml
+
+        # MULTI_LAYER_YAML has no Physical elements
+        with pytest.raises(ValueError, match="elements"):
+            generate_viewpoint_xml(MULTI_LAYER_YAML, "physical")
+
+    def test_generate_viewpoint_merge_roundtrip(self):
+        """Full workflow: generate model → viewpoint fragment → merge."""
+        from src.aion.tools.archimate import merge_archimate_view, validate_archimate
+        from src.aion.tools.yaml_to_xml import generate_viewpoint_xml
+
+        # Generate full model with overview
+        model_xml, model_info = yaml_to_archimate_xml(MULTI_LAYER_YAML)
+
+        # Generate application viewpoint fragment
+        frag_xml, frag_info = generate_viewpoint_xml(MULTI_LAYER_YAML, "application")
+
+        # Merge
+        result = merge_archimate_view(model_xml, frag_xml)
+        assert result["success"] is True
+        assert result["views_added"] == 1
+
+        # Validate merged XML structure
+        merged_root = ET.fromstring(result["merged_xml"])
+        views = merged_root.find(TAG("views"))
+        diagrams = views.find(TAG("diagrams"))
+        all_views = diagrams.findall(TAG("view"))
+        assert len(all_views) == 2
+
+        # Overview has all 8 elements, application has 2
+        overview_nodes = all_views[0].findall(TAG("node"))
+        app_nodes = all_views[1].findall(TAG("node"))
+        assert len(overview_nodes) == 8
+        assert len(app_nodes) == 2
+
+        # View identifiers are distinct
+        ids = {v.get("identifier") for v in all_views}
+        assert len(ids) == 2
+
+        # Merged model is valid XML
+        val = validate_archimate(result["merged_xml"])
+        assert val["valid"], f"Validation errors: {val.get('errors', [])}"
