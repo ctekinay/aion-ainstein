@@ -79,6 +79,7 @@ nul
 
 # Local working documents
 docs/.local/
+docs/backlog.md
 
 # Local tool config
 .claude/
