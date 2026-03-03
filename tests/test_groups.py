@@ -1,34 +1,50 @@
-#!/usr/bin/env python3
-"""Layer 1 test: Registry + Loader data model verification."""
+"""Tests for skill groups and reference-only skill loading."""
 
 from src.aion.skills.registry import get_skill_registry
 
-r = get_skill_registry()
 
-# Groups loaded?
-groups = r.list_groups()
-print(f"Groups: {len(groups)}")
-for g in groups:
-    print(f"  {g.name}: {g.skills}, enabled={g.enabled}")
+class TestSkillGroups:
 
-print()
+    def test_groups_loaded(self):
+        r = get_skill_registry()
+        groups = r.list_groups()
+        assert len(groups) >= 1
+        archimate = next(g for g in groups if g.name == "archimate")
+        assert archimate.enabled is True
+        assert len(archimate.skills) == 3
 
-# All skills loaded with correct fields?
-for e in r.list_skills():
-    print(f"  {e.name}: group={repr(e.group)}, type={e.type}, load_order={e.load_order}, enabled={e.enabled}")
+    def test_group_members_have_correct_fields(self):
+        r = get_skill_registry()
+        entries = {e.name: e for e in r.list_skills()}
 
-# References skill loads without SKILL.md?
-content = r.get_skill_content(active_tags=["archimate"])
-print(f"\nInjected content length: {len(content)} chars")
+        gen = entries["archimate-generator"]
+        assert gen.group == "archimate"
+        assert gen.type == "skill"
+        assert gen.load_order == 1
 
-has_generator = "ArchiMate" in content
-has_mapping = "Input concept" in content
-print(f"Contains generator rules: {has_generator}")
-print(f"Contains concept-mapping: {has_mapping}")
+        shared = entries["archimate-shared"]
+        assert shared.group == "archimate"
+        assert shared.type == "references"
+        assert shared.load_order == 3
 
-# Verify load order: generator content appears before references content
-if has_generator and has_mapping:
-    gen_pos = content.index("ArchiMate")
-    map_pos = content.index("Input concept")
-    print(f"Load order correct (generator before references): {gen_pos < map_pos}")
-    print(f"  Generator position: {gen_pos}, References position: {map_pos}")
+    def test_ungrouped_skills_have_empty_group(self):
+        r = get_skill_registry()
+        entries = {e.name: e for e in r.list_skills()}
+        assert entries["ainstein-identity"].group == ""
+
+    def test_references_skill_loads_content(self):
+        r = get_skill_registry()
+        content = r.get_skill_content(active_tags=["archimate"])
+        assert len(content) > 0
+        assert "ArchiMate" in content
+        assert "Input concept" in content
+
+    def test_load_order_generator_before_references(self):
+        r = get_skill_registry()
+        content = r.get_skill_content(active_tags=["archimate"])
+        gen_pos = content.index("ArchiMate")
+        map_pos = content.index("Input concept")
+        assert gen_pos < map_pos, (
+            f"Generator content (pos {gen_pos}) should appear before "
+            f"references content (pos {map_pos})"
+        )

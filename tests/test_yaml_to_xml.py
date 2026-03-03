@@ -447,6 +447,29 @@ relationships: []
         with pytest.raises(ValueError, match="Invalid YAML"):
             yaml_to_archimate_xml("{ invalid yaml [[[")
 
+    def test_invalid_relationship_pattern_warns(self, caplog):
+        """Invalid source→target pair logs a warning but does not raise."""
+        yaml_str = """\
+model:
+  name: "Test"
+elements:
+  - id: a1
+    type: ApplicationComponent
+    name: "Component"
+  - id: m1
+    type: Goal
+    name: "A Goal"
+relationships:
+  - type: Triggering
+    source: a1
+    target: m1
+"""
+        import logging
+        with caplog.at_level(logging.WARNING, logger="src.aion.tools.yaml_to_xml"):
+            xml_str, info = yaml_to_archimate_xml(yaml_str)
+        assert info["relationship_count"] == 1
+        assert any("may not be a valid" in msg for msg in caplog.messages)
+
 
 # ---------------------------------------------------------------------------
 # Duplicate source-target pairs get suffixed IDs
