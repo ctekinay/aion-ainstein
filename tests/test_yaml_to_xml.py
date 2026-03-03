@@ -156,7 +156,7 @@ class TestViewGeneration:
             f"Missing connections for relationships: {rel_ids - conn_rrefs}"
         )
 
-    def test_grid_layout_positions(self):
+    def test_layout_positions(self):
         xml_str, _ = yaml_to_archimate_xml(VALID_YAML)
         root = ET.fromstring(xml_str)
         views = root.find(TAG("views"))
@@ -188,6 +188,93 @@ class TestViewGeneration:
             tgt = conn.get("target")
             assert src in node_ids, f"Connection source '{src}' not a node ID"
             assert tgt in node_ids, f"Connection target '{tgt}' not a node ID"
+
+    def test_sugiyama_layer_ordering(self):
+        """Motivation elements should appear above Application elements (lower Y)."""
+        yaml_str = """\
+model:
+  name: "Layer Test"
+elements:
+  - id: m1
+    type: Goal
+    name: "A Goal"
+  - id: a1
+    type: ApplicationComponent
+    name: "An App"
+  - id: t1
+    type: Node
+    name: "A Server"
+relationships:
+  - type: Realization
+    source: a1
+    target: m1
+  - type: Serving
+    source: t1
+    target: a1
+"""
+        xml_str, _ = yaml_to_archimate_xml(yaml_str)
+        root = ET.fromstring(xml_str)
+        view = root.find(TAG("views")).find(TAG("diagrams")).findall(TAG("view"))[0]
+
+        # Build elementRef → y mapping
+        ref_to_y = {}
+        for node in view.findall(TAG("node")):
+            ref_to_y[node.get("elementRef")] = int(node.get("y"))
+
+        assert ref_to_y["id-m1"] < ref_to_y["id-a1"], \
+            "Motivation element should have lower Y than Application"
+        assert ref_to_y["id-a1"] < ref_to_y["id-t1"], \
+            "Application element should have lower Y than Technology"
+
+    def test_sugiyama_no_overlapping_nodes(self):
+        """No two nodes should occupy the same bounding box."""
+        xml_str, _ = yaml_to_archimate_xml(VALID_YAML)
+        root = ET.fromstring(xml_str)
+        view = root.find(TAG("views")).find(TAG("diagrams")).findall(TAG("view"))[0]
+
+        boxes = []
+        for node in view.findall(TAG("node")):
+            x = int(node.get("x"))
+            y = int(node.get("y"))
+            w = int(node.get("w"))
+            h = int(node.get("h"))
+            boxes.append((x, y, x + w, y + h))
+
+        for i, (x1, y1, x2, y2) in enumerate(boxes):
+            for j, (ax1, ay1, ax2, ay2) in enumerate(boxes):
+                if i >= j:
+                    continue
+                # Check no overlap: one box must be entirely left, right, above, or below
+                overlap = not (x2 <= ax1 or ax2 <= x1 or y2 <= ay1 or ay2 <= y1)
+                assert not overlap, (
+                    f"Nodes {i} and {j} overlap: "
+                    f"({x1},{y1},{x2},{y2}) vs ({ax1},{ay1},{ax2},{ay2})"
+                )
+
+    def test_sugiyama_wide_element_name(self):
+        """Elements with long names should get wider bounding boxes."""
+        yaml_str = """\
+model:
+  name: "Width Test"
+elements:
+  - id: s1
+    type: ApplicationComponent
+    name: "Short"
+  - id: l1
+    type: ApplicationComponent
+    name: "This Is A Very Long Element Name"
+relationships: []
+"""
+        xml_str, _ = yaml_to_archimate_xml(yaml_str)
+        root = ET.fromstring(xml_str)
+        view = root.find(TAG("views")).find(TAG("diagrams")).findall(TAG("view"))[0]
+
+        widths = {}
+        for node in view.findall(TAG("node")):
+            widths[node.get("elementRef")] = int(node.get("w"))
+
+        assert widths["id-l1"] > widths["id-s1"], \
+            "Long-named element should be wider"
 
 
 # ---------------------------------------------------------------------------
@@ -711,3 +798,34 @@ refinement:
         assert info["relationship_count"] == 4
         result = validate_archimate(xml_str)
         assert result["valid"], f"Validation errors: {result.get('errors', [])}"
+
+    def test_remove_nonexistent_warns_not_fails(self):
+        """Removing a nonexistent element should warn, not reject the diff."""
+        diff = """\
+refinement:
+  remove:
+    elements: [ghost_element]
+"""
+        merged, summary = apply_yaml_diff(VALID_YAML, diff)
+        assert summary["removed_elements"] == 0
+        assert len(summary["warnings"]) == 1
+        assert "ghost_element" in summary["warnings"][0]
+        assert "not found" in summary["warnings"][0]
+
+    def test_remove_nonexistent_alongside_valid_ops(self):
+        """Valid add + nonexistent remove: add succeeds, remove warns."""
+        diff = """\
+refinement:
+  add:
+    elements:
+      - id: new1
+        type: Node
+        name: "New Server"
+  remove:
+    elements: [does_not_exist]
+"""
+        merged, summary = apply_yaml_diff(VALID_YAML, diff)
+        assert summary["added_elements"] == 1
+        assert summary["removed_elements"] == 0
+        assert len(summary["warnings"]) == 1
+        assert "New Server" in merged

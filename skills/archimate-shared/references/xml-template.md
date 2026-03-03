@@ -30,8 +30,8 @@ Every pattern shown here is confirmed to appear in that reference file.
     Use Python: "id-" + str(uuid.uuid4())
   -->
 
-  <!-- MODEL NAME: required. xml:lang is required. Closing tag is </n> NOT </name> -->
-  <name xml:lang="en">My Architecture Model</n>
+  <!-- MODEL NAME: required. xml:lang is required. -->
+  <name xml:lang="en">My Architecture Model</name>
 
   <!-- DOCUMENTATION: optional but recommended -->
   <documentation xml:lang="en">
@@ -60,140 +60,140 @@ Every pattern shown here is confirmed to appear in that reference file.
 
     <!-- MOTIVATION LAYER -->
     <element identifier="id-[UUID]" xsi:type="Goal">
-      <name xml:lang="en">Improve system reliability</n>
+      <name xml:lang="en">Improve system reliability</name>
       <documentation xml:lang="en">Optional detailed description.</documentation>
     </element>
 
     <element identifier="id-[UUID]" xsi:type="Requirement">
-      <name xml:lang="en">System must achieve 99.9% uptime</n>
+      <name xml:lang="en">System must achieve 99.9% uptime</name>
     </element>
 
     <element identifier="id-[UUID]" xsi:type="Principle">
-      <name xml:lang="en">API-first design</n>
+      <name xml:lang="en">API-first design</name>
     </element>
 
     <!-- STRATEGY LAYER -->
     <element identifier="id-[UUID]" xsi:type="Capability">
-      <name xml:lang="en">Order Management</n>
+      <name xml:lang="en">Order Management</name>
     </element>
 
     <element identifier="id-[UUID]" xsi:type="ValueStream">
-      <name xml:lang="en">Customer order fulfillment</n>
+      <name xml:lang="en">Customer order fulfillment</name>
     </element>
 
     <!-- BUSINESS LAYER — Active Structure -->
     <element identifier="id-[UUID]" xsi:type="BusinessActor">
-      <name xml:lang="en">Customer</n>
+      <name xml:lang="en">Customer</name>
     </element>
 
     <element identifier="id-[UUID]" xsi:type="BusinessRole">
-      <name xml:lang="en">Order Manager</n>
+      <name xml:lang="en">Order Manager</name>
     </element>
 
     <!-- BUSINESS LAYER — Behavior -->
     <element identifier="id-[UUID]" xsi:type="BusinessProcess">
-      <name xml:lang="en">Process customer order</n>
+      <name xml:lang="en">Process customer order</name>
     </element>
 
     <element identifier="id-[UUID]" xsi:type="BusinessFunction">
-      <name xml:lang="en">Customer relationship management</n>
+      <name xml:lang="en">Customer relationship management</name>
     </element>
 
     <element identifier="id-[UUID]" xsi:type="BusinessService">
-      <name xml:lang="en">Order placement service</n>
+      <name xml:lang="en">Order placement service</name>
     </element>
 
     <element identifier="id-[UUID]" xsi:type="BusinessEvent">
-      <name xml:lang="en">New customer order received</n>
+      <name xml:lang="en">New customer order received</name>
     </element>
 
     <!-- BUSINESS LAYER — Passive Structure -->
     <element identifier="id-[UUID]" xsi:type="BusinessObject">
-      <name xml:lang="en">Customer Order</n>
+      <name xml:lang="en">Customer Order</name>
     </element>
 
     <element identifier="id-[UUID]" xsi:type="Contract">
-      <name xml:lang="en">Service Level Agreement</n>
+      <name xml:lang="en">Service Level Agreement</name>
     </element>
 
     <!-- APPLICATION LAYER — Active Structure -->
     <element identifier="id-[UUID]" xsi:type="ApplicationComponent">
-      <name xml:lang="en">Order Management System</n>
+      <name xml:lang="en">Order Management System</name>
     </element>
 
     <element identifier="id-[UUID]" xsi:type="ApplicationInterface">
-      <name xml:lang="en">Order REST API</n>
+      <name xml:lang="en">Order REST API</name>
     </element>
 
     <!-- APPLICATION LAYER — Behavior -->
     <element identifier="id-[UUID]" xsi:type="ApplicationFunction">
-      <name xml:lang="en">Validate order</n>
+      <name xml:lang="en">Validate order</name>
     </element>
 
     <element identifier="id-[UUID]" xsi:type="ApplicationService">
-      <name xml:lang="en">Order submission service</n>
+      <name xml:lang="en">Order submission service</name>
     </element>
 
     <element identifier="id-[UUID]" xsi:type="ApplicationEvent">
-      <name xml:lang="en">Order submitted</n>
+      <name xml:lang="en">Order submitted</name>
     </element>
 
     <!-- APPLICATION LAYER — Passive Structure -->
     <element identifier="id-[UUID]" xsi:type="DataObject">
-      <name xml:lang="en">Order record</n>
+      <name xml:lang="en">Order record</name>
     </element>
 
     <!-- TECHNOLOGY LAYER — Active Structure -->
     <element identifier="id-[UUID]" xsi:type="Node">
-      <name xml:lang="en">Application server</n>
+      <name xml:lang="en">Application server</name>
     </element>
 
     <element identifier="id-[UUID]" xsi:type="Device">
-      <name xml:lang="en">Database server</n>
+      <name xml:lang="en">Database server</name>
     </element>
 
     <element identifier="id-[UUID]" xsi:type="SystemSoftware">
-      <name xml:lang="en">Kubernetes</n>
+      <name xml:lang="en">Kubernetes</name>
     </element>
 
     <element identifier="id-[UUID]" xsi:type="CommunicationNetwork">
-      <name xml:lang="en">Internal network</n>
+      <name xml:lang="en">Internal network</name>
     </element>
 
     <!-- TECHNOLOGY LAYER — Behavior -->
     <element identifier="id-[UUID]" xsi:type="TechnologyService">
-      <name xml:lang="en">Container hosting service</n>
+      <name xml:lang="en">Container hosting service</name>
     </element>
 
     <element identifier="id-[UUID]" xsi:type="TechnologyFunction">
-      <name xml:lang="en">Container orchestration</n>
+      <name xml:lang="en">Container orchestration</name>
     </element>
 
     <!-- TECHNOLOGY LAYER — Passive Structure -->
     <element identifier="id-[UUID]" xsi:type="Artifact">
-      <name xml:lang="en">order-service.jar</n>
+      <name xml:lang="en">order-service.jar</name>
     </element>
 
     <!-- IMPLEMENTATION & MIGRATION LAYER -->
     <element identifier="id-[UUID]" xsi:type="WorkPackage">
-      <name xml:lang="en">Migrate to microservices</n>
+      <name xml:lang="en">Migrate to microservices</name>
     </element>
 
     <element identifier="id-[UUID]" xsi:type="Deliverable">
-      <name xml:lang="en">Deployed order service</n>
+      <name xml:lang="en">Deployed order service</name>
     </element>
 
     <element identifier="id-[UUID]" xsi:type="Plateau">
-      <name xml:lang="en">Phase 1: Core services</n>
+      <name xml:lang="en">Phase 1: Core services</name>
     </element>
 
     <!-- COMPOSITE -->
     <element identifier="id-[UUID]" xsi:type="Grouping">
-      <name xml:lang="en">Order domain</n>
+      <name xml:lang="en">Order domain</name>
     </element>
 
     <element identifier="id-[UUID]" xsi:type="Location">
-      <name xml:lang="en">Amsterdam datacenter</n>
+      <name xml:lang="en">Amsterdam datacenter</name>
     </element>
 
   </elements>
@@ -282,7 +282,7 @@ Every pattern shown here is confirmed to appear in that reference file.
       xsi:type="Flow"
       source="id-[BusinessFunction-A]"
       target="id-[BusinessFunction-B]">
-      <name xml:lang="en">Shipping order</n>
+      <name xml:lang="en">Shipping order</name>
     </relationship>
 
     <!-- SPECIALIZATION: subtype, source is specialization of target -->
@@ -307,7 +307,7 @@ Every pattern shown here is confirmed to appear in that reference file.
 
       <!-- SIMPLE FLAT VIEW: all nodes at same level -->
       <view identifier="id-[UUID]" xsi:type="Diagram">
-        <name xml:lang="en">Application Layer Overview</n>
+        <name xml:lang="en">Application Layer Overview</name>
         <documentation xml:lang="en">Shows main application components and their services.</documentation>
 
         <!-- NODE: visual representation of an element in this view
@@ -385,7 +385,7 @@ Every pattern shown here is confirmed to appear in that reference file.
 
       <!-- NESTED VIEW: nodes inside a parent node (container/grouping visual) -->
       <view identifier="id-[UUID]" xsi:type="Diagram">
-        <name xml:lang="en">Technology Infrastructure</n>
+        <name xml:lang="en">Technology Infrastructure</name>
 
         <!-- PARENT NODE: large container element -->
         <node identifier="id-[nodeParent]"
@@ -456,13 +456,9 @@ Every pattern shown here is confirmed to appear in that reference file.
 
 ## Critical Syntax Notes
 
-### The `</n>` closing tag
-The ArchiMate Open Exchange standard uses `</n>` as the closing tag for `<name>` elements. This is correct and not a typo:
+### The `<name>` closing tag
+The `<name>` element uses the standard XML closing tag `</name>`:
 ```xml
-<!-- CORRECT — as per ArchiMate Open Exchange spec -->
-<name xml:lang="en">My element name</n>
-
-<!-- WRONG — do not use </name> -->
 <name xml:lang="en">My element name</name>
 ```
 
@@ -505,16 +501,16 @@ The ArchiMate Open Exchange standard uses `</n>` as the closing tag for `<name>`
        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
        xsi:schemaLocation="http://www.opengroup.org/xsd/archimate/3.0/ http://www.opengroup.org/xsd/archimate/3.1/archimate3_Diagram.xsd"
        identifier="id-[UUID]">
-  <name xml:lang="en">Minimal Model</n>
+  <name xml:lang="en">Minimal Model</name>
   <elements>
     <element identifier="id-001" xsi:type="ApplicationComponent">
-      <name xml:lang="en">Order Service</n>
+      <name xml:lang="en">Order Service</name>
     </element>
     <element identifier="id-002" xsi:type="ApplicationComponent">
-      <name xml:lang="en">Payment Service</n>
+      <name xml:lang="en">Payment Service</name>
     </element>
     <element identifier="id-003" xsi:type="DataObject">
-      <name xml:lang="en">Order</n>
+      <name xml:lang="en">Order</name>
     </element>
   </elements>
   <relationships>
