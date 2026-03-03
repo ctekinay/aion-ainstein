@@ -33,6 +33,25 @@ class SkillRegistryEntry:
     tags: list[str] = field(default_factory=list)
     execution: str = "tree"  # "tree" or "generation"
     validation_tool: str = ""  # function name for post-generation validation
+    group: str = ""  # group name, or "" if ungrouped
+    type: str = "skill"  # "skill" (has SKILL.md) or "references" (references/ dir only)
+    load_order: int = 0  # sort order within group (lower = loaded first into context)
+
+
+@dataclass
+class SkillGroupEntry:
+    """A skill group — display/loading concept only.
+
+    Groups are a registry/UI concept: related skills declared as a unit,
+    enabled/disabled together. Internally, members are flattened into
+    _entries with inherited group properties. The injection path
+    (get_skill_content) does not know about groups.
+    """
+
+    name: str
+    description: str
+    enabled: bool = True
+    skills: list[str] = field(default_factory=list)
 
 
 class SkillRegistry:
@@ -46,6 +65,7 @@ class SkillRegistry:
         self.skills_dir = skills_dir or DEFAULT_SKILLS_DIR
         self.loader = loader or SkillLoader(self.skills_dir)
         self._entries: dict[str, SkillRegistryEntry] = {}
+        self._groups: dict[str, SkillGroupEntry] = {}
         self._loaded = False
 
     def load_registry(self) -> bool:
@@ -62,12 +82,64 @@ class SkillRegistry:
             logger.error(f"Failed to parse registry: {e}")
             return False
 
-        if not content or "skills" not in content:
+        if not content or ("skills" not in content and "groups" not in content):
             logger.warning("Empty or invalid registry format")
             return False
 
         self._entries.clear()
+        self._groups.clear()
 
+        # Process groups first — members inherit group-level properties
+        for group_data in content.get("groups", []):
+            group_name = group_data.get("name", "")
+            if not group_name:
+                continue
+
+            group = SkillGroupEntry(
+                name=group_name,
+                description=group_data.get("description", ""),
+                enabled=group_data.get("enabled", True),
+                skills=[],
+            )
+
+            # Group-level defaults inherited by members
+            group_defaults = {
+                "enabled": group_data.get("enabled", True),
+                "inject_into_tree": group_data.get("inject_into_tree", True),
+                "inject_mode": group_data.get("inject_mode", "always"),
+                "tags": group_data.get("tags", []),
+            }
+
+            for skill_data in group_data.get("skills", []):
+                entry = SkillRegistryEntry(
+                    name=skill_data.get("name", ""),
+                    path=skill_data.get("path", ""),
+                    description=skill_data.get("description", ""),
+                    enabled=skill_data.get("enabled", group_defaults["enabled"]),
+                    inject_into_tree=skill_data.get(
+                        "inject_into_tree", group_defaults["inject_into_tree"]
+                    ),
+                    inject_mode=skill_data.get(
+                        "inject_mode", group_defaults["inject_mode"]
+                    ),
+                    tags=skill_data.get("tags", group_defaults["tags"]),
+                    execution=skill_data.get("execution", "tree"),
+                    validation_tool=skill_data.get("validation_tool", ""),
+                    group=group_name,
+                    type=skill_data.get("type", "skill"),
+                    load_order=skill_data.get("load_order", 0),
+                )
+                if entry.name:
+                    self._entries[entry.name] = entry
+                    group.skills.append(entry.name)
+                    logger.debug(
+                        f"Registered skill: {entry.name} "
+                        f"(group={group_name}, enabled={entry.enabled})"
+                    )
+
+            self._groups[group_name] = group
+
+        # Process ungrouped skills (backward compatible)
         for skill_data in content.get("skills", []):
             entry = SkillRegistryEntry(
                 name=skill_data.get("name", ""),
@@ -79,6 +151,8 @@ class SkillRegistry:
                 tags=skill_data.get("tags", []),
                 execution=skill_data.get("execution", "tree"),
                 validation_tool=skill_data.get("validation_tool", ""),
+                type=skill_data.get("type", "skill"),
+                load_order=skill_data.get("load_order", 0),
             )
 
             if entry.name:
@@ -86,7 +160,10 @@ class SkillRegistry:
                 logger.debug(f"Registered skill: {entry.name} (enabled={entry.enabled})")
 
         self._loaded = True
-        logger.info(f"Loaded {len(self._entries)} skills from registry")
+        logger.info(
+            f"Loaded {len(self._entries)} skills "
+            f"({len(self._groups)} groups) from registry"
+        )
         return True
 
     def get_active_skills(self) -> list[Skill]:
@@ -140,7 +217,12 @@ class SkillRegistry:
         active_set = set(active_tags) if active_tags else set()
         parts = []
 
-        for name, entry in self._entries.items():
+        # Sort by load_order so instructions appear before reference material
+        sorted_entries = sorted(
+            self._entries.items(), key=lambda x: x[1].load_order
+        )
+
+        for name, entry in sorted_entries:
             if not entry.enabled or not entry.inject_into_tree:
                 continue
 
@@ -149,7 +231,7 @@ class SkillRegistry:
                 if not active_set or not active_set.intersection(entry.tags):
                     continue
 
-            skill = self.loader.load_skill(name)
+            skill = self.loader.load_skill(name, skill_type=entry.type)
             if skill:
                 parts.append(skill.get_injectable_content())
 
@@ -213,10 +295,18 @@ class SkillRegistry:
 
         return list(self._entries.values())
 
+    def list_groups(self) -> list[SkillGroupEntry]:
+        """List all registered skill groups."""
+        if not self._loaded:
+            self.load_registry()
+
+        return list(self._groups.values())
+
     def reload(self):
         """Reload the registry and clear caches."""
         self._loaded = False
         self._entries.clear()
+        self._groups.clear()
         self.loader.clear_cache()
         self.load_registry()
 
@@ -268,8 +358,9 @@ class SkillRegistry:
         for idx in reversed(enabled_line_indices):
             del lines[idx]
 
-        # Find correct insertion point
+        # Find correct insertion point and detect indent from the - name: line
         insert_idx = None
+        name_indent = 4  # default fallback
         in_target_skill = False
 
         for i, line in enumerate(lines):
@@ -278,6 +369,7 @@ class SkillRegistry:
                 name = name_match.group(2).strip()
                 if name == skill_name:
                     in_target_skill = True
+                    name_indent = len(name_match.group(1)) + 2
                     continue
                 elif in_target_skill:
                     insert_idx = i
@@ -293,13 +385,15 @@ class SkillRegistry:
                 name_match = re.match(r'^(\s*)-\s*name:\s*["\']?([^"\'#\n]+)["\']?', line)
                 if name_match and name_match.group(2).strip() == skill_name:
                     in_target_skill = True
+                    name_indent = len(name_match.group(1)) + 2
                     continue
                 if in_target_skill and re.match(r'^\s*description:', line):
                     insert_idx = i + 1
                     break
 
         if insert_idx is not None:
-            lines.insert(insert_idx, f"    enabled: {enabled_value}\n")
+            prop_indent = " " * name_indent
+            lines.insert(insert_idx, f"{prop_indent}enabled: {enabled_value}\n")
 
         registry_path.write_text("".join(lines), encoding="utf-8")
 
@@ -307,6 +401,117 @@ class SkillRegistry:
             self._entries[skill_name].enabled = enabled
 
         logger.info(f"Set skill '{skill_name}' enabled={enabled}")
+        return True
+
+    def set_group_enabled(self, group_name: str, enabled: bool) -> bool:
+        """Update the enabled status of a group in skills-registry.yaml.
+
+        Modifies only the group-level enabled: line. Members inherit the
+        group's enabled state on reload. For immediate effect, also updates
+        in-memory entries.
+        """
+        registry_path = self.skills_dir / "skills-registry.yaml"
+
+        if not registry_path.exists():
+            raise ValueError(f"Registry not found: {registry_path}")
+
+        if group_name not in self._groups:
+            raise ValueError(f"Group not found: {group_name}")
+
+        lines = registry_path.read_text(encoding="utf-8").splitlines(keepends=True)
+
+        # Locate the groups: section and find - name: <group_name>
+        in_groups_section = False
+        group_found = False
+        group_name_line_idx = None
+        enabled_line_indices = []
+        in_target_group = False
+        name_indent = 4
+
+        for i, line in enumerate(lines):
+            stripped = line.strip()
+
+            # Detect top-level section boundaries
+            if re.match(r'^(groups|skills):', line):
+                in_groups_section = stripped.startswith("groups:")
+                if in_target_group:
+                    break
+                continue
+
+            if not in_groups_section:
+                continue
+
+            name_match = re.match(
+                r'^(\s*)-\s*name:\s*["\']?([^"\'#\n]+)["\']?', line
+            )
+            if name_match:
+                name = name_match.group(2).strip()
+                if name == group_name:
+                    group_found = True
+                    in_target_group = True
+                    group_name_line_idx = i
+                    name_indent = len(name_match.group(1)) + 2
+                elif in_target_group:
+                    # Hit the next group or skill entry — stop
+                    break
+                continue
+
+            if in_target_group and i != group_name_line_idx:
+                # Only match enabled: at group property indent level
+                enabled_match = re.match(
+                    r'^(\s*)enabled:\s*(true|false)\s*(#.*)?$', line, re.IGNORECASE
+                )
+                if enabled_match:
+                    enabled_line_indices.append(i)
+                # Stop at nested skills: list
+                if re.match(r'^\s*skills:', line):
+                    break
+
+        if not group_found:
+            raise ValueError(f"Group not found in registry file: {group_name}")
+
+        self._backup_registry(registry_path)
+
+        enabled_value = "true" if enabled else "false"
+
+        # Remove existing enabled: lines
+        for idx in reversed(enabled_line_indices):
+            del lines[idx]
+
+        # Find insertion point after description:
+        insert_idx = None
+        in_target_group = False
+
+        for i, line in enumerate(lines):
+            name_match = re.match(
+                r'^(\s*)-\s*name:\s*["\']?([^"\'#\n]+)["\']?', line
+            )
+            if name_match and name_match.group(2).strip() == group_name:
+                in_target_group = True
+                continue
+            if in_target_group:
+                if re.match(r'^\s*description:', line):
+                    insert_idx = i + 1
+                    break
+                # If next entry or section before description, insert right after name
+                if name_match or re.match(r'^(groups|skills):', line):
+                    insert_idx = i
+                    break
+
+        if insert_idx is not None:
+            prop_indent = " " * name_indent
+            lines.insert(insert_idx, f"{prop_indent}enabled: {enabled_value}\n")
+
+        registry_path.write_text("".join(lines), encoding="utf-8")
+
+        # Update in-memory state
+        group = self._groups[group_name]
+        group.enabled = enabled
+        for skill_name in group.skills:
+            if skill_name in self._entries:
+                self._entries[skill_name].enabled = enabled
+
+        logger.info(f"Set group '{group_name}' enabled={enabled}")
         return True
 
     def _backup_registry(self, registry_path: Path) -> str:

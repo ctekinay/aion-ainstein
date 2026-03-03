@@ -83,6 +83,8 @@ def list_skills() -> list[dict[str, Any]]:
             "description": entry.description,
             "enabled": entry.enabled,
             "is_default": entry.name == DEFAULT_SKILL,
+            "group": entry.group,
+            "type": entry.type,
         }
 
         try:
@@ -108,7 +110,7 @@ def get_skill(skill_name: str) -> dict[str, Any]:
     entry = entries[0]
 
     try:
-        skill = _loader.load_skill(skill_name)
+        skill = _loader.load_skill(skill_name, skill_type=entry.type)
         content = skill.content if skill else ""
     except Exception:
         content = ""
@@ -201,6 +203,32 @@ def toggle_skill_enabled(skill_name: str, enabled: bool) -> dict[str, Any]:
         "skill_name": skill_name,
         "enabled": enabled,
         "message": f"Skill '{skill_name}' {'enabled' if enabled else 'disabled'}.",
+    }
+
+
+def list_groups() -> list[dict[str, Any]]:
+    """List all registered skill groups."""
+    return [
+        {
+            "name": g.name,
+            "description": g.description,
+            "enabled": g.enabled,
+            "skills": g.skills,
+        }
+        for g in _registry.list_groups()
+    ]
+
+
+def toggle_group_enabled(group_name: str, enabled: bool) -> dict[str, Any]:
+    """Toggle the enabled status of a group in skills-registry.yaml."""
+    _registry.set_group_enabled(group_name, enabled)
+    _registry.reload()
+
+    return {
+        "success": True,
+        "group_name": group_name,
+        "enabled": enabled,
+        "message": f"Group '{group_name}' {'enabled' if enabled else 'disabled'}.",
     }
 
 

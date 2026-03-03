@@ -2086,9 +2086,23 @@ async def get_skill_defaults():
 
 @app.get("/api/skills")
 async def list_skills():
-    """List all registered skills."""
+    """List all registered skills and groups."""
     try:
-        return {"skills": skills_api.list_skills()}
+        return {
+            "skills": skills_api.list_skills(),
+            "groups": skills_api.list_groups(),
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.put("/api/skills/groups/{group_name}/enabled")
+async def toggle_group(group_name: str, request: SkillToggleRequest):
+    """Toggle group enabled/disabled status."""
+    try:
+        return skills_api.toggle_group_enabled(group_name, request.enabled)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

@@ -47,11 +47,15 @@ class SkillLoader:
         self.skills_dir = skills_dir or DEFAULT_SKILLS_DIR
         self._cache: dict[str, Skill] = {}
 
-    def load_skill(self, skill_name: str) -> Optional[Skill]:
+    def load_skill(
+        self, skill_name: str, skill_type: str = "skill"
+    ) -> Optional[Skill]:
         """Load a skill by name.
 
         Args:
             skill_name: Name of the skill (folder name)
+            skill_type: "skill" (default, reads SKILL.md) or "references"
+                (globs references/*.md, no SKILL.md required)
 
         Returns:
             Loaded Skill object or None if not found
@@ -60,6 +64,11 @@ class SkillLoader:
             return self._cache[skill_name]
 
         skill_path = self.skills_dir / skill_name
+
+        # Reference-only skills: concatenate all .md files from references/
+        if skill_type == "references":
+            return self._load_references_skill(skill_name, skill_path)
+
         skill_md_path = skill_path / "SKILL.md"
 
         if not skill_md_path.exists():
@@ -76,6 +85,42 @@ class SkillLoader:
         except Exception as e:
             logger.error(f"Failed to load skill {skill_name}: {e}")
             return None
+
+    def _load_references_skill(
+        self, skill_name: str, skill_path: Path
+    ) -> Optional[Skill]:
+        """Build a Skill from a references/ directory (no SKILL.md needed)."""
+        refs_dir = skill_path / "references"
+        if not refs_dir.exists():
+            logger.warning(
+                f"References dir not found for skill: {skill_name} "
+                f"(looked in {refs_dir})"
+            )
+            return None
+
+        parts = []
+        for f in sorted(refs_dir.glob("*.md")):
+            try:
+                parts.append(f"## {f.stem}\n\n{f.read_text(encoding='utf-8')}")
+            except Exception as e:
+                logger.warning(f"Failed to read reference {f}: {e}")
+
+        if not parts:
+            logger.warning(f"No .md files found in {refs_dir}")
+            return None
+
+        content = "\n\n---\n\n".join(parts)
+        skill = Skill(
+            name=skill_name,
+            description=f"Reference library ({len(parts)} files)",
+            content=content,
+            path=skill_path,
+        )
+        self._cache[skill_name] = skill
+        logger.debug(
+            f"Loaded references skill: {skill_name} ({len(parts)} files)"
+        )
+        return skill
 
     def _parse_skill_file(self, skill_md_path: Path) -> Optional[Skill]:
         """Parse a SKILL.md file.

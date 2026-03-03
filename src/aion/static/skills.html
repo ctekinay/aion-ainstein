@@ -956,6 +956,75 @@
             color: var(--danger);
         }
 
+        /* Skill Groups */
+        .skill-group {
+            margin-bottom: 12px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .skill-group-header {
+            display: flex;
+            align-items: center;
+            padding: 10px 15px;
+            background: var(--bg-card);
+            cursor: pointer;
+            gap: 10px;
+            user-select: none;
+        }
+
+        .skill-group-header:hover {
+            background: var(--bg-input);
+        }
+
+        .skill-group-expand {
+            font-size: 16px;
+            font-weight: 600;
+            font-family: monospace;
+            color: var(--text-muted);
+            width: 16px;
+            text-align: center;
+        }
+
+        .skill-group-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .skill-group-name {
+            font-weight: 600;
+            font-size: 14px;
+            color: var(--text-primary);
+        }
+
+        .skill-group-description {
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-top: 2px;
+        }
+
+        .skill-group-count {
+            font-size: 11px;
+            color: var(--text-muted);
+            white-space: nowrap;
+        }
+
+        .skill-group-body {
+            display: none;
+            padding: 4px 8px 8px 8px;
+        }
+
+        .skill-group.expanded .skill-group-body {
+            display: block;
+        }
+
+        .skill-group-body .skill-item {
+            margin-left: 10px;
+            border-left: 2px solid var(--primary);
+            padding-left: 12px;
+        }
+
         /* Restart Warning Banner */
         .restart-warning {
             background: rgba(245, 158, 11, 0.15);
@@ -1396,7 +1465,7 @@
 
                 const response = await fetch('/api/skills');
                 const data = await response.json();
-                renderSkillsList(data.skills);
+                renderSkillsList(data.skills, data.groups || []);
 
                 // Load thresholds for default skill (first from API, not hardcoded)
                 if (data.skills.length > 0) {
@@ -1550,23 +1619,15 @@
 
 
         // Render Functions
-        function renderSkillsList(skills) {
-            const container = document.getElementById('skills-list');
-
-            if (skills.length === 0) {
-                container.innerHTML = '<p class="loading">No skills registered</p>';
-                return;
-            }
-
-            container.innerHTML = skills.map(skill => `
+        function renderSkillItem(skill) {
+            return `
                 <div class="skill-item" data-skill-name="${escapeAttr(skill.name)}">
                     <div class="skill-info">
                         <div class="skill-name">
                             ${escapeHtml(skill.name)}
                             ${skill.enabled ? '<span class="badge badge-active">ACTIVE</span>' : '<span class="badge badge-disabled">DISABLED</span>'}
                             ${skill.is_default ? '<span class="badge badge-default">DEFAULT</span>' : ''}
-                            <button class="btn btn-secondary skill-action-btn skill-edit-btn">Edit Rules</button>
-
+                            ${skill.type !== 'references' ? '<button class="btn btn-secondary skill-action-btn skill-edit-btn">Edit Rules</button>' : ''}
                         </div>
                         <div class="skill-description">${escapeHtml(skill.description || 'No description')}</div>
                         <div class="skill-meta">
@@ -1580,8 +1641,84 @@
                             <span class="toggle-slider"></span>
                         </label>
                     </div>
-                </div>
-            `).join('');
+                </div>`;
+        }
+
+        function renderSkillsList(skills, groups) {
+            const container = document.getElementById('skills-list');
+
+            if (skills.length === 0) {
+                container.innerHTML = '<p class="loading">No skills registered</p>';
+                return;
+            }
+
+            let html = '';
+            const renderedNames = new Set();
+
+            // Render groups first (collapsible)
+            if (groups && groups.length > 0) {
+                for (const group of groups) {
+                    const groupSkills = skills.filter(s => group.skills.includes(s.name));
+                    groupSkills.forEach(s => renderedNames.add(s.name));
+
+                    html += `
+                    <div class="skill-group" data-group-name="${escapeAttr(group.name)}">
+                        <div class="skill-group-header" onclick="toggleGroupExpand('${escapeAttr(group.name)}')">
+                            <span class="skill-group-expand">+</span>
+                            <div class="skill-group-info">
+                                <div class="skill-group-name">${escapeHtml(group.name)}</div>
+                                <div class="skill-group-description">${escapeHtml(group.description)}</div>
+                            </div>
+                            <span class="skill-group-count">${groupSkills.length} skills</span>
+                            <div class="skill-toggle" onclick="event.stopPropagation()">
+                                <span class="skill-toggle-label">Group</span>
+                                <label class="toggle-switch">
+                                    <input type="checkbox" class="group-enabled-toggle" ${group.enabled ? 'checked' : ''}>
+                                    <span class="toggle-slider"></span>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="skill-group-body">
+                            ${groupSkills.map(s => renderSkillItem(s)).join('')}
+                        </div>
+                    </div>`;
+                }
+            }
+
+            // Render ungrouped skills
+            const ungrouped = skills.filter(s => !renderedNames.has(s.name));
+            html += ungrouped.map(s => renderSkillItem(s)).join('');
+
+            container.innerHTML = html;
+        }
+
+        function toggleGroupExpand(groupName) {
+            const el = document.querySelector(`.skill-group[data-group-name="${groupName}"]`);
+            if (!el) return;
+            el.classList.toggle('expanded');
+            const icon = el.querySelector('.skill-group-expand');
+            icon.textContent = el.classList.contains('expanded') ? '\u2212' : '+';
+        }
+
+        async function toggleGroupEnabled(groupName, enabled) {
+            try {
+                const response = await fetch(`/api/skills/groups/${groupName}/enabled`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ enabled })
+                });
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.detail || 'Failed to toggle group');
+                }
+                const data = await response.json();
+                showStatus(data.message, 'success');
+                showRestartWarning();
+                fetchSkills();
+            } catch (error) {
+                showStatus('Error toggling group: ' + error.message, 'error');
+                fetchSkills();
+            }
         }
 
 
@@ -1783,6 +1920,12 @@
                 if (!skillItem) return;
                 const skillName = skillItem.dataset.skillName;
                 toggleSkillEnabled(skillName, e.target.checked);
+            }
+            if (e.target.classList.contains('group-enabled-toggle')) {
+                const groupEl = e.target.closest('.skill-group');
+                if (!groupEl) return;
+                const groupName = groupEl.dataset.groupName;
+                toggleGroupEnabled(groupName, e.target.checked);
             }
         });
 
