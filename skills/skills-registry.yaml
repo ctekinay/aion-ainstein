@@ -1,0 +1,66 @@
+# Skills Registry
+# Defines which skills are available. Enabled skills inject their
+# SKILL.md content into every LLM prompt. The Elysia Tree decides
+# how to apply the rules — no keyword triggers needed.
+
+version: "1.0"
+
+skills:
+  - name: ainstein-identity
+    path: ainstein-identity/SKILL.md
+    description: "Core identity rules and scope boundaries for the AInstein assistant"
+    enabled: true
+
+  - name: rag-quality-assurance
+    path: rag-quality-assurance/SKILL.md
+    description: "Anti-hallucination rules and citation requirements for RAG responses"
+    enabled: true
+
+  - name: esa-document-ontology
+    path: esa-document-ontology/SKILL.md
+    description: "Domain knowledge about ADRs, PCPs, DARs: naming, numbering, relationships, disambiguation"
+    enabled: true
+
+  - name: response-formatter
+    path: response-formatter/SKILL.md
+    description: "Ensures list-based responses use rich formatting with statistics, follow-up questions, and visualization suggestions."
+    enabled: true
+
+  - name: response-contract
+    path: response-contract/SKILL.md
+    description: "Enforce structured JSON output for RAG responses with count transparency"
+    enabled: false
+
+  - name: persona-orchestrator
+    path: persona-orchestrator/SKILL.md
+    description: "Intent classification and query rewriting for the AInstein Persona layer"
+    enabled: true
+    inject_into_tree: false
+
+  # --- On-demand domain skills (injected only when Persona emits matching tags) ---
+
+  - name: archimate-generator
+    path: archimate-generator/SKILL.md
+    description: "ArchiMate 3.2 model generation rules, element types, and XML format"
+    enabled: true
+    inject_into_tree: true
+    inject_mode: on_demand
+    tags: [archimate]
+    execution: generation
+    validation_tool: validate_archimate
+
+  - name: archimate-view-generator
+    path: archimate-view-generator/SKILL.md
+    description: "ArchiMate 3.2 view generation rules, layout conventions, and fragment format"
+    enabled: true
+    inject_into_tree: true
+    inject_mode: on_demand
+    tags: [archimate]
+
+  - name: skosmos-vocabulary
+    path: skosmos-vocabulary/SKILL.md
+    description: "Vocabulary and terminology lookup via SKOSMOS REST API"
+    enabled: true
+    inject_into_tree: true
+    inject_mode: on_demand
+    tags: [skosmos, vocabulary, definition, terminology, standard, IEC, abbreviation]

@@ -1,0 +1,3114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AInstein - Alliander Energy System Architect Assistant</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        /* Dark theme (default) */
+        :root {
+            --primary: #2563eb;
+            --primary-dark: #1d4ed8;
+            --bg-dark: #1e1e2e;
+            --bg-sidebar: #181825;
+            --bg-chat: #1e1e2e;
+            --bg-input: #313244;
+            --bg-message-user: #2563eb;
+            --bg-message-assistant: #313244;
+            --bg-decision: #2d1f3d;
+            --bg-status: #2d2d3d;
+            --bg-assistant: rgba(16, 185, 129, 0.1);
+            --text-primary: #cdd6f4;
+            --text-secondary: #a6adc8;
+            --text-muted: #6c7086;
+            --border: #45475a;
+            --border-decision: #a855f7;
+            --border-assistant: #10b981;
+            --border-status: #f59e0b;
+            --panel-action-hover: rgba(255,255,255,0.1);
+            --sources-bg: rgba(0,0,0,0.2);
+            --panel-footer-bg: rgba(0,0,0,0.15);
+            --panel-footer-border: rgba(255,255,255,0.05);
+            --sources-header-hover: rgba(255,255,255,0.05);
+        }
+
+        /* Light theme */
+        [data-theme="light"] {
+            --primary: #2563eb;
+            --primary-dark: #1d4ed8;
+            --bg-dark: #f8fafc;
+            --bg-sidebar: #f1f5f9;
+            --bg-chat: #ffffff;
+            --bg-input: #e2e8f0;
+            --bg-message-user: #2563eb;
+            --bg-message-assistant: #e2e8f0;
+            --bg-decision: #f3e8ff;
+            --bg-status: #f1f5f9;
+            --bg-assistant: rgba(16, 185, 129, 0.1);
+            --text-primary: #1e293b;
+            --text-secondary: #475569;
+            --text-muted: #64748b;
+            --border: #cbd5e1;
+            --border-decision: #9333ea;
+            --border-assistant: #059669;
+            --border-status: #d97706;
+            --panel-action-hover: rgba(0,0,0,0.05);
+            --sources-bg: rgba(0,0,0,0.05);
+            --panel-footer-bg: rgba(0,0,0,0.05);
+            --panel-footer-border: rgba(0,0,0,0.08);
+            --sources-header-hover: rgba(0,0,0,0.05);
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: var(--bg-dark);
+            color: var(--text-primary);
+            height: 100vh;
+            display: flex;
+            overflow: hidden;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            width: 280px;
+            background: var(--bg-sidebar);
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            flex-shrink: 0;
+        }
+
+        .sidebar-header {
+            padding: 20px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .sidebar-title-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+        }
+
+        .sidebar-header h1 {
+            font-size: 18px;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .sidebar-header p {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-top: 4px;
+        }
+
+        .theme-toggle {
+            background: var(--bg-input);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            width: 36px;
+            height: 36px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+            flex-shrink: 0;
+        }
+
+        .theme-toggle:hover {
+            background: var(--primary);
+            border-color: var(--primary);
+        }
+
+        .theme-toggle:hover svg {
+            fill: white;
+        }
+
+        .theme-toggle svg {
+            width: 20px;
+            height: 20px;
+            fill: var(--text-secondary);
+            transition: fill 0.2s;
+        }
+
+        /* Header icon buttons (settings, skills, theme) */
+        .header-icon-btn {
+            background: var(--bg-input);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            width: 36px;
+            height: 36px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+            flex-shrink: 0;
+            text-decoration: none;
+        }
+
+        .header-icon-btn:hover {
+            background: var(--primary);
+            border-color: var(--primary);
+        }
+
+        .header-icon-btn:hover svg {
+            fill: white;
+        }
+
+        .header-icon-btn svg {
+            width: 18px;
+            height: 18px;
+            fill: var(--text-secondary);
+            transition: fill 0.2s;
+        }
+
+        .header-buttons {
+            display: flex;
+            gap: 6px;
+        }
+
+        /* Show sun icon in dark mode, moon icon in light mode */
+        .theme-toggle .sun-icon {
+            display: block;
+        }
+        .theme-toggle .moon-icon {
+            display: none;
+        }
+        [data-theme="light"] .theme-toggle .sun-icon {
+            display: none;
+        }
+        [data-theme="light"] .theme-toggle .moon-icon {
+            display: block;
+        }
+
+        .sidebar-actions {
+            display: flex;
+            gap: 8px;
+            margin: 12px 16px;
+        }
+
+        .new-chat-btn {
+            flex: 1;
+            padding: 8px 12px;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 500;
+            transition: background 0.2s;
+        }
+
+        .new-chat-btn:hover {
+            background: var(--primary-dark);
+        }
+
+        .delete-all-icon-btn {
+            padding: 8px;
+            background: transparent;
+            color: var(--text-muted);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+
+        .delete-all-icon-btn:hover {
+            background: rgba(239, 68, 68, 0.1);
+            border-color: #ef4444;
+            color: #ef4444;
+        }
+
+        .delete-all-icon-btn svg {
+            width: 16px;
+            height: 16px;
+            fill: currentColor;
+        }
+
+        .conversations-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 8px;
+        }
+
+        .conversation-item {
+            padding: 12px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            margin-bottom: 4px;
+            transition: background 0.2s;
+        }
+
+        .conversation-item:hover {
+            background: var(--bg-input);
+        }
+
+        .conversation-item.active {
+            background: var(--bg-input);
+        }
+
+        .conversation-item .title {
+            font-size: 14px;
+            color: var(--text-primary);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .conversation-item .meta {
+            font-size: 11px;
+            color: var(--text-muted);
+            margin-top: 4px;
+        }
+
+        .conversation-item .delete-btn {
+            display: none;
+            float: right;
+            color: var(--text-muted);
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .conversation-item:hover .delete-btn {
+            display: inline;
+        }
+
+        .conversation-item .delete-btn:hover {
+            color: #f38ba8;
+        }
+
+        /* Main chat area */
+        .main {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-width: 0;
+        }
+
+        .chat-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 24px;
+        }
+
+        /* Test Mode: Split-screen layout */
+        .chat-container.test-mode {
+            display: flex;
+            flex-direction: column;
+            padding: 16px;
+        }
+
+        .test-mode-user-message {
+            margin-bottom: 16px;
+        }
+
+        .comparison-panels {
+            display: flex;
+            gap: 16px;
+            flex: 1;
+            min-height: 0;
+        }
+
+        .comparison-panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+            background: var(--bg-chat);
+        }
+
+        .comparison-panel-header {
+            padding: 12px 16px;
+            background: var(--bg-sidebar);
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .comparison-panel-header .provider-name {
+            font-weight: 600;
+            font-size: 14px;
+            color: var(--text-primary);
+        }
+
+        .comparison-panel-header .model-name {
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+
+        .latency-badge {
+            font-size: 11px;
+            color: var(--text-muted);
+            background: var(--bg-input);
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-family: monospace;
+        }
+
+        .latency-badge.fast {
+            color: #10b981;
+        }
+
+        .latency-badge.slow {
+            color: #f59e0b;
+        }
+
+        .comparison-panel-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px;
+        }
+
+        .comparison-panel-content .message-text {
+            font-size: 14px;
+            line-height: 1.6;
+            white-space: normal;  /* Flow text normally to use full width */
+            word-break: break-word;
+        }
+
+        .comparison-panel.ollama {
+            border-color: #10b981;
+        }
+
+        .comparison-panel.ollama .comparison-panel-header {
+            border-bottom-color: #10b981;
+        }
+
+        .comparison-panel.openai {
+            border-color: #6366f1;
+        }
+
+        .comparison-panel.openai .comparison-panel-header {
+            border-bottom-color: #6366f1;
+        }
+
+        .comparison-panel .loading-spinner {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 40px;
+            color: var(--text-muted);
+        }
+
+        .comparison-panel .error-message {
+            color: #f38ba8;
+            padding: 16px;
+            background: rgba(243, 139, 168, 0.1);
+            border-radius: 8px;
+            margin: 8px;
+        }
+
+        .comparison-panel .truncation-warning {
+            color: #f9e2af;
+            padding: 6px 12px;
+            background: rgba(249, 226, 175, 0.1);
+            border-radius: 6px;
+            margin: 8px 8px 0 8px;
+            font-size: 11px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .truncation-warning::before {
+            content: "!";
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 16px;
+            height: 16px;
+            background: rgba(249, 226, 175, 0.3);
+            border-radius: 50%;
+            font-weight: bold;
+            font-size: 10px;
+        }
+
+        .latency-badges {
+            display: flex;
+            gap: 8px;
+        }
+
+        .comparison-panel-sources {
+            border-top: 1px solid var(--border);
+            background: var(--bg-sidebar);
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .comparison-panel-sources .sources-header {
+            padding: 10px 16px;
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .comparison-panel-sources .sources-header:hover {
+            background: var(--sources-header-hover);
+        }
+
+        .comparison-panel-sources .sources-content {
+            padding: 0 16px 12px 16px;
+        }
+
+        .comparison-panel-sources .source-item {
+            background: rgba(0,0,0,0.15);
+            padding: 8px 12px;
+            border-radius: 6px;
+            margin-bottom: 6px;
+            font-size: 12px;
+        }
+
+        .comparison-panel-sources .source-item:last-child {
+            margin-bottom: 0;
+        }
+
+        .comparison-panel-sources .source-item .preview {
+            font-size: 11px;
+            margin-top: 4px;
+            line-height: 1.3;
+        }
+
+        .shared-sources {
+            margin-top: 16px;
+            padding: 16px;
+            background: var(--bg-sidebar);
+            border-radius: 12px;
+            border: 1px solid var(--border);
+        }
+
+        .shared-sources-header {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            margin-bottom: 12px;
+        }
+
+        /* Test mode indicator in header */
+        .test-mode-indicator {
+            display: none;
+            font-size: 11px;
+            background: var(--primary);
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            margin-left: 8px;
+        }
+
+        .test-mode-active .test-mode-indicator {
+            display: inline-block;
+        }
+
+        /* Responsive: Stack panels vertically on narrow screens */
+        @media (max-width: 900px) {
+            .comparison-panels {
+                flex-direction: column;
+            }
+
+            .comparison-panel {
+                min-height: 300px;
+            }
+        }
+
+        .messages {
+            max-width: 100%;
+            margin: 0;
+            padding: 0 16px;
+        }
+
+        /* Panel styles - similar to Rich console panels */
+        .panel {
+            margin-bottom: 16px;
+            border-radius: 8px;
+            overflow: hidden;
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 16px;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .panel-header .header-title {
+            flex: 1;
+        }
+
+        .panel-header .latency-badges {
+            display: flex;
+            gap: 8px;
+            text-transform: none;
+            letter-spacing: normal;
+        }
+
+        .panel-content {
+            padding: 16px;
+            font-size: 14px;
+            line-height: 1.5;
+            word-wrap: break-word;
+            width: 100%;
+        }
+
+        .panel-content .message-text {
+            width: 100%;
+            display: block;
+            word-break: break-word;
+        }
+
+        /* Markdown content styling (rendered by marked.js) */
+        .message-text p {
+            margin: 0 0 0.4em 0;
+            line-height: 1.5;
+        }
+
+        .message-text p:last-child {
+            margin-bottom: 0;
+        }
+
+        .message-text ol,
+        .message-text ul {
+            margin: 0.3em 0;
+            padding-left: 2em;
+            line-height: 1.5;
+        }
+
+        .message-text li {
+            margin: 0.1em 0;
+        }
+
+        .message-text ol ol,
+        .message-text ol ul,
+        .message-text ul ol,
+        .message-text ul ul {
+            margin: 0;
+            padding-left: 1.2em;
+        }
+
+        /* Let text flow naturally for all panel types */
+        .panel.assistant .panel-content .message-text,
+        .panel.user-prompt .panel-content .message-text,
+        .panel.thinking-aloud .panel-content .message-text,
+        .panel.decision .panel-content .message-text {
+            white-space: normal;
+        }
+
+        /* Panel footer with actions and timestamp */
+        .panel-footer {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 8px 16px;
+            background: var(--panel-footer-bg);
+            border-top: 1px solid var(--panel-footer-border);
+        }
+
+        .panel-actions {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .panel-action-btn {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            padding: 4px 8px;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 12px;
+            transition: all 0.2s;
+        }
+
+        .panel-action-btn:hover {
+            background: var(--panel-action-hover);
+            color: var(--text-primary);
+        }
+
+        .panel-action-btn.active {
+            color: var(--primary);
+        }
+
+        .panel-action-btn.thumbs-up.active {
+            color: #10b981;
+        }
+
+        .panel-action-btn.thumbs-down.active {
+            color: #ef4444;
+        }
+
+        .panel-action-btn svg {
+            width: 16px;
+            height: 16px;
+            fill: currentColor;
+        }
+
+        .panel-timestamp {
+            font-size: 11px;
+            color: var(--text-muted);
+        }
+
+        .copy-feedback {
+            font-size: 11px;
+            color: #10b981;
+            margin-left: 4px;
+        }
+
+        /* User prompt panel */
+        .panel.user-prompt {
+            border: 1px solid var(--primary);
+        }
+        .panel.user-prompt .panel-header {
+            background: var(--primary);
+            color: white;
+        }
+        .panel.user-prompt .panel-content {
+            background: rgba(37, 99, 235, 0.1);
+        }
+
+        /* Assistant response panel — header bar matching USER structure */
+        .panel.assistant {
+            border: 1px solid var(--border-assistant);
+        }
+        .panel.assistant .panel-header {
+            background: var(--border-assistant);
+            color: white;
+        }
+        .panel.assistant .panel-content {
+            background: var(--bg-chat);
+        }
+
+        /* Decision panel (legacy, kept for loaded history) */
+        .panel.decision {
+            border: 1px solid var(--border-decision);
+        }
+        .panel.decision .panel-header {
+            background: var(--border-decision);
+            color: white;
+        }
+        .panel.decision .panel-content {
+            background: var(--bg-decision);
+            font-family: 'Monaco', 'Menlo', 'Courier New', monospace;
+            font-size: 13px;
+        }
+
+        /* Thinking aloud panel (legacy, kept for loaded history) */
+        .panel.thinking-aloud {
+            border: 1px solid var(--border-assistant);
+            opacity: 0.85;
+        }
+        .panel.thinking-aloud .panel-header {
+            background: linear-gradient(135deg, var(--bg-assistant) 0%, rgba(16, 185, 129, 0.2) 100%);
+            color: var(--border-assistant);
+            font-style: italic;
+        }
+
+        /* Thinking container — minimal line during processing, collapsible after */
+        .thinking-container {
+            margin-bottom: 8px;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .thinking-container .thinking-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 4px;
+            color: var(--text-muted);
+            font-size: 13px;
+            font-weight: 400;
+        }
+
+        .thinking-container .thinking-header .thinking-spinner {
+            width: 14px;
+            height: 14px;
+            border: 2px solid rgba(168, 85, 247, 0.2);
+            border-top-color: var(--border-decision);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            flex-shrink: 0;
+        }
+
+        .thinking-container .thinking-header .thinking-timer {
+            font-size: 12px;
+            opacity: 0.7;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .thinking-container .thinking-steps {
+            padding: 4px 4px 8px 26px;
+        }
+
+        .thinking-container .thinking-step {
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+            padding: 2px 0;
+            font-size: 12px;
+            color: var(--text-muted);
+            line-height: 1.4;
+        }
+
+        .thinking-container .thinking-step .step-icon {
+            flex-shrink: 0;
+            width: 14px;
+            height: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-top: 1px;
+        }
+
+        .thinking-container .thinking-step .step-icon.done {
+            color: var(--text-muted);
+            opacity: 0.6;
+        }
+
+        .thinking-container .thinking-step .step-icon.active {
+            color: var(--border-decision);
+        }
+
+        .thinking-container .thinking-step .step-icon.active svg {
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+
+        .thinking-container .thinking-step .step-text {
+            flex: 1;
+        }
+
+        .thinking-container .thinking-step.narration {
+            color: var(--border-assistant);
+        }
+
+        /* Collapsed state (default after completion) */
+        .thinking-container.collapsed .thinking-steps {
+            display: none;
+        }
+
+        .thinking-container.collapsed .thinking-header,
+        .thinking-container.expanded .thinking-header {
+            cursor: pointer;
+        }
+
+        .thinking-container.collapsed .thinking-header:hover,
+        .thinking-container.expanded .thinking-header:hover {
+            color: var(--text-secondary);
+        }
+
+        .thinking-container .thinking-header .expand-icon {
+            font-size: 10px;
+            opacity: 0.6;
+            display: none;
+            transition: transform 0.2s;
+        }
+
+        .thinking-container.collapsed .thinking-header .expand-icon {
+            display: inline;
+        }
+
+        .thinking-container.expanded .thinking-header .expand-icon {
+            display: inline;
+            transform: rotate(90deg);
+        }
+
+        .thinking-container.collapsed .thinking-header .thinking-spinner,
+        .thinking-container.expanded .thinking-header .thinking-spinner {
+            display: none;
+        }
+
+        /* Hide thinking when disabled — hide entire container */
+        .hide-thinking .thinking-container.collapsed,
+        .hide-thinking .thinking-container.expanded {
+            display: none;
+        }
+
+        /* But keep the active (in-progress) thinking container visible as progress indicator */
+        .hide-thinking .thinking-container:not(.collapsed):not(.expanded) .thinking-steps {
+            display: none;
+        }
+
+        .hide-thinking .panel.decision,
+        .hide-thinking .panel.thinking-aloud {
+            display: none;
+        }
+
+        .hide-thinking .status-indicator {
+            display: none;
+        }
+
+        /* Global loading indicator - always visible */
+        .loading-indicator {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 16px 20px;
+            background: linear-gradient(135deg, var(--bg-status) 0%, rgba(168, 85, 247, 0.15) 100%);
+            border-radius: 12px;
+            margin-bottom: 16px;
+            border-left: 4px solid var(--border-decision);
+            animation: fadeIn 0.3s ease;
+        }
+
+        .loading-indicator .loading-icon {
+            width: 32px;
+            height: 32px;
+            position: relative;
+        }
+
+        .loading-indicator .loading-icon::before,
+        .loading-indicator .loading-icon::after {
+            content: '';
+            position: absolute;
+            border-radius: 50%;
+        }
+
+        .loading-indicator .loading-icon::before {
+            width: 32px;
+            height: 32px;
+            border: 3px solid rgba(168, 85, 247, 0.2);
+            border-top-color: var(--border-decision);
+            animation: spin 1s linear infinite;
+        }
+
+        .loading-indicator .loading-icon::after {
+            width: 16px;
+            height: 16px;
+            top: 8px;
+            left: 8px;
+            background: var(--border-decision);
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+
+        .loading-indicator .loading-text {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .loading-indicator .loading-title {
+            color: var(--text-primary);
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .loading-indicator .loading-subtitle {
+            color: var(--text-muted);
+            font-size: 12px;
+            transition: color 0.3s ease;
+        }
+
+        .loading-indicator .loading-subtitle.heartbeat-pulse {
+            color: var(--primary);
+        }
+
+        .loading-indicator .loading-dots {
+            display: inline-flex;
+            gap: 4px;
+            margin-left: 4px;
+        }
+
+        .loading-indicator .loading-dots span {
+            width: 4px;
+            height: 4px;
+            background: var(--border-decision);
+            border-radius: 50%;
+            animation: bounce 1.4s ease-in-out infinite;
+        }
+
+        .loading-indicator .loading-dots span:nth-child(1) { animation-delay: 0s; }
+        .loading-indicator .loading-dots span:nth-child(2) { animation-delay: 0.2s; }
+        .loading-indicator .loading-dots span:nth-child(3) { animation-delay: 0.4s; }
+
+        @keyframes bounce {
+            0%, 80%, 100% { transform: translateY(0); }
+            40% { transform: translateY(-6px); }
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Status indicator with pulsing brain icon */
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 14px 18px;
+            background: var(--bg-status);
+            border-radius: 12px;
+            margin-bottom: 16px;
+            border-left: 4px solid var(--border-status);
+            animation: fadeIn 0.3s ease;
+        }
+
+        .status-indicator .thinking-icon {
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+
+        .status-indicator .thinking-icon svg {
+            width: 24px;
+            height: 24px;
+            fill: var(--border-status);
+            stroke: var(--border-status);
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.6; transform: scale(0.9); }
+        }
+
+        .status-indicator .text {
+            color: var(--border-status);
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        /* Sources - collapsible */
+        .sources {
+            margin-top: 16px;
+            background: var(--sources-bg);
+            border-radius: 8px;
+            white-space: normal;  /* Override pre-wrap from panel-content */
+            overflow: hidden;
+        }
+
+        .sources-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 16px;
+            font-size: 12px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            cursor: pointer;
+            user-select: none;
+            transition: background 0.2s;
+        }
+
+        .sources-header:hover {
+            background: var(--sources-header-hover);
+        }
+
+        .sources-header .toggle-icon {
+            font-size: 10px;
+            transition: transform 0.2s;
+        }
+
+        .sources.collapsed .toggle-icon {
+            transform: rotate(-90deg);
+        }
+
+        .sources-content {
+            padding: 0 16px 16px 16px;
+            max-height: 500px;
+            overflow-y: auto;
+            transition: max-height 0.3s ease, padding 0.3s ease, opacity 0.2s ease;
+        }
+
+        .sources.collapsed .sources-content {
+            max-height: 0;
+            padding-top: 0;
+            padding-bottom: 0;
+            opacity: 0;
+        }
+
+        .source-item {
+            background: rgba(0,0,0,0.2);
+            padding: 10px 14px;
+            border-radius: 6px;
+            margin-bottom: 8px;
+            font-size: 13px;
+        }
+
+        .source-item:last-child {
+            margin-bottom: 0;
+        }
+
+        .source-item .type {
+            color: var(--primary);
+            font-weight: 500;
+            margin-right: 8px;
+        }
+
+        .source-item .title {
+            color: var(--text-primary);
+        }
+
+        .source-item .preview {
+            color: var(--text-muted);
+            font-size: 12px;
+            margin-top: 6px;
+            line-height: 1.4;
+        }
+
+        /* Welcome screen */
+        .welcome {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            text-align: center;
+            padding: 40px;
+        }
+
+        .welcome h2 {
+            font-size: 28px;
+            margin-bottom: 12px;
+            color: var(--text-primary);
+        }
+
+        .welcome p {
+            color: var(--text-muted);
+            max-width: 500px;
+            line-height: 1.6;
+        }
+
+        .welcome .suggestions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-top: 32px;
+            justify-content: center;
+        }
+
+        .welcome .suggestion {
+            background: var(--bg-input);
+            padding: 12px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background 0.2s;
+            font-size: 14px;
+            border: 1px solid var(--border);
+        }
+
+        .welcome .suggestion:hover {
+            background: var(--bg-message-assistant);
+            border-color: var(--primary);
+        }
+
+        /* Input area */
+        .input-area {
+            padding: 24px;
+            background: var(--bg-chat);
+            border-top: 1px solid var(--border);
+        }
+
+        .input-container {
+            max-width: 100%;
+            margin: 0;
+            display: flex;
+            gap: 12px;
+            align-items: flex-end;
+        }
+
+        .btn-column {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            flex-shrink: 0;
+        }
+
+        .input-wrapper {
+            flex: 1;
+            position: relative;
+        }
+
+        #message-input {
+            width: 100%;
+            padding: 14px 18px;
+            background: var(--bg-input);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            color: var(--text-primary);
+            font-size: 14px;
+            resize: none;
+            min-height: 120px;
+            max-height: 300px;
+            line-height: 1.5;
+        }
+
+        #message-input:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+
+        #message-input::placeholder {
+            color: var(--text-muted);
+        }
+
+        #send-btn {
+            width: 48px;
+            height: 48px;
+            padding: 0;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 20px;
+            transition: background 0.2s, transform 0.1s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
+        #send-btn:hover:not(:disabled) {
+            background: var(--primary-dark);
+            transform: scale(1.05);
+        }
+
+        #send-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        #send-btn svg {
+            width: 22px;
+            height: 22px;
+            fill: currentColor;
+        }
+
+        #upload-btn {
+            width: 36px;
+            height: 36px;
+            padding: 0;
+            background: none;
+            color: var(--text-muted);
+            border: none;
+            border-radius: 50%;
+            cursor: pointer;
+            transition: color 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #upload-btn:hover {
+            color: var(--primary);
+        }
+
+        #upload-btn svg {
+            width: 18px;
+            height: 18px;
+            fill: currentColor;
+        }
+
+        /* Toggle switch */
+        .toggle-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 16px;
+            background: var(--bg-sidebar);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .toggle-label {
+            font-size: 13px;
+            color: var(--text-secondary);
+            user-select: none;
+        }
+
+        .toggle-switch {
+            position: relative;
+            width: 44px;
+            height: 24px;
+            background: var(--bg-input);
+            border-radius: 12px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .toggle-switch.active {
+            background: var(--primary);
+        }
+
+        .toggle-switch::after {
+            content: '';
+            position: absolute;
+            top: 3px;
+            left: 3px;
+            width: 18px;
+            height: 18px;
+            background: white;
+            border-radius: 50%;
+            transition: transform 0.2s;
+        }
+
+        .toggle-switch.active::after {
+            transform: translateX(20px);
+        }
+
+        /* toggle-hint removed — description label no longer shown */
+
+        /* Settings Modal */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.6);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-overlay.active {
+            display: flex;
+        }
+
+        .modal {
+            background: var(--bg-chat);
+            border-radius: 16px;
+            padding: 24px;
+            width: 90%;
+            max-width: 480px;
+            max-height: 80vh;
+            overflow-y: auto;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            border: 1px solid var(--border);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+        }
+
+        .modal-title {
+            font-size: 20px;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            font-size: 24px;
+            cursor: pointer;
+            padding: 4px;
+            line-height: 1;
+        }
+
+        .modal-close:hover {
+            color: var(--text-primary);
+        }
+
+        .settings-section {
+            margin-bottom: 24px;
+        }
+
+        .settings-label {
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--text-primary);
+            margin-bottom: 8px;
+            display: block;
+        }
+
+        .settings-sublabel {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-bottom: 12px;
+            display: block;
+        }
+
+        .settings-select {
+            width: 100%;
+            padding: 12px 16px;
+            background: var(--bg-input);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text-primary);
+            font-size: 14px;
+            cursor: pointer;
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%236c7086' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 12px center;
+        }
+
+        .settings-select:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+
+        .settings-select option {
+            background: var(--bg-input);
+            color: var(--text-primary);
+        }
+
+        .settings-info {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 16px;
+            background: var(--bg-status);
+            border-radius: 8px;
+            margin-top: 16px;
+        }
+
+        .settings-info-icon {
+            color: var(--border-status);
+            font-size: 16px;
+        }
+
+        .settings-info-text {
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+
+        .settings-btn {
+            width: 100%;
+            padding: 12px 16px;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .settings-btn:hover {
+            background: var(--primary-dark);
+        }
+
+        .settings-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .current-model-badge {
+            /*display: none;*/ /* temporarily disabled */
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 12px;
+            background: var(--bg-status);
+            border-radius: 20px;
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-top: 8px;
+        }
+
+        .current-model-badge .dot {
+            width: 8px;
+            height: 8px;
+            background: #10b981;
+            border-radius: 50%;
+        }
+
+        .model-indicator {
+            font-size: 11px;
+            font-family: monospace;
+            color: #f59e0b;
+            white-space: nowrap;
+        }
+
+        /* Settings button in sidebar */
+        /* (Settings and Skills moved to header icon buttons, delete-all to icon next to New Chat) */
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .sidebar {
+                display: none;
+            }
+        }
+        /* Artifact download card */
+        .artifact-card {
+            margin: 8px 20px;
+        }
+        .artifact-card-inner {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 16px;
+            background: var(--bg-secondary, #f8f9fa);
+            border: 1px solid var(--border-color, #e0e0e0);
+            border-radius: 8px;
+        }
+        .artifact-icon {
+            font-size: 24px;
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            color: var(--text-secondary, #666);
+        }
+        .artifact-info {
+            flex: 1;
+            min-width: 0;
+        }
+        .artifact-filename {
+            font-weight: 600;
+            font-size: 13px;
+            word-break: break-all;
+        }
+        .artifact-summary {
+            display: block;
+            font-size: 12px;
+            color: var(--text-secondary, #666);
+            margin-top: 2px;
+        }
+        .artifact-downloads {
+            display: flex;
+            gap: 4px;
+            flex-shrink: 0;
+        }
+        .artifact-download {
+            flex-shrink: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            width: 36px;
+            height: 36px;
+            border-radius: 6px;
+            color: var(--text-secondary, #666);
+            transition: background 0.15s, color 0.15s;
+            text-decoration: none;
+        }
+        .artifact-download:hover {
+            background: var(--hover-bg, #e8e8e8);
+            color: var(--text-primary, #333);
+        }
+        .artifact-dl-label {
+            font-size: 9px;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            line-height: 1;
+            opacity: 0.7;
+        }
+    </style>
+</head>
+<body>
+    <aside class="sidebar">
+        <div class="sidebar-header">
+            <div class="sidebar-title-row">
+                <div>
+                    <h1>AInstein</h1>
+                    <p>Alliander Energy System Architect Assistant</p>
+                </div>
+                <div class="header-buttons">
+                    <button class="header-icon-btn" onclick="openSettings()" title="Settings">
+                        <svg viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.31.06-.63.06-.94 0-.31-.02-.63-.06-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.04.31-.06.63-.06.94s.02.63.06.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>
+                    </button>
+                    <a href="/skills" class="header-icon-btn" title="Skills">
+                        <svg viewBox="0 0 24 24"><path d="M7 2v11h3v9l7-12h-4l4-8z"/></svg>
+                    </a>
+                </div>
+            </div>
+        </div>
+        <div class="sidebar-actions">
+            <button class="new-chat-btn" onclick="newConversation()">New Chat</button>
+            <button class="delete-all-icon-btn" onclick="deleteAllConversations()" title="Delete all conversations">
+                <svg viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+            </button>
+        </div>
+        <div class="conversations-list" id="conversations-list">
+            <!-- Conversations loaded here -->
+        </div>
+    </aside>
+
+    <!-- Settings Modal -->
+    <div class="modal-overlay" id="settings-modal">
+        <div class="modal">
+            <div class="modal-header">
+                <span class="modal-title">Settings</span>
+                <button class="modal-close" onclick="closeSettings()">&times;</button>
+            </div>
+
+            <div class="settings-section">
+                <label class="settings-label">Default LLM Provider</label>
+                <span class="settings-sublabel">Choose between local (Ollama) or cloud (OpenAI) LLM</span>
+                <select class="settings-select" id="llm-provider" onchange="updateModelOptions()">
+                    <option value="ollama">Ollama (Local)</option>
+                    <option value="github_models">GitHub CoPilot Models</option>
+                    <option value="openai">OpenAI (Pay-per-token)</option>
+                </select>
+            </div>
+
+            <div class="settings-section">
+                <label class="settings-label">Default Model</label>
+                <span class="settings-sublabel">Select the AI model to use for responses</span>
+                <select class="settings-select" id="llm-model">
+                    <!-- Options populated dynamically -->
+                </select>
+                <div class="current-model-badge" id="current-model-badge">
+                    <span class="dot"></span>
+                    <span id="current-model-text">Loading...</span>
+                </div>
+            </div>
+
+            <!-- Per-component settings (checkbox toggle) -->
+            <div class="settings-section" style="border-top: 1px solid var(--border-color); padding-top: 12px; margin-top: 4px;">
+                <label class="settings-label" style="cursor: pointer; user-select: none;">
+                    <input type="checkbox" id="per-component-toggle" onchange="toggleAdvancedSettings()" style="margin-right: 6px;">
+                    Use different settings per component
+                </label>
+                <span class="settings-sublabel">Override provider/model separately for Persona and Tree</span>
+            </div>
+
+            <div id="advanced-settings" style="display: none;">
+                <div class="settings-section" style="padding-left: 12px; border-left: 2px solid var(--border-color);">
+                    <label class="settings-label" style="font-size: 0.85em;">Persona (Intent Classification)</label>
+                    <span class="settings-sublabel">Small prompt (~2K tokens) — fast models work well</span>
+                    <select class="settings-select" id="persona-provider" onchange="updateComponentModelOptions('persona')">
+                        <option value="ollama">Ollama (Local)</option>
+                        <option value="github_models">GitHub CoPilot Models</option>
+                        <option value="openai">OpenAI (Pay-per-token)</option>
+                    </select>
+                    <select class="settings-select" id="persona-model" style="margin-top: 6px;"></select>
+                </div>
+
+                <div class="settings-section" style="padding-left: 12px; border-left: 2px solid var(--border-color);">
+                    <label class="settings-label" style="font-size: 0.85em;">Tree (RAG Engine)</label>
+                    <span class="settings-sublabel">Large prompt — uses the full RAG pipeline with tool selection</span>
+                    <select class="settings-select" id="tree-provider" onchange="updateComponentModelOptions('tree')">
+                        <option value="ollama">Ollama (Local)</option>
+                        <option value="github_models">GitHub CoPilot Models</option>
+                        <option value="openai">OpenAI (Pay-per-token)</option>
+                    </select>
+                    <select class="settings-select" id="tree-model" style="margin-top: 6px;"></select>
+                </div>
+            </div>
+
+            <div class="settings-info">
+                <span class="settings-info-icon">&#9432;</span>
+                <span class="settings-info-text">
+                    Ollama runs locally (free, no limits). GitHub CoPilot Models requires an Alliander Enterprise account.
+                    OpenAI is pay-per-token with an API key (do not use with company data). Each provider has its own credentials and model catalog.
+                </span>
+            </div>
+
+            <button class="settings-btn" onclick="saveLLMSettings()">Save Settings</button>
+        </div>
+    </div>
+
+    <main class="main">
+        <div class="toggle-container">
+            <span class="toggle-label">Show AInstein's thoughts</span>
+            <div class="toggle-switch active" id="thinking-toggle" onclick="toggleThinking()"></div>
+            <div style="margin-left: auto; display: flex; align-items: center; gap: 10px;">
+                <span class="model-indicator" id="model-indicator"></span>
+                <button class="theme-toggle" id="theme-toggle" onclick="toggleTheme()" title="Toggle light/dark mode">
+                    <svg class="sun-icon" viewBox="0 0 24 24"><path d="M12 7c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5-2.24-5-5-5zM2 13h2c.55 0 1-.45 1-1s-.45-1-1-1H2c-.55 0-1 .45-1 1s.45 1 1 1zm18 0h2c.55 0 1-.45 1-1s-.45-1-1-1h-2c-.55 0-1 .45-1 1s.45 1 1 1zM11 2v2c0 .55.45 1 1 1s1-.45 1-1V2c0-.55-.45-1-1-1s-1 .45-1 1zm0 18v2c0 .55.45 1 1 1s1-.45 1-1v-2c0-.55-.45-1-1-1s-1 .45-1 1zM5.99 4.58c-.39-.39-1.03-.39-1.41 0-.39.39-.39 1.03 0 1.41l1.06 1.06c.39.39 1.03.39 1.41 0s.39-1.03 0-1.41L5.99 4.58zm12.37 12.37c-.39-.39-1.03-.39-1.41 0-.39.39-.39 1.03 0 1.41l1.06 1.06c.39.39 1.03.39 1.41 0 .39-.39.39-1.03 0-1.41l-1.06-1.06zm1.06-10.96c.39-.39.39-1.03 0-1.41-.39-.39-1.03-.39-1.41 0l-1.06 1.06c-.39.39-.39 1.03 0 1.41s1.03.39 1.41 0l1.06-1.06zM7.05 18.36c.39-.39.39-1.03 0-1.41-.39-.39-1.03-.39-1.41 0l-1.06 1.06c-.39.39-.39 1.03 0 1.41s1.03.39 1.41 0l1.06-1.06z"/></svg>
+                    <svg class="moon-icon" viewBox="0 0 24 24"><path d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9 9-4.03 9-9c0-.46-.04-.92-.1-1.36-.98 1.37-2.58 2.26-4.4 2.26-2.98 0-5.4-2.42-5.4-5.4 0-1.81.89-3.42 2.26-4.4-.44-.06-.9-.1-1.36-.1z"/></svg>
+                </button>
+            </div>
+        </div>
+        <div class="chat-container" id="chat-container">
+            <div class="messages" id="messages">
+                <div class="welcome" id="welcome">
+                    <h2>AInstein</h2>
+                    <p>Ask questions about architecture decisions, principles, policies, and vocabulary from the Alliander energy system knowledge base.</p>
+                    <div class="suggestions">
+                        <div class="suggestion" onclick="askSuggestion('Give me the ArchiMate model for ADR 29')">ArchiMate for ADR 29</div>
+                        <div class="suggestion" onclick="askSuggestion('What is an ADR?')">What is an ADR?</div>
+                        <div class="suggestion" onclick="askSuggestion('What are the ESA architecture principles?')">ESA Principles</div>
+                        <div class="suggestion" onclick="askSuggestion('What is active power?')">What is active power?</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="input-area">
+            <div class="input-container">
+                <div class="input-wrapper">
+                    <textarea
+                        id="message-input"
+                        placeholder="Hi fellow architect! How can I help you?"
+                        rows="5"
+                        onkeydown="handleKeyDown(event)"
+                        oninput="autoResize(this)"
+                    ></textarea>
+                </div>
+                <input type="file" id="file-upload" accept=".xml,.yaml,.yml" style="display:none" onchange="handleFileUpload(this)">
+                <div class="btn-column">
+                    <button id="send-btn" onclick="sendMessage()" title="Send message">
+                        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+                        </svg>
+                    </button>
+                    <button id="upload-btn" onclick="document.getElementById('file-upload').click()" title="Upload ArchiMate model (.xml, .yaml)">
+                        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M16.5 6v11.5c0 2.21-1.79 4-4 4s-4-1.79-4-4V5c0-1.38 1.12-2.5 2.5-2.5s2.5 1.12 2.5 2.5v10.5c0 .55-.45 1-1 1s-1-.45-1-1V6H10v9.5c0 1.38 1.12 2.5 2.5 2.5s2.5-1.12 2.5-2.5V5c0-2.21-1.79-4-4-4S7 2.79 7 5v12.5c0 3.04 2.46 5.5 5.5 5.5s5.5-2.46 5.5-5.5V6h-1.5z"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/marked@9.1.6/marked.min.js"></script>
+    <script>
+        let currentConversationId = null;
+        let isLoading = false;
+        let currentStatusElement = null;
+        let showThinking = true;
+
+        // Thinking container state
+        let thinkingContainer = null;
+        let thinkingStepCount = 0;
+        let thinkingStartTime = null;
+        let thinkingTimerInterval = null;
+
+        // LLM Settings
+        let llmSettings = {
+            provider: 'ollama',
+            model: 'gpt-oss:20b',
+            persona: { provider: 'ollama', model: 'gpt-oss:20b' },
+            tree: { provider: 'ollama', model: 'gpt-oss:20b' }
+        };
+        // Populated from /api/settings/llm on page load — single source of truth is chat_ui.py
+        let availableModels = { ollama: [], github_models: [], openai: [] };
+
+        // Test Mode settings
+        let testModeEnabled = false;
+        let testModeSettings = {
+            ollamaModel: 'gpt-oss:20b',
+            openaiModel: 'gpt-5.2'
+        };
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            initTheme();
+            initTestMode();
+            loadConversations();
+            initThinkingToggle();
+            loadLLMSettings();
+        });
+
+        // Initialize theme from localStorage or system preference
+        function initTheme() {
+            const savedTheme = localStorage.getItem('theme');
+            if (savedTheme) {
+                document.documentElement.setAttribute('data-theme', savedTheme);
+            } else {
+                // Check system preference
+                const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+                document.documentElement.setAttribute('data-theme', prefersDark ? 'dark' : 'light');
+            }
+        }
+
+        // Toggle between light and dark themes
+        function toggleTheme() {
+            const currentTheme = document.documentElement.getAttribute('data-theme') || 'dark';
+            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            document.documentElement.setAttribute('data-theme', newTheme);
+            localStorage.setItem('theme', newTheme);
+        }
+
+        // Test Mode toggle
+        function toggleTestMode() {
+            testModeEnabled = !testModeEnabled;
+            localStorage.setItem('testMode', testModeEnabled);
+            updateTestModeUI();
+        }
+
+        function updateTestModeUI() {
+            const body = document.body;
+            if (testModeEnabled) {
+                body.classList.add('test-mode-active');
+            } else {
+                body.classList.remove('test-mode-active');
+            }
+        }
+
+        function initTestMode() {
+            const saved = localStorage.getItem('testMode');
+            testModeEnabled = saved === 'true';
+            updateTestModeUI();
+        }
+
+        // Initialize thinking toggle from localStorage
+        function initThinkingToggle() {
+            const saved = localStorage.getItem('showThinking');
+            showThinking = saved === null ? true : saved === 'true';
+            updateThinkingUI();
+        }
+
+        // Toggle thinking visibility
+        function toggleThinking() {
+            showThinking = !showThinking;
+            localStorage.setItem('showThinking', showThinking);
+            updateThinkingUI();
+        }
+
+        // Update UI based on thinking state
+        function updateThinkingUI() {
+            const toggle = document.getElementById('thinking-toggle');
+            const messages = document.getElementById('messages');
+
+            if (showThinking) {
+                toggle.classList.add('active');
+                messages.classList.remove('hide-thinking');
+            } else {
+                toggle.classList.remove('active');
+                messages.classList.add('hide-thinking');
+            }
+        }
+
+        // Load conversations list
+        async function loadConversations() {
+            try {
+                const response = await fetch('/api/conversations');
+                const conversations = await response.json();
+
+                const list = document.getElementById('conversations-list');
+                list.innerHTML = '';
+
+                conversations.forEach(conv => {
+                    const item = document.createElement('div');
+                    item.className = 'conversation-item' + (conv.id === currentConversationId ? ' active' : '');
+                    const timeStr = conv.updated_at ? formatRelativeTime(conv.updated_at) : '';
+                    item.innerHTML = `
+                        <button class="delete-btn" onclick="deleteConversation('${conv.id}', event)">x</button>
+                        <div class="title">${escapeHtml(conv.title)}</div>
+                        <div class="meta">${conv.message_count} messages${timeStr ? ' · ' + timeStr : ''}</div>
+                    `;
+                    item.onclick = () => loadConversation(conv.id);
+                    list.appendChild(item);
+                });
+            } catch (error) {
+                console.error('Error loading conversations:', error);
+            }
+        }
+
+        // Load a specific conversation
+        async function loadConversation(id) {
+            try {
+                const response = await fetch(`/api/conversations/${id}`);
+                const data = await response.json();
+
+                currentConversationId = id;
+
+                // Reset test mode layout when loading a regular conversation
+                const chatContainer = document.getElementById('chat-container');
+                chatContainer.classList.remove('test-mode');
+
+                const messagesContainer = document.getElementById('messages');
+                messagesContainer.innerHTML = '';
+
+                // Display stored messages as simple panels (with timing persisted)
+                data.messages.forEach(msg => {
+                    if (msg.role === 'user') {
+                        appendPanel('user-prompt', 'User', msg.content, null, msg.timestamp);
+                    } else {
+                        appendPanel('assistant', 'AInstein', msg.content, msg.sources, msg.timestamp, msg.timing);
+                    }
+                });
+
+                // Re-apply thinking visibility setting
+                updateThinkingUI();
+
+                loadConversations();
+                scrollToBottom();
+            } catch (error) {
+                console.error('Error loading conversation:', error);
+            }
+        }
+
+        // Start new conversation
+        function newConversation() {
+            currentConversationId = null;
+            // Reset test mode layout
+            const chatContainer = document.getElementById('chat-container');
+            chatContainer.classList.remove('test-mode');
+
+            const messagesContainer = document.getElementById('messages');
+            messagesContainer.innerHTML = `
+                <div class="welcome" id="welcome">
+                    <h2>AInstein</h2>
+                    <p>Ask questions about architecture decisions, principles, policies, and vocabulary from the Alliander energy system knowledge base.</p>
+                    <div class="suggestions">
+                        <div class="suggestion" onclick="askSuggestion('Give me the ArchiMate model for ADR 29')">ArchiMate for ADR 29</div>
+                        <div class="suggestion" onclick="askSuggestion('What is an ADR?')">What is an ADR?</div>
+                        <div class="suggestion" onclick="askSuggestion('What are the ESA architecture principles?')">ESA Principles</div>
+                        <div class="suggestion" onclick="askSuggestion('What is active power?')">What is active power?</div>
+                    </div>
+                </div>
+            `;
+            // Re-apply thinking visibility setting
+            updateThinkingUI();
+            loadConversations();
+        }
+
+        // Delete conversation
+        async function deleteConversation(id, event) {
+            event.stopPropagation();
+            if (confirm('Delete this conversation?')) {
+                try {
+                    await fetch(`/api/conversations/${id}`, { method: 'DELETE' });
+                    if (currentConversationId === id) {
+                        newConversation();
+                    }
+                    loadConversations();
+                } catch (error) {
+                    console.error('Error deleting conversation:', error);
+                }
+            }
+        }
+
+        // Delete all conversations
+        async function deleteAllConversations() {
+            if (confirm('Delete ALL conversations? This cannot be undone.')) {
+                try {
+                    await fetch('/api/conversations', { method: 'DELETE' });
+                    newConversation();
+                    loadConversations();
+                } catch (error) {
+                    console.error('Error deleting all conversations:', error);
+                }
+            }
+        }
+
+        // Upload ArchiMate model file and trigger inspection
+        async function handleFileUpload(input) {
+            const file = input.files[0];
+            if (!file) return;
+            input.value = '';
+
+            const formData = new FormData();
+            formData.append('file', file);
+            if (currentConversationId) {
+                formData.append('conversation_id', currentConversationId);
+            }
+
+            try {
+                const resp = await fetch('/api/chat/upload', {
+                    method: 'POST',
+                    body: formData,
+                });
+                if (!resp.ok) {
+                    const err = await resp.json();
+                    alert(err.detail || 'Upload failed');
+                    return;
+                }
+                const data = await resp.json();
+                currentConversationId = data.conversation_id;
+
+                const messageInput = document.getElementById('message-input');
+                messageInput.value = `Describe the uploaded ArchiMate model (${data.filename})`;
+                messageInput.focus();
+            } catch (error) {
+                console.error('Upload error:', error);
+                alert('Failed to upload file');
+            }
+        }
+
+        // Send message using streaming
+        async function sendMessage() {
+            const input = document.getElementById('message-input');
+            const message = input.value.trim();
+
+            if (!message || isLoading) return;
+
+            // If test mode is enabled, use comparison mode
+            if (testModeEnabled) {
+                sendComparisonMessage(message);
+                return;
+            }
+
+            // Hide welcome screen
+            const welcome = document.getElementById('welcome');
+            if (welcome) welcome.remove();
+
+            // Reset response tracking
+            responseShown = false;
+            resetThinkingContainer();
+
+            // Add user prompt panel
+            appendPanel('user-prompt', 'User', message);
+            input.value = '';
+            autoResize(input);
+
+            isLoading = true;
+            updateSendButton();
+
+            try {
+                const response = await fetch('/api/chat/stream', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        message: message,
+                        conversation_id: currentConversationId
+                    })
+                });
+
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let sseBuffer = '';
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) {
+                        if (sseBuffer.trim()) processSSELines(sseBuffer, handleStreamEvent);
+                        break;
+                    }
+
+                    sseBuffer += decoder.decode(value, { stream: true });
+                    const lastNewline = sseBuffer.lastIndexOf('\n');
+                    if (lastNewline !== -1) {
+                        processSSELines(sseBuffer.substring(0, lastNewline), handleStreamEvent);
+                        sseBuffer = sseBuffer.substring(lastNewline + 1);
+                    }
+                }
+
+                // Refresh conversations list
+                loadConversations();
+            } catch (error) {
+                console.error('Error:', error);
+                removeStatus();
+                appendPanel('assistant', 'Error', 'Sorry, an error occurred. Please try again.');
+            } finally {
+                isLoading = false;
+                updateSendButton();
+                removeStatus();
+                removeLoading();
+                // Ensure thinking container is collapsed if stream ended unexpectedly
+                collapseThinkingContainer(null);
+            }
+
+            scrollToBottom();
+        }
+
+        // Track if we've shown a response panel
+        let responseShown = false;
+
+        // Send message in comparison mode (Test Mode)
+        async function sendComparisonMessage(message) {
+            const input = document.getElementById('message-input');
+
+            // Hide welcome screen
+            const welcome = document.getElementById('welcome');
+            if (welcome) welcome.remove();
+
+            // Clear input
+            input.value = '';
+            autoResize(input);
+
+            isLoading = true;
+            updateSendButton();
+
+            // Get the chat container and set it to test mode layout
+            const chatContainer = document.getElementById('chat-container');
+            chatContainer.classList.add('test-mode');
+
+            // Create comparison UI with provider-specific sources
+            const messagesContainer = document.getElementById('messages');
+            messagesContainer.innerHTML = `
+                <div class="test-mode-user-message">
+                    <div class="panel user-prompt">
+                        <div class="panel-header">User</div>
+                        <div class="panel-content"><div class="message-text">${formatMessageText(message)}</div></div>
+                    </div>
+                </div>
+                <div class="comparison-panels">
+                    <div class="comparison-panel ollama">
+                        <div class="comparison-panel-header">
+                            <div>
+                                <div class="provider-name">OLLAMA (Local)</div>
+                                <div class="model-name">Nomic Embeddings + ${escapeHtml(testModeSettings.ollamaModel)}</div>
+                            </div>
+                            <div class="latency-badges">
+                                <div class="latency-badge" id="ollama-retrieval" title="Retrieval time">R: --</div>
+                                <div class="latency-badge" id="ollama-latency" title="Generation time">G: --</div>
+                            </div>
+                        </div>
+                        <div class="comparison-panel-content" id="ollama-response">
+                            <div class="loading-spinner">Retrieving with Nomic embeddings...</div>
+                        </div>
+                        <div class="comparison-panel-sources" id="ollama-sources" style="display: none;">
+                            <div class="sources-header" onclick="toggleSources(this)">
+                                <span>Sources (Nomic)</span>
+                                <span class="toggle-icon">▼</span>
+                            </div>
+                            <div class="sources-content" id="ollama-sources-content"></div>
+                        </div>
+                    </div>
+                    <div class="comparison-panel openai">
+                        <div class="comparison-panel-header">
+                            <div>
+                                <div class="provider-name">OPENAI (Cloud)</div>
+                                <div class="model-name">OpenAI Embeddings + ${escapeHtml(testModeSettings.openaiModel)}</div>
+                            </div>
+                            <div class="latency-badges">
+                                <div class="latency-badge" id="openai-retrieval" title="Retrieval time">R: --</div>
+                                <div class="latency-badge" id="openai-latency" title="Generation time">G: --</div>
+                            </div>
+                        </div>
+                        <div class="comparison-panel-content" id="openai-response">
+                            <div class="loading-spinner">Retrieving with OpenAI embeddings...</div>
+                        </div>
+                        <div class="comparison-panel-sources" id="openai-sources" style="display: none;">
+                            <div class="sources-header" onclick="toggleSources(this)">
+                                <span>Sources (OpenAI)</span>
+                                <span class="toggle-icon">▼</span>
+                            </div>
+                            <div class="sources-content" id="openai-sources-content"></div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            try {
+                const response = await fetch('/api/chat/stream/compare', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        message: message,
+                        conversation_id: currentConversationId,
+                        ollama_model: testModeSettings.ollamaModel,
+                        openai_model: testModeSettings.openaiModel
+                    })
+                });
+
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let sseBuffer = '';
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) {
+                        if (sseBuffer.trim()) processSSELines(sseBuffer, handleComparisonEvent);
+                        break;
+                    }
+
+                    sseBuffer += decoder.decode(value, { stream: true });
+                    const lastNewline = sseBuffer.lastIndexOf('\n');
+                    if (lastNewline !== -1) {
+                        processSSELines(sseBuffer.substring(0, lastNewline), handleComparisonEvent);
+                        sseBuffer = sseBuffer.substring(lastNewline + 1);
+                    }
+                }
+
+                // Refresh conversations list
+                loadConversations();
+            } catch (error) {
+                console.error('Error:', error);
+                document.getElementById('ollama-response').innerHTML = `<div class="error-message">Connection error</div>`;
+                document.getElementById('openai-response').innerHTML = `<div class="error-message">Connection error</div>`;
+            } finally {
+                isLoading = false;
+                updateSendButton();
+            }
+        }
+
+        // Handle comparison streaming events
+        function handleComparisonEvent(data) {
+            console.log('Comparison Event:', data.type, data.provider, data);
+
+            switch (data.type) {
+                case 'init':
+                    currentConversationId = data.conversation_id;
+                    break;
+
+                case 'assistant':
+                    // Route to correct panel based on provider
+                    const responseContainer = document.getElementById(data.provider + '-response');
+                    if (responseContainer) {
+                        let responseHtml = `<div class="message-text">${formatMessageText(data.content)}</div>`;
+
+                        // Show truncation warning if context was truncated (SmolLM3 only)
+                        if (data.timing && data.timing.context_truncated && data.provider === 'ollama') {
+                            const origTokens = data.timing.original_tokens || 0;
+                            const usedTokens = data.timing.used_tokens || 0;
+                            responseHtml = `<div class="truncation-warning">Context truncated: ${origTokens} -> ${usedTokens} tokens</div>` + responseHtml;
+                        }
+
+                        responseContainer.innerHTML = responseHtml;
+                    }
+
+                    // Update timing badges if present
+                    if (data.timing) {
+                        // Update generation latency
+                        if (data.timing.latency_ms) {
+                            const latencyBadge = document.getElementById(data.provider + '-latency');
+                            if (latencyBadge) {
+                                const latency = data.timing.latency_ms;
+                                latencyBadge.textContent = 'G: ' + latency + 'ms';
+                                latencyBadge.classList.remove('fast', 'slow');
+                                if (latency < 2000) {
+                                    latencyBadge.classList.add('fast');
+                                } else if (latency > 5000) {
+                                    latencyBadge.classList.add('slow');
+                                }
+                            }
+                        }
+                        // Update retrieval latency
+                        if (data.timing.retrieval_ms !== undefined) {
+                            const retrievalBadge = document.getElementById(data.provider + '-retrieval');
+                            if (retrievalBadge) {
+                                const retrieval = data.timing.retrieval_ms;
+                                retrievalBadge.textContent = 'R: ' + retrieval + 'ms';
+                                retrievalBadge.classList.remove('fast', 'slow');
+                                if (retrieval < 500) {
+                                    retrievalBadge.classList.add('fast');
+                                } else if (retrieval > 2000) {
+                                    retrievalBadge.classList.add('slow');
+                                }
+                            }
+                        }
+                    }
+
+                    // Show provider-specific sources if present in the assistant event
+                    if (data.sources && data.sources.length > 0) {
+                        showProviderSources(data.provider, data.sources);
+                    }
+                    break;
+
+                case 'error':
+                    // Show error in the appropriate panel if provider is specified
+                    if (data.provider) {
+                        const responseContainer = document.getElementById(data.provider + '-response');
+                        if (responseContainer) {
+                            responseContainer.innerHTML = `<div class="error-message">${escapeHtml(data.content)}</div>`;
+                        }
+                        // Still show sources if available even on error
+                        if (data.sources && data.sources.length > 0) {
+                            showProviderSources(data.provider, data.sources);
+                        }
+                    }
+                    break;
+
+                case 'complete':
+                    // Handle provider-specific sources from complete event (fallback)
+                    if (data.ollama_sources && data.ollama_sources.length > 0) {
+                        showProviderSources('ollama', data.ollama_sources);
+                    }
+                    if (data.openai_sources && data.openai_sources.length > 0) {
+                        showProviderSources('openai', data.openai_sources);
+                    }
+                    break;
+            }
+
+            scrollToBottom();
+        }
+
+        // Show sources for a specific provider
+        function showProviderSources(provider, sources) {
+            const sourcesContainer = document.getElementById(provider + '-sources');
+            const sourcesContent = document.getElementById(provider + '-sources-content');
+            if (sourcesContainer && sourcesContent) {
+                sourcesContainer.style.display = 'block';
+                sourcesContent.innerHTML = sources.map(s => `
+                    <div class="source-item">
+                        <span class="type">${escapeHtml(s.type)}</span>
+                        <span class="title">${escapeHtml(s.title)}</span>
+                        ${s.preview ? `<div class="preview">${escapeHtml(s.preview)}</div>` : ''}
+                    </div>
+                `).join('');
+            }
+        }
+
+        // Thinking container helpers
+        function getOrCreateThinkingContainer() {
+            if (thinkingContainer) return thinkingContainer;
+
+            thinkingStartTime = Date.now();
+            thinkingStepCount = 0;
+
+            const messagesContainer = document.getElementById('messages');
+            const container = document.createElement('div');
+            container.className = 'thinking-container';
+            container.id = 'thinking-container';
+            container.innerHTML = `
+                <div class="thinking-header">
+                    <div class="thinking-spinner"></div>
+                    <span class="expand-icon">&#9654;</span>
+                    <span class="thinking-label">AInstein is working...</span>
+                    <span class="thinking-timer">0s</span>
+                </div>
+                <div class="thinking-steps"></div>
+            `;
+            messagesContainer.appendChild(container);
+            thinkingContainer = container;
+
+            // Start timer
+            thinkingTimerInterval = setInterval(() => {
+                const elapsed = Math.round((Date.now() - thinkingStartTime) / 1000);
+                const timerEl = container.querySelector('.thinking-timer');
+                if (timerEl) timerEl.textContent = elapsed + 's';
+            }, 1000);
+
+            return container;
+        }
+
+        function addThinkingStep(text, eventType) {
+            const container = getOrCreateThinkingContainer();
+            const stepsEl = container.querySelector('.thinking-steps');
+
+            // Mark previous active step as done
+            const activeStep = stepsEl.querySelector('.step-icon.active');
+            if (activeStep) {
+                activeStep.className = 'step-icon done';
+                activeStep.innerHTML = '<svg viewBox="0 0 16 16" width="14" height="14"><path fill="currentColor" d="M13.78 4.22a.75.75 0 010 1.06l-7.25 7.25a.75.75 0 01-1.06 0L2.22 9.28a.75.75 0 011.06-1.06L6 10.94l6.72-6.72a.75.75 0 011.06 0z"/></svg>';
+            }
+
+            thinkingStepCount++;
+
+            // Clean up the text — remove very long content, keep just first sentence
+            let displayText = text.trim();
+            if (displayText.length > 120) {
+                const firstSentence = displayText.match(/^[^.!?]+[.!?]/);
+                displayText = firstSentence ? firstSentence[0] : displayText.substring(0, 120) + '...';
+            }
+
+            const isNarration = eventType === 'assistant';
+            const step = document.createElement('div');
+            step.className = 'thinking-step' + (isNarration ? ' narration' : '');
+            step.innerHTML = `
+                <span class="step-icon active">
+                    <svg viewBox="0 0 16 16" width="14" height="14"><circle cx="8" cy="8" r="4" fill="currentColor"/></svg>
+                </span>
+                <span class="step-text">${escapeHtml(displayText)}</span>
+            `;
+            stepsEl.appendChild(step);
+            scrollToBottom();
+        }
+
+        function collapseThinkingContainer(totalMs) {
+            if (!thinkingContainer) return;
+
+            // Stop timer
+            if (thinkingTimerInterval) {
+                clearInterval(thinkingTimerInterval);
+                thinkingTimerInterval = null;
+            }
+
+            // Mark last active step as done
+            const activeStep = thinkingContainer.querySelector('.step-icon.active');
+            if (activeStep) {
+                activeStep.className = 'step-icon done';
+                activeStep.innerHTML = '<svg viewBox="0 0 16 16" width="14" height="14"><path fill="currentColor" d="M13.78 4.22a.75.75 0 010 1.06l-7.25 7.25a.75.75 0 01-1.06 0L2.22 9.28a.75.75 0 011.06-1.06L6 10.94l6.72-6.72a.75.75 0 011.06 0z"/></svg>';
+            }
+
+            // Calculate elapsed time
+            const elapsed = totalMs
+                ? (totalMs / 1000).toFixed(1)
+                : ((Date.now() - thinkingStartTime) / 1000).toFixed(1);
+            const stepWord = thinkingStepCount === 1 ? 'step' : 'steps';
+
+            // Update header to compact summary
+            const label = thinkingContainer.querySelector('.thinking-label');
+            if (label) label.textContent = `${thinkingStepCount} ${stepWord} · ${elapsed}s`;
+
+            const timer = thinkingContainer.querySelector('.thinking-timer');
+            if (timer) timer.style.display = 'none';
+
+            // Collapse
+            thinkingContainer.classList.add('collapsed');
+
+            // Capture element reference for click handler (thinkingContainer will be nulled)
+            const containerEl = thinkingContainer;
+
+            // Make header clickable to toggle
+            const header = containerEl.querySelector('.thinking-header');
+            header.onclick = () => {
+                if (containerEl.classList.contains('collapsed')) {
+                    containerEl.classList.remove('collapsed');
+                    containerEl.classList.add('expanded');
+                } else {
+                    containerEl.classList.remove('expanded');
+                    containerEl.classList.add('collapsed');
+                }
+            };
+
+            // Reset state for next query
+            thinkingContainer = null;
+            thinkingStepCount = 0;
+            thinkingStartTime = null;
+        }
+
+        function resetThinkingContainer() {
+            if (thinkingTimerInterval) {
+                clearInterval(thinkingTimerInterval);
+                thinkingTimerInterval = null;
+            }
+            thinkingContainer = null;
+            thinkingStepCount = 0;
+            thinkingStartTime = null;
+        }
+
+        // Parse complete SSE lines and dispatch to handler
+        function processSSELines(text, handler) {
+            const lines = text.split('\n');
+            for (const line of lines) {
+                if (line.startsWith('data: ')) {
+                    try {
+                        const data = JSON.parse(line.slice(6));
+                        handler(data);
+                    } catch (e) {
+                        // Ignore genuinely malformed data
+                    }
+                }
+            }
+        }
+
+        // Handle streaming events
+        function handleStreamEvent(data) {
+            console.log('Event:', data.type, data);
+
+            switch (data.type) {
+                case 'init':
+                    currentConversationId = data.conversation_id;
+                    responseShown = false;
+                    resetThinkingContainer();
+                    break;
+
+                case 'status':
+                    // Route status to thinking container as a step
+                    addThinkingStep(data.content, 'status');
+                    break;
+
+                case 'heartbeat':
+                    // Timer is handled by the thinking container itself
+                    // Just ensure it exists
+                    getOrCreateThinkingContainer();
+                    break;
+
+                case 'decision':
+                    // Route decision reasoning to thinking container
+                    addThinkingStep(data.content, 'decision');
+                    break;
+
+                case 'assistant':
+                    // Intermediate narration from Tree — route to thinking steps (darker text)
+                    addThinkingStep(data.content, 'assistant');
+                    break;
+
+                case 'thinking_aloud':
+                    // Route intermediate thinking to thinking container
+                    addThinkingStep(data.content, 'thinking_aloud');
+                    break;
+
+                case 'persona_intent': {
+                    // Persona classification — show as first thinking step
+                    const intentLabels = {
+                        'retrieval': 'Searching knowledge base',
+                        'listing': 'Listing documents',
+                        'follow_up': 'Follow-up from conversation',
+                        'generation': 'Generating',
+                        'refinement': 'Refining',
+                        'identity': 'About AInstein',
+                        'off_topic': 'Outside scope',
+                        'clarification': 'Needs clarification'
+                    };
+                    let label = intentLabels[data.intent] || data.intent;
+                    if (data.rewritten_query) {
+                        const truncated = data.rewritten_query.length > 80
+                            ? data.rewritten_query.substring(0, 80) + '...'
+                            : data.rewritten_query;
+                        label += ' \u2192 "' + truncated + '"';
+                    }
+                    addThinkingStep(label, 'status');
+                    break;
+                }
+
+                case 'artifact':
+                    // Show artifact download card
+                    appendArtifactCard(data);
+                    break;
+
+                case 'user_prompt':
+                    // Already shown, skip
+                    break;
+
+                case 'complete':
+                    removeLoading();
+                    collapseThinkingContainer(data.timing ? data.timing.total_ms : null);
+                    // Always render the final response from the complete event
+                    if (data.response) {
+                        appendPanel('assistant', 'AInstein', data.response, null, null, data.timing);
+                        responseShown = true;
+                    }
+                    break;
+
+                case 'error':
+                    collapseThinkingContainer(null);
+                    removeLoading();
+                    appendPanel('assistant', 'Error', data.content);
+                    break;
+            }
+            scrollToBottom();
+        }
+
+        // Append artifact download card to messages
+        function appendArtifactCard(data) {
+            const messagesContainer = document.getElementById('messages');
+            const card = document.createElement('div');
+            card.className = 'artifact-card';
+
+            const archimateIcon = '<svg width="26" height="26" viewBox="0 0 26 26" fill="none" xmlns="http://www.w3.org/2000/svg">'
+                + '<rect x="2" y="2" width="22" height="22" rx="1" stroke="currentColor" stroke-width="1.5" fill="none"/>'
+                + '<polygon points="18,2 24,8 18,8" fill="var(--bg-secondary, #f8f9fa)" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>'
+                + '</svg>';
+            const icon = data.content_type === 'archimate/xml' ? archimateIcon : '\u{1F4C4}';
+            const summary = data.summary ? `<span class="artifact-summary">${escapeHtml(data.summary)}</span>` : '';
+            const dlSvg = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>';
+
+            let downloadButtons;
+            if (data.yaml_companion_id) {
+                downloadButtons = `
+                    <div class="artifact-downloads">
+                        <a href="/api/artifact/${data.artifact_id}/download" class="artifact-download" download="${escapeHtml(data.filename)}" title="Download XML">
+                            <span class="artifact-dl-label">XML</span>${dlSvg}
+                        </a>
+                        <a href="/api/artifact/${data.yaml_companion_id}/download" class="artifact-download" download="${escapeHtml(data.yaml_filename || 'model.yaml')}" title="Download YAML">
+                            <span class="artifact-dl-label">YAML</span>${dlSvg}
+                        </a>
+                    </div>`;
+            } else {
+                downloadButtons = `
+                    <a href="/api/artifact/${data.artifact_id}/download" class="artifact-download" download="${escapeHtml(data.filename)}" title="Download">
+                        ${dlSvg}
+                    </a>`;
+            }
+
+            card.innerHTML = `
+                <div class="artifact-card-inner">
+                    <div class="artifact-icon">${icon}</div>
+                    <div class="artifact-info">
+                        <div class="artifact-filename">${escapeHtml(data.filename)}</div>
+                        ${summary}
+                    </div>
+                    ${downloadButtons}
+                </div>
+            `;
+
+            messagesContainer.appendChild(card);
+            scrollToBottom();
+        }
+
+        // Append a panel to messages
+        function appendPanel(type, title, content, sources = null, timestamp = null, timing = null) {
+            const messagesContainer = document.getElementById('messages');
+            const messageId = 'msg-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
+            const displayTime = timestamp ? new Date(timestamp) : new Date();
+            const timeStr = formatDateTime(displayTime);
+
+            const panel = document.createElement('div');
+            panel.className = `panel ${type}`;
+            panel.dataset.messageId = messageId;
+
+            // Build timing badges HTML for assistant panels (shown in header, top right)
+            let timingHtml = '';
+            if (type === 'assistant' && timing && timing.total_ms) {
+                const totalMs = timing.total_ms;
+                const totalClass = totalMs < 5000 ? 'fast' : (totalMs > 15000 ? 'slow' : '');
+                timingHtml = `
+                    <div class="latency-badges">
+                        <div class="latency-badge ${totalClass}" title="Total response time">T: ${totalMs}ms</div>
+                    </div>
+                `;
+            }
+
+            // Build panel HTML with timing in header (top right like TEST MODE)
+            let panelHTML = `
+                <div class="panel-header">
+                    <span class="header-title">${escapeHtml(title)}</span>
+                    ${timingHtml}
+                </div>
+                <div class="panel-content"><div class="message-text">${formatMessageText(content)}</div></div>
+            `;
+
+            // Add footer with actions for assistant panels, just timestamp for others
+            if (type === 'assistant') {
+                panelHTML += `
+                    <div class="panel-footer">
+                        <div class="panel-actions">
+                            <button class="panel-action-btn thumbs-up" onclick="rateMessage('${messageId}', 'up', this)" title="Good response">
+                                <svg viewBox="0 0 24 24"><path d="M2 20h2c.55 0 1-.45 1-1v-9c0-.55-.45-1-1-1H2v11zm19.83-7.12c.11-.25.17-.52.17-.8V11c0-1.1-.9-2-2-2h-5.5l.92-4.65c.05-.22.02-.46-.08-.66-.23-.45-.52-.86-.88-1.22L14 2 7.59 8.41C7.21 8.79 7 9.3 7 9.83v7.84C7 18.95 8.05 20 9.34 20h8.11c.7 0 1.36-.37 1.72-.97l2.66-6.15z"/></svg>
+                            </button>
+                            <button class="panel-action-btn thumbs-down" onclick="rateMessage('${messageId}', 'down', this)" title="Poor response">
+                                <svg viewBox="0 0 24 24"><path d="M22 4h-2c-.55 0-1 .45-1 1v9c0 .55.45 1 1 1h2V4zM2.17 11.12c-.11.25-.17.52-.17.8V13c0 1.1.9 2 2 2h5.5l-.92 4.65c-.05.22-.02.46.08.66.23.45.52.86.88 1.22L10 22l6.41-6.41c.38-.38.59-.89.59-1.42V6.34C17 5.05 15.95 4 14.66 4h-8.1c-.71 0-1.36.37-1.72.97l-2.67 6.15z"/></svg>
+                            </button>
+                            <button class="panel-action-btn copy-btn" onclick="copyMessage(this)" title="Copy to clipboard">
+                                <svg viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
+                                <span class="copy-text">Copy</span>
+                            </button>
+                        </div>
+                        <div class="panel-timestamp">${timeStr}</div>
+                    </div>
+                `;
+            } else {
+                panelHTML += `
+                    <div class="panel-footer">
+                        <div class="panel-actions">
+                            <button class="panel-action-btn copy-btn" onclick="copyMessage(this)" title="Copy to clipboard">
+                                <svg viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
+                                <span class="copy-text">Copy</span>
+                            </button>
+                        </div>
+                        <div class="panel-timestamp">${timeStr}</div>
+                    </div>
+                `;
+            }
+
+            panel.innerHTML = panelHTML;
+            messagesContainer.appendChild(panel);
+            scrollToBottom();
+        }
+
+        // Format datetime for display
+        function formatDateTime(date) {
+            const now = new Date();
+            const isToday = date.toDateString() === now.toDateString();
+
+            const timeStr = date.toLocaleTimeString('en-US', {
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: false
+            });
+
+            if (isToday) {
+                return `Today ${timeStr}`;
+            }
+
+            const dateStr = date.toLocaleDateString('en-US', {
+                month: 'short',
+                day: 'numeric'
+            });
+            return `${dateStr} ${timeStr}`;
+        }
+
+        // Format relative time for conversation list (e.g., "2 min ago", "Yesterday")
+        function formatRelativeTime(timestamp) {
+            const date = new Date(timestamp);
+            const now = new Date();
+            const diffMs = now - date;
+            const diffMin = Math.floor(diffMs / 60000);
+            const diffHour = Math.floor(diffMs / 3600000);
+            const diffDay = Math.floor(diffMs / 86400000);
+
+            if (diffMin < 1) return 'Just now';
+            if (diffMin < 60) return `${diffMin} min ago`;
+            if (diffHour < 24) return `${diffHour}h ago`;
+            if (diffDay === 1) return 'Yesterday';
+            if (diffDay < 7) return `${diffDay} days ago`;
+
+            // For older, show date
+            return date.toLocaleDateString('en-US', {
+                month: 'short',
+                day: 'numeric'
+            });
+        }
+
+        // Rate a message (thumbs up/down)
+        function rateMessage(messageId, rating, button) {
+            const panel = button.closest('.panel');
+            const thumbsUp = panel.querySelector('.thumbs-up');
+            const thumbsDown = panel.querySelector('.thumbs-down');
+
+            // Toggle rating
+            if (button.classList.contains('active')) {
+                button.classList.remove('active');
+                console.log(`Rating removed for ${messageId}`);
+                // TODO: Send rating removal to backend
+            } else {
+                // Remove other rating
+                thumbsUp.classList.remove('active');
+                thumbsDown.classList.remove('active');
+                button.classList.add('active');
+                console.log(`Rating ${rating} for ${messageId}`);
+                // TODO: Send rating to backend
+            }
+        }
+
+        // Copy message content to clipboard
+        // Convert HTML element to plain text, preserving list numbering
+        function htmlToPlainText(el) {
+            let text = '';
+            for (const node of el.childNodes) {
+                if (node.nodeType === Node.TEXT_NODE) {
+                    text += node.textContent;
+                } else if (node.nodeType === Node.ELEMENT_NODE) {
+                    const tag = node.tagName;
+                    if (tag === 'OL') {
+                        const items = node.querySelectorAll(':scope > li');
+                        const start = parseInt(node.getAttribute('start') || '1', 10);
+                        items.forEach((li, i) => {
+                            text += (start + i) + '. ' + htmlToPlainText(li).trim() + '\n';
+                        });
+                    } else if (tag === 'UL') {
+                        const items = node.querySelectorAll(':scope > li');
+                        items.forEach(li => {
+                            text += '- ' + htmlToPlainText(li).trim() + '\n';
+                        });
+                    } else if (tag === 'BR') {
+                        text += '\n';
+                    } else if (tag === 'P') {
+                        text += htmlToPlainText(node) + '\n\n';
+                    } else {
+                        text += htmlToPlainText(node);
+                    }
+                }
+            }
+            return text;
+        }
+
+        async function copyMessage(button) {
+            const panel = button.closest('.panel');
+            const messageText = panel.querySelector('.message-text');
+            const copyText = button.querySelector('.copy-text');
+            const plainText = htmlToPlainText(messageText).trim();
+
+            let copied = false;
+            if (navigator.clipboard) {
+                try {
+                    const blob = new Blob([messageText.innerHTML], { type: 'text/html' });
+                    const textBlob = new Blob([plainText], { type: 'text/plain' });
+                    await navigator.clipboard.write([new ClipboardItem({
+                        'text/html': blob, 'text/plain': textBlob
+                    })]);
+                    copied = true;
+                } catch (err) {
+                    try {
+                        await navigator.clipboard.writeText(plainText);
+                        copied = true;
+                    } catch (_) {}
+                }
+            }
+            // Fallback for non-secure contexts (HTTP localhost)
+            if (!copied) {
+                const ta = document.createElement('textarea');
+                ta.value = plainText;
+                ta.style.position = 'fixed';
+                ta.style.opacity = '0';
+                document.body.appendChild(ta);
+                ta.select();
+                copied = document.execCommand('copy');
+                document.body.removeChild(ta);
+            }
+
+            copyText.textContent = copied ? 'Copied!' : 'Failed';
+            setTimeout(() => { copyText.textContent = 'Copy'; }, 2000);
+        }
+
+        // Create collapsible sources div
+        function createSourcesDiv(sources, collapsed = true) {
+            const sourcesDiv = document.createElement('div');
+            sourcesDiv.className = 'sources' + (collapsed ? ' collapsed' : '');
+            sourcesDiv.innerHTML = `
+                <div class="sources-header" onclick="toggleSources(this)">
+                    <span>Sources (${sources.length})</span>
+                    <span class="toggle-icon">▼</span>
+                </div>
+                <div class="sources-content">
+                    ${sources.map(s => `
+                        <div class="source-item">
+                            <span class="type">${escapeHtml(s.type)}</span>
+                            <span class="title">${escapeHtml(s.title)}</span>
+                            ${s.preview ? `<div class="preview">${escapeHtml(s.preview)}</div>` : ''}
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+            return sourcesDiv;
+        }
+
+        // Toggle sources visibility
+        function toggleSources(header) {
+            const sourcesDiv = header.parentElement;
+            sourcesDiv.classList.toggle('collapsed');
+        }
+
+        // Append sources to the last assistant panel
+        function appendSources(sources) {
+            const panels = document.querySelectorAll('.panel.assistant');
+            if (panels.length === 0) return;
+
+            const lastPanel = panels[panels.length - 1];
+            const content = lastPanel.querySelector('.panel-content');
+
+            // Check if sources already exist
+            if (content.querySelector('.sources')) return;
+
+            const sourcesDiv = createSourcesDiv(sources);
+            content.appendChild(sourcesDiv);
+        }
+
+        // Show global loading indicator (always visible)
+        function showLoading() {
+            removeLoading();
+
+            const messagesContainer = document.getElementById('messages');
+            const loading = document.createElement('div');
+            loading.className = 'loading-indicator';
+            loading.id = 'global-loading';
+            loading.innerHTML = `
+                <div class="loading-icon"></div>
+                <div class="loading-text">
+                    <span class="loading-title">AInstein is thinking<span class="loading-dots"><span></span><span></span><span></span></span></span>
+                    <span class="loading-subtitle">Analyzing your question and searching knowledge base</span>
+                </div>
+            `;
+            messagesContainer.appendChild(loading);
+            scrollToBottom();
+        }
+
+        // Remove global loading indicator
+        function removeLoading() {
+            const loading = document.getElementById('global-loading');
+            if (loading) {
+                loading.remove();
+            }
+        }
+
+        // Update heartbeat - show elapsed time to indicate system is still working
+        function updateHeartbeat(elapsedSec) {
+            // Ensure loading indicator is visible
+            if (!document.getElementById('global-loading')) {
+                showLoading();
+            }
+
+            const loading = document.getElementById('global-loading');
+            if (loading) {
+                const subtitle = loading.querySelector('.loading-subtitle');
+                if (subtitle) {
+                    // Format elapsed time nicely
+                    const mins = Math.floor(elapsedSec / 60);
+                    const secs = elapsedSec % 60;
+                    const timeStr = mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
+                    subtitle.textContent = `Still processing... (${timeStr} elapsed)`;
+                    subtitle.classList.add('heartbeat-pulse');
+                    // Remove pulse class after animation
+                    setTimeout(() => subtitle.classList.remove('heartbeat-pulse'), 500);
+                }
+            }
+        }
+
+        // Show status indicator with pulsing icon (for detailed status)
+        function showStatus(text) {
+            // Update the loading subtitle if loading is showing
+            const loading = document.getElementById('global-loading');
+            if (loading) {
+                const subtitle = loading.querySelector('.loading-subtitle');
+                if (subtitle) {
+                    subtitle.textContent = text;
+                }
+            }
+
+            // Also show the detailed status indicator if thinking is enabled
+            removeStatus();
+
+            const messagesContainer = document.getElementById('messages');
+            const status = document.createElement('div');
+            status.className = 'status-indicator';
+            status.id = 'current-status';
+            status.innerHTML = `
+                <div class="thinking-icon">
+                    <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2"/>
+                        <circle cx="12" cy="12" r="3"/>
+                        <path d="M12 2v4M12 18v4M2 12h4M18 12h4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                    </svg>
+                </div>
+                <span class="text">${escapeHtml(text)}</span>
+            `;
+            messagesContainer.appendChild(status);
+            currentStatusElement = status;
+            scrollToBottom();
+        }
+
+        // Remove status indicator
+        function removeStatus() {
+            const status = document.getElementById('current-status');
+            if (status) {
+                status.remove();
+            }
+            currentStatusElement = null;
+        }
+
+        // Update send button state
+        function updateSendButton() {
+            const btn = document.getElementById('send-btn');
+            btn.disabled = isLoading;
+            // Icon button - no text change needed
+        }
+
+        // Ask suggestion
+        function askSuggestion(question) {
+            document.getElementById('message-input').value = question;
+            sendMessage();
+        }
+
+        // Handle key down
+        function handleKeyDown(event) {
+            if (event.key === 'Enter' && !event.shiftKey) {
+                event.preventDefault();
+                sendMessage();
+            }
+        }
+
+        // Auto resize textarea
+        function autoResize(textarea) {
+            textarea.style.height = 'auto';
+            textarea.style.height = Math.min(textarea.scrollHeight, 200) + 'px';
+        }
+
+        // Scroll to bottom
+        function scrollToBottom() {
+            const container = document.getElementById('chat-container');
+            container.scrollTop = container.scrollHeight;
+        }
+
+        // Escape HTML
+        function escapeHtml(text) {
+            if (!text) return '';
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Format text for display using marked.js markdown renderer
+        function formatMessageText(text) {
+            if (!text) return '';
+            if (typeof marked !== 'undefined' && marked.parse) {
+                return marked.parse(text);
+            }
+            console.warn('marked.js not loaded, falling back to plain text');
+            return escapeHtml(text);
+        }
+
+        // ============ LLM Settings Functions ============
+
+        // Load LLM settings from server
+        async function loadLLMSettings() {
+            try {
+                const response = await fetch('/api/settings/llm');
+                const data = await response.json();
+
+                // Update global state
+                llmSettings = data.current;
+                availableModels = data.available_models;
+
+                // Update UI
+                updateModelBadge();
+            } catch (error) {
+                console.error('Failed to load LLM settings:', error);
+            }
+        }
+
+        // Open settings modal
+        function openSettings() {
+            const modal = document.getElementById('settings-modal');
+            modal.classList.add('active');
+
+            // Set global default values
+            document.getElementById('llm-provider').value = llmSettings.provider;
+            updateModelOptions();
+            document.getElementById('llm-model').value = llmSettings.model;
+
+            // Pre-fill per-component dropdowns with effective/resolved values
+            const persona = llmSettings.persona || {};
+            const tree = llmSettings.tree || {};
+
+            // Persona: always show what it will actually use
+            document.getElementById('persona-provider').value = persona.provider || llmSettings.provider;
+            updateComponentModelOptions('persona');
+            document.getElementById('persona-model').value = persona.model || llmSettings.model;
+
+            // Tree: always show what it will actually use
+            document.getElementById('tree-provider').value = tree.provider || llmSettings.provider;
+            updateComponentModelOptions('tree');
+            document.getElementById('tree-model').value = tree.model || llmSettings.model;
+
+            // Auto-expand if either component differs from the global default
+            const hasOverrides = (
+                persona.provider !== llmSettings.provider ||
+                persona.model !== llmSettings.model ||
+                tree.provider !== llmSettings.provider ||
+                tree.model !== llmSettings.model
+            );
+            document.getElementById('per-component-toggle').checked = hasOverrides;
+            document.getElementById('advanced-settings').style.display = hasOverrides ? 'block' : 'none';
+        }
+
+        // Close settings modal
+        function closeSettings() {
+            const modal = document.getElementById('settings-modal');
+            modal.classList.remove('active');
+        }
+
+        // Close modal when clicking outside
+        document.addEventListener('click', (e) => {
+            const modal = document.getElementById('settings-modal');
+            if (e.target === modal) {
+                closeSettings();
+            }
+        });
+
+        // Toggle advanced per-component settings based on checkbox
+        function toggleAdvancedSettings() {
+            const checked = document.getElementById('per-component-toggle').checked;
+            document.getElementById('advanced-settings').style.display = checked ? 'block' : 'none';
+        }
+
+        // Update model dropdown based on selected provider (global default)
+        function updateModelOptions() {
+            const provider = document.getElementById('llm-provider').value;
+            const modelSelect = document.getElementById('llm-model');
+
+            modelSelect.innerHTML = '';
+
+            const models = availableModels[provider] || [];
+            models.forEach(model => {
+                const option = document.createElement('option');
+                option.value = model.id;
+                option.textContent = model.name;
+                modelSelect.appendChild(option);
+            });
+
+            if (llmSettings.provider === provider) {
+                modelSelect.value = llmSettings.model;
+            }
+        }
+
+        // Update model dropdown for a per-component selector
+        function updateComponentModelOptions(component) {
+            const providerEl = document.getElementById(component + '-provider');
+            const modelEl = document.getElementById(component + '-model');
+            const provider = providerEl.value;
+
+            modelEl.innerHTML = '';
+
+            const models = availableModels[provider] || [];
+            models.forEach(model => {
+                const option = document.createElement('option');
+                option.value = model.id;
+                option.textContent = model.name;
+                modelEl.appendChild(option);
+            });
+        }
+
+        // Update the current model badge in the modal and top-bar indicator
+        function updateModelBadge() {
+            const text = document.getElementById('current-model-text');
+            const models = availableModels[llmSettings.provider] || [];
+            const model = models.find(m => m.id === llmSettings.model);
+            text.textContent = model ? model.name : llmSettings.model;
+
+            const indicator = document.getElementById('model-indicator');
+            if (!indicator) return;
+
+            const persona = llmSettings.persona || {};
+            const tree = llmSettings.tree || {};
+            const sameConfig = persona.provider === tree.provider && persona.model === tree.model;
+
+            const labels = { ollama: 'Ollama', github_models: 'GitHub', openai: 'OpenAI' };
+
+            if (sameConfig) {
+                // Simple display when both use same settings
+                const providerLabel = labels[persona.provider] || persona.provider;
+                const pModels = availableModels[persona.provider] || [];
+                const pModel = pModels.find(m => m.id === persona.model);
+                indicator.textContent = providerLabel + ' | ' + (pModel ? pModel.name : persona.model);
+            } else {
+                // Dual display when per-component overrides active
+                const pLabel = labels[persona.provider] || persona.provider;
+                const tLabel = labels[tree.provider] || tree.provider;
+                const pModels = availableModels[persona.provider] || [];
+                const tModels = availableModels[tree.provider] || [];
+                const pModel = pModels.find(m => m.id === persona.model);
+                const tModel = tModels.find(m => m.id === tree.model);
+                indicator.textContent = 'P: ' + pLabel + '/' + (pModel ? pModel.name : persona.model)
+                    + ' | T: ' + tLabel + '/' + (tModel ? tModel.name : tree.model);
+            }
+        }
+
+        // Save LLM settings
+        async function saveLLMSettings() {
+            const provider = document.getElementById('llm-provider').value;
+            const model = document.getElementById('llm-model').value;
+            const usePerComponent = document.getElementById('per-component-toggle').checked;
+
+            // When unchecked, send null to clear overrides (use global defaults)
+            const personaProvider = usePerComponent ? document.getElementById('persona-provider').value : null;
+            const personaModel = usePerComponent ? document.getElementById('persona-model').value : null;
+            const treeProvider = usePerComponent ? document.getElementById('tree-provider').value : null;
+            const treeModel = usePerComponent ? document.getElementById('tree-model').value : null;
+
+            try {
+                const response = await fetch('/api/settings/llm', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        provider, model,
+                        persona_provider: personaProvider,
+                        persona_model: personaModel,
+                        tree_provider: treeProvider,
+                        tree_model: treeModel
+                    })
+                });
+
+                if (response.ok) {
+                    const result = await response.json();
+                    llmSettings = {
+                        provider, model,
+                        persona: result.persona,
+                        tree: result.tree
+                    };
+                    updateModelBadge();
+                    closeSettings();
+                    console.log('LLM settings saved:', llmSettings);
+                } else {
+                    const error = await response.json();
+                    alert('Failed to save settings: ' + (error.detail || 'Unknown error'));
+                }
+            } catch (error) {
+                console.error('Failed to save LLM settings:', error);
+                alert('Failed to save settings. Please try again.');
+            }
+        }
+    </script>
+</body>
+</html>

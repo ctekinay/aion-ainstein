@@ -1,290 +1,419 @@
-# AInstein - Artifacts
+# AInstein [![Alliander](https://img.shields.io/badge/maintained%20by-Alliander-orange.svg)](https://www.alliander.com)
 
-[![Alliander](https://img.shields.io/badge/maintained%20by-Alliander-orange.svg)](https://www.alliander.com)
+Agentic RAG and multi-skill AI system developed by Alliander's Energy System Architecture Group to support various architecture workstreams. Built on Weaviate (Vector DB) + Elysia decision trees with an AInstein Persona layer for intent classification and a Skills Framework for prompt engineering.
 
-A comprehensive repository for AInstein artifacts supporting AI-enabled architecture capabilities at Alliander. This repository hosts development artifacts and additional enabling architecture materials that empower the Energy System Architects (ESA) group to deliver tailored architecture-related answers to various stakeholders through AI-augmented human-in-the-loop principles.
+## What It Does
 
-## 📋 Table of Contents
+AInstein lets architects and engineers query Alliander's architecture knowledge base using natural language:
 
-- [About](#about)
-- [What is AInstein?](#what-is-ainstein)
-- [Repository Purpose](#repository-purpose)
-- [Repository Structure](#repository-structure)
-- [Getting Started](#getting-started)
-- [Goals and Objectives](#goals-and-objectives)
-- [Contributing](#contributing)
-- [Governance](#governance)
-- [Related Initiatives and Repositories](#related-initiatives-and-repositories)
-- [Contact](#contact)
+- **18 Architecture Decision Records (ADRs)** — design decisions with context, options, and consequences
+- **31 Architecture Principles (PCPs)** — guiding statements for design choices
+- **49 Decision Approval Records (DARs)** — governance and approval history
+- **5,200+ SKOS Vocabulary Concepts** — IEC 61970/61968/62325 standards, CIM models, domain ontologies via SKOSMOS REST API
+- **Policy Documents** — data governance, privacy, security policies
+- **ArchiMate 3.2 Model Generation** — validated Open Exchange XML from architecture descriptions
+- **ArchiMate Model Inspection** — analyze, describe, and compare ArchiMate models from conversation artifacts, file uploads, or URLs
+- **SKOSMOS Vocabulary Lookups** — term definitions, abbreviations, concept hierarchies via structured API
 
-## About
+Queries are handled by the AInstein Persona, which classifies intent, emits skill tags for domain-specific capabilities, and rewrites queries. The Persona routes to the appropriate execution path:
 
-This repository is maintained by the **Energy System Architects (ESA)** group at Alliander and serves as the central location for AInstein artifacts that enable AI-augmented architecture capabilities.
+- **Retrieval queries** ("What ADRs exist?", "What is document 22?", "Define active power") go to the **Elysia Decision Tree**, which selects tools, searches collections, and formats responses with citations.
+- **Generation queries** ("Create an ArchiMate model for ADR.29") go to the **Generation Pipeline**, which fetches source content, builds a prompt from the matching skill, makes a single LLM call, validates, and saves the artifact for download. Token usage is tracked across all LLM calls (generation, view repair, validation retries) and reported in a single summary log line at completion.
+- **Refinement queries** ("Add a Technology layer to the model") go to the **Generation Pipeline** with the previous artifact loaded as context. The LLM returns a structured YAML diff envelope (~200 tokens) instead of regenerating the full model (~4,600 tokens). A deterministic merge engine applies the diff; if parsing fails, the pipeline falls back transparently to full regeneration.
+- **Inspection queries** ("Describe the model you just generated", "What elements are in this ArchiMate file?") go to the **Inspection path**, which converts XML to compact YAML (~90% token reduction), sends it to the LLM for analysis, and streams the response. Models can come from conversation artifacts, file uploads (.xml/.yaml), or URLs. GitHub URLs are fetched via MCP (Model Context Protocol) using the remote GitHub MCP server, with httpx fallback for non-GitHub URLs.
+- **Direct response queries** ("Who are you?", "What's the weather?") are answered by the Persona without any backend call.
 
-**Repository Naming Convention:**
-- **esa**: Energy System Architects group (owning group)
-- **ainstein**: AInstein initiative (Learning UC Alinstein)
-- **artifacts**: Development and enabling architecture materials (content type)
+**Disclaimer:** Currently, the above-mentioned data sources are integrated stand-alone via the data/ folder. The short-term goal for AInstein is full integration with ESA repositories, tools, and other internal data sources directly. 
 
-## What is AInstein?
+## Architecture
 
-![ESA Initiatives Overview](docs/images/Overview_ESA_Delivery_Readme.gif)
+```
+┌──────────────────────────────────────────────────────────────────────┐
+│                         Web UI / CLI                                 │
+│              localhost:8081  |  python -m src.aion.cli               │
+└──────────────┬───────────────────────────────────────────────────────┘
+               │
+┌──────────────▼───────────────────────────────────────────────────────┐
+│                    AInstein Persona Layer                            │
+│  Intent classification: retrieval, listing, follow_up, generation,   │
+│    refinement, inspect, identity, off_topic, clarification           │
+│  Query rewriting with conversation context (pronoun resolution)      │
+│  Skill tag emission for on-demand capabilities                       │
+│  Direct response for identity/off-topic/clarification                │
+└──────────┬─────────────────────┬──────────────────────┬──────────────┘
+           │ retrieval / listing │ generation /         │ inspect
+           │ / follow_up         │ refinement           │
+┌──────────▼─────────────────────▼────┐  ┌──────────────▼────────────────┐
+│       Elysia Decision Tree          │  │      Generation Pipeline      │
+│  Tool selection via LLM planner     │  │  Direct LLM call (no planner) │
+│  Atlas = injected skill content     │  │  Skill-driven prompt building │
+├─────────────────────────────────────┤  ├───────────────────────────────┤
+│  Tools:                             │  │  1. Fetch source content      │
+│  search_architecture_decisions      │  │  2. Load generation skill     │
+│  search_principles                  │  │  3. Single LLM call           │
+│  search_policies                    │  │  4. XML sanitization          │
+│  list_all_adrs                      │  │  5. View repair (detect+fix)  │
+│  list_all_principles                │  │  6. Validation (+ retry)      │
+│  search_by_team                     │  │  7. Save artifact to SQLite   │
+│  get_collection_stats               │  │  8. Emit download card (SSE)  │
+│  skosmos_search                     │  ├───────────────────────────────┤
+│  skosmos_concept_details            │  │  Refinement: YAML diff merge  │
+│  skosmos_list_vocabularies          │  │  with full-regen fallback     │
+│  validate_archimate                 │  └───────────────┬───────────────┘
+│  inspect_archimate_model            │                  │
+│  merge_archimate_view               │           ┌──────▼──────────┐
+│  save_artifact  get_artifact        │           │   Artifacts     │
+├─────────────────────────────────────┤  ▼────────┤  SQLite store   │
+│  Summarizers: cited_summarize       │  │        │  SSE download   │
+└──────────────┬──────────────────────┘  │        │  card + API     │
+               │                         │        │  File upload    │
+               │                         │        └─────────────────┘
+               │                         │
+               │              ┌──────────┴──────────┐
+               │              │     Inspection      │
+               │              │  XML → YAML → LLM   │
+               │              │  Sources: artifact, │
+               │              │  upload, URL (MCP/  │
+               │              │  httpx)             │
+               │              └─────────────────────┘
+               │
+┌──────────────▼───────────────────────────────────────────────────────┐
+│                     Skills Framework                                 │
+│  Always-on skills injected into every prompt via atlas               │
+│  ┌─────────────────┐ ┌──────────────────┐ ┌──────────────────────┐   │
+│  │ persona-        │ │ rag-quality-     │ │ esa-document-        │   │
+│  │ orchestrator    │ │ assurance        │ │ ontology             │   │
+│  │ Intent classif. │ │ Anti-hallucin.   │ │ ADR/PCP/DAR          │   │
+│  │ + skill tags    │ │ Citation rules   │ │ disambiguation       │   │
+│  └─────────────────┘ └──────────────────┘ └──────────────────────┘   │
+│  ┌─────────────────┐ ┌──────────────────┐                            │
+│  │ response-       │ │ ainstein-        │                            │
+│  │ formatter       │ │ identity         │                            │
+│  │ Numbered lists, │ │ Scope, persona   │                            │
+│  │ follow-ups      │ │ rules            │                            │
+│  └─────────────────┘ └──────────────────┘                            │
+│                                                                      │
+│  On-demand skills (injected when Persona emits matching tags)        │
+│  ┌─────────────────┐ ┌──────────────────┐ ┌──────────────────────┐   │
+│  │ archimate-      │ │ archimate-view-  │ │ skosmos-             │   │
+│  │ generator       │ │ generator        │ │ vocabulary           │   │
+│  │ ArchiMate 3.2   │ │ View layout +    │ │ SKOSMOS REST API     │   │
+│  │ XML generation  │ │ merge            │ │ term definitions     │   │
+│  │ tag: archimate  │ │ tag: archimate   │ │ tag: vocabulary      │   │
+│  └─────────────────┘ └──────────────────┘ └──────────────────────┘   │
+└──────────────────────────────────────────────────────────────────────┘
+               │
+┌──────────────▼───────────────────────────────────────────────────────┐
+│                        Weaviate 1.35.7                               │
+│  ┌──────────────────┐ ┌───────────┐ ┌──────────────┐                 │
+│  │ Architectural    │ │ Principle │ │ Policy       │                 │
+│  │ Decision  18+49  │ │ 31+31     │ │ Document     │                 │
+│  │ ADRs + DARs      │ │ PCPs+DARs │ │ 76 chunks    │                 │
+│  └──────────────────┘ └───────────┘ └──────────────┘                 │
+│  Hybrid search: BM25 keyword + vector similarity                     │
+│  Client-side embeddings via Ollama (all providers)                   │
+└──────────────┬───────────────────────────────────────────────────────┘
+               │
+┌──────────────▼───────────────────────────────────────────────────────┐
+│                        SKOSMOS REST API                              │
+│  5,200+ SKOS concepts · IEC/CIM/EU vocabularies · ESAV terminology   │
+│  skosmos_search → skosmos_concept_details → skosmos_list_vocabs      │
+└──────────────┬───────────────────────────────────────────────────────┘
+               │
+┌──────────────▼───────────────────────────────────────────────────────┐
+│                      LLM Providers                                   │
+│  ┌────────────────┐ ┌────────────────────┐ ┌──────────────────────┐  │
+│  │ Ollama         │ │ GitHub CoPilot     │ │ OpenAI               │  │
+│  │ (default)      │ │ Models (Alliander  │ │ (pay-per-token, not  │  │
+│  │ gpt-oss:20b    │ │ Enterprise, might  │ │ for company data)    │  │
+│  │ Local, free    │ │ have token limit)  │ │ gpt-5.2              │  │
+│  └────────────────┘ └────────────────────┘ └──────────────────────┘  │
+│  Per-component overrides: PERSONA_PROVIDER / TREE_PROVIDER           │
+└──────────────────────────────────────────────────────────────────────┘
+```
 
-**AInstein (Learning UC Alinstein)** is an AIon use-case focused on systematically integrating AI into architectural practices while exploring its implications for other business domains.
+## Quick Start
 
-**What**: AInstein is an AIon use-case identifying challenges, avoiding pitfalls, and uncovering opportunities for systematically integrating AI into architectural practices, while also exploring its implications for other business domains.
+```bash
+# 1. Clone and enter
+git clone <your-fork-url>
+cd esa-ainstein-artifacts
 
-**Why**: We experience a large gap between abstract consultation reports on AI and technical reality, making it hard to judge at an architectural level for future state choices. That blocks architects from being sufficient upfront with their guidance to other use-cases.
+# 2. Start Weaviate
+docker compose up -d
 
-**How**: Contributing to AIon with agents, be upfront with knowledge and synchronizing with the AIon program (in formation).
+# 3. Start Ollama and pull models
+ollama serve &
+ollama pull nomic-embed-text-v2-moe
+ollama pull gpt-oss:20b
 
-AInstein serves as a critical learning platform that bridges the gap between abstract AI concepts and practical architectural implementation, providing concrete patterns and insights that inform broader organizational AI adoption.
+# 4. Python environment (requires uv — https://docs.astral.sh/uv/)
+uv sync
 
-## Repository Purpose
+# 5. Configure
+cp .env.example .env
+# Default uses Ollama — no changes needed
 
-This repository empowers architecture groups (currently limited to ESA) to provide architecture insights that are:
+# 6. Initialize and run
+python -m src.aion.cli init
+python -m src.aion.cli chat --port 8081
+# Open http://localhost:8081
+```
 
-- **Tailored**: Customized to different types of stakeholders and their specific information needs
-- **Knowledge-based**: Built on shared and common architectural knowledge
-- **Human-supervised**: Delivered with human oversight and involvement through human-in-the-loop principles
-- **Context-aware**: Adaptable to different organizational contexts and evolving structures
+## Prerequisites
 
-As a result, stakeholders will be positively surprised by:
-- The effectiveness of communication around their topics
-- The relevance and precision of the deliverables
-- The impact of the architecture team's output
+- **Docker** — for Weaviate vector database and SKOSMOS vocabulary service
+- **Python 3.11-3.12** (3.10 and 3.13+ not supported)
+- **Ollama** (default, local, free) — [ollama.ai/download](https://ollama.ai/download)
+- **SKOSMOS** — vocabulary lookup service (runs separately via Docker, see [SKOSMOS Setup](#skosmos-setup))
+- Or **GitHub CoPilot Models** (Alliander Enterprise Account, 8K token limit) — set `LLM_PROVIDER=github_models` and `GITHUB_MODELS_API_KEY` in `.env`
+- Or **OpenAI API key** (cloud, paid — do not use with company data) — set `LLM_PROVIDER=openai` and `OPENAI_API_KEY` in `.env`
 
-### Key Capabilities
+## CLI Commands
 
-1. **AI-Augmented Architecture Services**: Leveraging AI agents to enhance architecture delivery
-2. **Knowledge Management**: Maintaining and curating shared architectural knowledge
-3. **Stakeholder-Specific Communication**: Enabling tailored responses to diverse stakeholder needs
-4. **Learning and Experimentation**: Testing AI integration patterns and uncovering opportunities and pitfalls
+```bash
+python -m src.aion.cli init                  # Initialize collections and ingest data
+python -m src.aion.cli init --chunked        # Ingest with section-based chunking
+python -m src.aion.cli init --recreate       # Recreate collections from scratch
+python -m src.aion.cli chat --port 8081      # Start web UI
+python -m src.aion.cli query "question"      # Single query from terminal (bypasses AInstein Persona)
+```
 
-## Repository Structure
+## Web UI
+
+The chat interface at `http://localhost:8081` provides:
+
+- **Chat** — conversational RAG with AInstein Persona intent classification and citations
+- **Settings** — model selection, temperature, comparison mode
+- **Skills** (`/skills`) — enable/disable skills, tune abstention threshold, edit SKILL.md content
+
+## Skills Framework
+
+Skills are markdown instruction files injected into every LLM prompt. They control how AInstein behaves — identity, formatting, citation rules, domain knowledge. Skills are managed via the `/skills` UI or by editing files directly.
+
+```
+skills/
+├── skills-registry.yaml             # Which skills are enabled + on-demand tags
+├── persona-orchestrator/
+│   └── SKILL.md                     # AInstein Persona system prompt, intent classification, skill tags
+├── ainstein-identity/
+│   └── SKILL.md                     # Identity, scope, persona rules
+├── rag-quality-assurance/
+│   ├── SKILL.md                     # Citation format, abstention rules
+│   └── references/thresholds.yaml   # Distance threshold, retrieval limits
+├── esa-document-ontology/
+│   └── SKILL.md                     # ADR/PCP/DAR naming, numbering, disambiguation
+├── response-formatter/
+│   └── SKILL.md                     # Numbered lists, statistics, follow-up options
+├── archimate-generator/             # On-demand (tag: archimate)
+│   ├── SKILL.md                     # ArchiMate 3.2 XML generation workflow
+│   └── references/                  # Element types, allowed relations
+├── archimate-view-generator/        # On-demand (tag: archimate)
+│   ├── SKILL.md                     # View layout and merge workflow
+│   └── references/                  # View layout rules
+└── skosmos-vocabulary/              # On-demand (tag: vocabulary)
+    └── SKILL.md                     # SKOSMOS REST API search and concept lookup
+```
+
+**Progressive Skill Loading:** Skills use two injection modes to minimize token usage:
+
+- **Always-on** — core skills (identity, quality assurance, document ontology, response formatting) are injected into every prompt via the Elysia Tree's `atlas.agent_description`. These apply to all query types.
+- **On-demand** — domain-specific skills (ArchiMate generation, ArchiMate views, SKOSMOS vocabulary) are injected only when the Persona emits matching `skill_tags` (e.g., `["archimate"]` or `["vocabulary"]`). A standard KB query like "What ADRs exist?" never loads the ArchiMate generation skill (~10K chars) or SKOSMOS vocabulary rules.
+
+This reduces prompt size by 40-80% for standard queries compared to loading all skills on every call. The Generation Pipeline loads only the matching generation skill (e.g., `archimate-generator`) — not the always-on skills — since it operates outside the Tree's retrieval context.
+
+**Thresholds:** The `rag-quality-assurance` skill has a `thresholds.yaml` that controls:
+- `abstention.distance_threshold` (0.5) — maximum vector distance before abstaining
+- `retrieval_limits` — max documents per collection (per-tool override at call time)
+- `truncation` — content length limits (per-tool override at call time)
+
+## Project Structure
 
 ```
 esa-ainstein-artifacts/
-├── agents/                  # AI agent configurations and specifications
-│   ├── prompts/            # Agent prompt templates and instructions
-│   └── workflows/          # Agent workflow definitions
-├── knowledge/              # Shared architectural knowledge base
-│   ├── documents/          # Architecture documents and references
-│   ├── models/             # Architecture models and diagrams
-│   └── patterns/           # Architectural patterns and best practices
-├── experiments/            # AI integration experiments and learnings
-│   ├── use-cases/          # Specific use case implementations
-│   └── evaluations/        # Experiment results and evaluations
-├── deliverables/           # Stakeholder-specific outputs
-│   └── templates/          # Reusable delivery templates
-├── docs/                   # Documentation and resources
-│   └── images/             # Diagrams, screenshots, and visual assets
-└── README.md               # This file
+├── src/aion/
+│   ├── cli.py                    # Typer CLI (init, chat, query, evaluate)
+│   ├── config.py                 # Pydantic settings from .env (3-provider config)
+│   ├── persona.py                # AInstein Persona — intent classification, query rewriting
+│   ├── generation.py             # Direct LLM generation pipeline (ArchiMate XML, etc.)
+│   ├── chat_ui.py                # FastAPI web server + API endpoints + SQLite conversation store
+│   │                             #   Execution router: generation → pipeline, retrieval → Tree
+│   ├── elysia_agents.py          # Elysia Tree integration, tool registration,
+│   │                             #   skill injection, abstention
+│   ├── mcp/
+│   │   ├── config.yaml           # MCP server registry (URLs, auth, transport)
+│   │   ├── registry.py           # MCPServerConfig + load_registry() + get_server()
+│   │   ├── client.py             # Generic MCP client (streamable HTTP transport)
+│   │   └── github.py             # GitHub file fetching + URL parsing
+│   ├── tools/
+│   │   ├── archimate.py          # ArchiMate 3.2 validation, inspection, merge
+│   │   ├── yaml_to_xml.py        # ArchiMate YAML ↔ XML converter (generation + inspection)
+│   │   └── skosmos.py            # SKOSMOS REST API wrappers (search, concept details)
+│   ├── weaviate/
+│   │   ├── client.py             # Weaviate connection factory
+│   │   ├── collections.py        # Collection schema definitions
+│   │   ├── embeddings.py         # Ollama embedding functions
+│   │   └── ingestion.py          # Data ingestion pipeline
+│   ├── loaders/
+│   │   ├── markdown_loader.py    # ADR/PCP markdown parser with frontmatter
+│   │   ├── document_loader.py    # DOCX/PDF parser for policies
+│   │   └── registry_parser.py    # ESA registry table parser
+│   ├── chunking/                 # Section-based document chunking
+│   ├── memory/
+│   │   ├── session_store.py      # SQLite session management, user profiles
+│   │   ├── summarizer.py         # Rolling conversation summaries
+│   │   └── cli.py                # Memory management CLI (show, reset, export)
+│   ├── skills/
+│   │   ├── __init__.py           # Package init, get_skill_registry()
+│   │   ├── loader.py             # SkillLoader: parses SKILL.md, loads thresholds
+│   │   ├── registry.py           # SkillRegistry: enabled/disabled state, content injection
+│   │   ├── api.py                # Skills CRUD API (list, get, toggle, update)
+│   │   └── filters.py            # Query-based skill filtering (unused, kept for reference)
+│   ├── evaluation/               # RAG quality evaluation framework
+│   └── static/
+│       ├── index.html            # Main chat UI
+│       └── skills.html           # Skills management UI
+├── skills/                       # Skill definitions (SKILL.md + thresholds.yaml)
+├── docker-compose.yml            # Weaviate 1.35.7 container
+├── pyproject.toml                # Python project configuration
+└── .env.example
 ```
 
-## Getting Started
+## Configuration
 
-### Prerequisites
+### Environment Variables
 
-- Access to Alliander internal systems
-- Understanding of enterprise architecture principles
-- Familiarity with the ESA initiatives ecosystem (ESA-main, AIon, A4A)
-- Basic understanding of AI/LLM capabilities and limitations
-- Commitment to human-in-the-loop principles
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `LLM_PROVIDER` | `ollama` | `ollama`, `github_models`, or `openai` |
+| `WEAVIATE_URL` | `http://localhost:8090` | Weaviate HTTP endpoint |
+| `WEAVIATE_GRPC_URL` | `localhost:50061` | Weaviate gRPC endpoint |
+| `OLLAMA_URL` | `http://localhost:11434` | Ollama API |
+| `OLLAMA_MODEL` | `gpt-oss:20b` | Ollama chat model |
+| `OLLAMA_EMBEDDING_MODEL` | `nomic-embed-text-v2-moe` | Embedding model (all providers) |
+| `GITHUB_MODELS_API_KEY` | — | Required when using `github_models` provider |
+| `GITHUB_MODELS_MODEL` | `openai/gpt-4.1` | GitHub CoPilot Models chat model |
+| `OPENAI_API_KEY` | — | Required when using `openai` provider (not for company data) |
+| `OPENAI_CHAT_MODEL` | `gpt-5.2` | OpenAI chat model |
+| `OPENAI_EMBEDDING_MODEL` | `text-embedding-3-large` | OpenAI embedding model |
+| `SKOSMOS_URL` | `http://localhost:8080` | SKOSMOS REST API endpoint for vocabulary lookups |
+| `GITHUB_TOKEN` | — | GitHub PAT for MCP file fetching (requires `repo` scope; authorize for org SSO if applicable) |
+| `PERSONA_PROVIDER` | — | Override LLM provider for AInstein Persona only |
+| `TREE_PROVIDER` | — | Override LLM provider for Elysia Tree only |
 
-### Installation
+### Docker
+
+Weaviate runs locally via Docker. The `docker-compose.yml` configures:
+- Weaviate 1.35.7 with text2vec-ollama and generative-ollama modules
+- HTTP on port 8090, gRPC on port 50061
+- Persistent storage via Docker volume
 
 ```bash
-# Clone the repository
-git clone https://github.com/Alliander/esa-ainstein-artifacts.git
-
-cd esa-ainstein-artifacts
+docker compose up -d         # Start
+docker compose down          # Stop
+docker compose down -v       # Stop and delete all data
 ```
 
-### Usage
+## SKOSMOS Setup
 
-Browse the repository structure to find relevant artifacts:
+SKOSMOS provides the vocabulary lookup service (5,200+ IEC/CIM/SKOS concepts). It runs as a separate Docker container and is accessed via REST API.
 
-- **For AI agent configurations**: Check the `agents/` directory
-- **For shared knowledge**: See the `knowledge/` directory
-- **For experiments and learnings**: Browse the `experiments/` directory
-- **For stakeholder deliverables**: Use files within the `deliverables/` directory
-- **For documentation**: Explore the `docs/` directory
+The SKOSMOS instance and its vocabulary data are maintained in a separate Alliander repository:
 
-## Goals and Objectives
-
-### General Goals
-
-1. **Enable Stakeholder-Specific Architecture Delivery**: Empower ESA groups to answer architecture-related topics in a manner tailored to each stakeholder type
-2. **Maintain Human Oversight**: Ensure human involvement and judgment while leveraging shared knowledge and AI capabilities
-3. **Improve Engagement**: Enhance stakeholder engagement and satisfaction through personalized, effective communication
-4. **Bridge Theory and Practice**: Close the gap between abstract AI consultation reports and technical architectural reality
-
-### Architecture Group Goals
-
-**Efficiency Improvement**
-- Create time in the team by improving efficiency
-- Avoid unnecessary stakeholder management through one-time-hit communication
-- Leverage AI to handle routine inquiries and information synthesis
-
-**Contextual Flexibility**
-- Enable answering the same content in different contexts (e.g., transitioning from departmental to chain-based organization)
-- Adapt communication style and depth to stakeholder needs
-- Support organizational transformation through flexible architecture delivery
-
-**Enhanced Impact**
-- Create more impact with architecture through better and tailor-made deliverables
-- Demonstrate architecture value through relevant, timely insights
-- Build trust through consistent, high-quality outputs
-
-**Data Control and Learning**
-- Start learning from a point where we are in control of the data itself (e.g., architecture files and related artifacts)
-- Build organizational knowledge assets that improve over time
-- Understand AI capabilities and limitations through practical experimentation
-
-### Learning Objectives
-
-**For the Organization**
-- Identify challenges in systematically integrating AI into architectural practices
-- Avoid common pitfalls in AI adoption through documented learnings
-- Uncover opportunities for AI to enhance architecture delivery and impact
-
-**For Other Use Cases**
-- Provide upfront guidance to other business domains considering AI integration
-- Share patterns and anti-patterns learned from AInstein experiments
-- Enable informed decision-making about AI adoption across the enterprise
-
-## Contributing
-
-We welcome contributions from the ESA team and other Alliander colleagues actively wishing to contribute. Please:
-
-1. Create a feature branch (`git checkout -b feature/new-agent` or `git checkout -b feature/experiment`)
-2. Add your artifacts with clear naming conventions
-3. Document your contributions, especially learnings from experiments
-4. Update relevant documentation
-5. Commit your changes (`git commit -am 'Add [artifact description]'`)
-6. Push to the branch (`git push origin feature/new-agent`)
-7. Create a Pull Request
-
-### Contribution Guidelines
-
-**General Guidelines:**
-- Follow human-in-the-loop principles in all AI-related work
-- Document both successes and failures from experiments
-- Ensure sensitive information is not included in artifacts
-- Update this README if adding new categories or major changes
-- Maintain data control and privacy standards
-
-**For Agent Configurations:**
-- Clearly document agent capabilities and limitations
-- Include prompt engineering best practices
-- Test agent outputs with human review
-- Version control prompt changes
-
-**For Knowledge Base:**
-- Ensure accuracy and currency of architectural knowledge
-- Link to authoritative sources where applicable
-- Maintain consistent formatting and organization
-- Tag content for easy retrieval
-
-**For Experiments:**
-- Document hypotheses and expected outcomes
-- Record actual results and learnings
-- Identify patterns, opportunities, and pitfalls
-- Share insights that benefit other use cases
-
-### Artifact Naming Conventions 
-
-```
-[YYYY-MM-DD]_[artifact-type]_[description].[extension]
-
-Examples:
-2025-11-20_agent-config_stakeholder-communication.yaml
-2025-11-20_experiment_architecture-q-and-a.md
-2025-11-20_knowledge_archimate-patterns.md
-2025-11-20_deliverable_executive-briefing-template.md
+```bash
+git clone git@github.com:Alliander/esa-odei-skosmos.git
+cd esa-odei-skosmos
+docker compose up -d
 ```
 
-## Governance
+Then configure the endpoint in your AInstein `.env`:
 
-**Current Governance:**
-Governance is currently limited to the ESA group and any architects or contributors actively wishing to contribute. This ensures focused experimentation and learning during the initiative's formative phase.
+```bash
+SKOSMOS_URL=http://localhost:8080
+```
 
-**Governance Principles:**
-- Human-in-the-loop oversight for all AI-generated outputs
-- Data control and privacy protection
-- Collaborative decision-making within the ESA group
-- Transparent sharing of learnings and insights
-- Alignment with broader AIon program objectives
+> **Note:** Access to `Alliander/esa-odei-skosmos` requires an Alliander GitHub account (same as this repository).
 
-**Future Governance:**
-Upon delivery and maturation of AInstein capabilities, governance will be updated to reflect broader participation and oversight across the organization. This may include:
-- Expanded stakeholder participation
-- Formalized review and approval processes
-- Integration with enterprise AI governance frameworks
-- Broader knowledge sharing mechanisms
+AInstein will work without SKOSMOS, but vocabulary lookups (`skosmos_search`, `skosmos_concept_details`) will return errors. All other features (ADR/PCP/policy search, ArchiMate generation) function independently.
 
-## Related Initiatives and Repositories
+## Conversation Memory
 
-As shown by the ESA Initiatives figure under the "What is AInstein?" section, AInstein initiative is part of the broader ecosystem of ESA strategic working themes:
+AInstein stores conversation history and session data in a local SQLite database (`chat_history.db`), created automatically on first run. This enables:
 
-- **ESA-main Target Architecture**
-- **Architecture for Architecture (A4A)**
-- **AIon**
+- Persistent conversation history across restarts
+- Rolling conversation summaries for multi-turn context
+- Session management and user profiles
 
-These tightly-coupled ESA architecture initiatives have their own repositories and these repositories work together to provide a complete view of the Energy System Architecture delivery streams:
+No additional setup is required — SQLite is part of the Python standard library.
 
-- **[esa-ainstein-artifacts](https://github.com/Alliander/esa-ainstein-artifacts)** - AInstein artifacts and knowledge base (this repository)
-- **[esa-ainstein-archi](https://github.com/Alliander/esa-ainstein-archi)** - AInstein ArchiMate co-architecture models
-- **[esa-main-artifacts](https://github.com/Alliander/esa-main-artifacts)** - ESA-main target architecture artifacts, ADRs, and principles
-- **[esa-a4a-artifacts](https://github.com/Alliander/esa-a4a-artifacts)** - A4A general artifacts and documentation
-- **[esa-a4a-archi](https://github.com/Alliander/esa-a4a-archi)** - A4A ArchiMate co-architecture models
-- **[esa-aion-artifacts](https://github.com/Alliander/esa-aion-artifacts)** - AIon artifacts and knowledge base
-- **[esa-aion-archi](https://github.com/Alliander/esa-aion-archi)** - AIon ArchiMate co-architecture models
+## Artifacts
 
-## Related Resources
+When AInstein generates structured output (e.g., ArchiMate XML), it saves the content as an artifact in the same SQLite database. The chat UI shows a download card with the filename, a summary (element/relationship counts), and download buttons. ArchiMate artifacts show dual download buttons (XML + YAML); other artifacts show a single button. Artifacts are accessible via:
 
-### Architecture Frameworks & Standards
+- **Download card** in the chat UI (appears automatically after generation)
+- **API endpoint** `GET /api/artifact/{id}/download` — returns the artifact content with the appropriate MIME type
+- **File upload** — click the paperclip button to upload ArchiMate files (.xml, .yaml, .yml) for inspection and analysis
+- **URL fetch** — paste a GitHub URL (blob or raw) or any file URL to an ArchiMate file in the chat; GitHub URLs are fetched via MCP (authenticated, supports private repos), others via httpx
 
-- **[TOGAF Standard, 10th Edition](https://www.opengroup.org/togaf)** - The Open Group Architecture Framework (latest version, released 2022, updated 2025)
-- **[ArchiMate 3.2 Specification](https://pubs.opengroup.org/architecture/archimate3-doc/)** - Official ArchiMate 3.2 specification (current version)
-- **[ArchiMate Forum](https://www.opengroup.org/archimate-forum)** - The Open Group ArchiMate community
+Artifacts persist across sessions and can be loaded for refinement ("Add security constraints to the model") or inspection ("Describe the model you just generated").
 
-### Tools
+## Upgrading / Migration
 
-- **[Archi](https://www.archimatetool.com/)** - Free, open-source ArchiMate modeling tool (v5.6.0+, supports ArchiMate 3.2)
-- **[Archi Downloads](https://www.archimatetool.com/download/)** - Download the latest version
-- **[Archi Resources](https://www.archimatetool.com/resources/)** - Additional learning materials and examples
-- **[coArchi Plugin](https://www.archimatetool.com/plugins/)** - Collaboration plugin for Archi
+### Mandatory re-indexing after upgrade
 
-### Learning Materials
+If you are upgrading from a previous version, you **must** recreate all Weaviate collections:
 
-- **[Introduction to TOGAF 10 White Paper](https://www.opengroup.org/togaf/new-version)** - What's new in TOGAF Standard, 10th Edition
-- **[ArchiMate 3.2 Overview](https://www.opengroup.org/archimate-forum/archimate-overview)** - Introduction to ArchiMate 3.2
-- **[TOGAF Library](https://www.opengroup.org/togaf-standard-10th-edition-downloads)** - Downloadable TOGAF documentation
-- **[Mastering ArchiMate](https://www.amazon.com/Mastering-ArchiMate-Gerben-Wierda/dp/9401800014)** - Comprehensive book by Gerben Wierda
+```bash
+python -m src.aion.cli init --recreate
+```
 
-### AI Architecture, Ethiscs and Governance
+This is required because:
 
-- **[AI in Enterprise Architecture](https://www.opengroup.org/ai-in-enterprise-architecture)** - The Open Group resources on AI in EA
-- **[Modeling AI Systems with ArchiMate](https://bizzdesign.com/blog/modeling-ai-systems/)** - Guidance on representing AI in ArchiMate
-- **[EU AI Act](https://www.europarl.europa.eu/topics/en/article/20230601STO93804/eu-ai-act-first-regulation-on-artificial-intelligence)** - European Union's AI regulatory framework. The world’s first comprehensive AI law
-- **[OECD AI Principles](https://oecd.ai/en/ai-principles)** - International AI governance principles
+1. **SKOSMOS vocabulary moved out of Weaviate** — vocabulary concepts are now served via the SKOSMOS REST API instead of being embedded in Weaviate collections. The old vocabulary collection is no longer used.
+2. **Data structure changes** — document metadata, chunking strategy, and collection schemas have changed.
+3. **Embedding model alignment** — all collections must use the same embedding model. If you switched embedding models, existing vectors are incompatible.
 
-### Energy System Architecture
+The `--recreate` flag drops and recreates all collections, then re-ingests all data from `data/`. Without it, `init` skips collections that already exist.
 
-- **[IEC 61968 Series](https://webstore.iec.ch/publication/6195)** - Application integration at electric utilities - System interfaces for distribution management
-- **[IEC 62351 Series](https://webstore.iec.ch/publication/6912)** - Power systems management and associated information exchange - Data and communications security
-- **[SGAM (Smart Grid Architecture Model)](https://ec.europa.eu/energy/sites/ener/files/documents/xpert_group1_reference_architecture.pdf)** - Reference architecture for smart grids
+## Known Limitations
 
+**ArchiMate XML generation requires a cloud model.** Local models (GPT-OSS:20B via Ollama) handle KB retrieval, vocabulary lookups, and text summarization well, but may refuse to generate structured ArchiMate XML. Switch to a cloud model (e.g., GPT-5.2 via OpenAI) in the Chat UI settings before requesting ArchiMate generation. The generation pipeline validates output, sanitizes common LLM XML errors (e.g., unescaped `&`), repairs missing view references (elements/relationships without corresponding diagram nodes/connections), and retries on validation failure.
+
+**Invalid model names produce clear errors.** If you configure a model name that doesn't exist on the provider (e.g., a typo in the settings), the system surfaces a clear error message instead of silently degrading. Transient errors (timeouts, rate limits) still fall back gracefully.
+
+## Troubleshooting
+
+**Weaviate won't start:**
+```bash
+docker ps                          # Check if running
+docker logs weaviate-ainstein-dev  # Check logs
+```
+
+**Ollama models not found:**
+```bash
+ollama list                  # Check installed models
+ollama pull nomic-embed-text-v2-moe
+ollama pull gpt-oss:20b
+```
+
+**Elysia gRPC errors** — the system falls back to direct query mode automatically. To reset Elysia metadata:
+```python
+import weaviate
+client = weaviate.connect_to_local()
+if client.collections.exists("ELYSIA_METADATA__"):
+    client.collections.delete("ELYSIA_METADATA__")
+client.close()
+```
+
+**Skills not taking effect** — verify skills are enabled:
+```bash
+curl http://localhost:8081/api/skills | python -m json.tool
+```
 ## Contact
+**Maintained by the Energy System Architecture (ESA) Team at Alliander**
 
-**Energy System Architects (ESA) Team**
 - Organization: [Alliander](https://www.alliander.com)
 - Repository: [esa-ainstein-artifacts](https://github.com/Alliander/esa-ainstein-artifacts)
 
 For questions or support, please [open an issue](https://github.com/Alliander/esa-ainstein-artifacts/issues) or contact the ESA team.
 
----
-
-*[Maintained by the ESA team at Alliander](https://www.alliander.com/en/)*
