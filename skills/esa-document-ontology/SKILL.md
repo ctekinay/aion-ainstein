@@ -101,6 +101,8 @@ In storage, these may be classified as doc_type `index` and are excluded at inge
 ### ESA Registry
 The file `doc/esa_doc_registry.md` (titled "Architectural Artifact Registry") is the canonical index of all ADRs and PCPs. It contains markdown tables with columns: ID, Title, Status, Date, Owner. The registry does NOT list DARs — but every document in the registry has a corresponding DAR.
 
+A condensed version of this registry is attached as a reference file (**Document Registry Index**) and is available in your context. See Section 6 "Registry Cross-Reference" for when and how to use it.
+
 In storage, classified as doc_type `registry`; ingested but filtered at query time (excluded from primary content retrieval, available for disambiguation).
 
 ### Templates
@@ -176,6 +178,16 @@ User queries follow an **action -> subject** pattern. Understanding the action d
 - "List all ADRs" is a **list_all** (catalog query, deterministic)
 - "Who approved ADR.0012?" is an **approval_lookup** (requires the DAR, not the ADR itself)
 - "How many principles do we have?" is a **count** (deterministic, registry-backed)
+
+### Registry Cross-Reference
+
+A **Document Registry Index** is attached to this skill as a reference file. It lists all 49 ADRs and PCPs with their ID, Title, Status, Date, and Owner group (ESA, BA, or DO — see Section 7).
+
+When answering questions about document ownership, status, or date, **cross-reference the registry table** to verify or supplement what retrieval returns. This is important because:
+
+- Weaviate metadata may show a generic team name (e.g., "Energy System Architecture") without distinguishing the actual owner group. The registry provides the authoritative owner group assignment — for example, PCP.30 is owned by **BA** (Business Architecture Group), not ESA, even though both groups operate within the same organizational unit.
+- Status and date fields in retrieved chunks can be stale if re-indexing is partial. The registry reflects the latest accepted state.
+- Count and filtering questions ("How many ADRs are accepted?", "Which PCPs belong to the Data Office?") can be answered directly from the registry without searching.
 
 ## Section 7: Owner Groups
 
