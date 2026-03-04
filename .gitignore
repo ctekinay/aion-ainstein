@@ -65,6 +65,8 @@ Thumbs.db
 *.tmp
 *.temp
 *.bak
+*.bak.*
+temp/
 
 # Resource or info files
 resources.txt
@@ -92,5 +94,9 @@ stop_elysia.ps1
 data/
 images/
 
-# Archive and backup files
+# Generated test/script output
+tests/sugiyama_output/
+scripts/sugiyama_output/
+
+# Archive, local test and backup files
 archive/

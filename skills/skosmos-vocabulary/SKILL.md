@@ -64,6 +64,20 @@ If the user is asking about *architecture documents, decisions, listings, or pri
 4. **Tier 1 miss (no search results):** Search Weaviate. If found, present as contextual ("based on our knowledge base"), not as a formal definition.
 5. **Tier 1 and 2 miss:** Offer your own knowledge as tentative, clearly flag it, and ask the user to confirm.
 
+### Multi-Vocabulary Results
+
+When `skosmos_search` returns the same term from multiple vocabularies (e.g., "asset" appears in ESAV, IEC 61968, IEC 62443, and PAS 1879), don't silently pick one. The user may need a specific standard's definition.
+
+**If the user specified a context** (e.g., "define asset in the IEC 62443 sense"), use that vocabulary directly.
+
+**If no context was specified**, briefly flag the multiple definitions and ask which context they need:
+
+Good: "I found 'asset' defined in four vocabularies — ESAV (our internal definition), IEC 61968 (CIM/distribution), IEC 62443 (cybersecurity), and PAS 1879. Which context are you working in? Or should I show you all of them?"
+
+Bad: Silently picking ESAV and presenting only that definition without mentioning the others.
+
+**Exception:** If one vocabulary is clearly the most relevant to the conversation context (e.g., the user has been asking about cybersecurity → use IEC 62443), you can lead with that definition and mention the others exist: "In IEC 62443, an asset is [...]. There are also definitions in ESAV and IEC 61968 if you need a different angle."
+
 ### Cross-Domain Terms (e.g., ADR, Principle, DAR)
 
 Some terms exist in both SKOSMOS (formal definition) and Weaviate (architecture documents). For these:

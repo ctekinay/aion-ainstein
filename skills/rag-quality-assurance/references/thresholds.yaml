@@ -1,5 +1,5 @@
 abstention:
-  distance_threshold: 0.5
+  distance_threshold: 0.6
 retrieval_limits:
   adr: 8
   principle: 6

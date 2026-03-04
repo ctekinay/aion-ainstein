@@ -192,7 +192,7 @@ class SkillContentUpdate(BaseModel):
     body: Optional[str] = None
 
 
-class SkillToggleRequest(BaseModel):
+class ToggleRequest(BaseModel):
     enabled: bool
 
 
@@ -273,6 +273,18 @@ def init_db():
     except sqlite3.OperationalError:
         pass  # Column already exists
 
+    # Migration: Add thinking_steps column for persisting AInstein's thought process
+    try:
+        cursor.execute("ALTER TABLE messages ADD COLUMN thinking_steps TEXT")
+    except sqlite3.OperationalError:
+        pass  # Column already exists
+
+    # Migration: Add artifact_ids column to link messages to their artifacts
+    try:
+        cursor.execute("ALTER TABLE messages ADD COLUMN artifact_ids TEXT")
+    except sqlite3.OperationalError:
+        pass  # Column already exists
+
     # Artifacts table — stores generated files (ArchiMate XML, etc.)
     # so the Tree can load and refine them across turns.
     cursor.execute("""
@@ -296,7 +308,7 @@ def init_db():
     init_memory_tables(_db_path)
 
 
-def save_message(conversation_id: str, role: str, content: str, sources: list[dict] = None, timing: dict = None, turn_summary: str = None):
+def save_message(conversation_id: str, role: str, content: str, sources: list[dict] = None, timing: dict = None, turn_summary: str = None, thinking_steps: list[dict] = None, artifact_ids: list[str] = None):
     """Save a message to the database."""
     conn = sqlite3.connect(_db_path)
     cursor = conn.cursor()
@@ -304,10 +316,12 @@ def save_message(conversation_id: str, role: str, content: str, sources: list[di
     timestamp = datetime.now().isoformat()
     sources_json = json.dumps(sources) if sources else None
     timing_json = json.dumps(timing) if timing else None
+    thinking_json = json.dumps(thinking_steps) if thinking_steps else None
+    artifact_ids_json = json.dumps(artifact_ids) if artifact_ids else None
 
     cursor.execute(
-        "INSERT INTO messages (conversation_id, role, content, sources, timestamp, timing, turn_summary) VALUES (?, ?, ?, ?, ?, ?, ?)",
-        (conversation_id, role, content, sources_json, timestamp, timing_json, turn_summary)
+        "INSERT INTO messages (conversation_id, role, content, sources, timestamp, timing, turn_summary, thinking_steps, artifact_ids) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        (conversation_id, role, content, sources_json, timestamp, timing_json, turn_summary, thinking_json, artifact_ids_json)
     )
 
     # Update conversation timestamp
@@ -344,7 +358,7 @@ def get_conversation_messages(conversation_id: str) -> list[dict]:
     cursor = conn.cursor()
 
     cursor.execute(
-        "SELECT role, content, sources, timestamp, timing, turn_summary FROM messages WHERE conversation_id = ? ORDER BY timestamp",
+        "SELECT role, content, sources, timestamp, timing, turn_summary, thinking_steps, artifact_ids FROM messages WHERE conversation_id = ? ORDER BY timestamp",
         (conversation_id,)
     )
 
@@ -357,10 +371,33 @@ def get_conversation_messages(conversation_id: str) -> list[dict]:
             "timestamp": row[3],
             "timing": json.loads(row[4]) if row[4] else None,
             "turn_summary": row[5],
+            "thinking_steps": json.loads(row[6]) if row[6] else None,
+            "artifact_ids": json.loads(row[7]) if row[7] else None,
         })
 
     conn.close()
     return messages
+
+
+def get_artifacts_by_ids(artifact_ids: list[str]) -> list[dict]:
+    """Get artifact metadata for a list of IDs."""
+    if not artifact_ids:
+        return []
+    conn = sqlite3.connect(_db_path)
+    cursor = conn.cursor()
+    placeholders = ",".join("?" * len(artifact_ids))
+    cursor.execute(
+        f"SELECT id, filename, content_type, summary FROM artifacts WHERE id IN ({placeholders})",
+        artifact_ids,
+    )
+    artifacts = []
+    for row in cursor.fetchall():
+        artifacts.append({
+            "id": row[0], "filename": row[1],
+            "content_type": row[2], "summary": row[3],
+        })
+    conn.close()
+    return artifacts
 
 
 def get_all_conversations() -> list[dict]:
@@ -626,14 +663,16 @@ async def _llm_summarize_ollama(prompt: str) -> str | None:
 async def _maybe_update_summary(conversation_id: str) -> None:
     """Trigger a rolling summary update if enough messages have left the verbatim window.
 
-    The verbatim window is defined in Persona.VERBATIM_WINDOW (6 messages).
+    The verbatim window is loaded from persona-orchestrator thresholds (default 20).
     We summarize when SUMMARIZE_TRIGGER_COUNT (4) messages have accumulated
     beyond that window since the last summary, so roughly every 4-6 turns.
     """
-    from src.aion.persona import Persona  # local import to avoid circular
+    from src.aion.skills.loader import SkillLoader  # local import to avoid circular
 
     messages = get_conversation_messages(conversation_id)
-    verbatim_window = Persona.VERBATIM_WINDOW
+    loader = SkillLoader()
+    persona_config = loader.get_thresholds("persona-orchestrator").get("persona", {})
+    verbatim_window = persona_config.get("verbatim_window", 20)
 
     # Nothing to summarize if all messages fit in the verbatim window
     if len(messages) <= verbatim_window:
@@ -1625,6 +1664,33 @@ async def chat_stream(request: ChatRequest):
         final_response = None
         final_sources = []
         final_timing = None
+        thinking_steps = []
+        artifact_ids = []
+
+        _THINKING_TYPES = {"status", "decision", "assistant", "thinking_aloud", "persona_intent"}
+
+        def _capture_event(event):
+            """Extract persistent data from an SSE event."""
+            nonlocal final_response, final_sources, final_timing
+            try:
+                data = json.loads(event.replace("data: ", "").strip())
+                evt_type = data.get("type")
+                if evt_type == "complete":
+                    final_response = data.get("response")
+                    final_sources = data.get("sources", [])
+                    final_timing = data.get("timing")
+                elif evt_type in _THINKING_TYPES:
+                    thinking_steps.append({"text": data.get("content", ""), "type": evt_type})
+                elif evt_type == "artifact":
+                    aid = data.get("artifact_id")
+                    if aid:
+                        artifact_ids.append(aid)
+                    # Also capture YAML companion artifact ID
+                    yaml_aid = data.get("yaml_companion_id")
+                    if yaml_aid:
+                        artifact_ids.append(yaml_aid)
+            except (json.JSONDecodeError, ValueError):
+                pass
 
         if execution_model == "generation":
             async for event in stream_generation_response(
@@ -1635,28 +1701,14 @@ async def chat_stream(request: ChatRequest):
                 intent=persona_result.intent,
             ):
                 yield event
-                try:
-                    data = json.loads(event.replace("data: ", "").strip())
-                    if data.get("type") == "complete":
-                        final_response = data.get("response")
-                        final_sources = data.get("sources", [])
-                        final_timing = data.get("timing")
-                except:
-                    pass
+                _capture_event(event)
         elif execution_model == "inspect":
             async for event in stream_inspect_response(
                 persona_result.rewritten_query,
                 conversation_id=conversation_id,
             ):
                 yield event
-                try:
-                    data = json.loads(event.replace("data: ", "").strip())
-                    if data.get("type") == "complete":
-                        final_response = data.get("response")
-                        final_sources = data.get("sources", [])
-                        final_timing = data.get("timing")
-                except:
-                    pass
+                _capture_event(event)
         else:
             async for event in stream_elysia_response(
                 persona_result.rewritten_query,
@@ -1665,14 +1717,7 @@ async def chat_stream(request: ChatRequest):
                 conversation_id=conversation_id,
             ):
                 yield event
-                try:
-                    data = json.loads(event.replace("data: ", "").strip())
-                    if data.get("type") == "complete":
-                        final_response = data.get("response")
-                        final_sources = data.get("sources", [])
-                        final_timing = data.get("timing")
-                except:
-                    pass
+                _capture_event(event)
 
         # Save assistant response with structured turn summary
         if final_response:
@@ -1681,6 +1726,8 @@ async def chat_stream(request: ChatRequest):
                 conversation_id, "assistant",
                 final_response, final_sources, final_timing,
                 turn_summary=turn_summary,
+                thinking_steps=thinking_steps or None,
+                artifact_ids=artifact_ids or None,
             )
             await _maybe_update_summary(conversation_id)
 
@@ -1852,6 +1899,13 @@ async def get_conversation(conversation_id: str):
     conv = next((c for c in conversations if c["id"] == conversation_id), None)
     if not conv:
         raise HTTPException(status_code=404, detail="Conversation not found")
+
+    # Resolve artifact IDs to full metadata for each message
+    for msg in messages:
+        if msg.get("artifact_ids"):
+            msg["artifacts"] = get_artifacts_by_ids(msg["artifact_ids"])
+        else:
+            msg["artifacts"] = []
 
     return {
         "id": conversation_id,
@@ -2086,9 +2140,32 @@ async def get_skill_defaults():
 
 @app.get("/api/skills")
 async def list_skills():
-    """List all registered skills."""
+    """List all registered skills and groups."""
     try:
-        return {"skills": skills_api.list_skills()}
+        return {
+            "skills": skills_api.list_skills(),
+            "groups": skills_api.list_groups(),
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/skills/groups")
+async def list_groups():
+    """List all registered skill groups."""
+    try:
+        return {"groups": skills_api.list_groups()}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.put("/api/skills/groups/{group_name}/enabled")
+async def toggle_group(group_name: str, request: ToggleRequest):
+    """Toggle group enabled/disabled status."""
+    try:
+        return skills_api.toggle_group_enabled(group_name, request.enabled)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -2105,7 +2182,7 @@ async def get_skill(skill_name: str):
 
 
 @app.put("/api/skills/{skill_name}/enabled")
-async def toggle_skill(skill_name: str, request: SkillToggleRequest):
+async def toggle_skill(skill_name: str, request: ToggleRequest):
     """Toggle skill enabled/disabled status."""
     try:
         return skills_api.toggle_skill_enabled(skill_name, request.enabled)

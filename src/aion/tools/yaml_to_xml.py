@@ -2,22 +2,40 @@
 
 Forward (yaml_to_archimate_xml): Converts a lightweight YAML
 representation (elements + relationships only) into a complete
-ArchiMate 3.2 Open Exchange XML document with auto-generated grid views.
+ArchiMate 3.2 Open Exchange XML document with auto-generated views
+using Sugiyama hierarchical layout (layer grouping, barycenter
+crossing reduction, row wrapping).
 
 Reverse (xml_to_yaml): Converts ArchiMate Open Exchange XML back to
 compact YAML for LLM inspection and reasoning (~90% token reduction).
 """
 
 import logging
+import math
 import xml.etree.ElementTree as ET
 from collections import defaultdict
 
 import yaml
 
 from src.aion.tools.archimate import (
+    ALLOWED_PATTERNS,
+    APP_ACTIVE,
+    APP_BEHAVIOR,
+    APP_PASSIVE,
+    BIZ_ACTIVE,
+    BIZ_BEHAVIOR,
+    BIZ_PASSIVE,
+    COMPOSITE,
+    IMPL,
     LAYER_MAP,
     LAYER_ORDER,
+    MOTIVATION,
     NS,
+    PHYSICAL,
+    TECH_ACTIVE,
+    TECH_BEHAVIOR,
+    TECH_PASSIVE,
+    TYPE_RANK,
     VALID_ELEMENT_TYPES,
     VALID_RELATIONSHIP_TYPES,
     XSI,
@@ -25,12 +43,64 @@ from src.aion.tools.archimate import (
 
 logger = logging.getLogger(__name__)
 
-# Grid layout constants
-NODE_W = 120
-NODE_H = 55
-PAD_X = 20
-PAD_Y = 20
-COLS = 4
+# ---------------------------------------------------------------------------
+# Layout constants (Sugiyama hierarchical layout)
+# ---------------------------------------------------------------------------
+ELEMENT_W = 120           # standard element width (px)
+ELEMENT_W_WIDE = 160      # wide element for long names (px)
+ELEMENT_H = 55            # element height (px)
+GAP_H = 40               # horizontal gap between elements (px)
+GAP_V = 25               # vertical gap between rows within a layer (px)
+MARGIN_X = 20             # left margin (px)
+MARGIN_Y = 20             # top margin (px)
+CELL_H = ELEMENT_H + GAP_V   # 80 px per row
+WRAP_THRESHOLD = 5        # max elements per row before wrapping
+WIDE_NAME_THRESHOLD = 15  # name length triggering wide element
+LAYER_GAP = 40            # extra vertical gap between layers (px)
+
+# ---------------------------------------------------------------------------
+# Viewpoint definitions — element type sets per standard ArchiMate viewpoint
+# ---------------------------------------------------------------------------
+VIEWPOINTS: dict[str, set[str] | None] = {
+    "application": APP_ACTIVE | APP_BEHAVIOR | APP_PASSIVE,
+    "technology": TECH_ACTIVE | TECH_BEHAVIOR | TECH_PASSIVE,
+    "business": BIZ_ACTIVE | BIZ_BEHAVIOR | BIZ_PASSIVE,
+    "motivation": MOTIVATION,
+    "physical": PHYSICAL,
+    "implementation": IMPL,
+    "application_cooperation": (
+        APP_ACTIVE | APP_BEHAVIOR | APP_PASSIVE
+        | TECH_ACTIVE | TECH_BEHAVIOR
+    ),
+    "layered": None,  # None = all elements (same as overview)
+}
+
+# Deterministic view indices per viewpoint (overview = 1, viewpoints start at 2)
+_VP_VIEW_INDEX = {name: idx + 2 for idx, name in enumerate(sorted(VIEWPOINTS))}
+
+
+def _filter_for_viewpoint(data: dict, viewpoint: str) -> dict:
+    """Return data with elements/relationships filtered to a viewpoint.
+
+    Elements not in the viewpoint's type set are removed.
+    Relationships where either endpoint was removed are also removed.
+    """
+    allowed_types = VIEWPOINTS.get(viewpoint)
+    if allowed_types is None:
+        return data  # None = all elements (e.g. "layered")
+
+    filtered_elements = [e for e in data["elements"] if e["type"] in allowed_types]
+    kept_ids = {e["id"] for e in filtered_elements}
+    filtered_rels = [
+        r for r in data["relationships"]
+        if r["source"] in kept_ids and r["target"] in kept_ids
+    ]
+
+    return {
+        "model": data["model"],
+        "elements": filtered_elements,
+        "relationships": filtered_rels,
+    }
 
 
 def yaml_to_archimate_xml(yaml_str: str) -> tuple[str, dict]:
@@ -61,6 +131,76 @@ def yaml_to_archimate_xml(yaml_str: str) -> tuple[str, dict]:
     }
     logger.info(
         f"[yaml_to_xml] Converted: {info['element_count']} elements, "
+        f"{info['relationship_count']} relationships"
+    )
+    return xml_str, info
+
+
+def generate_viewpoint_xml(
+    yaml_str: str,
+    viewpoint: str,
+) -> tuple[str, dict]:
+    """Generate a single viewpoint view as an XML fragment.
+
+    The returned XML is a <model> wrapper containing only the <views>
+    section with a single view diagram. Use merge_archimate_view() to
+    add it to an existing model.
+
+    Args:
+        yaml_str: Same YAML format as yaml_to_archimate_xml().
+        viewpoint: One of VIEWPOINTS keys (e.g. "application",
+            "technology", "business").
+
+    Returns:
+        Tuple of (xml_fragment, info_dict).
+
+    Raises:
+        ValueError: If viewpoint is unknown or yields <2 elements.
+    """
+    vp_lower = viewpoint.lower().replace(" ", "_")
+    if vp_lower not in VIEWPOINTS:
+        raise ValueError(
+            f"Unknown viewpoint '{viewpoint}'. "
+            f"Valid: {', '.join(sorted(VIEWPOINTS))}"
+        )
+
+    data = _parse_and_validate(yaml_str)
+    filtered = _filter_for_viewpoint(data, vp_lower)
+    if len(filtered["elements"]) < 2:
+        raise ValueError(
+            f"Viewpoint '{viewpoint}' yields {len(filtered['elements'])} "
+            f"elements (minimum 2 required)"
+        )
+
+    # Build the view via _generate_view, then extract the <view> element
+    # and place it as a direct child of root. merge_archimate_view()
+    # handles this via its fallback path (frag_root.findall(TAG("view")))
+    root = ET.Element(f"{{{NS}}}model", attrib={"identifier": "id-fragment"})
+    vp_label = viewpoint.replace("_", " ").title()
+    vp_index = _VP_VIEW_INDEX[vp_lower]
+    _generate_view(root, filtered, view_index=vp_index, viewpoint_name=vp_label)
+
+    # Restructure: move <view> out of <views>/<diagrams> to root level
+    views_el = root.find(f"{{{NS}}}views")
+    if views_el is not None:
+        diagrams_el = views_el.find(f"{{{NS}}}diagrams")
+        if diagrams_el is not None:
+            for view_el in list(diagrams_el):
+                root.append(view_el)
+        root.remove(views_el)
+
+    ET.register_namespace("", NS)
+    ET.register_namespace("xsi", XSI)
+    xml_str = ET.tostring(root, encoding="unicode", xml_declaration=True)
+
+    info = {
+        "viewpoint": vp_lower,
+        "element_count": len(filtered["elements"]),
+        "relationship_count": len(filtered["relationships"]),
+    }
+    logger.info(
+        f"[yaml_to_xml] Viewpoint '{vp_lower}': "
+        f"{info['element_count']} elements, "
         f"{info['relationship_count']} relationships"
     )
     return xml_str, info
@@ -117,6 +257,11 @@ def _parse_and_validate(yaml_str: str) -> dict:
         if not ename:
             raise ValueError(f"Element '{eid}': 'name' is required")
 
+        if not elem.get("documentation", "").strip():
+            logger.warning(
+                f"[yaml_to_xml] Element '{eid}' ({etype}) has no documentation"
+            )
+
         # Normalize ID: add 'id-' prefix if missing
         full_id = eid if eid.startswith("id-") else f"id-{eid}"
         if full_id in element_ids:
@@ -129,6 +274,9 @@ def _parse_and_validate(yaml_str: str) -> dict:
             "name": ename,
             "documentation": str(elem.get("documentation", "")).strip(),
         })
+
+    # Build element type index for relationship validation
+    element_type_index = {e["id"]: e["type"] for e in normalized_elements}
 
     # Relationships
     relationships = raw.get("relationships", [])
@@ -168,6 +316,22 @@ def _parse_and_validate(yaml_str: str) -> dict:
                 f"Relationship {i}: target '{target}' does not reference "
                 f"a valid element id"
             )
+
+        # Validate source→target pair against ALLOWED_PATTERNS
+        if rtype != "Association":
+            src_type = element_type_index.get(full_source, "")
+            tgt_type = element_type_index.get(full_target, "")
+            if src_type not in COMPOSITE and tgt_type not in COMPOSITE:
+                patterns = ALLOWED_PATTERNS.get(rtype, [])
+                allowed = any(
+                    src_type in sp and tgt_type in tp for sp, tp in patterns
+                )
+                if not allowed:
+                    logger.warning(
+                        f"[yaml_to_xml] Relationship {i} ({rtype}): "
+                        f"{src_type} -> {tgt_type} may not be a valid "
+                        f"ArchiMate 3.2 relationship"
+                    )
 
         # Derive deterministic ID
         src_code = full_source.removeprefix("id-")
@@ -259,87 +423,207 @@ def _build_model(data: dict) -> ET.Element:
 
 
 # ---------------------------------------------------------------------------
-# Stage 3: Generate grid view
+# Stage 3: Sugiyama hierarchical layout + view generation
+#
+# Implements the same conceptual steps as Dagre (archi-scripts):
+#   1. Layer assignment — fixed by ArchiMate element type (LAYER_MAP)
+#   2. Initial ordering — type_rank ASC, degree DESC, name ASC
+#   3. Crossing reduction — 3 alternating barycenter sweeps
+#   4. Row wrapping — max WRAP_THRESHOLD elements per row
+#   5. Dynamic Y spacing — each layer starts after the previous ends + gap
 # ---------------------------------------------------------------------------
 
-def _generate_view(root: ET.Element, data: dict) -> None:
-    """Add a single overview view with grid layout grouped by layer."""
-    # Group elements by layer
-    layer_groups: dict[str, list[dict]] = defaultdict(list)
+
+def _elem_width(name: str) -> int:
+    """Element width: wider box for long names to avoid label clipping."""
+    return ELEMENT_W_WIDE if len(name) > WIDE_NAME_THRESHOLD else ELEMENT_W
+
+
+def _sugiyama_positions(
+    data: dict,
+) -> tuple[list[dict], list[dict]]:
+    """Compute node positions using Sugiyama hierarchical layout.
+
+    Args:
+        data: Parsed model dict with 'elements' and 'relationships'.
+
+    Returns:
+        Tuple of (positioned_nodes, connections) where each node has
+        elementRef, x, y, w, h and each connection has relationshipRef,
+        source (element ID), target (element ID).
+    """
+    # Build element lookup: element_id → {type, name, layer}
+    elem_lookup: dict[str, dict] = {}
     for elem in data["elements"]:
-        layer = LAYER_MAP.get(elem["type"], "Composite")
-        layer_groups[layer].append(elem)
+        elem_lookup[elem["id"]] = {
+            "type": elem["type"],
+            "name": elem["name"],
+            "layer": LAYER_MAP.get(elem["type"], "Composite"),
+        }
+    elem_ids = set(elem_lookup)
 
-    # Build node map: element_id → node_id
-    node_map: dict[str, str] = {}
-    nodes: list[dict] = []
-    y = PAD_Y
-
-    for layer in LAYER_ORDER:
-        elems = layer_groups.get(layer)
-        if not elems:
-            continue
-        for i, elem in enumerate(elems):
-            col = i % COLS
-            row = i // COLS
-            x = PAD_X + col * (NODE_W + PAD_X)
-            ny = y + row * (NODE_H + PAD_Y)
-            code = elem["id"].removeprefix("id-")
-            nid = f"nv1-{code}"
-            node_map[elem["id"]] = nid
-            nodes.append({
-                "id": nid,
-                "elementRef": elem["id"],
-                "x": str(x),
-                "y": str(ny),
-                "w": str(NODE_W),
-                "h": str(NODE_H),
-            })
-        # Advance Y past this layer's rows
-        row_count = (len(elems) + COLS - 1) // COLS
-        y += row_count * (NODE_H + PAD_Y)
-
-    # Build connections for relationships where both endpoints have nodes
-    connections: list[dict] = []
+    # Build adjacency (undirected, for barycenter computation)
+    adj: dict[str, set] = defaultdict(set)
+    valid_rels: list[dict] = []
     for rel in data["relationships"]:
-        src_nid = node_map.get(rel["source"])
-        tgt_nid = node_map.get(rel["target"])
-        if src_nid and tgt_nid:
-            rel_code = rel["id"].removeprefix("id-")
-            connections.append({
-                "id": f"cv1-{rel_code}",
-                "relationshipRef": rel["id"],
-                "source": src_nid,
-                "target": tgt_nid,
+        s, t = rel["source"], rel["target"]
+        if s in elem_ids and t in elem_ids and s != t:
+            adj[s].add(t)
+            adj[t].add(s)
+            valid_rels.append(rel)
+
+    degree = {eid: len(adj[eid]) for eid in elem_ids}
+
+    # Group by layer, keep only active layers in canonical order
+    active_layers = [
+        lay for lay in LAYER_ORDER
+        if any(elem_lookup[eid]["layer"] == lay for eid in elem_ids)
+    ]
+    layer_elems: dict[str, list[str]] = defaultdict(list)
+    for eid in elem_ids:
+        layer_elems[elem_lookup[eid]["layer"]].append(eid)
+
+    # Initial ordering: type_rank ASC, degree DESC, name ASC
+    for lay in active_layers:
+        layer_elems[lay].sort(key=lambda eid: (
+            TYPE_RANK.get(elem_lookup[eid]["type"], 50),
+            -degree[eid],
+            elem_lookup[eid]["name"],
+        ))
+
+    # Barycenter crossing reduction (3 alternating sweeps)
+    def barycenter(eid: str, ref_pos: dict[str, int]) -> float | None:
+        nbrs = [ref_pos[n] for n in adj[eid] if n in ref_pos]
+        return sum(nbrs) / len(nbrs) if nbrs else None
+
+    def reorder(layer_idx: int, direction: str) -> None:
+        if direction == "down" and layer_idx == 0:
+            return
+        if direction == "up" and layer_idx == len(active_layers) - 1:
+            return
+        ref_lay = active_layers[
+            layer_idx - 1 if direction == "down" else layer_idx + 1
+        ]
+        ref_pos = {eid: i for i, eid in enumerate(layer_elems[ref_lay])}
+        cur_lay = active_layers[layer_idx]
+
+        def sort_key(eid: str):
+            b = barycenter(eid, ref_pos)
+            if b is None:
+                # No cross-layer edge: preserve type_rank / degree / alpha
+                return (1, TYPE_RANK.get(elem_lookup[eid]["type"], 50),
+                        -degree[eid], elem_lookup[eid]["name"])
+            return (0, b, TYPE_RANK.get(elem_lookup[eid]["type"], 50),
+                    elem_lookup[eid]["name"])
+
+        layer_elems[cur_lay].sort(key=sort_key)
+
+    for _ in range(3):
+        for i in range(1, len(active_layers)):
+            reorder(i, "down")
+        for i in range(len(active_layers) - 2, -1, -1):
+            reorder(i, "up")
+
+    # Determine cell width from widest element
+    max_w = max(
+        (_elem_width(elem_lookup[eid]["name"]) for eid in elem_ids),
+        default=ELEMENT_W,
+    )
+    cell_w = max_w + GAP_H
+
+    # Dynamic layer Y starts
+    layer_y: dict[str, int] = {}
+    cur_y = MARGIN_Y
+    for lay in active_layers:
+        layer_y[lay] = cur_y
+        n_rows = max(1, math.ceil(len(layer_elems[lay]) / WRAP_THRESHOLD))
+        cur_y += n_rows * CELL_H + LAYER_GAP
+
+    # Compute node positions
+    nodes: list[dict] = []
+    for lay in active_layers:
+        for flat_idx, eid in enumerate(layer_elems[lay]):
+            col = flat_idx % WRAP_THRESHOLD
+            row = flat_idx // WRAP_THRESHOLD
+            nodes.append({
+                "elementRef": eid,
+                "x": MARGIN_X + col * cell_w,
+                "y": layer_y[lay] + row * CELL_H,
+                "w": _elem_width(elem_lookup[eid]["name"]),
+                "h": ELEMENT_H,
             })
 
-    # Assemble XML view structure
-    views_el = ET.SubElement(root, f"{{{NS}}}views")
-    diagrams_el = ET.SubElement(views_el, f"{{{NS}}}diagrams")
+    # Connections between elements that both have nodes
+    connections: list[dict] = []
+    for rel in valid_rels:
+        connections.append({
+            "relationshipRef": rel["id"],
+            "source": rel["source"],
+            "target": rel["target"],
+        })
+
+    return nodes, connections
+
+
+def _generate_view(
+    root: ET.Element,
+    data: dict,
+    view_index: int = 1,
+    viewpoint_name: str = "Overview",
+) -> None:
+    """Add a view using Sugiyama hierarchical layout.
+
+    Can be called multiple times on the same root to add multiple views
+    with different viewpoint_name and view_index values.
+    """
+    nodes, connections = _sugiyama_positions(data)
+
+    # Assign node IDs: nv{view_index}-{short_code}
+    node_map: dict[str, str] = {}  # element_id → node_id
+    for node in nodes:
+        code = node["elementRef"].removeprefix("id-")
+        nid = f"nv{view_index}-{code}"
+        node_map[node["elementRef"]] = nid
+        node["id"] = nid
+
+    # Resolve connection node references
+    for conn in connections:
+        conn["id"] = f"cv{view_index}-{conn['relationshipRef'].removeprefix('id-')}"
+        conn["source_nid"] = node_map[conn["source"]]
+        conn["target_nid"] = node_map[conn["target"]]
+
+    # Find or create <views>/<diagrams> (safe for multiple calls)
+    views_el = root.find(f"{{{NS}}}views")
+    if views_el is None:
+        views_el = ET.SubElement(root, f"{{{NS}}}views")
+    diagrams_el = views_el.find(f"{{{NS}}}diagrams")
+    if diagrams_el is None:
+        diagrams_el = ET.SubElement(views_el, f"{{{NS}}}diagrams")
+
     view_el = ET.SubElement(diagrams_el, f"{{{NS}}}view")
-    view_el.set("identifier", "id-v1")
+    view_el.set("identifier", f"id-v{view_index}")
     view_el.set(f"{{{XSI}}}type", "Diagram")
     vname = ET.SubElement(view_el, f"{{{NS}}}name")
     vname.set("xml:lang", "en")
-    vname.text = f"{data['model']['name']} — Overview"
+    vname.text = f"{data['model']['name']} — {viewpoint_name}"
 
     for node in nodes:
         n = ET.SubElement(view_el, f"{{{NS}}}node")
         n.set("identifier", node["id"])
         n.set("elementRef", node["elementRef"])
         n.set(f"{{{XSI}}}type", "Element")
-        n.set("x", node["x"])
-        n.set("y", node["y"])
-        n.set("w", node["w"])
-        n.set("h", node["h"])
+        n.set("x", str(node["x"]))
+        n.set("y", str(node["y"]))
+        n.set("w", str(node["w"]))
+        n.set("h", str(node["h"]))
 
     for conn in connections:
         c = ET.SubElement(view_el, f"{{{NS}}}connection")
         c.set("identifier", conn["id"])
         c.set("relationshipRef", conn["relationshipRef"])
         c.set(f"{{{XSI}}}type", "Relationship")
-        c.set("source", conn["source"])
-        c.set("target", conn["target"])
+        c.set("source", conn["source_nid"])
+        c.set("target", conn["target_nid"])
 
 
 # ---------------------------------------------------------------------------
@@ -568,6 +852,7 @@ def apply_yaml_diff(base_yaml: str, diff_yaml: str) -> tuple[str, dict]:
         "removed_elements": 0,
         "removed_relationships": 0,
         "cascade_notes": [],
+        "warnings": [],
     }
 
     # -- ADD elements (before relationships so new IDs are available) --------
@@ -656,11 +941,16 @@ def apply_yaml_diff(base_yaml: str, diff_yaml: str) -> tuple[str, dict]:
         summary["modified"] += 1
 
     # -- REMOVE elements (with cascade) -------------------------------------
+    # Warn-and-skip for nonexistent IDs (LLM may reference stale elements).
+    # Valid removals still apply. Add/modify remain strict.
     remove_section = ref.get("remove", {}) or {}
     for rid in remove_section.get("elements", []) or []:
         eid = str(rid).strip().removeprefix("id-")
         if eid not in element_index:
-            raise ValueError(f"Remove '{eid}': element not found in model")
+            warning = f"Remove '{eid}': element not found in model (skipped)"
+            logger.warning(f"[apply_yaml_diff] {warning}")
+            summary["warnings"].append(warning)
+            continue
 
         # Remove element
         del element_index[eid]

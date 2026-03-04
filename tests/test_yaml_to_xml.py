@@ -156,7 +156,7 @@ class TestViewGeneration:
             f"Missing connections for relationships: {rel_ids - conn_rrefs}"
         )
 
-    def test_grid_layout_positions(self):
+    def test_layout_positions(self):
         xml_str, _ = yaml_to_archimate_xml(VALID_YAML)
         root = ET.fromstring(xml_str)
         views = root.find(TAG("views"))
@@ -188,6 +188,154 @@ class TestViewGeneration:
             tgt = conn.get("target")
             assert src in node_ids, f"Connection source '{src}' not a node ID"
             assert tgt in node_ids, f"Connection target '{tgt}' not a node ID"
+
+    def test_sugiyama_layer_ordering(self):
+        """Motivation elements should appear above Application elements (lower Y)."""
+        yaml_str = """\
+model:
+  name: "Layer Test"
+elements:
+  - id: m1
+    type: Goal
+    name: "A Goal"
+  - id: a1
+    type: ApplicationComponent
+    name: "An App"
+  - id: t1
+    type: Node
+    name: "A Server"
+relationships:
+  - type: Realization
+    source: a1
+    target: m1
+  - type: Serving
+    source: t1
+    target: a1
+"""
+        xml_str, _ = yaml_to_archimate_xml(yaml_str)
+        root = ET.fromstring(xml_str)
+        view = root.find(TAG("views")).find(TAG("diagrams")).findall(TAG("view"))[0]
+
+        # Build elementRef → y mapping
+        ref_to_y = {}
+        for node in view.findall(TAG("node")):
+            ref_to_y[node.get("elementRef")] = int(node.get("y"))
+
+        assert ref_to_y["id-m1"] < ref_to_y["id-a1"], \
+            "Motivation element should have lower Y than Application"
+        assert ref_to_y["id-a1"] < ref_to_y["id-t1"], \
+            "Application element should have lower Y than Technology"
+
+    def test_sugiyama_no_overlapping_nodes(self):
+        """No two nodes should occupy the same bounding box."""
+        xml_str, _ = yaml_to_archimate_xml(VALID_YAML)
+        root = ET.fromstring(xml_str)
+        view = root.find(TAG("views")).find(TAG("diagrams")).findall(TAG("view"))[0]
+
+        boxes = []
+        for node in view.findall(TAG("node")):
+            x = int(node.get("x"))
+            y = int(node.get("y"))
+            w = int(node.get("w"))
+            h = int(node.get("h"))
+            boxes.append((x, y, x + w, y + h))
+
+        for i, (x1, y1, x2, y2) in enumerate(boxes):
+            for j, (ax1, ay1, ax2, ay2) in enumerate(boxes):
+                if i >= j:
+                    continue
+                # Check no overlap: one box must be entirely left, right, above, or below
+                overlap = not (x2 <= ax1 or ax2 <= x1 or y2 <= ay1 or ay2 <= y1)
+                assert not overlap, (
+                    f"Nodes {i} and {j} overlap: "
+                    f"({x1},{y1},{x2},{y2}) vs ({ax1},{ay1},{ax2},{ay2})"
+                )
+
+    def test_sugiyama_wide_element_name(self):
+        """Elements with long names should get wider bounding boxes."""
+        yaml_str = """\
+model:
+  name: "Width Test"
+elements:
+  - id: s1
+    type: ApplicationComponent
+    name: "Short"
+  - id: l1
+    type: ApplicationComponent
+    name: "This Is A Very Long Element Name"
+relationships: []
+"""
+        xml_str, _ = yaml_to_archimate_xml(yaml_str)
+        root = ET.fromstring(xml_str)
+        view = root.find(TAG("views")).find(TAG("diagrams")).findall(TAG("view"))[0]
+
+        widths = {}
+        for node in view.findall(TAG("node")):
+            widths[node.get("elementRef")] = int(node.get("w"))
+
+        assert widths["id-l1"] > widths["id-s1"], \
+            "Long-named element should be wider"
+
+    def test_junction_elements_through_pipeline(self):
+        """AndJunction and OrJunction flow through YAML→XML→view→validation."""
+        from src.aion.tools.archimate import validate_archimate
+
+        yaml_str = """\
+model:
+  name: "Junction Test"
+elements:
+  - id: bp1
+    type: BusinessProcess
+    name: "Check Order"
+  - id: bp2
+    type: BusinessProcess
+    name: "Ship Order"
+  - id: bp3
+    type: BusinessProcess
+    name: "Cancel Order"
+  - id: j1
+    type: AndJunction
+    name: "Split"
+  - id: j2
+    type: OrJunction
+    name: "Merge"
+relationships:
+  - type: Triggering
+    source: bp1
+    target: j1
+  - type: Triggering
+    source: j1
+    target: bp2
+  - type: Triggering
+    source: j1
+    target: bp3
+  - type: Triggering
+    source: bp2
+    target: j2
+  - type: Triggering
+    source: bp3
+    target: j2
+"""
+        xml_str, info = yaml_to_archimate_xml(yaml_str)
+        assert info["element_count"] == 5
+        assert info["relationship_count"] == 5
+
+        # Junction elements appear in XML
+        root = ET.fromstring(xml_str)
+        elements = root.find(TAG("elements"))
+        types = {e.get(f"{{{XSI}}}type") for e in elements.findall(TAG("element"))}
+        assert "AndJunction" in types
+        assert "OrJunction" in types
+
+        # All elements have view nodes
+        view = root.find(TAG("views")).find(TAG("diagrams")).findall(TAG("view"))[0]
+        node_erefs = {n.get("elementRef") for n in view.findall(TAG("node"))}
+        assert "id-j1" in node_erefs
+        assert "id-j2" in node_erefs
+
+        # Validates without errors
+        result = validate_archimate(xml_str)
+        assert result["valid"], f"Validation errors: {result['errors']}"
 
 
 # ---------------------------------------------------------------------------
@@ -298,6 +446,98 @@ relationships: []
     def test_invalid_yaml_syntax(self):
         with pytest.raises(ValueError, match="Invalid YAML"):
             yaml_to_archimate_xml("{ invalid yaml [[[")
+
+    def test_invalid_relationship_pattern_warns(self, caplog):
+        """Invalid source→target pair logs a warning but does not raise."""
+        yaml_str = """\
+model:
+  name: "Test"
+elements:
+  - id: a1
+    type: ApplicationComponent
+    name: "Component"
+  - id: m1
+    type: Goal
+    name: "A Goal"
+relationships:
+  - type: Triggering
+    source: a1
+    target: m1
+"""
+        import logging
+        with caplog.at_level(logging.WARNING, logger="src.aion.tools.yaml_to_xml"):
+            xml_str, info = yaml_to_archimate_xml(yaml_str)
+        assert info["relationship_count"] == 1
+        assert any("may not be a valid" in msg for msg in caplog.messages)
+
+    def test_node_assignment_to_app_component_no_warning(self, caplog):
+        """Node → ApplicationComponent (Assignment) is valid hosting."""
+        yaml_str = """\
+model:
+  name: "Test"
+elements:
+  - id: t1
+    type: Node
+    name: "Server"
+  - id: a1
+    type: ApplicationComponent
+    name: "Backend"
+relationships:
+  - type: Assignment
+    source: t1
+    target: a1
+"""
+        import logging
+        with caplog.at_level(logging.WARNING, logger="src.aion.tools.yaml_to_xml"):
+            xml_str, info = yaml_to_archimate_xml(yaml_str)
+        assert info["relationship_count"] == 1
+        assert not any("may not be a valid" in msg for msg in caplog.messages)
+
+    def test_system_software_access_to_data_object_no_warning(self, caplog):
+        """SystemSoftware → DataObject (Access) is valid cross-layer access."""
+        yaml_str = """\
+model:
+  name: "Test"
+elements:
+  - id: t1
+    type: SystemSoftware
+    name: "DBMS"
+  - id: a1
+    type: DataObject
+    name: "Customer Data"
+relationships:
+  - type: Access
+    source: t1
+    target: a1
+"""
+        import logging
+        with caplog.at_level(logging.WARNING, logger="src.aion.tools.yaml_to_xml"):
+            xml_str, info = yaml_to_archimate_xml(yaml_str)
+        assert info["relationship_count"] == 1
+        assert not any("may not be a valid" in msg for msg in caplog.messages)
+
+    def test_capability_realization_to_business_service_no_warning(self, caplog):
+        """Capability → BusinessService (Realization) is valid strategy→business."""
+        yaml_str = """\
+model:
+  name: "Test"
+elements:
+  - id: s1
+    type: Capability
+    name: "API Management"
+  - id: b1
+    type: BusinessService
+    name: "Customer Portal"
+relationships:
+  - type: Realization
+    source: s1
+    target: b1
+"""
+        import logging
+        with caplog.at_level(logging.WARNING, logger="src.aion.tools.yaml_to_xml"):
+            xml_str, info = yaml_to_archimate_xml(yaml_str)
+        assert info["relationship_count"] == 1
+        assert not any("may not be a valid" in msg for msg in caplog.messages)
 
 
 # ---------------------------------------------------------------------------
@@ -711,3 +951,204 @@ refinement:
         assert info["relationship_count"] == 4
         result = validate_archimate(xml_str)
         assert result["valid"], f"Validation errors: {result.get('errors', [])}"
+
+    def test_remove_nonexistent_warns_not_fails(self):
+        """Removing a nonexistent element should warn, not reject the diff."""
+        diff = """\
+refinement:
+  remove:
+    elements: [ghost_element]
+"""
+        merged, summary = apply_yaml_diff(VALID_YAML, diff)
+        assert summary["removed_elements"] == 0
+        assert len(summary["warnings"]) == 1
+        assert "ghost_element" in summary["warnings"][0]
+        assert "not found" in summary["warnings"][0]
+
+    def test_remove_nonexistent_alongside_valid_ops(self):
+        """Valid add + nonexistent remove: add succeeds, remove warns."""
+        diff = """\
+refinement:
+  add:
+    elements:
+      - id: new1
+        type: Node
+        name: "New Server"
+  remove:
+    elements: [does_not_exist]
+"""
+        merged, summary = apply_yaml_diff(VALID_YAML, diff)
+        assert summary["added_elements"] == 1
+        assert summary["removed_elements"] == 0
+        assert len(summary["warnings"]) == 1
+        assert "New Server" in merged
+
+
+# ---------------------------------------------------------------------------
+# Viewpoint tests
+# ---------------------------------------------------------------------------
+
+MULTI_LAYER_YAML = """\
+model:
+  name: "Multi-Layer Architecture"
+
+elements:
+  - id: g1
+    type: Goal
+    name: "Reduce Manual Work"
+  - id: r1
+    type: Requirement
+    name: "Automate Approvals"
+  - id: ba1
+    type: BusinessActor
+    name: "Process Owner"
+  - id: bp1
+    type: BusinessProcess
+    name: "Approval Workflow"
+  - id: ac1
+    type: ApplicationComponent
+    name: "Workflow Engine"
+  - id: as1
+    type: ApplicationService
+    name: "Approval Service"
+  - id: n1
+    type: Node
+    name: "App Server"
+  - id: ss1
+    type: SystemSoftware
+    name: "Java Runtime"
+
+relationships:
+  - type: Realization
+    source: bp1
+    target: r1
+  - type: Serving
+    source: ac1
+    target: bp1
+  - type: Composition
+    source: ac1
+    target: as1
+  - type: Serving
+    source: n1
+    target: ac1
+  - type: Assignment
+    source: n1
+    target: ss1
+"""
+
+
+class TestViewpoints:
+
+    def test_viewpoints_constant_covers_all_layers(self):
+        """Every non-Composite/Junction element type appears in at least one viewpoint."""
+        from src.aion.tools.archimate import VALID_ELEMENT_TYPES
+        from src.aion.tools.yaml_to_xml import VIEWPOINTS
+
+        excluded = {"Grouping", "Location", "AndJunction", "OrJunction"}
+        all_viewpoint_types: set[str] = set()
+        for types in VIEWPOINTS.values():
+            if types is not None:
+                all_viewpoint_types |= types
+
+        uncovered = VALID_ELEMENT_TYPES - excluded - all_viewpoint_types
+        assert uncovered == set(), (
+            f"Element types not covered by any viewpoint: {uncovered}"
+        )
+
+    def test_filter_for_viewpoint_application(self):
+        """Application viewpoint keeps only application-layer elements."""
+        from src.aion.tools.yaml_to_xml import _filter_for_viewpoint, _parse_and_validate
+
+        data = _parse_and_validate(MULTI_LAYER_YAML)
+        filtered = _filter_for_viewpoint(data, "application")
+
+        element_ids = {e["id"] for e in filtered["elements"]}
+        assert element_ids == {"id-ac1", "id-as1"}
+
+        # Only the intra-application relationship should survive
+        assert len(filtered["relationships"]) == 1
+        rel = filtered["relationships"][0]
+        assert rel["type"] == "Composition"
+
+    def test_filter_for_viewpoint_layered_returns_all(self):
+        """Layered viewpoint returns all elements unfiltered."""
+        from src.aion.tools.yaml_to_xml import _filter_for_viewpoint, _parse_and_validate
+
+        data = _parse_and_validate(MULTI_LAYER_YAML)
+        filtered = _filter_for_viewpoint(data, "layered")
+
+        assert len(filtered["elements"]) == len(data["elements"])
+        assert len(filtered["relationships"]) == len(data["relationships"])
+
+    def test_generate_viewpoint_xml_application(self):
+        """Application viewpoint generates valid XML with only app elements."""
+        from src.aion.tools.yaml_to_xml import generate_viewpoint_xml
+
+        xml_str, info = generate_viewpoint_xml(MULTI_LAYER_YAML, "application")
+        assert info["viewpoint"] == "application"
+        assert info["element_count"] == 2
+
+        root = ET.fromstring(xml_str)
+        # Fragment has <view> as direct child of root (for merge compat)
+        view = root.find(TAG("view"))
+        assert view is not None
+
+        nodes = view.findall(TAG("node"))
+        assert len(nodes) == 2
+        refs = {n.get("elementRef") for n in nodes}
+        assert refs == {"id-ac1", "id-as1"}
+
+        name_el = view.find(TAG("name"))
+        assert "Application" in name_el.text
+
+    def test_generate_viewpoint_xml_unknown_raises(self):
+        """Unknown viewpoint raises ValueError."""
+        from src.aion.tools.yaml_to_xml import generate_viewpoint_xml
+
+        with pytest.raises(ValueError, match="Unknown viewpoint"):
+            generate_viewpoint_xml(MULTI_LAYER_YAML, "nonexistent")
+
+    def test_generate_viewpoint_xml_too_few_elements_raises(self):
+        """Viewpoint yielding <2 elements raises ValueError."""
+        from src.aion.tools.yaml_to_xml import generate_viewpoint_xml
+
+        # MULTI_LAYER_YAML has no Physical elements
+        with pytest.raises(ValueError, match="elements"):
+            generate_viewpoint_xml(MULTI_LAYER_YAML, "physical")
+
+    def test_generate_viewpoint_merge_roundtrip(self):
+        """Full workflow: generate model → viewpoint fragment → merge."""
+        from src.aion.tools.archimate import merge_archimate_view, validate_archimate
+        from src.aion.tools.yaml_to_xml import generate_viewpoint_xml
+
+        # Generate full model with overview
+        model_xml, model_info = yaml_to_archimate_xml(MULTI_LAYER_YAML)
+
+        # Generate application viewpoint fragment
+        frag_xml, frag_info = generate_viewpoint_xml(MULTI_LAYER_YAML, "application")
+
+        # Merge
+        result = merge_archimate_view(model_xml, frag_xml)
+        assert result["success"] is True
+        assert result["views_added"] == 1
+
+        # Validate merged XML structure
+        merged_root = ET.fromstring(result["merged_xml"])
+        views = merged_root.find(TAG("views"))
+        diagrams = views.find(TAG("diagrams"))
+        all_views = diagrams.findall(TAG("view"))
+        assert len(all_views) == 2
+
+        # Overview has all 8 elements, application has 2
+        overview_nodes = all_views[0].findall(TAG("node"))
+        app_nodes = all_views[1].findall(TAG("node"))
+        assert len(overview_nodes) == 8
+        assert len(app_nodes) == 2
+
+        # View identifiers are distinct
+        ids = {v.get("identifier") for v in all_views}
+        assert len(ids) == 2
+
+        # Merged model is valid XML
+        val = validate_archimate(result["merged_xml"])
+        assert val["valid"], f"Validation errors: {val.get('errors', [])}"

@@ -92,7 +92,7 @@ ALLOWED_PATTERNS = {
     "Assignment": [
         (BIZ_ACTIVE, BIZ_ACTIVE | BIZ_BEHAVIOR),
         (APP_ACTIVE, APP_ACTIVE | APP_BEHAVIOR),
-        (TECH_ACTIVE, TECH_ACTIVE | TECH_BEHAVIOR),
+        (TECH_ACTIVE, TECH_ACTIVE | TECH_BEHAVIOR | APP_ACTIVE | APP_BEHAVIOR),
     ],
     "Realization": [
         (BIZ_BEHAVIOR, BIZ_BEHAVIOR | BIZ_PASSIVE | MOTIVATION),
@@ -102,7 +102,7 @@ ALLOWED_PATTERNS = {
         (APP_PASSIVE, BIZ_PASSIVE),
         (BIZ_PASSIVE, BIZ_PASSIVE | BIZ_BEHAVIOR),
         (IMPL, IMPL | MOTIVATION | BIZ_BEHAVIOR | BIZ_PASSIVE | APP_ACTIVE | APP_BEHAVIOR),
-        (MOTIVATION, MOTIVATION),
+        (MOTIVATION, MOTIVATION | BIZ_BEHAVIOR | BIZ_PASSIVE),
         (PHYSICAL, PHYSICAL | BIZ_PASSIVE),
         ({"Material"}, {"Equipment"}),  # 3.2: Material realizes Equipment
     ],
@@ -111,7 +111,7 @@ ALLOWED_PATTERNS = {
     "Access": [
         (BIZ_ACTIVE | BIZ_BEHAVIOR, BIZ_PASSIVE),
         (APP_ACTIVE | APP_BEHAVIOR, APP_PASSIVE | BIZ_PASSIVE),
-        (TECH_ACTIVE | TECH_BEHAVIOR, TECH_PASSIVE),
+        (TECH_ACTIVE | TECH_BEHAVIOR, TECH_PASSIVE | APP_PASSIVE),
         (PHYSICAL, PHYSICAL | BIZ_PASSIVE),
     ],
     "Influence": [
@@ -177,6 +177,35 @@ LAYER_ORDER = [
     "Technology", "Physical", "Implementation", "Composite",
 ]
 
+# Within-layer sort priority for Sugiyama layout (lower = placed first).
+# Grouped by semantic role so related element types cluster visually.
+TYPE_RANK = {
+    "Driver": 10, "Goal": 10, "Outcome": 10,
+    "Principle": 11, "Value": 11,
+    "Requirement": 12, "Constraint": 12,
+    "Stakeholder": 15, "Assessment": 15, "Meaning": 15,
+    "Resource": 20, "Capability": 20, "CourseOfAction": 20, "ValueStream": 20,
+    "BusinessActor": 30, "BusinessRole": 30, "BusinessCollaboration": 30,
+    "BusinessInterface": 31, "BusinessProcess": 31,
+    "BusinessEvent": 32, "BusinessService": 32, "BusinessObject": 32,
+    "BusinessFunction": 33, "BusinessInteraction": 33,
+    "Contract": 35, "Representation": 35, "Product": 35,
+    "ApplicationInterface": 40, "ApplicationProcess": 40,
+    "ApplicationEvent": 41, "ApplicationService": 41, "DataObject": 41,
+    "ApplicationComponent": 42, "ApplicationCollaboration": 42,
+    "ApplicationFunction": 42, "ApplicationInteraction": 42,
+    "Node": 50, "Device": 50, "SystemSoftware": 50, "TechnologyCollaboration": 50,
+    "TechnologyInterface": 51, "Path": 51, "CommunicationNetwork": 51,
+    "TechnologyProcess": 52, "TechnologyEvent": 52, "TechnologyService": 52,
+    "TechnologyFunction": 53, "TechnologyInteraction": 53, "Artifact": 53,
+    "Equipment": 60, "Facility": 60,
+    "DistributionNetwork": 61, "Material": 62,
+    "WorkPackage": 70, "ImplementationEvent": 70, "Plateau": 70,
+    "Deliverable": 71, "Gap": 71,
+    "Grouping": 99, "Location": 99,
+    "AndJunction": 99, "OrJunction": 99,
+}
+
 
 # ---------------------------------------------------------------------------
 # Tool 1: validate_archimate
@@ -222,6 +251,9 @@ def validate_archimate(xml_content: str) -> dict:
                 continue
             if etype not in VALID_ELEMENT_TYPES:
                 errors.append(f"Invalid element type '{etype}' for element {eid}")
+            doc_el = elem.find(TAG("documentation"))
+            if doc_el is None or not (doc_el.text or "").strip():
+                warnings.append(f"Element {eid} has no documentation")
             element_ids[eid] = etype
 
     relationships_node = root.find(TAG("relationships"))
@@ -401,7 +433,7 @@ def inspect_archimate_model(xml_content: str) -> dict:
 def _find_or_create(parent: ET.Element, tag: str) -> ET.Element:
     child = parent.find(TAG(tag))
     if child is None:
-        child = ET.SubElement(parent, tag)
+        child = ET.SubElement(parent, TAG(tag))
     return child
 
 

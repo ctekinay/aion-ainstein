@@ -2,8 +2,30 @@
 # Defines which skills are available. Enabled skills inject their
 # SKILL.md content into every LLM prompt. The Elysia Tree decides
 # how to apply the rules — no keyword triggers needed.
+#
+# Groups bundle related skills as a unit — they're enabled/disabled
+# together and members inherit group-level properties (tags, inject_mode).
 
 version: "1.0"
+
+groups:
+  - name: archimate
+    description: "ArchiMate 3.2 model generation, views, and reference library"
+    enabled: true
+    inject_into_tree: true
+    inject_mode: on_demand
+    tags: [archimate]
+    skills:
+      - name: archimate-generator
+        path: archimate-generator/SKILL.md
+        description: "ArchiMate 3.2 model generation rules, element types, and XML format"
+        load_order: 1
+        execution: generation
+        validation_tool: validate_archimate
+      - name: archimate-view-generator
+        path: archimate-view-generator/SKILL.md
+        description: "ArchiMate 3.2 view generation rules, layout conventions, and fragment format"
+        load_order: 2
 
 skills:
   - name: ainstein-identity
@@ -38,24 +60,6 @@ skills:
     inject_into_tree: false
 
   # --- On-demand domain skills (injected only when Persona emits matching tags) ---
-
-  - name: archimate-generator
-    path: archimate-generator/SKILL.md
-    description: "ArchiMate 3.2 model generation rules, element types, and XML format"
-    enabled: true
-    inject_into_tree: true
-    inject_mode: on_demand
-    tags: [archimate]
-    execution: generation
-    validation_tool: validate_archimate
-
-  - name: archimate-view-generator
-    path: archimate-view-generator/SKILL.md
-    description: "ArchiMate 3.2 view generation rules, layout conventions, and fragment format"
-    enabled: true
-    inject_into_tree: true
-    inject_mode: on_demand
-    tags: [archimate]
 
   - name: skosmos-vocabulary
     path: skosmos-vocabulary/SKILL.md

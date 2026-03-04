@@ -66,7 +66,7 @@ elements:
   - id: <short-code>
     type: <ArchiMateElementType>
     name: "<Element Name>"
-    documentation: "<Optional description>"
+    documentation: "<1-2 sentence description — required for every element>"
 
 relationships:
   - type: <ArchiMateRelationshipType>
@@ -82,9 +82,10 @@ relationships:
 3. Every `type` in relationships MUST be one of: `Composition`, `Aggregation`, `Assignment`, `Realization`, `Serving`, `Access`, `Influence`, `Association`, `Triggering`, `Flow`, `Specialization`
 4. Every `source` and `target` in relationships MUST reference a valid element `id`
 5. Relationships do NOT have an `id` field — identifiers are generated automatically
-6. Do NOT include nested elements, property tags, or any XML-specific constructs
-7. Wrap the entire output in ```yaml code fences
-8. Do NOT include any text before or after the YAML code fence
+6. Every element MUST include a `documentation` field with a 1-2 sentence description
+7. Do NOT include nested elements, property tags, or any XML-specific constructs
+8. Wrap the entire output in ```yaml code fences
+9. Do NOT include any text before or after the YAML code fence
 
 **Example:**
 
@@ -96,15 +97,19 @@ elements:
   - id: b1
     type: BusinessProcess
     name: "Login Process"
+    documentation: "End-to-end user authentication flow including credential validation and session creation."
   - id: a1
     type: ApplicationComponent
     name: "Auth Service"
+    documentation: "Central authentication service handling login, token issuance, and session management."
   - id: a2
     type: ApplicationInterface
     name: "Login API"
+    documentation: "REST API endpoint accepting credentials and returning authentication tokens."
   - id: t1
     type: SystemSoftware
     name: "OAuth Provider"
+    documentation: "Third-party OAuth 2.0 identity provider used for federated authentication."
 
 relationships:
   - type: Serving
@@ -122,29 +127,6 @@ relationships:
 
 ---
 
-## Quick Reference: Code Review → ArchiMate Mapping
-
-| Code Review Finding | ArchiMate Element |
-|---|---|
-| Microservice / service | `ApplicationComponent` |
-| API / interface | `ApplicationInterface` |
-| Database | `DataObject` (app layer) or `Artifact` (tech layer) |
-| Message queue | `ApplicationComponent` + `Flow` |
-| Frontend app | `ApplicationComponent` |
-| User / actor | `BusinessActor` or `BusinessRole` |
-| Business process | `BusinessProcess` |
-| Infrastructure node | `Node` or `Device` |
-| Docker / K8s | `SystemSoftware` |
-| Network | `CommunicationNetwork` |
-| Library / module | `ApplicationComponent` |
-| Use case | `ApplicationFunction` or `BusinessFunction` |
-| Deployment | `Artifact` assigned to `Node` |
-| Dependency call | `Serving` or `Access` |
-| Trigger / event | `ApplicationEvent` or `BusinessEvent` |
-| Data flow | `Flow` |
-
----
-
 ## ID Convention
 
 Use short, readable identifiers with layer-prefix codes:
@@ -159,13 +141,3 @@ Use short, readable identifiers with layer-prefix codes:
 
 The converter automatically adds the `id-` prefix and generates all XML identifiers,
 view nodes, and connections. You only need to define elements and relationships.
-
----
-
-## Known Limitations
-
-### Model capability boundary
-
-ArchiMate generation requires a model with strong structured output capabilities. Smaller local models (e.g., GPT-OSS:20B via Ollama) may refuse to generate YAML or fall back to textual descriptions instead. Cloud models (e.g., GPT-5.2 via OpenAI) handle this reliably.
-
-**Recommendation:** Switch to a cloud model (e.g., GPT-5.2 via OpenAI) in the Chat UI settings before requesting ArchiMate generation. Standard KB queries (ADR/PCP/policy search, vocabulary lookups) work fine with local models.

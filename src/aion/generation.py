@@ -149,7 +149,7 @@ class GenerationPipeline:
         # for the Tree's retrieval path and are irrelevant for direct generation.
         loader = SkillLoader()
         skill = loader.load_skill(skill_entry.name)
-        system_prompt = skill.content if skill else ""
+        system_prompt = skill.get_injectable_content() if skill else ""
 
         if is_refinement and yaml_refinement:
             user_prompt = (
