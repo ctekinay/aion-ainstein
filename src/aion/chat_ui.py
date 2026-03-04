@@ -709,6 +709,23 @@ async def _maybe_update_summary(conversation_id: str) -> None:
         logger.warning(f"Rolling summary update failed: {e}")
 
 
+def _query_references_artifact(query: str, intent: str, artifact: dict) -> bool:
+    """Check if the query references a previously loaded artifact.
+
+    Intent-based + content-type-aware: follow_up and retrieval queries that
+    mention artifact-relevant terms when there's an active artifact.
+    Not routing — the Persona already classified intent. This is a content
+    availability check for whether the Tree needs the artifact in its atlas.
+    """
+    if intent not in ("follow_up", "retrieval"):
+        return False
+    q = query.lower()
+    ct = artifact.get("content_type", "")
+    if "archimate" in ct or "yaml" in ct:
+        return any(t in q for t in ("model", "archimate", "element", "relationship", "artifact"))
+    return "artifact" in q
+
+
 def _get_execution_model(intent: str, skill_tags: list[str] | None) -> str:
     """Determine execution path based on intent and skill registry.
 
@@ -1163,7 +1180,8 @@ async def stream_inspect_response(
 def run_elysia_query(question: str, result_queue: Queue, output_queue: Queue,
                      skill_tags: list[str] | None = None,
                      doc_refs: list[str] | None = None,
-                     conversation_id: str | None = None):
+                     conversation_id: str | None = None,
+                     artifact_context: str | None = None):
     """Run Elysia query in a thread, emitting typed events via output_queue.
 
     Events are emitted directly from Tree.async_run() results — no stdout
@@ -1183,7 +1201,8 @@ def run_elysia_query(question: str, result_queue: Queue, output_queue: Queue,
                 _elysia_system.query(question, event_queue=output_queue,
                                      skill_tags=skill_tags,
                                      doc_refs=doc_refs,
-                                     conversation_id=conversation_id)
+                                     conversation_id=conversation_id,
+                                     artifact_context=artifact_context)
             )
         finally:
             pending = asyncio.all_tasks(loop)
@@ -1216,7 +1235,8 @@ def run_elysia_query(question: str, result_queue: Queue, output_queue: Queue,
 async def stream_elysia_response(question: str,
                                  skill_tags: list[str] | None = None,
                                  doc_refs: list[str] | None = None,
-                                 conversation_id: str | None = None) -> AsyncGenerator[str, None]:
+                                 conversation_id: str | None = None,
+                                 artifact_context: str | None = None) -> AsyncGenerator[str, None]:
     """Stream Elysia's thinking process as SSE events."""
     result_queue = Queue()
     output_queue = Queue()
@@ -1230,7 +1250,8 @@ async def stream_elysia_response(question: str,
     thread = Thread(target=run_elysia_query,
                     args=(question, result_queue, output_queue),
                     kwargs={"skill_tags": skill_tags, "doc_refs": doc_refs,
-                            "conversation_id": conversation_id})
+                            "conversation_id": conversation_id,
+                            "artifact_context": artifact_context})
     thread.daemon = True
     thread.start()
 
@@ -1781,6 +1802,32 @@ async def chat_stream(request: ChatRequest):
         )
         logger.info(f"Execution model: {execution_model} (intent={persona_result.intent})")
 
+        # Build artifact context for follow-ups that reference a prior model.
+        # Threaded into ElysiaAgent.query() where it's appended to the atlas
+        # AFTER skill content injection (which does a hard overwrite).
+        artifact_context = None
+        if execution_model == "tree" and conversation_id:
+            artifact = get_latest_artifact(conversation_id)
+            if artifact and _query_references_artifact(
+                persona_result.rewritten_query or request.message,
+                persona_result.intent,
+                artifact,
+            ):
+                from src.aion.tools.yaml_to_xml import xml_to_yaml
+                content = artifact["content"]
+                if artifact["content_type"] == "archimate/xml":
+                    try:
+                        content = xml_to_yaml(content)
+                    except ValueError:
+                        pass
+                artifact_context = (
+                    f"\n\n## LOADED ARTIFACT: {artifact.get('filename', 'model')}\n"
+                    f"The user previously uploaded or generated this model. "
+                    f"Use it as context when answering.\n\n"
+                    f"```\n{content}\n```\n"
+                )
+                yield f"data: {json.dumps({'type': 'status', 'content': 'Loading model into context...'})}\n\n"
+
         final_response = None
         final_sources = []
         final_timing = None
@@ -1836,6 +1883,7 @@ async def chat_stream(request: ChatRequest):
                 skill_tags=persona_result.skill_tags,
                 doc_refs=persona_result.doc_refs,
                 conversation_id=conversation_id,
+                artifact_context=artifact_context,
             ):
                 yield event
                 _capture_event(event)

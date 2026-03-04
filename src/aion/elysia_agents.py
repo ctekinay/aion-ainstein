@@ -1261,11 +1261,12 @@ class ElysiaRAGSystem:
         @tool(tree=self.tree)
         async def get_artifact(content_type: str = "") -> dict:
             """ALWAYS call this tool FIRST when the user wants to refine,
-            modify, or review a previously generated artifact. This loads the
-            full content from the previous turn so you can apply changes to
-            the complete artifact instead of reconstructing it from memory.
-            Without calling this tool, refinement requests will produce
-            incomplete or fragmented output.
+            modify, review, compare, or analyze a previously generated or
+            uploaded artifact. This loads the full content from the previous
+            turn so you can work with the complete artifact instead of
+            reconstructing it from memory. Without calling this tool,
+            requests involving artifacts will produce incomplete or
+            fragmented output.
 
             Args:
                 content_type: Optional filter (e.g., "archimate/xml",
@@ -1323,7 +1324,8 @@ class ElysiaRAGSystem:
     async def query(self, question: str, collection_names: Optional[list[str]] = None,
                     event_queue=None, skill_tags: list[str] | None = None,
                     doc_refs: list[str] | None = None,
-                    conversation_id: str | None = None) -> tuple[str, list[dict]]:
+                    conversation_id: str | None = None,
+                    artifact_context: str | None = None) -> tuple[str, list[dict]]:
         """Process a query using Elysia's decision tree.
 
         Iterates Tree.async_run() directly (bypassing tree.run() which wraps
@@ -1337,6 +1339,9 @@ class ElysiaRAGSystem:
             doc_refs: Structured document references from the Persona
                 (e.g., ["ADR.29"], ["PCP.22", "ADR.12"], [])
             conversation_id: Optional conversation ID for artifact storage
+            artifact_context: Pre-built artifact block to inject into atlas
+                after skill content. Used for follow-ups that reference a
+                previously inspected/generated artifact.
 
         Returns:
             Tuple of (response text, retrieved objects)
@@ -1374,6 +1379,14 @@ class ElysiaRAGSystem:
                 f"Injected {len(skill_content)} chars of skill content into Tree atlas"
                 f" (skill_tags={skill_tags})"
             )
+
+        # Append artifact context AFTER skill content injection (which does a
+        # hard overwrite of agent_description). This ensures the artifact
+        # survives the skill injection at the line above.
+        if artifact_context:
+            current = self.tree.tree_data.atlas.agent_description or ""
+            self.tree.tree_data.atlas.agent_description = current + artifact_context
+            logger.info(f"Injected artifact context ({len(artifact_context)} chars) into Tree atlas")
 
         # Sync Tree's LLM with AInstein's config (handles runtime provider switches)
         self._configure_tree_provider()
