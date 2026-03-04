@@ -1837,11 +1837,19 @@
                 const messagesContainer = document.getElementById('messages');
                 messagesContainer.innerHTML = '';
 
-                // Display stored messages as simple panels (with timing persisted)
+                // Display stored messages with thinking steps and artifact cards
                 data.messages.forEach(msg => {
                     if (msg.role === 'user') {
                         appendPanel('user-prompt', 'User', msg.content, null, msg.timestamp);
                     } else {
+                        // Restore thinking steps before the response
+                        if (msg.thinking_steps && msg.thinking_steps.length > 0) {
+                            restoreThinkingContainer(msg.thinking_steps, msg.timing);
+                        }
+                        // Restore artifact download cards
+                        if (msg.artifacts && msg.artifacts.length > 0) {
+                            restoreArtifactCards(msg.artifacts);
+                        }
                         appendPanel('assistant', 'AInstein', msg.content, msg.sources, msg.timestamp, msg.timing);
                     }
                 });
@@ -2378,6 +2386,67 @@
             thinkingStartTime = null;
         }
 
+        // Restore a thinking container from persisted data (pre-collapsed)
+        function restoreThinkingContainer(steps, timing) {
+            const messagesContainer = document.getElementById('messages');
+            const container = document.createElement('div');
+            container.className = 'thinking-container collapsed';
+
+            const stepWord = steps.length === 1 ? 'step' : 'steps';
+            const elapsed = timing ? (timing.total_ms / 1000).toFixed(1) : '?';
+
+            container.innerHTML = `
+                <div class="thinking-header">
+                    <span class="expand-icon">&#9654;</span>
+                    <span class="thinking-label">${steps.length} ${stepWord} \u00b7 ${elapsed}s</span>
+                </div>
+                <div class="thinking-steps">
+                    ${steps.map(s => {
+                        let displayText = s.text.trim();
+                        if (displayText.length > 120) {
+                            const first = displayText.match(/^[^.!?]+[.!?]/);
+                            displayText = first ? first[0] : displayText.substring(0, 120) + '...';
+                        }
+                        const isNarration = s.type === 'assistant';
+                        return '<div class="thinking-step' + (isNarration ? ' narration' : '') + '">'
+                            + '<span class="step-icon done">'
+                            + '<svg viewBox="0 0 16 16" width="14" height="14"><path fill="currentColor" d="M13.78 4.22a.75.75 0 010 1.06l-7.25 7.25a.75.75 0 01-1.06 0L2.22 9.28a.75.75 0 011.06-1.06L6 10.94l6.72-6.72a.75.75 0 011.06 0z"/></svg>'
+                            + '</span>'
+                            + '<span class="step-text">' + escapeHtml(displayText) + '</span>'
+                            + '</div>';
+                    }).join('')}
+                </div>
+            `;
+
+            const header = container.querySelector('.thinking-header');
+            header.onclick = () => {
+                if (container.classList.contains('collapsed')) {
+                    container.classList.remove('collapsed');
+                    container.classList.add('expanded');
+                } else {
+                    container.classList.remove('expanded');
+                    container.classList.add('collapsed');
+                }
+            };
+
+            messagesContainer.appendChild(container);
+        }
+
+        // Restore artifact download cards from persisted data, pairing XML + YAML companions
+        function restoreArtifactCards(artifacts) {
+            const xmlArt = artifacts.find(a => a.content_type === 'archimate/xml');
+            const yamlArt = artifacts.find(a =>
+                a.content_type === 'archimate/yaml' || (a.filename && a.filename.endsWith('.yaml'))
+            );
+            if (xmlArt && yamlArt) {
+                xmlArt.yaml_companion_id = yamlArt.id;
+                xmlArt.yaml_filename = yamlArt.filename;
+                appendArtifactCard(xmlArt);
+            } else {
+                artifacts.forEach(a => appendArtifactCard(a));
+            }
+        }
+
         // Parse complete SSE lines and dispatch to handler
         function processSSELines(text, handler) {
             const lines = text.split('\n');
@@ -2483,6 +2552,8 @@
 
         // Append artifact download card to messages
         function appendArtifactCard(data) {
+            // Normalize: DB format uses 'id', SSE format uses 'artifact_id'
+            if (!data.artifact_id && data.id) data.artifact_id = data.id;
             const messagesContainer = document.getElementById('messages');
             const card = document.createElement('div');
             card.className = 'artifact-card';
