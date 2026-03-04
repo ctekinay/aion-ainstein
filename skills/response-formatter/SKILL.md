@@ -1,7 +1,6 @@
 ---
 name: response-formatter
-description: Per-collection formatting templates for list responses, field visibility
-  rules, and response style guidelines.
+description: Per-collection formatting templates for list responses, field visibility rules, and response style guidelines.
 ---
 
 # Response Formatter
