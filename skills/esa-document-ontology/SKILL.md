@@ -1,6 +1,6 @@
 ---
 name: esa-document-ontology
-description: "Domain knowledge about ADRs, PCPs, DARs, and Policy Documents: naming, numbering, relationships, disambiguation"
+description: 'Domain knowledge about ADRs, PCPs, DARs, and Policy Documents: naming, numbering, relationships, disambiguation'
 ---
 
 # ESA Document Ontology v2
@@ -101,7 +101,7 @@ In storage, these may be classified as doc_type `index` and are excluded at inge
 ### ESA Registry
 The file `doc/esa_doc_registry.md` (titled "Architectural Artifact Registry") is the canonical index of all ADRs and PCPs. It contains markdown tables with columns: ID, Title, Status, Date, Owner. The registry does NOT list DARs — but every document in the registry has a corresponding DAR.
 
-A condensed version of this registry is attached as a reference file (**Document Registry Index**) and is available in your context. See Section 6 "Registry Cross-Reference" for when and how to use it.
+A condensed version of this registry is attached as a reference file (**Document Registry Index**) and is available in your context under `references/registry-index.md`. See Section 6 "Registry Cross-Reference" for when and how to use it.
 
 In storage, classified as doc_type `registry`; ingested but filtered at query time (excluded from primary content retrieval, available for disambiguation).
 

@@ -70,6 +70,7 @@ class GenerationPipeline:
         query: str,
         skill_tags: list[str],
         doc_refs: list[str] | None = None,
+        github_refs: list[str] | None = None,
         conversation_id: str | None = None,
         event_queue: Queue | None = None,
         intent: str = "generation",
@@ -130,8 +131,12 @@ class GenerationPipeline:
                     is_refinement = False  # fall back to generation mode
 
         if not source_text:
-            self._emit(event_queue, "status", "Retrieving source content...", start)
-            sources, source_text = await self._fetch_content(query, doc_refs)
+            if github_refs:
+                self._emit(event_queue, "status", "Fetching GitHub repositories...", start)
+                source_text = await self._fetch_github_content(github_refs, event_queue, start)
+            else:
+                self._emit(event_queue, "status", "Retrieving source content...", start)
+                sources, source_text = await self._fetch_content(query, doc_refs)
 
         if not source_text:
             return (
@@ -234,8 +239,15 @@ class GenerationPipeline:
             )
 
         # Step 3: LLM call
+        # Scale token budget for GitHub-sourced generation (more source → more output)
+        max_tokens_override = None
+        if github_refs and source_text:
+            max_tokens_override = min(32768, 16384 + (len(source_text) // 20000) * 4096)
+
         self._emit(event_queue, "status", "Generating...", start)
-        raw_output, llm_stats = await self._call_llm(system_prompt, user_prompt)
+        raw_output, llm_stats = await self._call_llm(
+            system_prompt, user_prompt, max_tokens_override=max_tokens_override,
+        )
         total_tokens = {
             "prompt_tokens": llm_stats["prompt_tokens"],
             "completion_tokens": llm_stats["completion_tokens"],
@@ -298,6 +310,7 @@ class GenerationPipeline:
                     )
                     retry_output, retry_stats = await self._call_llm(
                         system_prompt, retry_prompt,
+                        max_tokens_override=max_tokens_override,
                     )
                     total_tokens["prompt_tokens"] += retry_stats["prompt_tokens"]
                     total_tokens["completion_tokens"] += retry_stats["completion_tokens"]
@@ -591,21 +604,111 @@ class GenerationPipeline:
         header = f"## {doc_id} — {title}" if doc_id else f"## {title}"
         return f"{header}\n\n{content}"
 
+    async def _fetch_github_content(
+        self,
+        github_refs: list[str],
+        event_queue: Queue | None = None,
+        start: float = 0,
+    ) -> str:
+        """Fetch content from GitHub repositories for generation.
+
+        Parallel-fetches metadata, README, and root directory listing for
+        each owner/repo ref. Uses existing MCP wrappers from github.py.
+        """
+        import asyncio
+
+        from src.aion.mcp.github import get_repo_metadata, get_repo_readme, list_directory
+
+        max_readme = max(10_000, 50_000 // len(github_refs))
+
+        async def fetch_one(ref: str) -> str:
+            """Fetch metadata + README + dir listing for a single repo."""
+            parts = ref.split("/", 1)
+            if len(parts) != 2:
+                logger.warning(f"[generation] invalid github_ref format: {ref}")
+                return ""
+            owner, repo = parts
+
+            sections = [f"# Repository: {ref}"]
+
+            # Parallel-fetch all three endpoints for this repo
+            results = await asyncio.gather(
+                get_repo_metadata(owner, repo),
+                get_repo_readme(owner, repo, ref="main"),
+                list_directory(owner, repo, path="", ref="main"),
+                return_exceptions=True,
+            )
+
+            metadata, readme, directory = results
+
+            if isinstance(metadata, BaseException):
+                logger.warning(f"[generation] metadata fetch failed for {ref}: {metadata}")
+                metadata = ""
+            if metadata:
+                sections.append(f"## Metadata\n{metadata}")
+
+            if isinstance(directory, BaseException):
+                logger.warning(f"[generation] directory listing failed for {ref}: {directory}")
+                directory = ""
+            if directory:
+                sections.append(f"## Root Directory\n{directory}")
+
+            if isinstance(readme, BaseException):
+                logger.warning(f"[generation] README fetch failed for {ref}: {readme}")
+                readme = ""
+            if readme:
+                if len(readme) > max_readme:
+                    readme = readme[:max_readme] + "\n\n[... truncated]"
+                sections.append(f"## README.md\n{readme}")
+
+            return "\n\n".join(sections)
+
+        # Fetch all repos in parallel
+        repo_results = await asyncio.gather(
+            *(fetch_one(ref) for ref in github_refs),
+            return_exceptions=True,
+        )
+
+        parts = []
+        for i, result in enumerate(repo_results):
+            if isinstance(result, BaseException):
+                logger.warning(
+                    f"[generation] repo fetch failed for {github_refs[i]}: {result}"
+                )
+                continue
+            if result:
+                parts.append(result)
+
+        if parts:
+            self._emit(
+                event_queue, "status",
+                f"Fetched {len(parts)}/{len(github_refs)} repositories", start,
+            )
+
+        source_text = "\n\n---\n\n".join(parts)
+        logger.info(
+            f"[generation] GitHub content: {len(source_text)} chars "
+            f"from {len(parts)}/{len(github_refs)} repos"
+        )
+        return source_text
+
     # ------------------------------------------------------------------
     # Step 3: LLM call
     # ------------------------------------------------------------------
 
     async def _call_llm(
         self, system_prompt: str, user_prompt: str,
+        max_tokens_override: int | None = None,
     ) -> tuple[str, dict]:
         """Make a single LLM call. Returns (text, token_stats)."""
         provider = settings.effective_tree_provider
         if provider in ("github_models", "openai"):
-            return await self._call_openai(system_prompt, user_prompt)
-        return await self._call_ollama(system_prompt, user_prompt)
+            return await self._call_openai(system_prompt, user_prompt, max_tokens_override)
+        return await self._call_ollama(system_prompt, user_prompt, max_tokens_override)
 
     async def _call_openai(
         self, system_prompt: str, user_prompt: str,
+        max_tokens_override: int | None = None,
     ) -> tuple[str, dict]:
         from openai import OpenAI
 
@@ -621,11 +724,12 @@ class GenerationPipeline:
         }
         # GPT-5.x reasoning models consume reasoning tokens within
         # max_completion_tokens. 16K gives room for reasoning + full XML.
+        # max_tokens_override scales up for GitHub-sourced generation.
         model_base = model.rsplit("/", 1)[-1] if "/" in model else model
         if model_base.startswith("gpt-5"):
-            kwargs["max_completion_tokens"] = 16384
+            kwargs["max_completion_tokens"] = max_tokens_override or 16384
         else:
-            kwargs["max_tokens"] = 8192
+            kwargs["max_tokens"] = max_tokens_override or 8192
 
         max_tok = kwargs.get("max_completion_tokens", kwargs.get("max_tokens"))
         logger.info(
@@ -660,18 +764,20 @@ class GenerationPipeline:
 
     async def _call_ollama(
         self, system_prompt: str, user_prompt: str,
+        max_tokens_override: int | None = None,
     ) -> tuple[str, dict]:
         import httpx
 
         model = settings.effective_tree_model
         full_prompt = f"{system_prompt}\n\n{user_prompt}"
+        num_predict = max_tokens_override or 8192
 
         logger.info(
             f"[generation] LLM call: model={model}, "
             f"system_prompt={len(system_prompt)} chars, "
             f"user_prompt={len(user_prompt)} chars, "
             f"est_tokens=~{(len(full_prompt)) // 4}, "
-            f"num_predict=8192"
+            f"num_predict={num_predict}"
         )
 
         start = time.perf_counter()
@@ -682,7 +788,7 @@ class GenerationPipeline:
                     "model": model,
                     "prompt": full_prompt,
                     "stream": False,
-                    "options": {"num_predict": 8192},
+                    "options": {"num_predict": num_predict},
                 },
             )
             response.raise_for_status()

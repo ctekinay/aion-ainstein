@@ -230,3 +230,94 @@ class TestGetOrgOverview:
         result = await get_org_overview("OpenSTEF")
         assert "OpenSTEF" in result
         assert "REPOSITORIES" in result
+
+
+# ---------------------------------------------------------------------------
+# GitHub-sourced generation content fetching
+# ---------------------------------------------------------------------------
+
+class TestFetchGithubContent:
+    """Tests for GenerationPipeline._fetch_github_content()."""
+
+    @pytest.mark.skipif(
+        not os.environ.get("GITHUB_TOKEN"),
+        reason="No GITHUB_TOKEN set",
+    )
+    @pytest.mark.asyncio
+    async def test_single_repo(self):
+        """Fetch a single repo and verify assembly."""
+        from unittest.mock import MagicMock
+        from src.aion.generation import GenerationPipeline
+
+        pipeline = GenerationPipeline(client=MagicMock())
+        result = await pipeline._fetch_github_content(["OpenSTEF/openstef"])
+        assert "# Repository: OpenSTEF/openstef" in result
+        assert "## Metadata" in result
+        assert "## README.md" in result
+
+    @pytest.mark.skipif(
+        not os.environ.get("GITHUB_TOKEN"),
+        reason="No GITHUB_TOKEN set",
+    )
+    @pytest.mark.asyncio
+    async def test_multiple_repos(self):
+        """Fetch multiple repos in parallel."""
+        from unittest.mock import MagicMock
+        from src.aion.generation import GenerationPipeline
+
+        pipeline = GenerationPipeline(client=MagicMock())
+        result = await pipeline._fetch_github_content([
+            "OpenSTEF/openstef",
+            "OpenSTEF/openstef-reference",
+        ])
+        assert "# Repository: OpenSTEF/openstef" in result
+        assert "# Repository: OpenSTEF/openstef-reference" in result
+        assert "---" in result  # separator between repos
+
+    @pytest.mark.asyncio
+    async def test_invalid_ref_format(self):
+        """Invalid ref format (no slash) should be skipped gracefully."""
+        from unittest.mock import MagicMock
+        from src.aion.generation import GenerationPipeline
+
+        pipeline = GenerationPipeline(client=MagicMock())
+        result = await pipeline._fetch_github_content(["invalid-no-slash"])
+        assert result == ""
+
+    @pytest.mark.skipif(
+        not os.environ.get("GITHUB_TOKEN"),
+        reason="No GITHUB_TOKEN set",
+    )
+    @pytest.mark.asyncio
+    async def test_partial_failure(self):
+        """One nonexistent repo should not prevent fetching others."""
+        from unittest.mock import MagicMock
+        from src.aion.generation import GenerationPipeline
+
+        pipeline = GenerationPipeline(client=MagicMock())
+        result = await pipeline._fetch_github_content([
+            "OpenSTEF/openstef",
+            "OpenSTEF/nonexistent-repo-xyz-12345",
+        ])
+        # Should have at least the successful repo
+        assert "# Repository: OpenSTEF/openstef" in result
+
+    @pytest.mark.asyncio
+    async def test_readme_truncation(self):
+        """Verify dynamic README budget is applied."""
+        from unittest.mock import MagicMock, AsyncMock, patch
+        from src.aion.generation import GenerationPipeline
+
+        pipeline = GenerationPipeline(client=MagicMock())
+
+        long_readme = "x" * 200_000  # 200K chars
+
+        with patch("src.aion.mcp.github.get_repo_metadata", new_callable=AsyncMock, return_value="desc"), \
+             patch("src.aion.mcp.github.get_repo_readme", new_callable=AsyncMock, return_value=long_readme), \
+             patch("src.aion.mcp.github.list_directory", new_callable=AsyncMock, return_value="dir"):
+            result = await pipeline._fetch_github_content(["owner/repo"])
+
+        # max_readme = max(10_000, 50_000 // 1) = 50_000
+        # README should be truncated to ~50K + truncation marker
+        assert "[... truncated]" in result
+        assert len(result) < 200_000

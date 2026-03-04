@@ -55,6 +55,7 @@ class PersonaResult:
     latency_ms: int = 0
     skill_tags: list[str] = field(default_factory=list)
     doc_refs: list[str] = field(default_factory=list)
+    github_refs: list[str] = field(default_factory=list)  # "owner/repo" strings
 
 
 class Persona:
@@ -106,11 +107,11 @@ class Persona:
             user_prompt = "\n\n".join(user_prompt_parts)
 
             raw, latency_ms = await self._classify(system_prompt, user_prompt)
-            intent, content, skill_tags, doc_refs = self._parse_response(raw)
+            intent, content, skill_tags, doc_refs, github_refs = self._parse_response(raw)
 
             logger.info(
                 f"Persona: intent={intent}, skill_tags={skill_tags}, "
-                f"doc_refs={doc_refs}, "
+                f"doc_refs={doc_refs}, github_refs={github_refs}, "
                 f"latency={latency_ms}ms, "
                 f"original={user_message!r}, "
                 f"rewritten={content!r}"
@@ -125,6 +126,7 @@ class Persona:
                     latency_ms=latency_ms,
                     skill_tags=skill_tags,
                     doc_refs=doc_refs,
+                    github_refs=github_refs,
                 )
 
             return PersonaResult(
@@ -135,6 +137,7 @@ class Persona:
                 latency_ms=latency_ms,
                 skill_tags=skill_tags,
                 doc_refs=doc_refs,
+                github_refs=github_refs,
             )
 
         except PermanentLLMError:
@@ -293,17 +296,18 @@ class Persona:
 
         return text.strip(), latency
 
-    def _parse_response(self, raw: str) -> tuple[str, str, list[str], list[str]]:
-        """Parse the Persona's JSON response into (intent, content, skill_tags, doc_refs).
+    def _parse_response(self, raw: str) -> tuple[str, str, list[str], list[str], list[str]]:
+        """Parse the Persona's JSON response into (intent, content, skill_tags, doc_refs, github_refs).
 
-        Expected: {"intent": "...", "content": "...", "skill_tags": [...], "doc_refs": [...]}
+        Expected: {"intent": "...", "content": "...", "skill_tags": [...], "doc_refs": [...], "github_refs": [...]}
         Falls back to line-based parsing if JSON fails (model compatibility).
         """
         skill_tags: list[str] = []
         doc_refs: list[str] = []
+        github_refs: list[str] = []
 
         if not raw:
-            return "retrieval", "", skill_tags, doc_refs
+            return "retrieval", "", skill_tags, doc_refs, github_refs
 
         text = raw.strip()
 
@@ -321,6 +325,9 @@ class Persona:
             raw_refs = data.get("doc_refs", [])
             if isinstance(raw_refs, list):
                 doc_refs = [str(r).strip() for r in raw_refs if r]
+            raw_github = data.get("github_refs", [])
+            if isinstance(raw_github, list):
+                github_refs = [str(r).strip() for r in raw_github if r]
         except (json.JSONDecodeError, AttributeError):
             # Fallback: line-based parsing for backward compat
             logger.warning("Persona returned non-JSON, using line-based fallback")
@@ -335,7 +342,7 @@ class Persona:
             logger.warning(f"Unrecognized intent '{intent}', defaulting to retrieval")
             intent = "retrieval"
 
-        return intent, content, skill_tags, doc_refs
+        return intent, content, skill_tags, doc_refs, github_refs
 
     def _get_persona_config(self) -> dict:
         """Load persona thresholds from persona-orchestrator skill."""

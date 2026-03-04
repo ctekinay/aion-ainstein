@@ -730,6 +730,7 @@ def run_generation_query(
     question: str, result_queue: Queue, output_queue: Queue,
     skill_tags: list[str] | None = None,
     doc_refs: list[str] | None = None,
+    github_refs: list[str] | None = None,
     conversation_id: str | None = None,
     intent: str = "generation",
 ):
@@ -746,6 +747,7 @@ def run_generation_query(
                     question,
                     skill_tags=skill_tags or [],
                     doc_refs=doc_refs,
+                    github_refs=github_refs,
                     conversation_id=conversation_id,
                     event_queue=output_queue,
                     intent=intent,
@@ -782,6 +784,7 @@ async def stream_generation_response(
     question: str,
     skill_tags: list[str] | None = None,
     doc_refs: list[str] | None = None,
+    github_refs: list[str] | None = None,
     conversation_id: str | None = None,
     intent: str = "generation",
 ) -> AsyncGenerator[str, None]:
@@ -799,6 +802,7 @@ async def stream_generation_response(
         kwargs={
             "skill_tags": skill_tags,
             "doc_refs": doc_refs,
+            "github_refs": github_refs,
             "conversation_id": conversation_id,
             "intent": intent,
         },
@@ -1753,7 +1757,7 @@ async def chat_stream(request: ChatRequest):
             return
 
         # Emit Persona classification result with latency
-        yield f"data: {json.dumps({'type': 'persona_intent', 'intent': persona_result.intent, 'rewritten_query': persona_result.rewritten_query, 'skill_tags': persona_result.skill_tags, 'doc_refs': persona_result.doc_refs, 'latency_ms': persona_result.latency_ms})}\n\n"
+        yield f"data: {json.dumps({'type': 'persona_intent', 'intent': persona_result.intent, 'rewritten_query': persona_result.rewritten_query, 'skill_tags': persona_result.skill_tags, 'doc_refs': persona_result.doc_refs, 'github_refs': persona_result.github_refs, 'latency_ms': persona_result.latency_ms})}\n\n"
 
         # Direct response intents: respond immediately, no Tree needed
         if persona_result.direct_response is not None:
@@ -1813,6 +1817,7 @@ async def chat_stream(request: ChatRequest):
                 persona_result.rewritten_query,
                 skill_tags=persona_result.skill_tags,
                 doc_refs=persona_result.doc_refs,
+                github_refs=persona_result.github_refs,
                 conversation_id=conversation_id,
                 intent=persona_result.intent,
             ):
