@@ -26,10 +26,6 @@ groups:
         path: archimate-view-generator/SKILL.md
         description: "ArchiMate 3.2 view generation rules, layout conventions, and fragment format"
         load_order: 2
-      - name: archimate-shared
-        type: references
-        description: "Shared reference library: concept mappings, allowed relations, element types"
-        load_order: 3
 
 skills:
   - name: ainstein-identity

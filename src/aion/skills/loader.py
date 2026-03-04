@@ -31,8 +31,17 @@ class Skill:
     thresholds: dict[str, Any] = field(default_factory=dict)
 
     def get_injectable_content(self) -> str:
-        """Get the skill content formatted for prompt injection."""
-        return f"## Skill: {self.name}\n\n{self.content}"
+        """Get the skill content formatted for prompt injection.
+
+        Includes markdown reference files (strings) from skill.references.
+        YAML-parsed references (dicts from thresholds.yaml etc.) are excluded
+        via isinstance check — they're config, not prompt content.
+        """
+        parts = [f"## Skill: {self.name}\n\n{self.content}"]
+        for ref_name, ref_content in sorted(self.references.items()):
+            if isinstance(ref_content, str):
+                parts.append(f"### {ref_name}\n\n{ref_content}")
+        return "\n\n---\n\n".join(parts)
 
 
 class SkillLoader:
