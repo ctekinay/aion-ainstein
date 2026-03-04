@@ -89,8 +89,8 @@ Queries are handled by the AInstein Persona, which classifies intent, emits skil
 │  ┌─────────────────┐ ┌──────────────────┐                            │
 │  │ response-       │ │ ainstein-        │                            │
 │  │ formatter       │ │ identity         │                            │
-│  │ Numbered lists, │ │ Scope, persona   │                            │
-│  │ follow-ups      │ │ rules            │                            │
+│  │ Numbered lists, │ │ Tone, behavior,  │                            │
+│  │ follow-ups      │ │ scope, identity  │                            │
 │  └─────────────────┘ └──────────────────┘                            │
 │                                                                      │
 │  On-demand skills (injected when Persona emits matching tags)        │
@@ -195,9 +195,10 @@ Skills are markdown instruction files injected into every LLM prompt. They contr
 skills/
 ├── skills-registry.yaml             # Which skills are enabled + on-demand tags
 ├── persona-orchestrator/
-│   └── SKILL.md                     # AInstein Persona system prompt, intent classification, skill tags
+│   ├── SKILL.md                     # Intent classification, query rewriting, skill tags, recall routing
+│   └── references/thresholds.yaml   # Persona conversation history window, truncation limits
 ├── ainstein-identity/
-│   └── SKILL.md                     # Identity, scope, persona rules
+│   └── SKILL.md                     # Conversational behavior, tone, identity, scope, response style
 ├── rag-quality-assurance/
 │   ├── SKILL.md                     # Citation format, abstention rules
 │   └── references/thresholds.yaml   # Distance threshold, retrieval limits
@@ -222,10 +223,9 @@ skills/
 
 This reduces prompt size by 40-80% for standard queries compared to loading all skills on every call. The Generation Pipeline loads only the matching generation skill (e.g., `archimate-generator`) — not the always-on skills — since it operates outside the Tree's retrieval context.
 
-**Thresholds:** The `rag-quality-assurance` skill has a `thresholds.yaml` that controls:
-- `abstention.distance_threshold` (0.5) — maximum vector distance before abstaining
-- `retrieval_limits` — max documents per collection (per-tool override at call time)
-- `truncation` — content length limits (per-tool override at call time)
+**Thresholds:** Skills can define `references/thresholds.yaml` for configurable parameters:
+- `rag-quality-assurance`: `abstention.distance_threshold` (0.6) — maximum vector distance before abstaining; `retrieval_limits` — max documents per collection; `truncation` — content length limits
+- `persona-orchestrator`: `persona.verbatim_window` (20) — how many recent messages the Persona sees verbatim; `persona.message_truncation_chars` (2000) — max chars per message in history
 
 ## Project Structure
 
@@ -341,10 +341,11 @@ AInstein will work without SKOSMOS, but vocabulary lookups (`skosmos_search`, `s
 AInstein stores conversation history and session data in a local SQLite database (`chat_history.db`), created automatically on first run. This enables:
 
 - Persistent conversation history across restarts
-- Rolling conversation summaries for multi-turn context
+- Rolling conversation summaries for multi-turn context (older turns summarized, recent turns verbatim)
+- In-session recall — the Persona can retrieve content it wrote earlier in the conversation
 - Session management and user profiles
 
-No additional setup is required — SQLite is part of the Python standard library.
+The Persona's conversation history window is configurable via `persona-orchestrator/references/thresholds.yaml` (verbatim window size, message truncation). No additional setup is required — SQLite is part of the Python standard library.
 
 ## Artifacts
 
