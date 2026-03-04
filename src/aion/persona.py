@@ -170,6 +170,7 @@ class Persona:
             prompt = f"{prompt}\n\n{identity.content}"
 
         self._cached_prompt = prompt
+        logger.info(f"Persona prompt loaded: {len(self._cached_prompt)} chars")
         return self._cached_prompt
 
     def _get_user_profile_block(self) -> str:
