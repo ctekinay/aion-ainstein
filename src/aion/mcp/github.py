@@ -111,6 +111,77 @@ async def get_repo_readme(
     raise ValueError(f"No README found in {owner}/{repo}@{ref}")
 
 
+async def get_org_overview(owner: str) -> str:
+    """Fetch organization/user overview via GitHub REST API.
+
+    MCP repos toolset has no org-level tools, so we hit the API directly.
+    Tries /orgs/{owner} first, falls back to /users/{owner}.
+    Returns a text summary of profile + top repositories.
+    """
+    import os
+    import httpx
+
+    token = os.environ.get("GITHUB_TOKEN")
+    headers = {"Accept": "application/vnd.github.v3+json"}
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+
+    async with httpx.AsyncClient(timeout=15.0) as client:
+        # Try org first, fall back to user
+        org_resp = await client.get(
+            f"https://api.github.com/orgs/{owner}", headers=headers
+        )
+        if org_resp.status_code == 200:
+            profile = org_resp.json()
+            entity_type = "organization"
+            repos_url = f"https://api.github.com/orgs/{owner}/repos"
+        else:
+            user_resp = await client.get(
+                f"https://api.github.com/users/{owner}", headers=headers
+            )
+            user_resp.raise_for_status()
+            profile = user_resp.json()
+            entity_type = "user"
+            repos_url = f"https://api.github.com/users/{owner}/repos"
+
+        # Fetch top repos by stars
+        repos_resp = await client.get(
+            repos_url,
+            headers=headers,
+            params={"sort": "stars", "per_page": 15, "direction": "desc"},
+        )
+        repos = repos_resp.json() if repos_resp.status_code == 200 else []
+
+    # Assemble text summary
+    parts = [f"GITHUB {entity_type.upper()}: {profile.get('login', owner)}"]
+    if profile.get("name"):
+        parts.append(f"Name: {profile['name']}")
+    if profile.get("description") or profile.get("bio"):
+        parts.append(f"Description: {profile.get('description') or profile.get('bio')}")
+    if profile.get("blog"):
+        parts.append(f"Website: {profile['blog']}")
+    if profile.get("public_repos"):
+        parts.append(f"Public repositories: {profile['public_repos']}")
+
+    if repos:
+        parts.append("\nTOP REPOSITORIES:")
+        for r in repos:
+            stars = r.get("stargazers_count", 0)
+            desc = r.get("description", "") or ""
+            lang = r.get("language", "") or ""
+            line = f"- {r['name']}"
+            if lang:
+                line += f" [{lang}]"
+            if stars:
+                line += f" ({stars} stars)"
+            if desc:
+                line += f" — {desc}"
+            parts.append(line)
+
+    logger.info(f"Got {entity_type} overview for {owner} ({len(repos)} repos)")
+    return "\n".join(parts)
+
+
 def parse_github_url(url: str) -> dict | None:
     """Parse a GitHub URL into components with a type discriminator.
 
@@ -119,6 +190,7 @@ def parse_github_url(url: str) -> dict | None:
     - raw.githubusercontent.com/owner/repo/ref/path  → type: "file"
     - github.com/owner/repo  → type: "repo"
     - github.com/owner/repo/tree/ref  → type: "repo"
+    - github.com/name  → type: "org" (org or user profile)
 
     Returns:
         Dict with type + owner/repo/ref (and path for files). None if not GitHub.
@@ -160,6 +232,14 @@ def parse_github_url(url: str) -> dict | None:
             "owner": m.group(1),
             "repo": m.group(2),
             "ref": m.group(3) or "main",
+        }
+
+    # Org/user URL: github.com/name (single path segment)
+    m = re.match(r"https?://github\.com/([^/]+)/?$", url)
+    if m:
+        return {
+            "type": "org",
+            "owner": m.group(1),
         }
 
     return None

@@ -84,6 +84,21 @@ class TestParseGithubUrl:
         assert result["type"] == "file"
         assert result["path"] == "model.archimate.xml"
 
+    def test_org_url(self):
+        result = parse_github_url("https://github.com/OpenSTEF")
+        assert result == {"type": "org", "owner": "OpenSTEF"}
+
+    def test_org_url_trailing_slash(self):
+        result = parse_github_url("https://github.com/OpenSTEF/")
+        assert result == {"type": "org", "owner": "OpenSTEF"}
+
+    def test_org_url_not_confused_with_repo(self):
+        """Single-segment URL is org, two-segment URL is repo."""
+        org = parse_github_url("https://github.com/OpenSTEF")
+        repo = parse_github_url("https://github.com/OpenSTEF/openstef")
+        assert org["type"] == "org"
+        assert repo["type"] == "repo"
+
 
 # ---------------------------------------------------------------------------
 # Registry
@@ -200,3 +215,18 @@ class TestGetRepoMetadata:
             repo="python-sdk",
         )
         assert len(result) > 0
+
+
+class TestGetOrgOverview:
+
+    @pytest.mark.skipif(
+        not os.environ.get("GITHUB_TOKEN"),
+        reason="No GITHUB_TOKEN set",
+    )
+    @pytest.mark.asyncio
+    async def test_get_org(self):
+        from src.aion.mcp.github import get_org_overview
+
+        result = await get_org_overview("OpenSTEF")
+        assert "OpenSTEF" in result
+        assert "REPOSITORIES" in result

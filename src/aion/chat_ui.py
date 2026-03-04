@@ -921,9 +921,17 @@ async def stream_inspect_response(
                 from src.aion.mcp.github import (
                     get_file_contents as mcp_get_file, parse_github_url,
                     get_repo_readme, list_directory, get_repo_metadata,
+                    get_org_overview,
                 )
                 parsed = parse_github_url(url)
-                if parsed and parsed.get("type") == "repo":
+                if parsed and parsed.get("type") == "org":
+                    yield f"data: {json.dumps({'type': 'status', 'content': 'Fetching organization info...'})}\n\n"
+                    github_content = await get_org_overview(parsed["owner"])
+                    source_filename = parsed["owner"]
+                    source = f"GitHub org/user: {parsed['owner']}"
+                    content_type = "github_org"
+                    logger.info(f"Fetched org overview for {parsed['owner']} ({len(github_content)} chars)")
+                elif parsed and parsed.get("type") == "repo":
                     yield f"data: {json.dumps({'type': 'status', 'content': 'Fetching repository info...'})}\n\n"
                     # Parallel fetch: metadata, README, and directory listing
                     metadata_task = asyncio.ensure_future(
@@ -1026,7 +1034,23 @@ async def stream_inspect_response(
         return
 
     # LLM analysis — branched prompts, shared LLM call
-    if content_type == "github_repo":
+    if content_type == "github_org":
+        yield f"data: {json.dumps({'type': 'status', 'content': 'Analyzing organization...'})}\n\n"
+        system_prompt = (
+            "You are AInstein, the Energy System Architecture AI Assistant. "
+            "You are reviewing a GitHub organization or user profile. "
+            "Summarize what this organization does, their key repositories, "
+            "technologies used, and any notable projects or patterns. "
+            "Be specific — reference actual repository names and descriptions. "
+            "Use markdown formatting for readability."
+        )
+        user_prompt = f"[Source: {source}]\n\n{github_content}\n\nQUESTION: {question}"
+        source_info = {
+            "type": "GitHub Organization",
+            "title": source_filename,
+            "preview": github_content[:200] if github_content else "",
+        }
+    elif content_type == "github_repo":
         yield f"data: {json.dumps({'type': 'status', 'content': 'Analyzing repository...'})}\n\n"
         system_prompt = (
             "You are AInstein, the Energy System Architecture AI Assistant. "
