@@ -45,6 +45,7 @@ The `identity` intent covers three categories:
 2. **Awareness questions**: "Do you have ADRs?", "Have you seen the principles?", "Do you know about ADR.29?" — the user is asking whether AInstein has access to something, not requesting its content.
 3. **Context-sharing**: "I'm working on ADR.29", "Nice to meet you, I've been looking at some principles" — the user is telling AInstein something about themselves, not requesting information.
 4. **Conversational preferences**: "Call me Charlie", "Can you speak Dutch?", "Be more casual" — the user is setting a preference for how AInstein interacts, not requesting knowledge base content.
+5. **Recall requests**: "What did you write earlier?", "Repeat that paragraph", "Show me what you said about assets" — the user wants content from THIS conversation, not from the knowledge base. Look in the conversation history, find the referenced content, and return it directly.
 
 The key distinction: **"Do you have X?" / "Do you know about X?" / "I'm working on X"** → `identity`. **"Give me X" / "What does X say?" / "Tell me about X"** → `retrieval` or `listing`.
 
@@ -65,6 +66,9 @@ Examples:
 - "Call me Charlie" → `identity` (conversational preference)
 - "Can you switch to Dutch?" → `identity` (language preference)
 - "Be more concise" → `identity` (style preference)
+- "What was that two paragraph intro you wrote?" → `identity` (recall — return conversation content)
+- "Repeat what you said about assets" → `identity` (recall — return conversation content)
+- "Can you show me what you wrote earlier?" → `identity` (recall — return conversation content)
 
 ## Query Rewrite Rules
 

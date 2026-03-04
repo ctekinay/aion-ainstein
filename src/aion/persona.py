@@ -337,9 +337,10 @@ class Persona:
 
         return intent, content, skill_tags, doc_refs
 
-    # Number of recent messages to include verbatim (full text).
-    # Older messages are covered by the running summary.
-    VERBATIM_WINDOW = 6
+    def _get_persona_config(self) -> dict:
+        """Load persona thresholds from persona-orchestrator skill."""
+        thresholds = self._loader.get_thresholds("persona-orchestrator")
+        return thresholds.get("persona", {})
 
     def _format_history(
         self,
@@ -355,6 +356,10 @@ class Persona:
         if not messages:
             return ""
 
+        config = self._get_persona_config()
+        verbatim_window = config.get("verbatim_window", 20)
+        truncation = config.get("message_truncation_chars", 2000)
+
         parts = []
 
         # 1. Running summary (covers all messages before the verbatim window)
@@ -368,15 +373,15 @@ class Persona:
         if summary:
             parts.append(f"SESSION SUMMARY (earlier context):\n{summary}")
 
-        # 2. Verbatim recent messages
-        recent = messages[-self.VERBATIM_WINDOW:]
+        # 2. Verbatim recent messages (full content, not turn_summary)
+        recent = messages[-verbatim_window:]
         if recent:
             lines = []
             for msg in recent:
                 role = "User" if msg["role"] == "user" else "Assistant"
-                text = msg.get("turn_summary") or msg.get("content", "")
-                if len(text) > 300:
-                    text = text[:300] + "..."
+                text = msg.get("content", "")
+                if len(text) > truncation:
+                    text = text[:truncation] + "..."
                 lines.append(f"{role}: {text}")
             parts.append("RECENT MESSAGES:\n" + "\n".join(lines))
 
