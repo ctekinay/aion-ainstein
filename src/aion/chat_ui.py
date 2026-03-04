@@ -1683,6 +1683,10 @@ async def chat_stream(request: ChatRequest):
                     aid = data.get("artifact_id")
                     if aid:
                         artifact_ids.append(aid)
+                    # Also capture YAML companion artifact ID
+                    yaml_aid = data.get("yaml_companion_id")
+                    if yaml_aid:
+                        artifact_ids.append(yaml_aid)
             except (json.JSONDecodeError, ValueError):
                 pass
 
