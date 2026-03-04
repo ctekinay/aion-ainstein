@@ -66,7 +66,7 @@ elements:
   - id: <short-code>
     type: <ArchiMateElementType>
     name: "<Element Name>"
-    documentation: "<Optional description>"
+    documentation: "<1-2 sentence description — required for every element>"
 
 relationships:
   - type: <ArchiMateRelationshipType>
@@ -82,9 +82,10 @@ relationships:
 3. Every `type` in relationships MUST be one of: `Composition`, `Aggregation`, `Assignment`, `Realization`, `Serving`, `Access`, `Influence`, `Association`, `Triggering`, `Flow`, `Specialization`
 4. Every `source` and `target` in relationships MUST reference a valid element `id`
 5. Relationships do NOT have an `id` field — identifiers are generated automatically
-6. Do NOT include nested elements, property tags, or any XML-specific constructs
-7. Wrap the entire output in ```yaml code fences
-8. Do NOT include any text before or after the YAML code fence
+6. Every element MUST include a `documentation` field with a 1-2 sentence description
+7. Do NOT include nested elements, property tags, or any XML-specific constructs
+8. Wrap the entire output in ```yaml code fences
+9. Do NOT include any text before or after the YAML code fence
 
 **Example:**
 
@@ -96,15 +97,19 @@ elements:
   - id: b1
     type: BusinessProcess
     name: "Login Process"
+    documentation: "End-to-end user authentication flow including credential validation and session creation."
   - id: a1
     type: ApplicationComponent
     name: "Auth Service"
+    documentation: "Central authentication service handling login, token issuance, and session management."
   - id: a2
     type: ApplicationInterface
     name: "Login API"
+    documentation: "REST API endpoint accepting credentials and returning authentication tokens."
   - id: t1
     type: SystemSoftware
     name: "OAuth Provider"
+    documentation: "Third-party OAuth 2.0 identity provider used for federated authentication."
 
 relationships:
   - type: Serving

@@ -470,6 +470,75 @@ relationships:
         assert info["relationship_count"] == 1
         assert any("may not be a valid" in msg for msg in caplog.messages)
 
+    def test_node_assignment_to_app_component_no_warning(self, caplog):
+        """Node → ApplicationComponent (Assignment) is valid hosting."""
+        yaml_str = """\
+model:
+  name: "Test"
+elements:
+  - id: t1
+    type: Node
+    name: "Server"
+  - id: a1
+    type: ApplicationComponent
+    name: "Backend"
+relationships:
+  - type: Assignment
+    source: t1
+    target: a1
+"""
+        import logging
+        with caplog.at_level(logging.WARNING, logger="src.aion.tools.yaml_to_xml"):
+            xml_str, info = yaml_to_archimate_xml(yaml_str)
+        assert info["relationship_count"] == 1
+        assert not any("may not be a valid" in msg for msg in caplog.messages)
+
+    def test_system_software_access_to_data_object_no_warning(self, caplog):
+        """SystemSoftware → DataObject (Access) is valid cross-layer access."""
+        yaml_str = """\
+model:
+  name: "Test"
+elements:
+  - id: t1
+    type: SystemSoftware
+    name: "DBMS"
+  - id: a1
+    type: DataObject
+    name: "Customer Data"
+relationships:
+  - type: Access
+    source: t1
+    target: a1
+"""
+        import logging
+        with caplog.at_level(logging.WARNING, logger="src.aion.tools.yaml_to_xml"):
+            xml_str, info = yaml_to_archimate_xml(yaml_str)
+        assert info["relationship_count"] == 1
+        assert not any("may not be a valid" in msg for msg in caplog.messages)
+
+    def test_capability_realization_to_business_service_no_warning(self, caplog):
+        """Capability → BusinessService (Realization) is valid strategy→business."""
+        yaml_str = """\
+model:
+  name: "Test"
+elements:
+  - id: s1
+    type: Capability
+    name: "API Management"
+  - id: b1
+    type: BusinessService
+    name: "Customer Portal"
+relationships:
+  - type: Realization
+    source: s1
+    target: b1
+"""
+        import logging
+        with caplog.at_level(logging.WARNING, logger="src.aion.tools.yaml_to_xml"):
+            xml_str, info = yaml_to_archimate_xml(yaml_str)
+        assert info["relationship_count"] == 1
+        assert not any("may not be a valid" in msg for msg in caplog.messages)
+
 
 # ---------------------------------------------------------------------------
 # Duplicate source-target pairs get suffixed IDs
