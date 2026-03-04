@@ -875,11 +875,12 @@ async def stream_inspect_response(
     question: str,
     conversation_id: str | None = None,
 ) -> AsyncGenerator[str, None]:
-    """Stream model inspection response as SSE events.
+    """Stream inspection response as SSE events.
 
     Three input paths (tried in order):
     1. Load latest ArchiMate artifact from the conversation (XML or YAML)
-    2. Detect a URL in the query, fetch it, validate as ArchiMate content
+    2. Detect a URL in the query: repo root → README analysis,
+       file URL → ArchiMate validation, generic URL → httpx fetch
     3. No model found — prompt user to generate or upload
     """
     from src.aion.tools.yaml_to_xml import xml_to_yaml, _parse_and_validate
@@ -889,6 +890,8 @@ async def stream_inspect_response(
     yaml_content = None
     source_filename = None
     source = None
+    content_type = "archimate"  # "archimate", "github_repo", or "github_file"
+    github_content = None
 
     # Path 1: Load latest artifact from conversation (try XML first, then YAML)
     artifact = None
@@ -915,9 +918,54 @@ async def stream_inspect_response(
         if url_match:
             url = url_match.group(0).rstrip('.,;:)')
             try:
-                from src.aion.mcp.github import get_file_contents as mcp_get_file, parse_github_url
+                from src.aion.mcp.github import (
+                    get_file_contents as mcp_get_file, parse_github_url,
+                    get_repo_readme, list_directory, get_repo_metadata,
+                )
                 parsed = parse_github_url(url)
-                if parsed:
+                if parsed and parsed.get("type") == "repo":
+                    yield f"data: {json.dumps({'type': 'status', 'content': 'Fetching repository info...'})}\n\n"
+                    # Parallel fetch: metadata, README, and directory listing
+                    metadata_task = asyncio.ensure_future(
+                        get_repo_metadata(parsed["owner"], parsed["repo"])
+                    )
+                    readme_task = asyncio.ensure_future(
+                        get_repo_readme(parsed["owner"], parsed["repo"], parsed["ref"])
+                    )
+                    dir_task = asyncio.ensure_future(
+                        list_directory(parsed["owner"], parsed["repo"], "", parsed["ref"])
+                    )
+                    metadata = readme = dir_listing = ""
+                    for name, task in [("metadata", metadata_task), ("README", readme_task), ("directory", dir_task)]:
+                        try:
+                            result = await task
+                            if name == "metadata":
+                                metadata = result
+                            elif name == "README":
+                                readme = result
+                            else:
+                                dir_listing = result
+                        except Exception as e:
+                            logger.warning(f"Repo {name} fetch failed: {e}")
+                    if not metadata and not readme and not dir_listing:
+                        raise ValueError(f"Could not fetch any content from {parsed['owner']}/{parsed['repo']}")
+                    # Assemble context for LLM
+                    parts = []
+                    if metadata:
+                        parts.append(f"REPOSITORY METADATA:\n{metadata}")
+                    if dir_listing:
+                        parts.append(f"ROOT DIRECTORY:\n{dir_listing}")
+                    if readme:
+                        max_readme = 50000
+                        if len(readme) > max_readme:
+                            readme = readme[:max_readme] + "\n\n[README truncated]"
+                        parts.append(f"README.md:\n{readme}")
+                    github_content = "\n\n---\n\n".join(parts)
+                    source_filename = f"{parsed['owner']}/{parsed['repo']}"
+                    source = f"GitHub repo: {parsed['owner']}/{parsed['repo']}@{parsed['ref']}"
+                    content_type = "github_repo"
+                    logger.info(f"Fetched repo info for {parsed['owner']}/{parsed['repo']}@{parsed['ref']} ({len(github_content)} chars)")
+                elif parsed:
                     yield f"data: {json.dumps({'type': 'status', 'content': 'Fetching from GitHub...'})}\n\n"
                     fetched = await mcp_get_file(
                         owner=parsed["owner"], repo=parsed["repo"],
@@ -925,6 +973,15 @@ async def stream_inspect_response(
                     )
                     source_filename = parsed["path"].rsplit("/", 1)[-1]
                     source = f"Fetched from GitHub: {url}"
+                    # Non-ArchiMate file: analyze generically
+                    is_archimate = source_filename.endswith((".xml", ".yaml", ".yml"))
+                    if not is_archimate:
+                        _BINARY_EXTS = {".png", ".jpg", ".jpeg", ".gif", ".ico", ".pdf", ".zip", ".tar", ".gz", ".whl", ".pyc"}
+                        ext = "." + source_filename.rsplit(".", 1)[-1].lower() if "." in source_filename else ""
+                        if ext in _BINARY_EXTS:
+                            raise ValueError(f"Binary files ({ext}) cannot be analyzed. Try a text-based file instead.")
+                        github_content = fetched
+                        content_type = "github_file"
                 else:
                     yield f"data: {json.dumps({'type': 'status', 'content': 'Fetching model from URL...'})}\n\n"
                     import httpx
@@ -935,26 +992,27 @@ async def stream_inspect_response(
                     source_filename = url.rsplit("/", 1)[-1] if "/" in url else "fetched-model.xml"
                     source = f"Fetched from URL: {url}"
 
-                is_yaml = source_filename.endswith((".yaml", ".yml"))
-                is_xml = source_filename.endswith(".xml")
+                if content_type == "archimate":
+                    is_yaml = source_filename.endswith((".yaml", ".yml"))
+                    is_xml = source_filename.endswith(".xml")
 
-                if not is_yaml and not is_xml:
-                    raise ValueError(
-                        f"Unsupported file type: {source_filename}. "
-                        "The inspect pipeline supports ArchiMate XML (.xml) and YAML (.yaml, .yml) files."
-                    )
+                    if not is_yaml and not is_xml:
+                        raise ValueError(
+                            f"Unsupported file type: {source_filename}. "
+                            "The inspect pipeline supports ArchiMate XML (.xml) and YAML (.yaml, .yml) files."
+                        )
 
-                if is_yaml:
-                    _parse_and_validate(fetched)
-                    yaml_content = fetched
-                    if conversation_id:
-                        save_artifact(conversation_id, source_filename, fetched, "text/yaml", f"Fetched from: {url}")
-                else:
-                    yaml_content = xml_to_yaml(fetched)
-                    if conversation_id:
-                        save_artifact(conversation_id, source_filename, fetched, "archimate/xml", f"Fetched from: {url}")
+                    if is_yaml:
+                        _parse_and_validate(fetched)
+                        yaml_content = fetched
+                        if conversation_id:
+                            save_artifact(conversation_id, source_filename, fetched, "text/yaml", f"Fetched from: {url}")
+                    else:
+                        yaml_content = xml_to_yaml(fetched)
+                        if conversation_id:
+                            save_artifact(conversation_id, source_filename, fetched, "archimate/xml", f"Fetched from: {url}")
 
-                logger.info(f"Fetched ArchiMate model from URL: {url} ({len(fetched)} chars)")
+                    logger.info(f"Fetched ArchiMate model from URL: {url} ({len(fetched)} chars)")
             except ValueError as e:
                 yield f"data: {json.dumps({'type': 'complete', 'response': f'Failed to fetch model: {e}', 'sources': [], 'timing': {}})}\n\n"
                 return
@@ -962,28 +1020,66 @@ async def stream_inspect_response(
                 yield f"data: {json.dumps({'type': 'complete', 'response': f'Failed to fetch URL: {e}', 'sources': [], 'timing': {}})}\n\n"
                 return
 
-    # Path 3: No model found
-    if not yaml_content:
+    # Path 3: No model found (only for ArchiMate — GitHub content skips this)
+    if content_type == "archimate" and not yaml_content:
         yield f"data: {json.dumps({'type': 'complete', 'response': 'No ArchiMate model found in this conversation. Generate a model first, upload an ArchiMate XML/YAML file, or paste a URL to one.', 'sources': [], 'timing': {}})}\n\n"
         return
 
-    # LLM analysis
-    yield f"data: {json.dumps({'type': 'status', 'content': 'Analyzing model...'})}\n\n"
-
-    system_prompt = (
-        "You are AInstein, reviewing an ArchiMate model. "
-        "The model has been converted to a compact YAML representation that "
-        "contains all elements and relationships. View definitions (diagram "
-        "layouts) are intentionally omitted for efficiency — they contain "
-        "positioning data, not semantic content. "
-        "Analyze the elements and relationships directly. "
-        "Never state that views are missing, that content is incomplete, or "
-        "that you cannot access the model — you have everything needed for "
-        "semantic analysis. "
-        "Be specific — reference element names, types, and relationships from the model. "
-        "Use markdown formatting for readability."
-    )
-    user_prompt = f"[Source: {source}]\n\nARCHIMATE MODEL (YAML):\n```yaml\n{yaml_content}```\n\nQUESTION: {question}"
+    # LLM analysis — branched prompts, shared LLM call
+    if content_type == "github_repo":
+        yield f"data: {json.dumps({'type': 'status', 'content': 'Analyzing repository...'})}\n\n"
+        system_prompt = (
+            "You are AInstein, the Energy System Architecture AI Assistant. "
+            "You are reviewing a GitHub repository. "
+            "Analyze the repository metadata, directory structure, and README. "
+            "Summarize what this project does, its architecture, key components, "
+            "technologies used, and any notable patterns. "
+            "Be specific — reference actual content from the repository. "
+            "Use markdown formatting for readability."
+        )
+        user_prompt = f"[Source: {source}]\n\n{github_content}\n\nQUESTION: {question}"
+        source_info = {
+            "type": "GitHub Repository",
+            "title": source_filename,
+            "preview": github_content[:200] if github_content else "",
+        }
+    elif content_type == "github_file":
+        yield f"data: {json.dumps({'type': 'status', 'content': 'Analyzing file...'})}\n\n"
+        ext = source_filename.rsplit(".", 1)[-1] if "." in source_filename else "text"
+        system_prompt = (
+            "You are AInstein, the Energy System Architecture AI Assistant. "
+            "You are reviewing a file from a GitHub repository. "
+            "Analyze the file content and explain its purpose, structure, "
+            "and key patterns. Be specific — reference actual code or content. "
+            "Use markdown formatting for readability."
+        )
+        user_prompt = f"[Source: {source}]\n\nFILE: {source_filename}\n```{ext}\n{github_content}```\n\nQUESTION: {question}"
+        source_info = {
+            "type": "GitHub File",
+            "title": source_filename,
+            "preview": github_content[:200] if github_content else "",
+        }
+    else:
+        yield f"data: {json.dumps({'type': 'status', 'content': 'Analyzing model...'})}\n\n"
+        system_prompt = (
+            "You are AInstein, reviewing an ArchiMate model. "
+            "The model has been converted to a compact YAML representation that "
+            "contains all elements and relationships. View definitions (diagram "
+            "layouts) are intentionally omitted for efficiency — they contain "
+            "positioning data, not semantic content. "
+            "Analyze the elements and relationships directly. "
+            "Never state that views are missing, that content is incomplete, or "
+            "that you cannot access the model — you have everything needed for "
+            "semantic analysis. "
+            "Be specific — reference element names, types, and relationships from the model. "
+            "Use markdown formatting for readability."
+        )
+        user_prompt = f"[Source: {source}]\n\nARCHIMATE MODEL (YAML):\n```yaml\n{yaml_content}```\n\nQUESTION: {question}"
+        source_info = {
+            "type": "ArchiMate Model",
+            "title": source_filename or "model.archimate.xml",
+            "preview": f"Model with {yaml_content.count('- id:')} elements",
+        }
 
     start_time = time.time()
     try:
@@ -1026,11 +1122,7 @@ async def stream_inspect_response(
         total_ms = int((time.time() - start_time) * 1000)
         timing = {"total_ms": total_ms}
 
-        sources = [{
-            "type": "ArchiMate Model",
-            "title": source_filename or "model.archimate.xml",
-            "preview": f"Model with {yaml_content.count('- id:')} elements",
-        }]
+        sources = [source_info]
 
         logger.info(f"Inspect complete: {total_ms}ms, {len(response_text)} chars")
         yield f"data: {json.dumps({'type': 'complete', 'response': response_text, 'sources': sources, 'timing': timing})}\n\n"

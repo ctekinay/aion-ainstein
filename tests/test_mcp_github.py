@@ -18,6 +18,7 @@ class TestParseGithubUrl:
         url = "https://github.com/Alliander/esa-ainstein-artifacts/blob/main/tests/model.xml"
         result = parse_github_url(url)
         assert result == {
+            "type": "file",
             "owner": "Alliander",
             "repo": "esa-ainstein-artifacts",
             "ref": "main",
@@ -27,6 +28,7 @@ class TestParseGithubUrl:
     def test_blob_url_with_branch(self):
         url = "https://github.com/Alliander/repo/blob/ainstein-skills-framework-v2/path/to/file.xml"
         result = parse_github_url(url)
+        assert result["type"] == "file"
         assert result["ref"] == "ainstein-skills-framework-v2"
         assert result["path"] == "path/to/file.xml"
 
@@ -34,6 +36,7 @@ class TestParseGithubUrl:
         url = "https://raw.githubusercontent.com/Alliander/repo/main/file.xml"
         result = parse_github_url(url)
         assert result == {
+            "type": "file",
             "owner": "Alliander",
             "repo": "repo",
             "ref": "main",
@@ -43,12 +46,43 @@ class TestParseGithubUrl:
     def test_non_github_url(self):
         assert parse_github_url("https://example.com/file.xml") is None
 
-    def test_repo_url_without_file(self):
-        assert parse_github_url("https://github.com/Alliander/repo") is None
+    def test_repo_root_url(self):
+        result = parse_github_url("https://github.com/Alliander/repo")
+        assert result == {
+            "type": "repo",
+            "owner": "Alliander",
+            "repo": "repo",
+            "ref": "main",
+        }
 
-    def test_github_url_no_blob(self):
-        """Tree URLs (without /blob/) are not file URLs."""
-        assert parse_github_url("https://github.com/Alliander/repo/tree/main") is None
+    def test_repo_root_url_trailing_slash(self):
+        result = parse_github_url("https://github.com/Alliander/repo/")
+        assert result is not None
+        assert result["type"] == "repo"
+        assert result["owner"] == "Alliander"
+        assert result["repo"] == "repo"
+
+    def test_repo_tree_url(self):
+        result = parse_github_url("https://github.com/Alliander/repo/tree/develop")
+        assert result == {
+            "type": "repo",
+            "owner": "Alliander",
+            "repo": "repo",
+            "ref": "develop",
+        }
+
+    def test_repo_tree_url_default_ref(self):
+        """Repo root without /tree/ defaults to main."""
+        result = parse_github_url("https://github.com/OpenSTEF/openstef")
+        assert result["type"] == "repo"
+        assert result["ref"] == "main"
+
+    def test_file_url_never_matches_repo(self):
+        """File URLs with /blob/ always return type 'file', never 'repo'."""
+        url = "https://github.com/Alliander/repo/blob/main/model.archimate.xml"
+        result = parse_github_url(url)
+        assert result["type"] == "file"
+        assert result["path"] == "model.archimate.xml"
 
 
 # ---------------------------------------------------------------------------
@@ -111,3 +145,58 @@ class TestGetFileContents:
         )
         assert len(content) > 100
         assert "MCP" in content
+
+
+class TestGetRepoReadme:
+
+    @pytest.mark.skipif(
+        not os.environ.get("GITHUB_TOKEN"),
+        reason="No GITHUB_TOKEN set",
+    )
+    @pytest.mark.asyncio
+    async def test_fetch_readme(self):
+        from src.aion.mcp.github import get_repo_readme
+
+        content = await get_repo_readme(
+            owner="modelcontextprotocol",
+            repo="python-sdk",
+            ref="main",
+        )
+        assert len(content) > 100
+        assert "MCP" in content
+
+
+class TestListDirectory:
+
+    @pytest.mark.skipif(
+        not os.environ.get("GITHUB_TOKEN"),
+        reason="No GITHUB_TOKEN set",
+    )
+    @pytest.mark.asyncio
+    async def test_list_root(self):
+        from src.aion.mcp.github import list_directory
+
+        result = await list_directory(
+            owner="modelcontextprotocol",
+            repo="python-sdk",
+            path="",
+            ref="main",
+        )
+        assert len(result) > 0
+
+
+class TestGetRepoMetadata:
+
+    @pytest.mark.skipif(
+        not os.environ.get("GITHUB_TOKEN"),
+        reason="No GITHUB_TOKEN set",
+    )
+    @pytest.mark.asyncio
+    async def test_get_metadata(self):
+        from src.aion.mcp.github import get_repo_metadata
+
+        result = await get_repo_metadata(
+            owner="modelcontextprotocol",
+            repo="python-sdk",
+        )
+        assert len(result) > 0
