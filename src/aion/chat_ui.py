@@ -663,14 +663,16 @@ async def _llm_summarize_ollama(prompt: str) -> str | None:
 async def _maybe_update_summary(conversation_id: str) -> None:
     """Trigger a rolling summary update if enough messages have left the verbatim window.
 
-    The verbatim window is defined in Persona.VERBATIM_WINDOW (6 messages).
+    The verbatim window is loaded from persona-orchestrator thresholds (default 20).
     We summarize when SUMMARIZE_TRIGGER_COUNT (4) messages have accumulated
     beyond that window since the last summary, so roughly every 4-6 turns.
     """
-    from src.aion.persona import Persona  # local import to avoid circular
+    from src.aion.skills.loader import SkillLoader  # local import to avoid circular
 
     messages = get_conversation_messages(conversation_id)
-    verbatim_window = Persona.VERBATIM_WINDOW
+    loader = SkillLoader()
+    persona_config = loader.get_thresholds("persona-orchestrator").get("persona", {})
+    verbatim_window = persona_config.get("verbatim_window", 20)
 
     # Nothing to summarize if all messages fit in the verbatim window
     if len(messages) <= verbatim_window:
