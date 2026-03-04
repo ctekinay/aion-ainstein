@@ -139,7 +139,7 @@ Queries are handled by the AInstein Persona, which classifies intent, emits skil
 git clone <your-fork-url>
 cd esa-ainstein-artifacts
 
-# 2. Start Weaviate
+# 2. Start Weaviate (use podman-compose on Linux if not using Docker)
 docker compose up -d
 
 # 3. Start Ollama and pull models
@@ -162,7 +162,7 @@ python -m src.aion.cli chat --port 8081
 
 ## Prerequisites
 
-- **Docker** — for Weaviate vector database and SKOSMOS vocabulary service
+- **Docker** (or **Podman**) — for Weaviate vector database and SKOSMOS vocabulary service
 - **Python 3.11-3.12** (3.10 and 3.13+ not supported)
 - **Ollama** (default, local, free) — [ollama.ai/download](https://ollama.ai/download)
 - **SKOSMOS** — vocabulary lookup service (runs separately via Docker, see [SKOSMOS Setup](#skosmos-setup))
@@ -301,9 +301,9 @@ esa-ainstein-artifacts/
 | `PERSONA_PROVIDER` | — | Override LLM provider for AInstein Persona only |
 | `TREE_PROVIDER` | — | Override LLM provider for Elysia Tree only |
 
-### Docker
+### Docker / Podman
 
-Weaviate runs locally via Docker. The `docker-compose.yml` configures:
+Weaviate runs locally via Docker (or Podman). The `docker-compose.yml` configures:
 - Weaviate 1.35.7 with text2vec-ollama and generative-ollama modules
 - HTTP on port 8090, gRPC on port 50061
 - Persistent storage via Docker volume
@@ -314,9 +314,11 @@ docker compose down          # Stop
 docker compose down -v       # Stop and delete all data
 ```
 
+**Podman users (Linux):** Use `podman-compose` instead of `docker compose`. If Ollama runs on the host, replace `host.docker.internal` with the host's actual IP in `.env` — Podman doesn't support `host.docker.internal` by default.
+
 ## SKOSMOS Setup
 
-SKOSMOS provides the vocabulary lookup service (5,200+ IEC/CIM/SKOS concepts). It runs as a separate Docker container and is accessed via REST API.
+SKOSMOS provides the vocabulary lookup service (5,200+ IEC/CIM/SKOS concepts). It runs as a separate container (Docker or Podman) and is accessed via REST API.
 
 The SKOSMOS instance and its vocabulary data are maintained in a separate Alliander repository:
 
