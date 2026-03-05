@@ -1664,7 +1664,7 @@
                 <div class="input-wrapper">
                     <textarea
                         id="message-input"
-                        placeholder="Hi fellow architect! How can I help you?"
+                        placeholder="Hi fellow architect! How can I help you? (Shift+Enter for new line)"
                         rows="5"
                         onkeydown="handleKeyDown(event)"
                         oninput="autoResize(this)"
@@ -2984,6 +2984,8 @@
         function formatMessageText(text) {
             if (!text) return '';
             if (typeof marked !== 'undefined' && marked.parse) {
+                // GFM-style line breaks: single \n → <br>
+                marked.setOptions({ breaks: true });
                 return marked.parse(text);
             }
             console.warn('marked.js not loaded, falling back to plain text');
