@@ -11,7 +11,7 @@ AInstein lets architects and engineers query Alliander's architecture knowledge 
 - **49 Decision Approval Records (DARs)** — governance and approval history
 - **5,200+ SKOS Vocabulary Concepts** — IEC 61970/61968/62325 standards, CIM models, domain ontologies via SKOSMOS REST API
 - **Policy Documents** — data governance, privacy, security policies
-- **ArchiMate 3.2 Model Generation** — validated Open Exchange XML from architecture descriptions
+- **ArchiMate 3.2 Model Generation** — validated Open Exchange XML from architecture descriptions, with optional Dublin Core (`dct:*`) metadata properties on elements and relationships
 - **ArchiMate Model Inspection** — analyze, describe, and compare ArchiMate models from conversation artifacts, file uploads, or URLs
 - **GitHub Repository Browsing** — inspect GitHub repos (metadata, README, directory structure), org/user profiles (top repositories), and individual files via MCP and REST API
 - **SKOSMOS Vocabulary Lookups** — term definitions, abbreviations, concept hierarchies via structured API
@@ -20,7 +20,7 @@ Queries are handled by the AInstein Persona, which classifies intent, emits skil
 
 - **Retrieval queries** ("What ADRs exist?", "What is document 22?", "Define active power") go to the **Elysia Decision Tree**, which selects tools, searches collections, and formats responses with citations.
 - **Generation queries** ("Create an ArchiMate model for ADR.29") go to the **Generation Pipeline**, which fetches source content, builds a prompt from the matching skill, makes a single LLM call, validates, and saves the artifact for download. Token usage is tracked across all LLM calls (generation, view repair, validation retries) and reported in a single summary log line at completion.
-- **Refinement queries** ("Add a Technology layer to the model") go to the **Generation Pipeline** with the previous artifact loaded as context. The LLM returns a structured YAML diff envelope (~200 tokens) instead of regenerating the full model (~4,600 tokens). A deterministic merge engine applies the diff; if parsing fails, the pipeline falls back transparently to full regeneration.
+- **Refinement queries** ("Add a Technology layer to the model", "Add dct:* properties to all elements") go to the **Generation Pipeline** with the previous artifact loaded as context. The LLM returns a structured YAML diff envelope (~200 tokens) instead of regenerating the full model (~4,600 tokens). A deterministic merge engine applies the diff — supporting element/relationship addition, removal, property modification (additive merge), and relationship modification via derived IDs; if parsing fails, the pipeline falls back transparently to full regeneration.
 - **Inspection queries** ("Describe the model you just generated", "What elements are in this ArchiMate file?", "https://github.com/OpenSTEF") go to the **Inspection path**. ArchiMate files are converted to compact YAML (~90% token reduction) for LLM analysis. GitHub repo URLs fetch metadata + README + directory listing via MCP for repo-level analysis. GitHub org/user URLs fetch profile and top repositories via REST API. Non-ArchiMate files (e.g., `.py`, `.toml`) get generic file analysis. Models can come from conversation artifacts, file uploads, or URLs.
 - **Direct response queries** ("Who are you?", "What's the weather?") are answered by the Persona without any backend call.
 
@@ -99,7 +99,7 @@ Queries are handled by the AInstein Persona, which classifies intent, emits skil
 │  │ archimate-      │ │ archimate-view-  │ │ skosmos-             │   │
 │  │ generator       │ │ generator        │ │ vocabulary           │   │
 │  │ ArchiMate 3.2   │ │ View layout +    │ │ SKOSMOS REST API     │   │
-│  │ XML generation  │ │ merge            │ │ term definitions     │   │
+│  │ XML + properties│ │ merge            │ │ term definitions     │   │
 │  │ tag: archimate  │ │ tag: archimate   │ │ tag: vocabulary      │   │
 │  └─────────────────┘ └──────────────────┘ └──────────────────────┘   │
 └──────────────────────────────────────────────────────────────────────┘
