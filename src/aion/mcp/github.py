@@ -58,13 +58,14 @@ async def list_directory(
 ) -> str:
     """List contents of a directory in a GitHub repository via MCP.
 
-    Returns the MCP response (typically a listing of files and directories).
+    Uses get_file_contents which returns a directory listing when called
+    on a directory path.
     """
     server = get_server("github")
 
     result = await call_tool(
         server,
-        "list_directory",
+        "get_file_contents",
         {
             "owner": owner,
             "repo": repo,
@@ -78,17 +79,41 @@ async def list_directory(
 
 
 async def get_repo_metadata(owner: str, repo: str) -> str:
-    """Fetch repository metadata (description, language, etc.) via MCP."""
-    server = get_server("github")
+    """Fetch repository metadata via GitHub REST API.
 
-    result = await call_tool(
-        server,
-        "get_repo",
-        {"owner": owner, "repo": repo},
-    )
+    Returns a formatted text summary with description, language, topics,
+    stars, and default_branch. Used by the generation pipeline to provide
+    repo context to the LLM.
+    """
+    import os
+    import httpx
+
+    token = os.environ.get("GITHUB_TOKEN")
+    headers = {"Accept": "application/vnd.github.v3+json"}
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+
+    async with httpx.AsyncClient(timeout=15.0) as client:
+        resp = await client.get(
+            f"https://api.github.com/repos/{owner}/{repo}", headers=headers
+        )
+        resp.raise_for_status()
+        data = resp.json()
+
+    parts = []
+    if data.get("description"):
+        parts.append(f"Description: {data['description']}")
+    if data.get("language"):
+        parts.append(f"Language: {data['language']}")
+    if data.get("topics"):
+        parts.append(f"Topics: {', '.join(data['topics'])}")
+    if data.get("stargazers_count"):
+        parts.append(f"Stars: {data['stargazers_count']}")
+    if data.get("default_branch"):
+        parts.append(f"Default branch: {data['default_branch']}")
 
     logger.info(f"Got metadata for {owner}/{repo}")
-    return result
+    return "\n".join(parts)
 
 
 async def get_repo_readme(

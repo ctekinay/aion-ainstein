@@ -6,6 +6,7 @@ and agentic query processing.
 
 import logging
 import time
+from pathlib import Path
 from typing import Optional, Any
 
 import re
@@ -31,6 +32,8 @@ try:
 except ImportError:
     _SKILLS_AVAILABLE = False
 
+logger = logging.getLogger(__name__)
+
 # Hardcoded fallbacks for when skills framework is unavailable or disabled
 _DEFAULT_DISTANCE_THRESHOLD = 0.5
 _DEFAULT_RETRIEVAL_LIMITS = {"adr": 8, "principle": 6, "policy": 4, "vocabulary": 4}
@@ -39,12 +42,10 @@ _DEFAULT_TRUNCATION = {"content_max_chars": 800, "elysia_content_chars": 500,
 
 # Ownership correction for principles. Weaviate's Principle collection stores
 # "Energy System Architecture" / "ESA" as owner_team for ALL PCPs because the
-# index.md defines a single collection-level ownership block. PCP.21-30 are
-# owned by Business Architecture, PCP.31-38 by Data Office.
-# Source: skills/esa-document-ontology/references/registry-index.md
-# NOTE: Update ranges when new principles outside PCP.10-40 are added.
-# The real fix is per-document ownership at ingestion time.
-_PRINCIPLE_OWNER_MAP = {
+# index.md defines a single collection-level ownership block. The actual
+# per-PCP ownership is parsed from the registry-index.md source of truth.
+# Adding new PCPs or changing ownership only requires editing the registry.
+_OWNER_METADATA = {
     "BA": {
         "owner_team": "Business Architecture",
         "owner_team_abbr": "BA",
@@ -55,20 +56,51 @@ _PRINCIPLE_OWNER_MAP = {
         "owner_team_abbr": "DO",
         "owner_display": "Alliander / Data Office",
     },
+    "ESA": {
+        "owner_team": "Energy System Architecture",
+        "owner_team_abbr": "ESA",
+        "owner_display": "Alliander / System Operations / Energy System Architecture",
+    },
 }
 
 
-def _get_principle_owner_group(principle_number: str) -> str | None:
-    """Return owner group key for a principle number, or None for ESA (correct default)."""
+def _load_principle_owners() -> dict[str, str]:
+    """Parse registry-index.md to build PCP number → owner abbreviation map.
+
+    Returns e.g. {"0010": "ESA", "0021": "BA", "0035": "DO", "0039": "ESA"}.
+    Falls back to empty dict if registry is missing or unparseable.
+    """
+    registry_path = Path(__file__).resolve().parent.parent.parent / (
+        "skills/esa-document-ontology/references/registry-index.md"
+    )
+    if not registry_path.exists():
+        logger.warning(f"Registry not found at {registry_path}, ownership correction disabled")
+        return {}
+
+    owners: dict[str, str] = {}
     try:
-        num = int(principle_number)
-    except (ValueError, TypeError):
-        return None
-    if 21 <= num <= 30:
-        return "BA"
-    if 31 <= num <= 38:
-        return "DO"
-    return None
+        for line in registry_path.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if not line.startswith("| PCP."):
+                continue
+            cols = [c.strip() for c in line.split("|")]
+            # cols: ['', 'PCP.XX', 'Title', 'Status', 'Date', 'Owner', '']
+            if len(cols) < 6:
+                continue
+            pcp_id = cols[1]   # "PCP.10"
+            owner = cols[5]    # "ESA", "BA", "DO"
+            num_str = pcp_id.replace("PCP.", "").zfill(4)
+            owners[num_str] = owner
+    except Exception as e:
+        logger.warning(f"Failed to parse registry-index.md: {e}")
+        return {}
+
+    logger.info(f"Loaded ownership for {len(owners)} principles from registry")
+    return owners
+
+
+# Loaded once at import time — registry changes require restart
+_PRINCIPLE_OWNERS = _load_principle_owners()
 
 
 
@@ -205,8 +237,6 @@ def get_abstention_response(reason: str) -> str:
 
 If you believe this information should be available, please contact the ESA team to have it added to the knowledge base."""
 from src.aion.weaviate.embeddings import embed_text
-
-logger = logging.getLogger(__name__)
 
 # Import elysia components
 try:
@@ -481,12 +511,12 @@ class ElysiaRAGSystem:
                 val = val[:content_limit]
             result[key] = val
 
-        # Correct ownership for principles with wrong collection-level metadata
+        # Correct ownership for principles using registry data
         pn = result.get("principle_number")
-        if pn:
-            group = _get_principle_owner_group(pn)
-            if group and group in _PRINCIPLE_OWNER_MAP:
-                result.update(_PRINCIPLE_OWNER_MAP[group])
+        if pn and pn in _PRINCIPLE_OWNERS:
+            owner_abbr = _PRINCIPLE_OWNERS[pn]
+            if owner_abbr in _OWNER_METADATA:
+                result.update(_OWNER_METADATA[owner_abbr])
 
         return result
 

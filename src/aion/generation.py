@@ -608,11 +608,17 @@ class GenerationPipeline:
     def _extract_default_branch(metadata: str) -> str:
         """Extract default branch from GitHub repo metadata response.
 
-        The MCP get_repo tool returns repo info as text. We look for
-        the default_branch field in JSON-like content. Falls back to
-        "main" if parsing fails.
+        Handles two formats:
+        - Structured text: "Default branch: develop"
+        - JSON-like: {"default_branch": "develop"}
+        Falls back to "main" if parsing fails.
         """
         if metadata:
+            # Structured text from REST API (e.g. "Default branch: develop")
+            m = re.search(r'Default branch:\s*(\S+)', metadata)
+            if m:
+                return m.group(1)
+            # JSON-like content (legacy/fallback)
             m = re.search(r'"default_branch"\s*:\s*"([^"]+)"', metadata)
             if m:
                 return m.group(1)
