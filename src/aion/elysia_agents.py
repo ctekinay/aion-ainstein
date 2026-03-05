@@ -37,6 +37,40 @@ _DEFAULT_RETRIEVAL_LIMITS = {"adr": 8, "principle": 6, "policy": 4, "vocabulary"
 _DEFAULT_TRUNCATION = {"content_max_chars": 800, "elysia_content_chars": 500,
                        "elysia_summary_chars": 300, "max_context_results": 10}
 
+# Ownership correction for principles. Weaviate's Principle collection stores
+# "Energy System Architecture" / "ESA" as owner_team for ALL PCPs because the
+# index.md defines a single collection-level ownership block. PCP.21-30 are
+# owned by Business Architecture, PCP.31-38 by Data Office.
+# Source: skills/esa-document-ontology/references/registry-index.md
+# NOTE: Update ranges when new principles outside PCP.10-40 are added.
+# The real fix is per-document ownership at ingestion time.
+_PRINCIPLE_OWNER_MAP = {
+    "BA": {
+        "owner_team": "Business Architecture",
+        "owner_team_abbr": "BA",
+        "owner_display": "Alliander / Business Architecture Group",
+    },
+    "DO": {
+        "owner_team": "Data Office",
+        "owner_team_abbr": "DO",
+        "owner_display": "Alliander / Data Office",
+    },
+}
+
+
+def _get_principle_owner_group(principle_number: str) -> str | None:
+    """Return owner group key for a principle number, or None for ESA (correct default)."""
+    try:
+        num = int(principle_number)
+    except (ValueError, TypeError):
+        return None
+    if 21 <= num <= 30:
+        return "BA"
+    if 31 <= num <= 38:
+        return "DO"
+    return None
+
+
 
 def _get_skill_config(getter_name: str, default):
     """Read a config value from rag-quality-assurance thresholds.
@@ -437,7 +471,8 @@ class ElysiaRAGSystem:
         """Build a result dict from a Weaviate object using dynamic properties.
 
         Returns all schema properties. Applies content_max_chars truncation
-        to the 'content' field only; everything else is returned as-is.
+        to the 'content' field only. Corrects principle ownership metadata
+        (Weaviate stores ESA for all PCPs; BA/DO overrides applied here).
         """
         result = {}
         for key in props:
@@ -445,6 +480,14 @@ class ElysiaRAGSystem:
             if key == "content" and content_limit and isinstance(val, str):
                 val = val[:content_limit]
             result[key] = val
+
+        # Correct ownership for principles with wrong collection-level metadata
+        pn = result.get("principle_number")
+        if pn:
+            group = _get_principle_owner_group(pn)
+            if group and group in _PRINCIPLE_OWNER_MAP:
+                result.update(_PRINCIPLE_OWNER_MAP[group])
+
         return result
 
     def _get_query_vector(self, query: str) -> Optional[list[float]]:
