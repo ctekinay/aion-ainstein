@@ -604,6 +604,20 @@ class GenerationPipeline:
         header = f"## {doc_id} — {title}" if doc_id else f"## {title}"
         return f"{header}\n\n{content}"
 
+    @staticmethod
+    def _extract_default_branch(metadata: str) -> str:
+        """Extract default branch from GitHub repo metadata response.
+
+        The MCP get_repo tool returns repo info as text. We look for
+        the default_branch field in JSON-like content. Falls back to
+        "main" if parsing fails.
+        """
+        if metadata:
+            m = re.search(r'"default_branch"\s*:\s*"([^"]+)"', metadata)
+            if m:
+                return m.group(1)
+        return "main"
+
     async def _fetch_github_content(
         self,
         github_refs: list[str],
@@ -612,8 +626,9 @@ class GenerationPipeline:
     ) -> str:
         """Fetch content from GitHub repositories for generation.
 
-        Parallel-fetches metadata, README, and root directory listing for
-        each owner/repo ref. Uses existing MCP wrappers from github.py.
+        Fetches metadata first to detect the default branch, then
+        parallel-fetches README and root directory listing using the
+        correct branch. Uses existing MCP wrappers from github.py.
         """
         import asyncio
 
@@ -631,21 +646,25 @@ class GenerationPipeline:
 
             sections = [f"# Repository: {ref}"]
 
-            # Parallel-fetch all three endpoints for this repo
+            # Fetch metadata first to determine default branch
+            try:
+                metadata = await get_repo_metadata(owner, repo)
+            except BaseException as e:
+                logger.warning(f"[generation] metadata fetch failed for {ref}: {e}")
+                metadata = ""
+
+            default_branch = GenerationPipeline._extract_default_branch(metadata)
+            if metadata:
+                sections.append(f"## Metadata\n{metadata}")
+
+            # Fetch README and directory listing with detected default branch
             results = await asyncio.gather(
-                get_repo_metadata(owner, repo),
-                get_repo_readme(owner, repo, ref="main"),
-                list_directory(owner, repo, path="", ref="main"),
+                get_repo_readme(owner, repo, ref=default_branch),
+                list_directory(owner, repo, path="", ref=default_branch),
                 return_exceptions=True,
             )
 
-            metadata, readme, directory = results
-
-            if isinstance(metadata, BaseException):
-                logger.warning(f"[generation] metadata fetch failed for {ref}: {metadata}")
-                metadata = ""
-            if metadata:
-                sections.append(f"## Metadata\n{metadata}")
+            readme, directory = results
 
             if isinstance(directory, BaseException):
                 logger.warning(f"[generation] directory listing failed for {ref}: {directory}")

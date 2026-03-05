@@ -31,7 +31,7 @@ Queries are handled by the AInstein Persona, which classifies intent, emits skil
 ```
 ┌──────────────────────────────────────────────────────────────────────┐
 │                         Web UI / CLI                                 │
-│              localhost:8081  |  python -m src.aion.cli               │
+│              localhost:8081  |  python -m src.aion.chat_ui            │
 └──────────────┬───────────────────────────────────────────────────────┘
                │
 ┌──────────────▼───────────────────────────────────────────────────────┐
@@ -157,7 +157,7 @@ cp .env.example .env
 
 # 6. Initialize and run
 python -m src.aion.cli init
-python -m src.aion.cli chat --port 8081
+python -m src.aion.chat_ui --port 8081
 # Open http://localhost:8081
 ```
 
@@ -170,13 +170,18 @@ python -m src.aion.cli chat --port 8081
 - Or **GitHub CoPilot Models** (Alliander Enterprise Account, 8K token limit) — set `LLM_PROVIDER=github_models` and `GITHUB_MODELS_API_KEY` in `.env`
 - Or **OpenAI API key** (cloud, paid — do not use with company data) — set `LLM_PROVIDER=openai` and `OPENAI_API_KEY` in `.env`
 
-## CLI Commands
+## Commands
 
 ```bash
+# Web UI
+python -m src.aion.chat_ui --port 8081       # Start web UI (default: localhost:8081)
+
+# Data management
 python -m src.aion.cli init                  # Initialize collections and ingest data
 python -m src.aion.cli init --chunked        # Ingest with section-based chunking
 python -m src.aion.cli init --recreate       # Recreate collections from scratch
-python -m src.aion.cli chat --port 8081      # Start web UI
+
+# Debugging
 python -m src.aion.cli query "question"      # Single query from terminal (bypasses AInstein Persona)
 ```
 
@@ -234,7 +239,7 @@ This reduces prompt size by 40-80% for standard queries compared to loading all 
 ```
 esa-ainstein-artifacts/
 ├── src/aion/
-│   ├── cli.py                    # Typer CLI (init, chat, query, evaluate)
+│   ├── cli.py                    # Typer CLI (init, query — data management and debugging)
 │   ├── config.py                 # Pydantic settings from .env (3-provider config)
 │   ├── persona.py                # AInstein Persona — intent classification, query rewriting
 │   ├── generation.py             # Direct LLM generation pipeline (ArchiMate XML, etc.)
