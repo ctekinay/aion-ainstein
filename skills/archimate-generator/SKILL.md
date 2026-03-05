@@ -67,12 +67,16 @@ elements:
     type: <ArchiMateElementType>
     name: "<Element Name>"
     documentation: "<1-2 sentence description — required for every element>"
+    properties:                              # Optional — only when user requests metadata
+      "<property-key>": "<value>"
 
 relationships:
   - type: <ArchiMateRelationshipType>
     source: <element-id>
     target: <element-id>
     name: "<Optional verb label>"
+    properties:                              # Optional
+      "<property-key>": "<value>"
 ```
 
 **Strict rules:**
@@ -83,7 +87,7 @@ relationships:
 4. Every `source` and `target` in relationships MUST reference a valid element `id`
 5. Relationships do NOT have an `id` field — identifiers are generated automatically
 6. Every element MUST include a `documentation` field with a 1-2 sentence description
-7. Do NOT include nested elements, property tags, or any XML-specific constructs
+7. Do NOT include nested elements or any XML-specific constructs. The `properties` field is supported (see schema above) — only include it when the user explicitly requests metadata fields
 8. Wrap the entire output in ```yaml code fences
 9. Do NOT include any text before or after the YAML code fence
 
@@ -124,6 +128,29 @@ relationships:
     target: a1
     name: "provides tokens"
 ```
+
+---
+
+## Properties (Optional)
+
+Elements and relationships can include a `properties:` mapping for metadata fields like
+Dublin Core (`dct:*`) or custom attributes. Only include properties when the user explicitly
+requests them.
+
+```yaml
+elements:
+  - id: m1
+    type: Principle
+    name: "PCP.10 Eventual Consistency"
+    documentation: "Eventual consistency principle for distributed systems."
+    properties:
+      "dct:identifier": "urn:uuid:abc123"
+      "dct:language": "en"
+      "dct:type": "archi:Principle"
+```
+
+The converter transforms these into standard ArchiMate `<property>` and
+`<propertyDefinitions>` XML elements that tools like Archi can read.
 
 ---
 

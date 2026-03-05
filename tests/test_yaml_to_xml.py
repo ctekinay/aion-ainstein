@@ -5,7 +5,13 @@ import xml.etree.ElementTree as ET
 import pytest
 import yaml
 
-from src.aion.tools.yaml_to_xml import apply_yaml_diff, xml_to_yaml, yaml_to_archimate_xml
+from src.aion.tools.yaml_to_xml import (
+    apply_yaml_diff,
+    xml_to_yaml,
+    yaml_to_archimate_xml,
+    _validate_properties,
+    _prop_def_id,
+)
 
 NS = "http://www.opengroup.org/xsd/archimate/3.0/"
 XSI = "http://www.w3.org/2001/XMLSchema-instance"
@@ -1152,3 +1158,355 @@ class TestViewpoints:
         # Merged model is valid XML
         val = validate_archimate(result["merged_xml"])
         assert val["valid"], f"Validation errors: {val.get('errors', [])}"
+
+
+# ---------------------------------------------------------------------------
+# Property support tests
+# ---------------------------------------------------------------------------
+
+YAML_WITH_PROPS = """\
+model:
+  name: "Property Test Model"
+  documentation: "Model with Dublin Core properties"
+
+elements:
+  - id: m1
+    type: Principle
+    name: "PCP.10 Eventual Consistency"
+    documentation: "Eventual consistency for distributed systems."
+    properties:
+      "dct:identifier": "urn:uuid:abc123"
+      "dct:language": "en"
+      "dct:type": "archi:Principle"
+  - id: m2
+    type: Principle
+    name: "PCP.11 API First"
+    documentation: "All services expose APIs."
+
+relationships:
+  - type: Association
+    source: m1
+    target: m2
+    name: "related"
+    properties:
+      "dct:source": "registry-index.md"
+"""
+
+
+class TestPropertyHelpers:
+    """Tests for _validate_properties() and _prop_def_id()."""
+
+    def test_validate_normal_dict(self):
+        result = _validate_properties({"dct:lang": "en", "dct:type": "Principle"})
+        assert result == {"dct:lang": "en", "dct:type": "Principle"}
+
+    def test_validate_empty_dict(self):
+        assert _validate_properties({}) == {}
+
+    def test_validate_none(self):
+        assert _validate_properties(None) == {}
+
+    def test_validate_non_dict(self):
+        assert _validate_properties("not a dict") == {}
+        assert _validate_properties(42) == {}
+        assert _validate_properties([]) == {}
+
+    def test_validate_strips_whitespace(self):
+        result = _validate_properties({"  dct:lang  ": "  en  "})
+        assert result == {"dct:lang": "en"}
+
+    def test_validate_skips_empty_keys(self):
+        result = _validate_properties({"": "value", "  ": "value2", "ok": "v"})
+        assert result == {"ok": "v"}
+
+    def test_validate_coerces_to_string(self):
+        result = _validate_properties({"count": 42, "flag": True})
+        assert result == {"count": "42", "flag": "True"}
+
+    def test_prop_def_id_dct_colon(self):
+        assert _prop_def_id("dct:identifier") == "propdef-dct-identifier"
+
+    def test_prop_def_id_dct_language(self):
+        assert _prop_def_id("dct:language") == "propdef-dct-language"
+
+    def test_prop_def_id_archi_prefix(self):
+        assert _prop_def_id("archi:Principle") == "propdef-archi-principle"
+
+    def test_prop_def_id_simple(self):
+        assert _prop_def_id("status") == "propdef-status"
+
+    def test_prop_def_id_special_chars(self):
+        assert _prop_def_id("my.prop@v2") == "propdef-my-prop-v2"
+
+
+class TestPropertyRoundTrip:
+    """End-to-end property round-trip: YAML → XML → YAML → XML."""
+
+    def test_yaml_to_xml_has_property_definitions(self):
+        xml_str, info = yaml_to_archimate_xml(YAML_WITH_PROPS)
+        root = ET.fromstring(xml_str)
+        pdefs = root.find(TAG("propertyDefinitions"))
+        assert pdefs is not None, "Missing <propertyDefinitions>"
+        pdef_names = {
+            pdef.find(TAG("name")).text
+            for pdef in pdefs.findall(TAG("propertyDefinition"))
+        }
+        assert "dct:identifier" in pdef_names
+        assert "dct:language" in pdef_names
+        assert "dct:type" in pdef_names
+        assert "dct:source" in pdef_names
+
+    def test_yaml_to_xml_has_element_properties(self):
+        xml_str, _ = yaml_to_archimate_xml(YAML_WITH_PROPS)
+        root = ET.fromstring(xml_str)
+        elements = root.find(TAG("elements"))
+        m1 = None
+        for el in elements.findall(TAG("element")):
+            if el.get("identifier") == "id-m1":
+                m1 = el
+                break
+        assert m1 is not None
+        props = m1.findall(TAG("property"))
+        assert len(props) == 3
+        # Check one property value
+        values = {}
+        for p in props:
+            ref = p.get("propertyDefinitionRef")
+            val = p.find(TAG("value")).text
+            values[ref] = val
+        assert values.get("propdef-dct-language") == "en"
+
+    def test_yaml_to_xml_has_relationship_properties(self):
+        xml_str, _ = yaml_to_archimate_xml(YAML_WITH_PROPS)
+        root = ET.fromstring(xml_str)
+        rels = root.find(TAG("relationships"))
+        rel = rels.findall(TAG("relationship"))[0]
+        props = rel.findall(TAG("property"))
+        assert len(props) == 1
+        assert props[0].find(TAG("value")).text == "registry-index.md"
+
+    def test_element_without_properties_has_none(self):
+        xml_str, _ = yaml_to_archimate_xml(YAML_WITH_PROPS)
+        root = ET.fromstring(xml_str)
+        elements = root.find(TAG("elements"))
+        m2 = None
+        for el in elements.findall(TAG("element")):
+            if el.get("identifier") == "id-m2":
+                m2 = el
+                break
+        assert m2 is not None
+        assert len(m2.findall(TAG("property"))) == 0
+
+    def test_full_roundtrip_preserves_properties(self):
+        """YAML → XML → YAML → XML: properties survive the full cycle."""
+        xml1, _ = yaml_to_archimate_xml(YAML_WITH_PROPS)
+        yaml_mid = xml_to_yaml(xml1)
+
+        # YAML should contain property keys
+        assert "dct:identifier" in yaml_mid
+        assert "dct:language" in yaml_mid
+        assert "dct:source" in yaml_mid
+
+        # Second pass: YAML → XML again
+        xml2, _ = yaml_to_archimate_xml(yaml_mid)
+        root2 = ET.fromstring(xml2)
+
+        # Check properties survived
+        pdefs = root2.find(TAG("propertyDefinitions"))
+        assert pdefs is not None
+        pdef_count = len(pdefs.findall(TAG("propertyDefinition")))
+        assert pdef_count == 4  # dct:identifier, dct:language, dct:type, dct:source
+
+        # Element properties survived
+        elements = root2.find(TAG("elements"))
+        m1 = None
+        for el in elements.findall(TAG("element")):
+            if el.get("identifier") == "id-m1":
+                m1 = el
+                break
+        assert m1 is not None
+        assert len(m1.findall(TAG("property"))) == 3
+
+    def test_no_properties_no_property_definitions(self):
+        """Models without properties should not get a <propertyDefinitions> block."""
+        xml_str, _ = yaml_to_archimate_xml(VALID_YAML)
+        root = ET.fromstring(xml_str)
+        assert root.find(TAG("propertyDefinitions")) is None
+
+
+class TestPropertyDiffMerge:
+    """Tests for property support in apply_yaml_diff()."""
+
+    def test_modify_element_add_properties(self):
+        """Add properties to an existing element via modify."""
+        diff = """\
+refinement:
+  modify:
+    b1:
+      properties:
+        "dct:language": "en"
+        "dct:type": "archi:BusinessProcess"
+"""
+        merged, summary = apply_yaml_diff(VALID_YAML, diff)
+        data = yaml.safe_load(merged)
+        b1 = next(e for e in data["elements"] if e["id"] == "b1")
+        assert b1["properties"]["dct:language"] == "en"
+        assert b1["properties"]["dct:type"] == "archi:BusinessProcess"
+        assert summary["modified"] == 1
+
+    def test_modify_element_merge_properties(self):
+        """Properties merge is additive — existing properties preserved."""
+        diff = """\
+refinement:
+  modify:
+    m1:
+      properties:
+        "dct:creator": "ESA Team"
+"""
+        merged, summary = apply_yaml_diff(YAML_WITH_PROPS, diff)
+        data = yaml.safe_load(merged)
+        m1 = next(e for e in data["elements"] if e["id"] == "m1")
+        # Original properties preserved
+        assert m1["properties"]["dct:identifier"] == "urn:uuid:abc123"
+        assert m1["properties"]["dct:language"] == "en"
+        # New property added
+        assert m1["properties"]["dct:creator"] == "ESA Team"
+
+    def test_modify_element_update_existing_property(self):
+        """Updating an existing property value."""
+        diff = """\
+refinement:
+  modify:
+    m1:
+      properties:
+        "dct:language": "nl"
+"""
+        merged, _ = apply_yaml_diff(YAML_WITH_PROPS, diff)
+        data = yaml.safe_load(merged)
+        m1 = next(e for e in data["elements"] if e["id"] == "m1")
+        assert m1["properties"]["dct:language"] == "nl"
+        # Other properties unchanged
+        assert m1["properties"]["dct:identifier"] == "urn:uuid:abc123"
+
+    def test_modify_relationship_add_properties(self):
+        """Add properties to an existing relationship via rel-source-target key."""
+        diff = """\
+refinement:
+  modify:
+    rel-m1-m2:
+      properties:
+        "dct:creator": "AInstein"
+"""
+        merged, summary = apply_yaml_diff(YAML_WITH_PROPS, diff)
+        data = yaml.safe_load(merged)
+        rel = data["relationships"][0]
+        # Original property preserved
+        assert rel["properties"]["dct:source"] == "registry-index.md"
+        # New property added
+        assert rel["properties"]["dct:creator"] == "AInstein"
+        assert summary["modified"] == 1
+
+    def test_modify_relationship_name(self):
+        """Modify relationship name via rel-source-target key."""
+        diff = """\
+refinement:
+  modify:
+    rel-m1-m2:
+      name: "strongly related"
+"""
+        merged, summary = apply_yaml_diff(YAML_WITH_PROPS, diff)
+        data = yaml.safe_load(merged)
+        rel = data["relationships"][0]
+        assert rel["name"] == "strongly related"
+        assert summary["modified"] == 1
+
+    def test_modify_nonexistent_relationship_fails(self):
+        diff = """\
+refinement:
+  modify:
+    rel-m1-m99:
+      properties:
+        "dct:creator": "test"
+"""
+        with pytest.raises(ValueError, match="relationship not found"):
+            apply_yaml_diff(YAML_WITH_PROPS, diff)
+
+    def test_modify_relationship_invalid_field_fails(self):
+        diff = """\
+refinement:
+  modify:
+    rel-m1-m2:
+      type: "Serving"
+"""
+        with pytest.raises(ValueError, match="cannot patch field"):
+            apply_yaml_diff(YAML_WITH_PROPS, diff)
+
+    def test_add_element_with_properties(self):
+        """Adding a new element with properties in a diff."""
+        diff = """\
+refinement:
+  add:
+    elements:
+      - id: m3
+        type: Principle
+        name: "PCP.12 New Principle"
+        properties:
+          "dct:language": "en"
+          "dct:identifier": "urn:uuid:new123"
+"""
+        merged, summary = apply_yaml_diff(YAML_WITH_PROPS, diff)
+        data = yaml.safe_load(merged)
+        m3 = next(e for e in data["elements"] if e["id"] == "m3")
+        assert m3["properties"]["dct:language"] == "en"
+        assert m3["properties"]["dct:identifier"] == "urn:uuid:new123"
+        assert summary["added_elements"] == 1
+
+    def test_add_relationship_with_properties(self):
+        """Adding a new relationship with properties in a diff."""
+        diff = """\
+refinement:
+  add:
+    relationships:
+      - type: Influence
+        source: m1
+        target: m2
+        properties:
+          "dct:source": "architecture-review.md"
+"""
+        merged, summary = apply_yaml_diff(YAML_WITH_PROPS, diff)
+        data = yaml.safe_load(merged)
+        # Find the new relationship (Influence, not the original Association)
+        new_rel = next(r for r in data["relationships"] if r["type"] == "Influence")
+        assert new_rel["properties"]["dct:source"] == "architecture-review.md"
+        assert summary["added_relationships"] == 1
+
+    def test_diff_with_properties_roundtrips_to_valid_xml(self):
+        """After a property-adding diff, the merged YAML produces valid XML."""
+        diff = """\
+refinement:
+  modify:
+    m1:
+      properties:
+        "dct:creator": "ESA Team"
+    m2:
+      properties:
+        "dct:language": "en"
+    rel-m1-m2:
+      properties:
+        "dct:creator": "AInstein"
+"""
+        merged, _ = apply_yaml_diff(YAML_WITH_PROPS, diff)
+        xml_str, info = yaml_to_archimate_xml(merged)
+        root = ET.fromstring(xml_str)
+
+        # propertyDefinitions should exist
+        pdefs = root.find(TAG("propertyDefinitions"))
+        assert pdefs is not None
+
+        # All property keys should be defined
+        pdef_names = {
+            pdef.find(TAG("name")).text
+            for pdef in pdefs.findall(TAG("propertyDefinition"))
+        }
+        assert "dct:creator" in pdef_names
+        assert "dct:identifier" in pdef_names
