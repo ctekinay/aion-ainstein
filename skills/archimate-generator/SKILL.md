@@ -145,16 +145,34 @@ relationships:
 
 ---
 
+## Source Reference
+
+When an element directly represents a source document from the prompt (e.g., a
+Principle element for PCP.10), include a `source_ref` field with the document
+identifier:
+
+```yaml
+elements:
+  - id: m1
+    type: Principle
+    name: "PCP.10 Eventual Consistency by Design"
+    source_ref: PCP.10
+    documentation: "Eventual consistency principle for distributed systems."
+```
+
+Rules:
+- Only on elements that DIRECTLY represent a specific source document
+- Most elements will NOT have source_ref — only the primary element for each
+  source document should have one
+- The pipeline automatically adds Dublin Core properties (`dct:identifier`,
+  `dct:title`, `dct:creator`) using source_ref — do NOT generate `dct:*`
+  properties yourself
+
 ## Properties (Optional)
 
-Elements and relationships can include a `properties:` mapping for metadata fields like
-Dublin Core (`dct:*`) or custom attributes.
-
-When the source content includes a `KB UUID:` line for a document, **always** include a
-`dct:identifier` property on the corresponding element with that UUID value. This is
-automatic — the user does not need to request it. Do NOT fabricate UUIDs — only use the
-KB UUIDs provided in the source content. Other properties (e.g., `dct:language`, `dct:type`)
-are optional and should only be included when the user explicitly requests them.
+Elements and relationships can include a `properties:` mapping for custom
+metadata attributes. Dublin Core properties are added automatically by the
+pipeline — do NOT generate them manually.
 
 ```yaml
 elements:
@@ -163,9 +181,7 @@ elements:
     name: "PCP.10 Eventual Consistency"
     documentation: "Eventual consistency principle for distributed systems."
     properties:
-      "dct:identifier": "urn:uuid:abc123"
-      "dct:language": "en"
-      "dct:type": "archi:Principle"
+      "custom:priority": "high"
 ```
 
 The converter transforms these into standard ArchiMate `<property>` and

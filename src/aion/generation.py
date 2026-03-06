@@ -139,6 +139,8 @@ class GenerationPipeline:
                 self._emit(event_queue, "status", "Retrieving source content...", start)
                 sources, source_text = await self._fetch_content(query, doc_refs)
 
+        source_metadata = self._build_source_metadata(sources)
+
         if not source_text:
             return (
                 "Could not retrieve source content for generation. "
@@ -194,7 +196,7 @@ class GenerationPipeline:
                 f"- To add properties to existing elements, use modify with a properties mapping\n"
                 f"- To modify relationships, use rel-<source>-<target> as the key in modify\n"
                 f"- Properties are additive — existing properties are preserved, new ones are added/updated\n"
-                f"- When source content includes KB UUID values, use them as dct:identifier property values — do NOT fabricate UUIDs\n"
+                f"- When an element directly represents a source document, include source_ref with the document ID (e.g., source_ref: PCP.10) — do NOT generate dct:* properties, the pipeline adds them\n"
                 f"- Do NOT return the full model — only the diff\n"
                 f"- Wrap the output in ```yaml code fences\n"
                 f"- Do not include commentary before or after the YAML\n\n"
@@ -296,6 +298,10 @@ class GenerationPipeline:
                     else:
                         pipeline_info["diff_merge"] = False
 
+                # Enrich with dct properties before XML conversion.
+                # Always call — strips source_ref even when no metadata matches.
+                yaml_text = self._enrich_yaml_with_dct(yaml_text, source_metadata)
+
                 convert_start = time.perf_counter()
                 try:
                     raw_output, _info = yaml_to_archimate_xml(yaml_text)
@@ -328,6 +334,9 @@ class GenerationPipeline:
                     total_tokens["completion_tokens"] += retry_stats["completion_tokens"]
                     yaml_text = self._extract_yaml(retry_output)
                     if yaml_text:
+                        yaml_text = self._enrich_yaml_with_dct(
+                            yaml_text, source_metadata
+                        )
                         convert_start = time.perf_counter()
                         try:
                             raw_output, _info = yaml_to_archimate_xml(yaml_text)
@@ -621,6 +630,146 @@ class GenerationPipeline:
         uuid_line = f"\nKB UUID: urn:uuid:{kb_uuid}" if kb_uuid else ""
         header = f"## {doc_id} — {title}" if doc_id else f"## {title}"
         return f"{header}{uuid_line}\n\n{content}"
+
+    # -- Document type aliases for source_ref normalization --
+    # Maps LLM-variant prefixes to canonical form.
+    # Extensible: add new doc types here (e.g., "POLICY": "POL").
+    _DOC_TYPE_ALIASES: dict[str, str] = {
+        "PCP": "PCP",
+        "PRINCIPLE": "PCP",
+        "ADR": "ADR",
+    }
+
+    # ArchiMate type → document prefix for type-gated fallback.
+    # Only these element types can have source_ref inferred from name.
+    _SOURCE_DOC_TYPES: dict[str, str] = {
+        "Principle": "PCP",
+        "ArchitecturalDecision": "ADR",
+    }
+
+    @staticmethod
+    def _normalize_ref(raw: str) -> str | None:
+        """Normalize source_ref variants to canonical form (PCP.10, ADR.29).
+
+        Handles: "PCP.10", "PCP 10", "PCP-10", "PCP10", "Principle 10",
+        "ADR.29", "ADR 29". Bare numbers ("0010") are ambiguous — skipped.
+        """
+        s = raw.strip().upper()
+        for alias, canonical in GenerationPipeline._DOC_TYPE_ALIASES.items():
+            m = re.match(rf"{alias}[.\s-]*(\d+)", s)
+            if m:
+                return f"{canonical}.{int(m.group(1))}"
+        return None
+
+    @staticmethod
+    def _build_source_metadata(sources: list[dict]) -> dict[str, dict]:
+        """Build doc_ref -> metadata lookup from fetched sources.
+
+        Keys are canonical doc refs (e.g. "PCP.10", "ADR.29").
+        Values carry all available dct-relevant fields. Designed for
+        extensibility: Phase 2 (registry) and Phase 3 (additional dct
+        fields) add fields here without changing _enrich_yaml_with_dct().
+        """
+        meta: dict[str, dict] = {}
+        for src in sources:
+            pn = src.get("principle_number", "")
+            an = src.get("adr_number", "")
+            kb_uuid = src.get("kb_uuid", "")
+            title = src.get("title", "")
+            owner = src.get("owner_display", "")
+            if not kb_uuid:
+                continue
+            if pn and an:
+                logger.warning(
+                    "Source has both principle_number=%s and adr_number=%s "
+                    "(kb_uuid=%s) — using principle_number. "
+                    "Investigate KB data quality.",
+                    pn, an, kb_uuid,
+                )
+            ref = None
+            if pn:
+                ref = f"PCP.{int(pn)}"
+            elif an:
+                ref = f"ADR.{int(an)}"
+            if ref:
+                entry: dict[str, str] = {
+                    "kb_uuid": f"urn:uuid:{kb_uuid}",
+                    "title": title,
+                }
+                if owner:
+                    entry["creator"] = owner
+                # Phase 3 will add: "issued", "language"
+                meta[ref] = entry
+        return meta
+
+    @staticmethod
+    def _enrich_yaml_with_dct(yaml_text: str, source_metadata: dict) -> str:
+        """Enrich YAML elements with dct properties, strip source_ref.
+
+        For elements with source_ref matching a source_metadata key,
+        adds dct:identifier, dct:title, and dct:creator (if available).
+        Falls back to inferring source_ref from element name — only for
+        elements whose type matches the source doc type (Principle/ADR).
+        Strips source_ref afterward (not an ArchiMate field).
+        Returns original yaml_text unchanged on any parse error.
+        """
+        import yaml as _yaml
+
+        try:
+            data = _yaml.safe_load(yaml_text)
+        except Exception:
+            return yaml_text
+        if not data or "elements" not in data:
+            return yaml_text
+
+        total = 0
+        enriched = 0
+        explicit = 0
+        fallback = 0
+
+        for elem in data.get("elements", []):
+            total += 1
+            ref_raw = elem.pop("source_ref", None)
+            ref = GenerationPipeline._normalize_ref(ref_raw) if ref_raw else None
+            via_fallback = False
+
+            # Type-gated fallback: only infer for Principle/ADR elements
+            if not ref:
+                expected_prefix = GenerationPipeline._SOURCE_DOC_TYPES.get(
+                    elem.get("type", "")
+                )
+                if expected_prefix:
+                    name = elem.get("name", "")
+                    m = re.match(r"(?:PCP|ADR)[.\s-]*(\d+)", name, re.I)
+                    if m:
+                        ref = GenerationPipeline._normalize_ref(m.group(0))
+                        via_fallback = True
+
+            if ref and ref in source_metadata:
+                props = elem.get("properties", {})
+                if not isinstance(props, dict):
+                    props = {}
+                meta = source_metadata[ref]
+                props["dct:identifier"] = meta["kb_uuid"]
+                props["dct:title"] = meta["title"]
+                if "creator" in meta:
+                    props["dct:creator"] = meta["creator"]
+                elem["properties"] = props
+                enriched += 1
+                if via_fallback:
+                    fallback += 1
+                else:
+                    explicit += 1
+
+        logger.info(
+            "dct enrichment: %d/%d elements enriched "
+            "(%d via source_ref, %d via name fallback)",
+            enriched, total, explicit, fallback,
+        )
+
+        return _yaml.dump(
+            data, default_flow_style=False, allow_unicode=True, sort_keys=False
+        )
 
     @staticmethod
     def _extract_default_branch(metadata: str) -> str:
