@@ -18,6 +18,20 @@ When generating a model, include all layers present in the source document and u
 extended view (implications, security considerations, constraints). Model all actors and
 participants.
 
+### Model Comprehensiveness
+
+Always generate comprehensive models. For a single-document input (one ADR or PCP):
+- **30–40 elements** across all relevant layers
+- **40–60 relationships** connecting them
+- Cover Motivation, Strategy, Business, Application, Technology, and Implementation layers
+  when the source material warrants it
+
+For multi-document input (e.g., PCP.10 through PCP.15), scale proportionally — each
+document should contribute roughly 5–10 unique elements beyond shared infrastructure.
+
+Do NOT generate minimal or abbreviated models. Every concept, constraint, implication,
+actor, and technology mentioned in the source should have a corresponding element.
+
 ## Workflow
 
 ### Step 1: Parse Input and Classify Elements
@@ -134,8 +148,13 @@ relationships:
 ## Properties (Optional)
 
 Elements and relationships can include a `properties:` mapping for metadata fields like
-Dublin Core (`dct:*`) or custom attributes. Only include properties when the user explicitly
-requests them.
+Dublin Core (`dct:*`) or custom attributes.
+
+When the source content includes a `KB UUID:` line for a document, **always** include a
+`dct:identifier` property on the corresponding element with that UUID value. This is
+automatic — the user does not need to request it. Do NOT fabricate UUIDs — only use the
+KB UUIDs provided in the source content. Other properties (e.g., `dct:language`, `dct:type`)
+are optional and should only be included when the user explicitly requests them.
 
 ```yaml
 elements:

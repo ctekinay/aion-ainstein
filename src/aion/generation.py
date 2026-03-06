@@ -10,6 +10,7 @@ artifact, and returns.
 import logging
 import re
 import time
+from datetime import datetime
 import xml.etree.ElementTree as ET
 from queue import Queue
 from typing import Optional
@@ -193,6 +194,7 @@ class GenerationPipeline:
                 f"- To add properties to existing elements, use modify with a properties mapping\n"
                 f"- To modify relationships, use rel-<source>-<target> as the key in modify\n"
                 f"- Properties are additive — existing properties are preserved, new ones are added/updated\n"
+                f"- When source content includes KB UUID values, use them as dct:identifier property values — do NOT fabricate UUIDs\n"
                 f"- Do NOT return the full model — only the diff\n"
                 f"- Wrap the output in ```yaml code fences\n"
                 f"- Do not include commentary before or after the YAML\n\n"
@@ -510,6 +512,7 @@ class GenerationPipeline:
 
             if num not in docs:
                 docs[num] = {k: obj.properties.get(k, "") for k in props}
+                docs[num]["kb_uuid"] = str(obj.uuid)
             else:
                 chunk_content = obj.properties.get("content", "")
                 if chunk_content:
@@ -564,6 +567,7 @@ class GenerationPipeline:
 
             if pn not in docs:
                 docs[pn] = {k: obj.properties.get(k, "") for k in props}
+                docs[pn]["kb_uuid"] = str(obj.uuid)
             else:
                 chunk_content = obj.properties.get("content", "")
                 if chunk_content:
@@ -597,7 +601,9 @@ class GenerationPipeline:
                     continue
                 if title.startswith(("Decision Approval Record", "Principle Approval Record")):
                     continue
-                results.append({k: obj.properties.get(k, "") for k in props})
+                entry = {k: obj.properties.get(k, "") for k in props}
+                entry["kb_uuid"] = str(obj.uuid)
+                results.append(entry)
 
         return results[:limit]
 
@@ -611,8 +617,10 @@ class GenerationPipeline:
             or source.get("principle_number", "")
             or ""
         )
+        kb_uuid = source.get("kb_uuid", "")
+        uuid_line = f"\nKB UUID: urn:uuid:{kb_uuid}" if kb_uuid else ""
         header = f"## {doc_id} — {title}" if doc_id else f"## {title}"
-        return f"{header}\n\n{content}"
+        return f"{header}{uuid_line}\n\n{content}"
 
     @staticmethod
     def _extract_default_branch(metadata: str) -> str:
@@ -988,6 +996,7 @@ class GenerationPipeline:
     ) -> str:
         """Derive artifact filename. Priority: XML <name> > doc_refs > fallback."""
         ext = ".archimate.xml" if "archimate" in skill_entry.name else ".txt"
+        ts = datetime.now().strftime("%y%m%d-%H%M%S")
 
         # 1. Try XML model name
         name_match = re.search(r'<name xml:lang="en">(.*?)</name>', content)
@@ -995,15 +1004,15 @@ class GenerationPipeline:
             name = name_match.group(1).strip()
             slug = re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")[:60]
             if slug:
-                return f"{slug}{ext}"
+                return f"{slug}_{ts}{ext}"
 
         # 2. Try doc_refs
         if doc_refs:
             slug = "-".join(r.lower().replace(".", "") for r in doc_refs[:3])
-            return f"{slug}{ext}"
+            return f"{slug}_{ts}{ext}"
 
         # 3. Fallback
-        return f"model{ext}"
+        return f"model_{ts}{ext}"
 
     # ------------------------------------------------------------------
     # Step 6: Build response

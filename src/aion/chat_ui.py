@@ -202,7 +202,7 @@ AVAILABLE_MODELS = {
         {"id": "gpt-oss:20b", "name": "GPT-OSS (Local, 20B)"},
         {"id": "qwen3:14b", "name": "Qwen3 (Local, 14B)"},
         {"id": "qwen3:4b", "name": "Qwen3 (Local, 4B)"},
-        {"id": "alibayram/smollm3:latest", "name": "SmolLM3 (Local, 3.1B)"},
+        {"id": "qwen3.5:9b", "name": "Qwen3.5 (Local, 9B)"},
     ],
     # GitHub CoPilot Models — catalog IDs use publisher/model format.
     # Full catalog: https://models.github.ai/catalog/models

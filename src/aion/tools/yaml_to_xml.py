@@ -410,7 +410,7 @@ def _parse_and_validate(yaml_str: str) -> dict:
 
 _SCHEMA_LOC = (
     f"{NS} "
-    "http://www.opengroup.org/xsd/archimate/3.2/archimate3_Diagram.xsd"
+    "http://www.opengroup.org/xsd/archimate/3.0/archimate3_Diagram.xsd"
 )
 
 
@@ -434,7 +434,11 @@ def _build_model(data: dict) -> ET.Element:
         doc_el.set("xml:lang", "en")
         doc_el.text = data["model"]["documentation"]
 
-    # Property definitions (must come before <elements> per schema order)
+    # Collect all property keys (needed for propertyDefinitionRef on elements
+    # and relationships). The <propertyDefinitions> block itself is emitted
+    # AFTER <relationships> per ArchiMate Open Exchange schema ordering:
+    # name, documentation, elements, relationships, organizations,
+    # propertyDefinitions, views.
     all_prop_keys: dict[str, str] = {}  # key → propertyDefinitionRef ID
     for elem in data["elements"]:
         for k in elem.get("properties", {}):
@@ -444,17 +448,6 @@ def _build_model(data: dict) -> ET.Element:
         for k in rel.get("properties", {}):
             if k not in all_prop_keys:
                 all_prop_keys[k] = _prop_def_id(k)
-
-    if all_prop_keys:
-        pdefs_el = ET.SubElement(root, f"{{{NS}}}propertyDefinitions")
-        for key, ref_id in sorted(all_prop_keys.items()):
-            pdef = ET.SubElement(
-                pdefs_el, f"{{{NS}}}propertyDefinition",
-                attrib={"identifier": ref_id, "type": "string"},
-            )
-            pn = ET.SubElement(pdef, f"{{{NS}}}name")
-            pn.set("xml:lang", "en")
-            pn.text = key
 
     # Elements
     elements_el = ET.SubElement(root, f"{{{NS}}}elements")
@@ -469,15 +462,18 @@ def _build_model(data: dict) -> ET.Element:
             d = ET.SubElement(el, f"{{{NS}}}documentation")
             d.set("xml:lang", "en")
             d.text = elem["documentation"]
-        for pkey, pval in elem.get("properties", {}).items():
-            ref_id = all_prop_keys.get(pkey, _prop_def_id(pkey))
-            prop = ET.SubElement(
-                el, f"{{{NS}}}property",
-                attrib={"propertyDefinitionRef": ref_id},
-            )
-            v = ET.SubElement(prop, f"{{{NS}}}value")
-            v.set("xml:lang", "en")
-            v.text = pval
+        elem_props = elem.get("properties", {})
+        if elem_props:
+            props_el = ET.SubElement(el, f"{{{NS}}}properties")
+            for pkey, pval in elem_props.items():
+                ref_id = all_prop_keys.get(pkey, _prop_def_id(pkey))
+                prop = ET.SubElement(
+                    props_el, f"{{{NS}}}property",
+                    attrib={"propertyDefinitionRef": ref_id},
+                )
+                v = ET.SubElement(prop, f"{{{NS}}}value")
+                v.set("xml:lang", "en")
+                v.text = pval
 
     # Relationships
     if data["relationships"]:
@@ -492,15 +488,30 @@ def _build_model(data: dict) -> ET.Element:
                 n = ET.SubElement(r, f"{{{NS}}}name")
                 n.set("xml:lang", "en")
                 n.text = rel["name"]
-            for pkey, pval in rel.get("properties", {}).items():
-                ref_id = all_prop_keys.get(pkey, _prop_def_id(pkey))
-                prop = ET.SubElement(
-                    r, f"{{{NS}}}property",
-                    attrib={"propertyDefinitionRef": ref_id},
-                )
-                v = ET.SubElement(prop, f"{{{NS}}}value")
-                v.set("xml:lang", "en")
-                v.text = pval
+            rel_props = rel.get("properties", {})
+            if rel_props:
+                rprops_el = ET.SubElement(r, f"{{{NS}}}properties")
+                for pkey, pval in rel_props.items():
+                    ref_id = all_prop_keys.get(pkey, _prop_def_id(pkey))
+                    prop = ET.SubElement(
+                        rprops_el, f"{{{NS}}}property",
+                        attrib={"propertyDefinitionRef": ref_id},
+                    )
+                    v = ET.SubElement(prop, f"{{{NS}}}value")
+                    v.set("xml:lang", "en")
+                    v.text = pval
+
+    # Property definitions — after relationships, before views (schema order)
+    if all_prop_keys:
+        pdefs_el = ET.SubElement(root, f"{{{NS}}}propertyDefinitions")
+        for key, ref_id in sorted(all_prop_keys.items()):
+            pdef = ET.SubElement(
+                pdefs_el, f"{{{NS}}}propertyDefinition",
+                attrib={"identifier": ref_id, "type": "string"},
+            )
+            pn = ET.SubElement(pdef, f"{{{NS}}}name")
+            pn.set("xml:lang", "en")
+            pn.text = key
 
     return root
 
@@ -777,9 +788,11 @@ def xml_to_yaml(xml_str: str) -> str:
         entry: dict = {"id": short_id, "type": etype, "name": ename}
         if edoc:
             entry["documentation"] = edoc
-        # Parse <property> children
+        # Parse <properties><property> children (schema-correct wrapper)
         props = {}
-        for prop_el in elem.findall(_TAG("property")):
+        props_container = elem.find(_TAG("properties"))
+        prop_source = props_container if props_container is not None else elem
+        for prop_el in prop_source.findall(_TAG("property")):
             ref = prop_el.get("propertyDefinitionRef", "")
             val_el = prop_el.find(_TAG("value"))
             val = val_el.text.strip() if val_el is not None and val_el.text else ""
@@ -815,9 +828,11 @@ def xml_to_yaml(xml_str: str) -> str:
             }
             if rname:
                 entry["name"] = rname
-            # Parse <property> children
+            # Parse <properties><property> children (schema-correct wrapper)
             rel_props = {}
-            for prop_el in rel.findall(_TAG("property")):
+            rel_props_container = rel.find(_TAG("properties"))
+            rel_prop_source = rel_props_container if rel_props_container is not None else rel
+            for prop_el in rel_prop_source.findall(_TAG("property")):
                 ref = prop_el.get("propertyDefinitionRef", "")
                 val_el = prop_el.find(_TAG("value"))
                 val = val_el.text.strip() if val_el is not None and val_el.text else ""

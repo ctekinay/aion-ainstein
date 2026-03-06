@@ -1266,7 +1266,10 @@ class TestPropertyRoundTrip:
                 m1 = el
                 break
         assert m1 is not None
-        props = m1.findall(TAG("property"))
+        # Properties are wrapped in <properties> container per schema
+        props_container = m1.find(TAG("properties"))
+        assert props_container is not None
+        props = props_container.findall(TAG("property"))
         assert len(props) == 3
         # Check one property value
         values = {}
@@ -1281,7 +1284,9 @@ class TestPropertyRoundTrip:
         root = ET.fromstring(xml_str)
         rels = root.find(TAG("relationships"))
         rel = rels.findall(TAG("relationship"))[0]
-        props = rel.findall(TAG("property"))
+        props_container = rel.find(TAG("properties"))
+        assert props_container is not None
+        props = props_container.findall(TAG("property"))
         assert len(props) == 1
         assert props[0].find(TAG("value")).text == "registry-index.md"
 
@@ -1295,7 +1300,7 @@ class TestPropertyRoundTrip:
                 m2 = el
                 break
         assert m2 is not None
-        assert len(m2.findall(TAG("property"))) == 0
+        assert m2.find(TAG("properties")) is None
 
     def test_full_roundtrip_preserves_properties(self):
         """YAML → XML → YAML → XML: properties survive the full cycle."""
@@ -1325,7 +1330,9 @@ class TestPropertyRoundTrip:
                 m1 = el
                 break
         assert m1 is not None
-        assert len(m1.findall(TAG("property"))) == 3
+        m1_props = m1.find(TAG("properties"))
+        assert m1_props is not None
+        assert len(m1_props.findall(TAG("property"))) == 3
 
     def test_no_properties_no_property_definitions(self):
         """Models without properties should not get a <propertyDefinitions> block."""

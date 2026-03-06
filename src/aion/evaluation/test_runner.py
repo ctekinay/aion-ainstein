@@ -184,7 +184,7 @@ QUICK_TEST_IDS = ["V1", "A1", "A3", "P1", "PO1", "X1", "C1", "D2", "N1", "N3"]
 
 # Faster Ollama model alternatives when default times out
 FAST_OLLAMA_MODELS = [
-    "alibayram/smollm3:latest",  # Small, fast model
+    "qwen3.5:9b",                # Qwen 3.5 9B model
     "llama3.2:1b",               # 1B parameter model
     "phi3:mini",                 # Microsoft's small model
     "gemma2:2b",                 # Google's 2B model
@@ -662,7 +662,7 @@ async def run_tests(provider: str = "ollama", model: str = None, quick: bool = F
                 print("="*60)
                 print("The current model may be too slow. Consider:")
                 print("  1. Using a faster model: --model llama3.2:1b")
-                print("  2. Using a smaller model: --model alibayram/smollm3:latest")
+                print("  2. Using a smaller model: --model qwen3.5:9b")
                 print("  3. Switching to OpenAI: --openai")
                 print("  4. Increasing server timeout in elysia_agents.py")
                 print("="*60 + "\n")
