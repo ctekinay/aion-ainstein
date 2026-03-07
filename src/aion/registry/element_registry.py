@@ -54,8 +54,8 @@ def init_registry_table(db_path: Path | None = None) -> None:
     """)
 
     cursor.execute("""
-        CREATE INDEX IF NOT EXISTS idx_registry_type_name
-        ON element_registry(element_type, canonical_name)
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_registry_unique_element
+        ON element_registry(workspace_id, element_type, canonical_name)
     """)
     cursor.execute("""
         CREATE INDEX IF NOT EXISTS idx_registry_workspace
@@ -175,20 +175,36 @@ def register_element(
     cursor = conn.cursor()
 
     cursor.execute("BEGIN IMMEDIATE")
-    cursor.execute(
-        "INSERT INTO element_registry "
-        "(canonical_id, workspace_id, element_type, canonical_name, display_name, "
-        "documentation, dct_identifier, dct_title, source_doc_refs, "
-        "created_at, last_used_at, generation_count, provenance_artifact_id) "
-        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)",
-        (
-            canonical_id, workspace_id, element_type, cn, display_name,
-            documentation, dct_identifier, dct_title or "", refs_json,
-            now, now, provenance_artifact_id or "",
-        ),
-    )
-
-    conn.commit()
+    try:
+        cursor.execute(
+            "INSERT INTO element_registry "
+            "(canonical_id, workspace_id, element_type, canonical_name, display_name, "
+            "documentation, dct_identifier, dct_title, source_doc_refs, "
+            "created_at, last_used_at, generation_count, provenance_artifact_id) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)",
+            (
+                canonical_id, workspace_id, element_type, cn, display_name,
+                documentation, dct_identifier, dct_title or "", refs_json,
+                now, now, provenance_artifact_id or "",
+            ),
+        )
+        conn.commit()
+    except sqlite3.IntegrityError:
+        # UNIQUE constraint hit — element was registered between lookup and insert
+        conn.rollback()
+        cursor.execute(
+            "SELECT canonical_id FROM element_registry "
+            "WHERE workspace_id = ? AND element_type = ? AND canonical_name = ?",
+            (workspace_id, element_type, cn),
+        )
+        row = cursor.fetchone()
+        if row:
+            logger.warning(
+                "Duplicate registration avoided for %s '%s' — returning existing %s",
+                element_type, display_name, row[0],
+            )
+            conn.close()
+            return row[0]
     conn.close()
     return canonical_id
 
@@ -205,26 +221,37 @@ def update_element_usage(
     conn = sqlite3.connect(path)
     cursor = conn.cursor()
 
-    cursor.execute("BEGIN IMMEDIATE")
-
     if new_doc_refs:
+        # Atomic JSON merge — no read-modify-write race
+        # Build a JSON array literal for the new refs to merge
+        new_refs_json = json.dumps(sorted(set(new_doc_refs)))
         cursor.execute(
-            "SELECT source_doc_refs FROM element_registry WHERE canonical_id = ?",
-            (canonical_id,),
-        )
-        row = cursor.fetchone()
-        existing = set(json.loads(row[0])) if row and row[0] else set()
-        merged = sorted(existing | set(new_doc_refs))
-        cursor.execute(
-            "UPDATE element_registry SET generation_count = generation_count + 1, "
-            "last_used_at = ?, source_doc_refs = ? WHERE canonical_id = ?",
-            (now, json.dumps(merged), canonical_id),
+            "UPDATE element_registry SET "
+            "generation_count = generation_count + 1, "
+            "last_used_at = ?, "
+            "source_doc_refs = ("
+            "  SELECT json_group_array(value) FROM ("
+            "    SELECT DISTINCT value FROM ("
+            "      SELECT value FROM json_each(COALESCE(source_doc_refs, '[]'))"
+            "      UNION"
+            "      SELECT value FROM json_each(?)"
+            "    ) ORDER BY value"
+            "  )"
+            ") "
+            "WHERE canonical_id = ?",
+            (now, new_refs_json, canonical_id),
         )
     else:
         cursor.execute(
             "UPDATE element_registry SET generation_count = generation_count + 1, "
             "last_used_at = ? WHERE canonical_id = ?",
             (now, canonical_id),
+        )
+
+    if cursor.rowcount == 0:
+        logger.warning(
+            "update_element_usage: canonical_id '%s' not found in registry",
+            canonical_id,
         )
 
     conn.commit()
@@ -294,6 +321,10 @@ def reconcile_elements(
         name = elem.get("name", "")
 
         if not etype or not name:
+            logger.warning(
+                "Skipping element with missing type or name: id=%s type=%r name=%r",
+                original_id, etype, name,
+            )
             continue
 
         existing = lookup_element(etype, name, workspace_id, db_path)
