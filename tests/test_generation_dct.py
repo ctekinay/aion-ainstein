@@ -62,7 +62,7 @@ class TestBuildSourceMetadata:
         }]
         meta = GenerationPipeline._build_source_metadata(sources)
         assert "PCP.10" in meta
-        assert meta["PCP.10"]["kb_uuid"] == "urn:uuid:78c31f45-4ed7-4025-99d5-b29fa23b54a5"
+        assert meta["PCP.10"]["resolved_identifier"] == "urn:uuid:78c31f45-4ed7-4025-99d5-b29fa23b54a5"
         assert meta["PCP.10"]["title"] == "Eventual Consistency by Design"
         assert meta["PCP.10"]["creator"] == "Grid Operations Team"
 
@@ -74,11 +74,11 @@ class TestBuildSourceMetadata:
         }]
         meta = GenerationPipeline._build_source_metadata(sources)
         assert "ADR.29" in meta
-        assert meta["ADR.29"]["kb_uuid"] == "urn:uuid:aaaa-bbbb-cccc"
+        assert meta["ADR.29"]["resolved_identifier"] == "urn:uuid:aaaa-bbbb-cccc"
         assert meta["ADR.29"]["title"] == "Use CIM Standards"
         assert "creator" not in meta["ADR.29"]  # no owner_display
 
-    def test_no_kb_uuid_skipped(self):
+    def test_no_uuid_skipped(self):
         sources = [{
             "principle_number": "0010",
             "title": "Missing UUID",
@@ -131,7 +131,7 @@ class TestEnrichYamlWithDct:
 
     METADATA = {
         "PCP.10": {
-            "kb_uuid": "urn:uuid:78c31f45-4ed7-4025-99d5-b29fa23b54a5",
+            "resolved_identifier": "urn:uuid:78c31f45-4ed7-4025-99d5-b29fa23b54a5",
             "title": "Eventual Consistency by Design",
             "creator": "Grid Operations Team",
             "issued": "2025-06-15",
@@ -139,7 +139,7 @@ class TestEnrichYamlWithDct:
             "_raw_dct_identifier": "urn:uuid:78c31f45-4ed7-4025-99d5-b29fa23b54a5",
         },
         "ADR.29": {
-            "kb_uuid": "urn:uuid:aaaa-bbbb-cccc-dddd",
+            "resolved_identifier": "urn:uuid:aaaa-bbbb-cccc-dddd",
             "title": "Use CIM Standards",
             "_raw_dct_identifier": "urn:uuid:aaaa-bbbb-cccc-dddd",
         },
@@ -292,7 +292,7 @@ class TestEnrichYamlWithDct:
         """dct:creator is not added when owner_display is absent in metadata."""
         meta = {
             "ADR.29": {
-                "kb_uuid": "urn:uuid:aaaa-bbbb",
+                "resolved_identifier": "urn:uuid:aaaa-bbbb",
                 "title": "Use CIM Standards",
                 # no "creator" key
             },
@@ -392,7 +392,7 @@ class TestEnrichmentXmlRoundTrip:
 
         metadata = {
             "PCP.10": {
-                "kb_uuid": "urn:uuid:78c31f45-4ed7-4025-99d5-b29fa23b54a5",
+                "resolved_identifier": "urn:uuid:78c31f45-4ed7-4025-99d5-b29fa23b54a5",
                 "title": "Eventual Consistency by Design",
                 "creator": "Grid Ops",
                 "issued": "2025-06-15",

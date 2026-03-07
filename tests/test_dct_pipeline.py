@@ -45,8 +45,8 @@ class TestChunkMetadataDctFields:
 # ---------------------------------------------------------------------------
 
 class TestBuildSourceMetadataDctPreference:
-    def test_prefers_dct_identifier_over_kb_uuid(self):
-        """When dct_identifier is present, it takes precedence over kb_uuid."""
+    def test_prefers_dct_identifier_over_chunk_uuid(self):
+        """When dct_identifier is present, it takes precedence over chunk UUID."""
         sources = [{
             "principle_number": "0012",
             "title": "Business Driven Data Readiness",
@@ -54,7 +54,7 @@ class TestBuildSourceMetadataDctPreference:
             "dct_identifier": "urn:uuid:3c4d5e6f-7a8b-4c9d-0e1f-2a3b4c5d6e7f",
         }]
         meta = GenerationPipeline._build_source_metadata(sources)
-        assert meta["PCP.12"]["kb_uuid"] == "urn:uuid:3c4d5e6f-7a8b-4c9d-0e1f-2a3b4c5d6e7f"
+        assert meta["PCP.12"]["resolved_identifier"] == "urn:uuid:3c4d5e6f-7a8b-4c9d-0e1f-2a3b4c5d6e7f"
 
     def test_falls_back_to_kb_uuid(self):
         """When dct_identifier is empty, falls back to urn:uuid:{kb_uuid}."""
@@ -65,7 +65,7 @@ class TestBuildSourceMetadataDctPreference:
             "dct_identifier": "",
         }]
         meta = GenerationPipeline._build_source_metadata(sources)
-        assert meta["PCP.10"]["kb_uuid"] == "urn:uuid:fallback-uuid-123"
+        assert meta["PCP.10"]["resolved_identifier"] == "urn:uuid:fallback-uuid-123"
 
     def test_no_double_urn_prefix(self):
         """dct_identifier already has urn:uuid: prefix — must not double it."""
@@ -76,8 +76,8 @@ class TestBuildSourceMetadataDctPreference:
             "dct_identifier": "urn:uuid:abc-def",
         }]
         meta = GenerationPipeline._build_source_metadata(sources)
-        assert meta["PCP.12"]["kb_uuid"] == "urn:uuid:abc-def"
-        assert "urn:uuid:urn:uuid:" not in meta["PCP.12"]["kb_uuid"]
+        assert meta["PCP.12"]["resolved_identifier"] == "urn:uuid:abc-def"
+        assert "urn:uuid:urn:uuid:" not in meta["PCP.12"]["resolved_identifier"]
 
     def test_raw_dct_identifier_stored(self):
         """_raw_dct_identifier is stored for UUID integrity checking."""
@@ -113,8 +113,8 @@ class TestBuildSourceMetadataDctPreference:
         meta = GenerationPipeline._build_source_metadata(sources)
         assert "issued" not in meta["PCP.10"]
 
-    def test_dct_identifier_only_no_kb_uuid(self):
-        """Source with dct_identifier but no kb_uuid should still be included."""
+    def test_dct_identifier_only_no_chunk_uuid(self):
+        """Source with dct_identifier but no chunk UUID should still be included."""
         sources = [{
             "principle_number": "0012",
             "title": "Test",
@@ -123,7 +123,7 @@ class TestBuildSourceMetadataDctPreference:
         }]
         meta = GenerationPipeline._build_source_metadata(sources)
         assert "PCP.12" in meta
-        assert meta["PCP.12"]["kb_uuid"] == "urn:uuid:abc-def"
+        assert meta["PCP.12"]["resolved_identifier"] == "urn:uuid:abc-def"
 
 
 # ---------------------------------------------------------------------------
@@ -135,7 +135,7 @@ class TestEnrichYamlDctExtended:
         """dct:issued and dct:language appear in enriched element properties."""
         metadata = {
             "PCP.10": {
-                "kb_uuid": "urn:uuid:abc-123",
+                "resolved_identifier": "urn:uuid:abc-123",
                 "title": "Test Principle",
                 "issued": "2025-06-15",
                 "language": "en",
@@ -163,7 +163,7 @@ class TestEnrichYamlDctExtended:
         """UUID mismatch between enriched and raw KB value triggers warning."""
         metadata = {
             "PCP.10": {
-                "kb_uuid": "urn:uuid:enriched-different",
+                "resolved_identifier": "urn:uuid:enriched-different",
                 "title": "Test",
                 "_raw_dct_identifier": "urn:uuid:original-from-kb",
             },
@@ -190,7 +190,7 @@ class TestEnrichYamlDctExtended:
         """No warning when enriched UUID matches raw KB value."""
         metadata = {
             "PCP.10": {
-                "kb_uuid": "urn:uuid:abc-123",
+                "resolved_identifier": "urn:uuid:abc-123",
                 "title": "Test",
                 "_raw_dct_identifier": "urn:uuid:abc-123",
             },
@@ -227,7 +227,7 @@ class TestReconcileWithSourceMetadata:
         """New element with source_ref + matching source_metadata gets KB UUID."""
         source_metadata = {
             "PCP.10": {
-                "kb_uuid": "urn:uuid:canonical-from-kb",
+                "resolved_identifier": "urn:uuid:canonical-from-kb",
                 "title": "Eventual Consistency",
             },
         }

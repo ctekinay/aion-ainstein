@@ -130,7 +130,7 @@ class TestFullRoundtrip:
 
         source_metadata = {
             "PCP.10": {
-                "kb_uuid": "urn:uuid:78c31f45-real-uuid",
+                "resolved_identifier": "urn:uuid:78c31f45-real-uuid",
                 "title": "Eventual Consistency by Design",
                 "creator": "Grid Ops",
             },

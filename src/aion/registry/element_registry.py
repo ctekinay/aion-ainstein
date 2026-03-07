@@ -12,6 +12,7 @@ import json
 import logging
 import re
 import sqlite3
+import unicodedata
 import uuid
 from datetime import datetime
 from pathlib import Path
@@ -74,10 +75,13 @@ def init_registry_table(db_path: Path | None = None) -> None:
 def _canonical_name(name: str) -> str:
     """Normalize element name for matching.
 
-    Lowercase, collapse whitespace, strip trailing punctuation.
+    Lowercase, collapse whitespace, strip trailing punctuation,
+    and normalize accented characters (é → e) so "café" matches "cafe".
     NO article removal — "A/B Testing" must not become "b testing".
     """
     s = name.lower().strip()
+    s = unicodedata.normalize("NFKD", s)
+    s = "".join(c for c in s if not unicodedata.combining(c))
     s = re.sub(r"\s+", " ", s)
     s = s.rstrip(".,;:!?")
     return s
@@ -340,7 +344,7 @@ def reconcile_elements(
             if source_metadata:
                 ref = elem.get("source_ref", "")
                 if ref and ref in source_metadata:
-                    dct_id = source_metadata[ref].get("kb_uuid")
+                    dct_id = source_metadata[ref].get("resolved_identifier")
 
             canonical_id = register_element(
                 element_type=etype,
@@ -521,18 +525,22 @@ def find_near_duplicates(
     rows = cursor.fetchall()
     conn.close()
 
+    # Group by element_type to avoid cross-type comparisons (O(n²) → O(Σ nᵢ²))
+    by_type: dict[str, list[tuple[str, str, str]]] = {}
+    for cid, etype, cn, dn in rows:
+        by_type.setdefault(etype, []).append((cid, cn, dn))
+
     pairs: list[tuple[dict, dict, int]] = []
-    for i, (cid_a, type_a, cn_a, dn_a) in enumerate(rows):
-        for cid_b, type_b, cn_b, dn_b in rows[i + 1:]:
-            if type_a != type_b:
-                continue
-            dist = _levenshtein(cn_a, cn_b)
-            if dist <= 3:
-                pairs.append((
-                    {"canonical_id": cid_a, "element_type": type_a, "display_name": dn_a},
-                    {"canonical_id": cid_b, "element_type": type_b, "display_name": dn_b},
-                    dist,
-                ))
+    for etype, entries in by_type.items():
+        for i, (cid_a, cn_a, dn_a) in enumerate(entries):
+            for cid_b, cn_b, dn_b in entries[i + 1:]:
+                dist = _levenshtein(cn_a, cn_b)
+                if dist <= 3:
+                    pairs.append((
+                        {"canonical_id": cid_a, "element_type": etype, "display_name": dn_a},
+                        {"canonical_id": cid_b, "element_type": etype, "display_name": dn_b},
+                        dist,
+                    ))
     return pairs
 
 
@@ -655,7 +663,7 @@ def backfill_dct_identifiers(
         new_dct_id = None
         for ref in refs:
             if ref in source_metadata:
-                new_dct_id = source_metadata[ref].get("kb_uuid")
+                new_dct_id = source_metadata[ref].get("resolved_identifier")
                 if new_dct_id:
                     break
 
@@ -664,8 +672,13 @@ def backfill_dct_identifiers(
                 "UPDATE element_registry SET dct_identifier = ? WHERE canonical_id = ?",
                 (new_dct_id, canonical_id),
             )
+            logger.info(
+                "Backfilled %s: %s → %s",
+                canonical_id, current_dct_id or "(none)", new_dct_id,
+            )
             updated += 1
 
     conn.commit()
     conn.close()
+    logger.info("Backfill complete: %d/%d entries updated", updated, len(rows))
     return updated

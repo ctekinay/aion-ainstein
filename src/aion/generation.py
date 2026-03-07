@@ -729,7 +729,7 @@ class GenerationPipeline:
                     resolved_uuid = ""
 
                 entry: dict[str, str] = {
-                    "kb_uuid": resolved_uuid,
+                    "resolved_identifier": resolved_uuid,
                     "title": title,
                     "_raw_dct_identifier": dct_id,  # for UUID integrity check
                 }
@@ -790,7 +790,7 @@ class GenerationPipeline:
                 if not isinstance(props, dict):
                     props = {}
                 meta = source_metadata[ref]
-                props["dct:identifier"] = meta["kb_uuid"]
+                props["dct:identifier"] = meta["resolved_identifier"]
                 props["dct:title"] = meta["title"]
                 if "creator" in meta:
                     props["dct:creator"] = meta["creator"]
