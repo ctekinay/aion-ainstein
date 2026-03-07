@@ -140,23 +140,31 @@ Queries are handled by the AInstein Persona, which classifies intent, emits skil
 git clone <your-fork-url>
 cd esa-ainstein-artifacts
 
-# 2. Start Weaviate (use podman-compose on Linux if not using Docker)
+# 2. Run the bootstrap script (validates, patches .env, starts services, initializes DB)
+bash setup.sh
+# Open http://localhost:8081
+```
+
+Or manually:
+
+```bash
+# 1. Start Weaviate (use podman-compose on Linux if not using Docker)
 docker compose up -d
 
-# 3. Start Ollama and pull models
+# 2. Start Ollama and pull models
 ollama serve &
 ollama pull nomic-embed-text-v2-moe
 ollama pull gpt-oss:20b
 
-# 4. Python environment (requires uv — https://docs.astral.sh/uv/)
+# 3. Python environment (requires uv — https://docs.astral.sh/uv/)
 uv sync
 
-# 5. Configure
+# 4. Configure
 cp .env.example .env
 # Default uses Ollama — no changes needed
 
-# 6. Initialize and run
-python -m src.aion.cli init
+# 5. Initialize and run
+python -m src.aion.cli init --chunked
 python -m src.aion.chat_ui --port 8081
 # Open http://localhost:8081
 ```
