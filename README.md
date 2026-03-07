@@ -1,0 +1,469 @@
+# AInstein [![Alliander](https://img.shields.io/badge/maintained%20by-Alliander-orange.svg)](https://www.alliander.com)
+
+Agentic RAG and multi-skill AI system developed by Alliander's Energy System Architecture Group to support various architecture workstreams. Built on Weaviate (Vector DB) + Elysia decision trees with an AInstein Persona layer for intent classification and a Skills Framework for prompt engineering.
+
+## What It Does
+
+AInstein lets architects and engineers query Alliander's architecture knowledge base using natural language:
+
+- **18 Architecture Decision Records (ADRs)** — design decisions with context, options, and consequences
+- **31 Architecture Principles (PCPs)** — guiding statements for design choices
+- **49 Decision Approval Records (DARs)** — governance and approval history
+- **5,200+ SKOS Vocabulary Concepts** — IEC 61970/61968/62325 standards, CIM models, domain ontologies via SKOSMOS REST API
+- **Policy Documents** — data governance, privacy, security policies
+- **ArchiMate 3.2 Model Generation** — validated Open Exchange XML from architecture descriptions, with optional Dublin Core (`dct:*`) metadata properties on elements and relationships
+- **ArchiMate Model Inspection** — analyze, describe, and compare ArchiMate models from conversation artifacts, file uploads, or URLs
+- **GitHub Repository Browsing** — inspect GitHub repos (metadata, README, directory structure), org/user profiles (top repositories), and individual files via MCP and REST API
+- **SKOSMOS Vocabulary Lookups** — term definitions, abbreviations, concept hierarchies via structured API
+
+Queries are handled by the AInstein Persona, which classifies intent, emits skill tags for domain-specific capabilities, and rewrites queries. The Persona routes to the appropriate execution path:
+
+- **Retrieval queries** ("What ADRs exist?", "What is document 22?", "Define active power") go to the **Elysia Decision Tree**, which selects tools, searches collections, and formats responses with citations.
+- **Generation queries** ("Create an ArchiMate model for ADR.29") go to the **Generation Pipeline**, which fetches source content, builds a prompt from the matching skill, makes a single LLM call, validates, and saves the artifact for download. Token usage is tracked across all LLM calls (generation, view repair, validation retries) and reported in a single summary log line at completion.
+- **Refinement queries** ("Add a Technology layer to the model", "Add dct:* properties to all elements") go to the **Generation Pipeline** with the previous artifact loaded as context. The LLM returns a structured YAML diff envelope (~200 tokens) instead of regenerating the full model (~4,600 tokens). A deterministic merge engine applies the diff — supporting element/relationship addition, removal, property modification (additive merge), and relationship modification via derived IDs; if parsing fails, the pipeline falls back transparently to full regeneration.
+- **Inspection queries** ("Describe the model you just generated", "What elements are in this ArchiMate file?", "https://github.com/OpenSTEF") go to the **Inspection path**. ArchiMate files are converted to compact YAML (~90% token reduction) for LLM analysis. GitHub repo URLs fetch metadata + README + directory listing via MCP for repo-level analysis. GitHub org/user URLs fetch profile and top repositories via REST API. Non-ArchiMate files (e.g., `.py`, `.toml`) get generic file analysis. Models can come from conversation artifacts, file uploads, or URLs.
+- **Direct response queries** ("Who are you?", "What's the weather?") are answered by the Persona without any backend call.
+
+**Disclaimer:** Currently, the above-mentioned data sources are integrated stand-alone via the data/ folder. The short-term goal for AInstein is full integration with ESA repositories, tools, and other internal data sources directly. 
+
+## Architecture
+
+```
+┌──────────────────────────────────────────────────────────────────────┐
+│                         Web UI / CLI                                 │
+│              localhost:8081  |  python -m src.aion.chat_ui            │
+└──────────────┬───────────────────────────────────────────────────────┘
+               │
+┌──────────────▼───────────────────────────────────────────────────────┐
+│                    AInstein Persona Layer                            │
+│  Intent classification: retrieval, listing, follow_up, generation,   │
+│    refinement, inspect, identity, off_topic, clarification           │
+│  Query rewriting with conversation context (pronoun resolution)      │
+│  Skill tag emission for on-demand capabilities                       │
+│  Direct response for identity/off-topic/clarification                │
+└──────────┬─────────────────────┬──────────────────────┬──────────────┘
+           │ retrieval / listing │ generation /         │ inspect
+           │ / follow_up         │ refinement           │
+┌──────────▼─────────────────────▼────┐  ┌──────────────▼────────────────┐
+│       Elysia Decision Tree          │  │      Generation Pipeline      │
+│  Tool selection via LLM planner     │  │  Direct LLM call (no planner) │
+│  Atlas = injected skill content     │  │  Skill-driven prompt building │
+├─────────────────────────────────────┤  ├───────────────────────────────┤
+│  Tools:                             │  │  1. Fetch source content      │
+│  search_architecture_decisions      │  │  2. Load generation skill     │
+│  search_principles                  │  │  3. Single LLM call           │
+│  search_policies                    │  │  4. XML sanitization          │
+│  list_all_adrs                      │  │  5. View repair (detect+fix)  │
+│  list_all_principles                │  │  6. Validation (+ retry)      │
+│  search_by_team                     │  │  7. Save artifact to SQLite   │
+│  get_collection_stats               │  │  8. Emit download card (SSE)  │
+│  skosmos_search                     │  ├───────────────────────────────┤
+│  skosmos_concept_details            │  │  Refinement: YAML diff merge  │
+│  skosmos_list_vocabularies          │  │  with full-regen fallback     │
+│  validate_archimate                 │  └───────────────┬───────────────┘
+│  inspect_archimate_model            │                  │
+│  merge_archimate_view               │           ┌──────▼──────────┐
+│  save_artifact  get_artifact        │           │   Artifacts     │
+├─────────────────────────────────────┤  ▼────────┤  SQLite store   │
+│  Summarizers: cited_summarize       │  │        │  SSE download   │
+└──────────────┬──────────────────────┘  │        │  card + API     │
+               │                         │        │  File upload    │
+               │                         │        └─────────────────┘
+               │                         │
+               │              ┌──────────┴──────────┐
+               │              │     Inspection      │
+               │              │  XML → YAML → LLM   │
+               │              │  Sources: artifact, │
+               │              │  upload, URL (MCP/  │
+               │              │  httpx)             │
+               │              └─────────────────────┘
+               │
+┌──────────────▼───────────────────────────────────────────────────────┐
+│                     Skills Framework                                 │
+│  Always-on skills injected into every prompt via atlas               │
+│  ┌─────────────────┐ ┌──────────────────┐ ┌──────────────────────┐   │
+│  │ persona-        │ │ rag-quality-     │ │ esa-document-        │   │
+│  │ orchestrator    │ │ assurance        │ │ ontology             │   │
+│  │ Intent classif. │ │ Anti-hallucin.   │ │ ADR/PCP/DAR          │   │
+│  │ + skill tags    │ │ Citation rules   │ │ disambiguation       │   │
+│  └─────────────────┘ └──────────────────┘ └──────────────────────┘   │
+│  ┌─────────────────┐ ┌──────────────────┐                            │
+│  │ response-       │ │ ainstein-        │                            │
+│  │ formatter       │ │ identity         │                            │
+│  │ Numbered lists, │ │ Tone, behavior,  │                            │
+│  │ follow-ups      │ │ scope, identity  │                            │
+│  └─────────────────┘ └──────────────────┘                            │
+│                                                                      │
+│  On-demand skills (injected when Persona emits matching tags)        │
+│  ┌─────────────────┐ ┌──────────────────┐ ┌──────────────────────┐   │
+│  │ archimate-      │ │ archimate-view-  │ │ skosmos-             │   │
+│  │ generator       │ │ generator        │ │ vocabulary           │   │
+│  │ ArchiMate 3.2   │ │ View layout +    │ │ SKOSMOS REST API     │   │
+│  │ XML + properties│ │ merge            │ │ term definitions     │   │
+│  │ tag: archimate  │ │ tag: archimate   │ │ tag: vocabulary      │   │
+│  └─────────────────┘ └──────────────────┘ └──────────────────────┘   │
+└──────────────────────────────────────────────────────────────────────┘
+               │
+┌──────────────▼───────────────────────────────────────────────────────┐
+│                        Weaviate 1.35.7                               │
+│  ┌──────────────────┐ ┌───────────┐ ┌──────────────┐                 │
+│  │ Architectural    │ │ Principle │ │ Policy       │                 │
+│  │ Decision  18+49  │ │ 31+31     │ │ Document     │                 │
+│  │ ADRs + DARs      │ │ PCPs+DARs │ │ 76 chunks    │                 │
+│  └──────────────────┘ └───────────┘ └──────────────┘                 │
+│  Hybrid search: BM25 keyword + vector similarity                     │
+│  Client-side embeddings via Ollama (all providers)                   │
+└──────────────┬───────────────────────────────────────────────────────┘
+               │
+┌──────────────▼───────────────────────────────────────────────────────┐
+│                        SKOSMOS REST API                              │
+│  5,200+ SKOS concepts · IEC/CIM/EU vocabularies · ESAV terminology   │
+│  skosmos_search → skosmos_concept_details → skosmos_list_vocabs      │
+└──────────────┬───────────────────────────────────────────────────────┘
+               │
+┌──────────────▼───────────────────────────────────────────────────────┐
+│                      LLM Providers                                   │
+│  ┌────────────────┐ ┌────────────────────┐ ┌──────────────────────┐  │
+│  │ Ollama         │ │ GitHub CoPilot     │ │ OpenAI               │  │
+│  │ (default)      │ │ Models (Alliander  │ │ (pay-per-token, not  │  │
+│  │ gpt-oss:20b    │ │ Enterprise, might  │ │ for company data)    │  │
+│  │ Local, free    │ │ have token limit)  │ │ gpt-5.2              │  │
+│  └────────────────┘ └────────────────────┘ └──────────────────────┘  │
+│  Per-component overrides: PERSONA_PROVIDER / TREE_PROVIDER           │
+└──────────────────────────────────────────────────────────────────────┘
+```
+
+## Quick Start
+
+```bash
+# 1. Clone and enter
+git clone <your-fork-url>
+cd esa-ainstein-artifacts
+
+# 2. Run the bootstrap script
+bash setup.sh
+
+# 3. Start the web UI
+python -m src.aion.chat_ui --port 8081
+# Open http://localhost:8081
+```
+
+The bootstrap script (`setup.sh`) automates the full setup:
+
+1. **Validates prerequisites** — Python 3.11/3.12, Docker or Podman, uv, Ollama (optional)
+2. **Checks Ollama models** — verifies `nomic-embed-text-v2-moe` and `gpt-oss:20b` are pulled
+3. **Configures `.env`** — creates from `.env.example` if missing, patches stale Weaviate ports (`8080→8090`, `50051→50061`), adds missing keys, generates `FERNET_KEY`
+4. **Starts Docker services** — runs `docker compose up -d` (or `podman-compose`)
+5. **Waits for Weaviate** — polls the healthcheck endpoint until ready (30s timeout)
+6. **Installs Python dependencies** — runs `uv sync`
+7. **Initializes the database** — runs `python -m src.aion.cli init --chunked` (ingests all documents into Weaviate)
+
+Works on macOS and Linux. Windows users should run via WSL or Git Bash.
+
+### Manual setup
+
+If you prefer to set up manually (or need to troubleshoot individual steps):
+
+```bash
+# 1. Start Weaviate (use podman-compose on Linux if not using Docker)
+docker compose up -d
+
+# 2. Start Ollama and pull models
+ollama serve &
+ollama pull nomic-embed-text-v2-moe
+ollama pull gpt-oss:20b
+
+# 3. Python environment (requires uv — https://docs.astral.sh/uv/)
+uv sync
+
+# 4. Configure
+cp .env.example .env
+# Default uses Ollama — no changes needed
+
+# 5. Initialize and run
+python -m src.aion.cli init --chunked
+python -m src.aion.chat_ui --port 8081
+# Open http://localhost:8081
+```
+
+## Prerequisites
+
+- **Docker** (or **Podman**) — for Weaviate vector database and SKOSMOS vocabulary service
+- **Python 3.11-3.12** (3.10 and 3.13+ not supported)
+- **Ollama** (default, local, free) — [ollama.ai/download](https://ollama.ai/download)
+- **SKOSMOS** — vocabulary lookup service (runs separately via Docker, see [SKOSMOS Setup](#skosmos-setup))
+- Or **GitHub CoPilot Models** (Alliander Enterprise Account, 8K token limit) — set `LLM_PROVIDER=github_models` and `GITHUB_MODELS_API_KEY` in `.env`
+- Or **OpenAI API key** (cloud, paid — do not use with company data) — set `LLM_PROVIDER=openai` and `OPENAI_API_KEY` in `.env`
+
+## Commands
+
+```bash
+# Web UI
+python -m src.aion.chat_ui --port 8081       # Start web UI (default: localhost:8081)
+
+# Data management
+python -m src.aion.cli init                  # Initialize collections and ingest data
+python -m src.aion.cli init --chunked        # Ingest with section-based chunking
+python -m src.aion.cli init --recreate       # Recreate collections from scratch
+
+# Debugging
+python -m src.aion.cli query "question"      # Single query from terminal (bypasses AInstein Persona)
+```
+
+## Web UI
+
+The chat interface at `http://localhost:8081` provides:
+
+- **Chat** — conversational RAG with AInstein Persona intent classification and citations
+- **Settings** — model selection, temperature, comparison mode
+- **Skills** (`/skills`) — enable/disable skills, tune abstention threshold, edit SKILL.md content
+
+## Skills Framework
+
+Skills are markdown instruction files injected into every LLM prompt. They control how AInstein behaves — identity, formatting, citation rules, domain knowledge. Skills are managed via the `/skills` UI or by editing files directly.
+
+```
+skills/
+├── skills-registry.yaml             # Which skills are enabled + on-demand tags
+├── persona-orchestrator/
+│   ├── SKILL.md                     # Intent classification, query rewriting, skill tags, recall routing
+│   └── references/thresholds.yaml   # Persona conversation history window, truncation limits
+├── ainstein-identity/
+│   └── SKILL.md                     # Conversational behavior, tone, identity, scope, response style
+├── rag-quality-assurance/
+│   ├── SKILL.md                     # Citation format, abstention rules
+│   └── references/thresholds.yaml   # Distance threshold, retrieval limits
+├── esa-document-ontology/
+│   ├── SKILL.md                     # ADR/PCP/DAR naming, numbering, disambiguation
+│   └── references/registry-index.md # Condensed document registry (49 entries: ID, status, date, owner)
+├── response-formatter/
+│   └── SKILL.md                     # Numbered lists, statistics, follow-up options
+├── archimate-generator/             # On-demand (tag: archimate)
+│   ├── SKILL.md                     # ArchiMate 3.2 XML generation workflow
+│   └── references/                  # Element types, allowed relations
+├── archimate-view-generator/        # On-demand (tag: archimate)
+│   ├── SKILL.md                     # View layout and merge workflow
+│   └── references/                  # View layout rules
+└── skosmos-vocabulary/              # On-demand (tag: vocabulary)
+    └── SKILL.md                     # SKOSMOS REST API search and concept lookup
+```
+
+**Progressive Skill Loading:** Skills use two injection modes to minimize token usage:
+
+- **Always-on** — core skills (identity, quality assurance, document ontology, response formatting) are injected into every prompt via the Elysia Tree's `atlas.agent_description`. These apply to all query types.
+- **On-demand** — domain-specific skills (ArchiMate generation, ArchiMate views, SKOSMOS vocabulary) are injected only when the Persona emits matching `skill_tags` (e.g., `["archimate"]` or `["vocabulary"]`). A standard KB query like "What ADRs exist?" never loads the ArchiMate generation skill (~10K chars) or SKOSMOS vocabulary rules.
+
+This reduces prompt size by 40-80% for standard queries compared to loading all skills on every call. The Generation Pipeline loads only the matching generation skill (e.g., `archimate-generator`) — not the always-on skills — since it operates outside the Tree's retrieval context.
+
+**Thresholds:** Skills can define `references/thresholds.yaml` for configurable parameters:
+- `rag-quality-assurance`: `abstention.distance_threshold` (0.6) — maximum vector distance before abstaining; `retrieval_limits` — max documents per collection; `truncation` — content length limits
+- `persona-orchestrator`: `persona.verbatim_window` (20) — how many recent messages the Persona sees verbatim; `persona.message_truncation_chars` (2000) — max chars per message in history
+
+## Project Structure
+
+```
+esa-ainstein-artifacts/
+├── src/aion/
+│   ├── cli.py                    # Typer CLI (init, query — data management and debugging)
+│   ├── config.py                 # Pydantic settings from .env (3-provider config)
+│   ├── persona.py                # AInstein Persona — intent classification, query rewriting
+│   ├── generation.py             # Direct LLM generation pipeline (ArchiMate XML, etc.)
+│   ├── chat_ui.py                # FastAPI web server + API endpoints + SQLite conversation store
+│   │                             #   Execution router: generation → pipeline, retrieval → Tree
+│   ├── elysia_agents.py          # Elysia Tree integration, tool registration,
+│   │                             #   skill injection, abstention
+│   ├── mcp/
+│   │   ├── config.yaml           # MCP server registry (URLs, auth, transport)
+│   │   ├── registry.py           # MCPServerConfig + load_registry() + get_server()
+│   │   ├── client.py             # Generic MCP client (streamable HTTP transport)
+│   │   └── github.py             # GitHub file/repo/org fetching + URL parsing
+│   ├── tools/
+│   │   ├── archimate.py          # ArchiMate 3.2 validation, inspection, merge
+│   │   ├── yaml_to_xml.py        # ArchiMate YAML ↔ XML converter (generation + inspection)
+│   │   └── skosmos.py            # SKOSMOS REST API wrappers (search, concept details)
+│   ├── weaviate/
+│   │   ├── client.py             # Weaviate connection factory
+│   │   ├── collections.py        # Collection schema definitions
+│   │   ├── embeddings.py         # Ollama embedding functions
+│   │   └── ingestion.py          # Data ingestion pipeline
+│   ├── loaders/
+│   │   ├── markdown_loader.py    # ADR/PCP markdown parser with frontmatter
+│   │   ├── document_loader.py    # DOCX/PDF parser for policies
+│   │   └── registry_parser.py    # ESA registry table parser
+│   ├── chunking/                 # Section-based document chunking
+│   ├── registry/
+│   │   ├── element_registry.py   # Element identity registry (SQLite, dedup, near-miss detection)
+│   │   └── cli.py                # Registry management CLI (list, stats, duplicates)
+│   ├── memory/
+│   │   ├── session_store.py      # SQLite session management, user profiles
+│   │   ├── summarizer.py         # Rolling conversation summaries
+│   │   └── cli.py                # Memory management CLI (show, reset, export)
+│   ├── skills/
+│   │   ├── __init__.py           # Package init, get_skill_registry()
+│   │   ├── loader.py             # SkillLoader: parses SKILL.md, loads thresholds
+│   │   ├── registry.py           # SkillRegistry: enabled/disabled state, content injection
+│   │   ├── api.py                # Skills CRUD API (list, get, toggle, update)
+│   │   └── filters.py            # Query-based skill filtering (unused, kept for reference)
+│   ├── evaluation/               # RAG quality evaluation framework
+│   └── static/
+│       ├── index.html            # Main chat UI
+│       └── skills.html           # Skills management UI
+├── skills/                       # Skill definitions (SKILL.md + thresholds.yaml)
+├── setup.sh                      # Bootstrap script (validates, patches, starts, initializes)
+├── docker-compose.yml            # Weaviate 1.35.7 container
+├── pyproject.toml                # Python project configuration
+└── .env.example
+```
+
+## Configuration
+
+### Environment Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `LLM_PROVIDER` | `ollama` | `ollama`, `github_models`, or `openai` |
+| `WEAVIATE_URL` | `http://localhost:8080` | Weaviate HTTP endpoint |
+| `WEAVIATE_GRPC_URL` | `localhost:50051` | Weaviate gRPC endpoint |
+| `OLLAMA_URL` | `http://localhost:11434` | Ollama API |
+| `OLLAMA_MODEL` | `gpt-oss:20b` | Ollama chat model |
+| `OLLAMA_EMBEDDING_MODEL` | `nomic-embed-text-v2-moe` | Embedding model (all providers) |
+| `GITHUB_MODELS_API_KEY` | — | Required when using `github_models` provider |
+| `GITHUB_MODELS_MODEL` | `openai/gpt-4.1` | GitHub CoPilot Models chat model |
+| `OPENAI_API_KEY` | — | Required when using `openai` provider (not for company data) |
+| `OPENAI_CHAT_MODEL` | `gpt-5.2` | OpenAI chat model |
+| `OPENAI_EMBEDDING_MODEL` | `text-embedding-3-large` | OpenAI embedding model |
+| `SKOSMOS_URL` | `http://localhost:8090` | SKOSMOS REST API endpoint for vocabulary lookups |
+| `GITHUB_TOKEN` | — | GitHub PAT for MCP file fetching (requires `repo` scope; authorize for org SSO if applicable) |
+| `PERSONA_PROVIDER` | — | Override LLM provider for AInstein Persona only |
+| `TREE_PROVIDER` | — | Override LLM provider for Elysia Tree only |
+
+### Docker / Podman
+
+Weaviate runs locally via Docker (or Podman). The `docker-compose.yml` configures:
+- Weaviate 1.35.7 with text2vec-ollama and generative-ollama modules
+- HTTP on port 8080, gRPC on port 50051
+- Persistent storage via Docker volume
+
+```bash
+docker compose up -d         # Start
+docker compose down          # Stop
+docker compose down -v       # Stop and delete all data
+```
+
+If you are **not** using `setup.sh` (which handles port configuration automatically), verify that the following port assignments are correct in your `.env` and `docker-compose.yml`:
+
+| Service | Port | Protocol |
+|---------|------|----------|
+| Weaviate HTTP | 8080 | REST API |
+| Weaviate gRPC | 50051 | gRPC |
+| SKOSMOS | 8090 | REST API |
+| Fuseki (SPARQL) | 9030 | HTTP |
+
+**Podman users (Linux):** Use `podman-compose` instead of `docker compose`. If Ollama runs on the host, replace `host.docker.internal` with the host's actual IP in `.env` — Podman doesn't support `host.docker.internal` by default.
+
+## SKOSMOS Setup
+
+SKOSMOS provides the vocabulary lookup service for ESA Architecture principles (ESAV vocabulary) and IEC/CIM/SKOS concepts. It currently runs as a local Docker/Podman stack, until MCP integration with the production Fuseki instance at `https://vocabs.alliander.com/` is implemented.
+
+The SKOSMOS instance and its vocabulary data are maintained in a separate Alliander repository:
+
+```bash
+git clone git@github.com:Alliander/esa-odei-skosmos.git
+cd esa-odei-skosmos
+docker compose up -d
+```
+
+Then configure the endpoint in your AInstein `.env`:
+
+```bash
+SKOSMOS_URL=http://localhost:8090
+```
+
+> **Note:** Access to `Alliander/esa-odei-skosmos` requires an Alliander GitHub account (same as this repository).
+
+AInstein will work without SKOSMOS, but vocabulary lookups (`skosmos_search`, `skosmos_concept_details`) will return errors. All other features (ADR/PCP/policy search, ArchiMate generation) function independently.
+
+## Conversation Memory
+
+AInstein stores conversation history and session data in a local SQLite database (`chat_history.db`), created automatically on first run. This enables:
+
+- Persistent conversation history across restarts
+- Rolling conversation summaries for multi-turn context (older turns summarized, recent turns verbatim)
+- In-session recall — the Persona can retrieve content it wrote earlier in the conversation
+- Session management and user profiles
+
+The Persona's conversation history window is configurable via `persona-orchestrator/references/thresholds.yaml` (verbatim window size, message truncation). No additional setup is required — SQLite is part of the Python standard library.
+
+## Artifacts
+
+When AInstein generates structured output (e.g., ArchiMate XML), it saves the content as an artifact in the same SQLite database. The chat UI shows a download card with the filename, a summary (element/relationship counts), and download buttons. ArchiMate artifacts show dual download buttons (XML + YAML); other artifacts show a single button. Artifacts are accessible via:
+
+- **Download card** in the chat UI (appears automatically after generation)
+- **API endpoint** `GET /api/artifact/{id}/download` — returns the artifact content with the appropriate MIME type
+- **File upload** — click the paperclip button to upload ArchiMate files (.xml, .yaml, .yml) for inspection and analysis
+- **URL fetch** — paste a GitHub URL in the chat: file URLs (blob/raw) fetch via MCP, repo root URLs fetch metadata + README + directory listing, org/user URLs fetch profile + top repos via REST API. Non-GitHub URLs are fetched via httpx. Supports private repos when `GITHUB_TOKEN` is set.
+
+Artifacts persist across sessions and can be loaded for refinement ("Add security constraints to the model") or inspection ("Describe the model you just generated").
+
+## Upgrading / Migration
+
+### Mandatory re-indexing after upgrade
+
+If you are upgrading from a previous version, you **must** recreate all Weaviate collections:
+
+```bash
+python -m src.aion.cli init --recreate --chunked
+# or for a fresh install:
+python -m src.aion.cli init --chunked
+```
+
+This is required because:
+
+1. **SKOSMOS vocabulary moved out of Weaviate** — vocabulary concepts are now served via the SKOSMOS REST API instead of being embedded in Weaviate collections. The old vocabulary collection is no longer used.
+2. **Data structure changes** — document metadata, chunking strategy, and collection schemas have changed. Notably, `dct_identifier` and `dct_issued` properties (Dublin Core metadata from frontmatter) require a schema update.
+3. **Embedding model alignment** — all collections must use the same embedding model. If you switched embedding models, existing vectors are incompatible.
+
+**Important:** The `--recreate` flag drops and recreates all collections, then re-ingests all data from `data/`. Without it, `init` skips collections that already exist and **will not update the schema**. If you added new collection properties (e.g., `dct_identifier`), you **must** use `--recreate` — otherwise the old schema is preserved and new fields will be `None`.
+
+## Known Limitations
+
+**ArchiMate XML generation requires a cloud model.** Local models (GPT-OSS:20B via Ollama) handle KB retrieval, vocabulary lookups, and text summarization well, but may refuse to generate structured ArchiMate XML. Switch to a cloud model (e.g., GPT-5.2 via OpenAI) in the Chat UI settings before requesting ArchiMate generation. The generation pipeline validates output, sanitizes common LLM XML errors (e.g., unescaped `&`), repairs missing view references (elements/relationships without corresponding diagram nodes/connections), and retries on validation failure.
+
+**Invalid model names produce clear errors.** If you configure a model name that doesn't exist on the provider (e.g., a typo in the settings), the system surfaces a clear error message instead of silently degrading. Transient errors (timeouts, rate limits) still fall back gracefully.
+
+## Troubleshooting
+
+**Weaviate won't start:**
+```bash
+docker ps                          # Check if running
+docker logs weaviate-ainstein-dev  # Check logs
+```
+
+**Ollama models not found:**
+```bash
+ollama list                  # Check installed models
+ollama pull nomic-embed-text-v2-moe
+ollama pull gpt-oss:20b
+```
+
+**Elysia gRPC errors** — the system falls back to direct query mode automatically. To reset Elysia metadata:
+```python
+import weaviate
+client = weaviate.connect_to_local()
+if client.collections.exists("ELYSIA_METADATA__"):
+    client.collections.delete("ELYSIA_METADATA__")
+client.close()
+```
+
+**Skills not taking effect** — verify skills are enabled:
+```bash
+curl http://localhost:8081/api/skills | python -m json.tool
+```
+## Contact
+**Maintained by the Energy System Architecture (ESA) Team at Alliander**
+
+- Organization: [Alliander](https://www.alliander.com)
+- Repository: [esa-ainstein-artifacts](https://github.com/Alliander/esa-ainstein-artifacts)
+
+For questions or support, please [open an issue](https://github.com/Alliander/esa-ainstein-artifacts/issues) or contact the ESA team.
+

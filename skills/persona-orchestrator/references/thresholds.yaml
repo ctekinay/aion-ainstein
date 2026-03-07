@@ -1,0 +1,12 @@
+# Persona conversation history settings
+# These control how much conversation context the Persona LLM sees
+# when classifying intent and rewriting queries.
+#
+# IMPORTANT: Larger values = more tokens per classification call.
+# 20 messages x 2000 chars + ~25K skill prompt = ~16K tokens.
+# Fine for cloud models (GPT-5.x, GPT-4o). Local models via Ollama
+# may have smaller context windows (4K-8K tokens) — reduce these
+# values if classification fails or produces garbage on local models.
+persona:
+  verbatim_window: 20
+  message_truncation_chars: 2000
