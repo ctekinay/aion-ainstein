@@ -140,12 +140,29 @@ Queries are handled by the AInstein Persona, which classifies intent, emits skil
 git clone <your-fork-url>
 cd esa-ainstein-artifacts
 
-# 2. Run the bootstrap script (validates, patches .env, starts services, initializes DB)
+# 2. Run the bootstrap script
 bash setup.sh
+
+# 3. Start the web UI
+python -m src.aion.chat_ui --port 8081
 # Open http://localhost:8081
 ```
 
-Or manually:
+The bootstrap script (`setup.sh`) automates the full setup:
+
+1. **Validates prerequisites** — Python 3.11/3.12, Docker or Podman, uv, Ollama (optional)
+2. **Checks Ollama models** — verifies `nomic-embed-text-v2-moe` and `gpt-oss:20b` are pulled
+3. **Configures `.env`** — creates from `.env.example` if missing, patches stale Weaviate ports (`8080→8090`, `50051→50061`), adds missing keys, generates `FERNET_KEY`
+4. **Starts Docker services** — runs `docker compose up -d` (or `podman-compose`)
+5. **Waits for Weaviate** — polls the healthcheck endpoint until ready (30s timeout)
+6. **Installs Python dependencies** — runs `uv sync`
+7. **Initializes the database** — runs `python -m src.aion.cli init --chunked` (ingests all documents into Weaviate)
+
+Works on macOS and Linux. Windows users should run via WSL or Git Bash.
+
+### Manual setup
+
+If you prefer to set up manually (or need to troubleshoot individual steps):
 
 ```bash
 # 1. Start Weaviate (use podman-compose on Linux if not using Docker)
@@ -292,6 +309,7 @@ esa-ainstein-artifacts/
 │       ├── index.html            # Main chat UI
 │       └── skills.html           # Skills management UI
 ├── skills/                       # Skill definitions (SKILL.md + thresholds.yaml)
+├── setup.sh                      # Bootstrap script (validates, patches, starts, initializes)
 ├── docker-compose.yml            # Weaviate 1.35.7 container
 ├── pyproject.toml                # Python project configuration
 └── .env.example
