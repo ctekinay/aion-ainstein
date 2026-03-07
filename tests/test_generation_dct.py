@@ -134,10 +134,14 @@ class TestEnrichYamlWithDct:
             "kb_uuid": "urn:uuid:78c31f45-4ed7-4025-99d5-b29fa23b54a5",
             "title": "Eventual Consistency by Design",
             "creator": "Grid Operations Team",
+            "issued": "2025-06-15",
+            "language": "en",
+            "_raw_dct_identifier": "urn:uuid:78c31f45-4ed7-4025-99d5-b29fa23b54a5",
         },
         "ADR.29": {
             "kb_uuid": "urn:uuid:aaaa-bbbb-cccc-dddd",
             "title": "Use CIM Standards",
+            "_raw_dct_identifier": "urn:uuid:aaaa-bbbb-cccc-dddd",
         },
     }
 
@@ -163,6 +167,8 @@ class TestEnrichYamlWithDct:
         assert elem["properties"]["dct:identifier"] == "urn:uuid:78c31f45-4ed7-4025-99d5-b29fa23b54a5"
         assert elem["properties"]["dct:title"] == "Eventual Consistency by Design"
         assert elem["properties"]["dct:creator"] == "Grid Operations Team"
+        assert elem["properties"]["dct:issued"] == "2025-06-15"
+        assert elem["properties"]["dct:language"] == "en"
 
     def test_fallback_principle_name(self):
         """No source_ref but Principle named PCP.10 -> fallback infers."""
@@ -389,6 +395,9 @@ class TestEnrichmentXmlRoundTrip:
                 "kb_uuid": "urn:uuid:78c31f45-4ed7-4025-99d5-b29fa23b54a5",
                 "title": "Eventual Consistency by Design",
                 "creator": "Grid Ops",
+                "issued": "2025-06-15",
+                "language": "en",
+                "_raw_dct_identifier": "urn:uuid:78c31f45-4ed7-4025-99d5-b29fa23b54a5",
             },
         }
 

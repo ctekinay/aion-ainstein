@@ -596,6 +596,15 @@ class MarkdownLoader:
                 title = self._extract_title(body, adr_file)
                 index_metadata = get_document_metadata(adr_file)
 
+                # Extract Dublin Core metadata from frontmatter
+                try:
+                    dct = post.metadata.get("dct", {})
+                    if isinstance(dct, dict):
+                        index_metadata["dct_identifier"] = dct.get("identifier", "")
+                        index_metadata["dct_issued"] = str(dct.get("issued", ""))
+                except (AttributeError, NameError):
+                    pass  # frontmatter parse failed — fields stay empty
+
                 chunked_doc = strategy.chunk_document(
                     content=body,
                     file_path=str(adr_file),
@@ -647,6 +656,15 @@ class MarkdownLoader:
 
                 title = self._extract_title(body, principle_file)
                 index_metadata = get_document_metadata(principle_file)
+
+                # Extract Dublin Core metadata from frontmatter
+                try:
+                    dct = post.metadata.get("dct", {})
+                    if isinstance(dct, dict):
+                        index_metadata["dct_identifier"] = dct.get("identifier", "")
+                        index_metadata["dct_issued"] = str(dct.get("issued", ""))
+                except (AttributeError, NameError):
+                    pass  # frontmatter parse failed — fields stay empty
 
                 chunked_doc = strategy.chunk_document(
                     content=body,

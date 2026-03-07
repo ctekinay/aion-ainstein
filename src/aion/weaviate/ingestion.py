@@ -335,6 +335,12 @@ class DataIngestionPipeline:
             "collection_name": chunk.metadata.collection_name,
         }
 
+        # Dublin Core metadata (conditional — avoid empty strings in Weaviate)
+        if chunk.metadata.dct_identifier:
+            props["dct_identifier"] = chunk.metadata.dct_identifier
+        if chunk.metadata.dct_issued:
+            props["dct_issued"] = chunk.metadata.dct_issued
+
         # ADR-specific fields
         if doc_type == "adr":
             props["adr_number"] = number

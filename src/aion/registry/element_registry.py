@@ -271,6 +271,7 @@ def _check_near_miss(
 def reconcile_elements(
     elements: list[dict],
     doc_refs: list[str] | None = None,
+    source_metadata: dict | None = None,
     workspace_id: str = "default",
     provenance_artifact_id: str | None = None,
     db_path: Path | None = None,
@@ -281,8 +282,9 @@ def reconcile_elements(
     - If (type, name) exists in registry: rewrite id to canonical, bump usage
     - If new: register, rewrite id, check near-misses
 
-    Only rewrites id fields. Does NOT touch source_ref, properties,
-    documentation, or name.
+    source_metadata is used to look up dct_identifier for new elements
+    via their source_ref field. Only rewrites id fields. Does NOT touch
+    source_ref, properties, documentation, or name.
     """
     id_map: dict[str, str] = {}
 
@@ -302,10 +304,18 @@ def reconcile_elements(
             # Strip "id-" prefix — _parse_and_validate re-adds it
             new_short_id = canonical_id[3:] if canonical_id.startswith("id-") else canonical_id
         else:
+            # Look up dct_identifier from source_metadata via source_ref
+            dct_id = None
+            if source_metadata:
+                ref = elem.get("source_ref", "")
+                if ref and ref in source_metadata:
+                    dct_id = source_metadata[ref].get("kb_uuid")
+
             canonical_id = register_element(
                 element_type=etype,
                 display_name=name,
                 documentation=elem.get("documentation", ""),
+                dct_identifier=dct_id,
                 source_doc_refs=doc_refs,
                 workspace_id=workspace_id,
                 provenance_artifact_id=provenance_artifact_id,
@@ -584,3 +594,47 @@ def get_stats(
         "by_type": by_type,
         "near_duplicates": near_dupes,
     }
+
+
+def backfill_dct_identifiers(
+    source_metadata: dict[str, dict],
+    workspace_id: str = "default",
+    db_path: Path | None = None,
+) -> int:
+    """Backfill dct_identifier for existing registry entries using source metadata.
+
+    Matches entries by source_doc_refs overlap with source_metadata keys.
+    Returns count of entries updated.
+    """
+    path = db_path or _DB_PATH
+    conn = sqlite3.connect(path)
+    cursor = conn.cursor()
+
+    cursor.execute(
+        "SELECT canonical_id, source_doc_refs, dct_identifier "
+        "FROM element_registry WHERE workspace_id = ?",
+        (workspace_id,),
+    )
+    rows = cursor.fetchall()
+    updated = 0
+
+    for canonical_id, refs_json, current_dct_id in rows:
+        refs = json.loads(refs_json) if refs_json else []
+        # Find first matching source_metadata key
+        new_dct_id = None
+        for ref in refs:
+            if ref in source_metadata:
+                new_dct_id = source_metadata[ref].get("kb_uuid")
+                if new_dct_id:
+                    break
+
+        if new_dct_id and new_dct_id != current_dct_id:
+            cursor.execute(
+                "UPDATE element_registry SET dct_identifier = ? WHERE canonical_id = ?",
+                (new_dct_id, canonical_id),
+            )
+            updated += 1
+
+    conn.commit()
+    conn.close()
+    return updated

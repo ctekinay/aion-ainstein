@@ -1547,8 +1547,17 @@ class ElysiaRAGSystem:
 
             iterations = self.tree.tree_data.num_trees_completed
             limit = self.tree.tree_data.recursion_limit
-            if iterations >= limit:
-                logger.warning(f"Elysia tree hit recursion limit ({iterations}/{limit})")
+            if iterations > limit:
+                logger.warning(
+                    f"Elysia tree exceeded recursion limit ({iterations}/{limit}) "
+                    f"— response may be incomplete. Consider increasing the limit "
+                    f"or simplifying the query."
+                )
+            elif iterations == limit:
+                logger.info(
+                    f"Elysia tree used all {iterations} iterations (limit: {limit}) "
+                    f"— completed but had no room for additional tool calls"
+                )
             else:
                 logger.debug(f"Elysia tree completed in {iterations} iteration(s)")
 

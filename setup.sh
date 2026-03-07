@@ -114,27 +114,39 @@ else
 
     patched=0
 
-    # Fix stale Weaviate port (old: 8080, correct: 8090)
-    if grep -q 'WEAVIATE_URL=http://localhost:8080' .env 2>/dev/null; then
+    # Fix stale Weaviate port (old: 8090, correct: 8080 — default)
+    if grep -q 'WEAVIATE_URL=http://localhost:8090' .env 2>/dev/null; then
         if [[ "$OSTYPE" == "darwin"* ]]; then
-            sed -i '' 's|WEAVIATE_URL=http://localhost:8080|WEAVIATE_URL=http://localhost:8090|' .env
+            sed -i '' 's|WEAVIATE_URL=http://localhost:8090|WEAVIATE_URL=http://localhost:8080|' .env
         else
-            sed -i 's|WEAVIATE_URL=http://localhost:8080|WEAVIATE_URL=http://localhost:8090|' .env
+            sed -i 's|WEAVIATE_URL=http://localhost:8090|WEAVIATE_URL=http://localhost:8080|' .env
         fi
-        warn "Patched WEAVIATE_URL: 8080 → 8090"
-        CHANGES+=("WEAVIATE_URL: 8080 → 8090")
+        warn "Patched WEAVIATE_URL: 8090 → 8080"
+        CHANGES+=("WEAVIATE_URL: 8090 → 8080")
         patched=1
     fi
 
-    # Fix stale gRPC port (old: 50051, correct: 50061)
-    if grep -q 'WEAVIATE_GRPC_URL=localhost:50051' .env 2>/dev/null; then
+    # Fix stale gRPC port (old: 50061, correct: 50051 — default)
+    if grep -q 'WEAVIATE_GRPC_URL=localhost:50061' .env 2>/dev/null; then
         if [[ "$OSTYPE" == "darwin"* ]]; then
-            sed -i '' 's|WEAVIATE_GRPC_URL=localhost:50051|WEAVIATE_GRPC_URL=localhost:50061|' .env
+            sed -i '' 's|WEAVIATE_GRPC_URL=localhost:50061|WEAVIATE_GRPC_URL=localhost:50051|' .env
         else
-            sed -i 's|WEAVIATE_GRPC_URL=localhost:50051|WEAVIATE_GRPC_URL=localhost:50061|' .env
+            sed -i 's|WEAVIATE_GRPC_URL=localhost:50061|WEAVIATE_GRPC_URL=localhost:50051|' .env
         fi
-        warn "Patched WEAVIATE_GRPC_URL: 50051 → 50061"
-        CHANGES+=("WEAVIATE_GRPC_URL: 50051 → 50061")
+        warn "Patched WEAVIATE_GRPC_URL: 50061 → 50051"
+        CHANGES+=("WEAVIATE_GRPC_URL: 50061 → 50051")
+        patched=1
+    fi
+
+    # Fix stale SKOSMOS port (old: 8080, correct: 8090)
+    if grep -q 'SKOSMOS_URL=http://localhost:8080' .env 2>/dev/null; then
+        if [[ "$OSTYPE" == "darwin"* ]]; then
+            sed -i '' 's|SKOSMOS_URL=http://localhost:8080|SKOSMOS_URL=http://localhost:8090|' .env
+        else
+            sed -i 's|SKOSMOS_URL=http://localhost:8080|SKOSMOS_URL=http://localhost:8090|' .env
+        fi
+        warn "Patched SKOSMOS_URL: 8080 → 8090"
+        CHANGES+=("SKOSMOS_URL: 8080 → 8090")
         patched=1
     fi
 
@@ -190,7 +202,7 @@ ok "Docker containers started"
 
 # Wait for Weaviate healthcheck
 echo "  Waiting for Weaviate..."
-WEAVIATE_URL=$(grep '^WEAVIATE_URL=' .env 2>/dev/null | cut -d= -f2 || echo "http://localhost:8090")
+WEAVIATE_URL=$(grep '^WEAVIATE_URL=' .env 2>/dev/null | cut -d= -f2 || echo "http://localhost:8080")
 for i in $(seq 1 30); do
     if curl -s "${WEAVIATE_URL}/v1/.well-known/ready" &>/dev/null; then
         ok "Weaviate ready"

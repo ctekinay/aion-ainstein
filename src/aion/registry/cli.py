@@ -10,6 +10,7 @@ from rich.table import Table
 
 from src.aion.registry.element_registry import (
     _DB_PATH,
+    backfill_dct_identifiers,
     find_near_duplicates,
     get_stats,
     init_registry_table,
@@ -121,3 +122,30 @@ def stats(
         for t, c in sorted(s["by_type"].items()):
             table.add_row(t, str(c))
         console.print(table)
+
+
+@app.command()
+def backfill(
+    workspace: str = typer.Option("default", "--workspace", "-w"),
+):
+    """Backfill dct_identifier for registry entries using current Weaviate data.
+
+    One-time operation after re-ingestion. Matches registry entries by
+    source_doc_refs overlap with Weaviate source documents.
+    """
+    db = _get_db_path()
+
+    console.print("[dim]Building source metadata from Weaviate...[/dim]")
+    try:
+        from src.aion.generation import GenerationPipeline
+
+        pipeline = GenerationPipeline.__new__(GenerationPipeline)
+        sources = pipeline._fetch_pcps(list(range(10, 50)))
+        sources.extend(pipeline._fetch_adrs(list(range(0, 40))))
+        source_metadata = GenerationPipeline._build_source_metadata(sources)
+    except Exception as e:
+        console.print(f"[red]Failed to build source metadata: {e}[/red]")
+        raise typer.Exit(code=1)
+
+    count = backfill_dct_identifiers(source_metadata, workspace, db)
+    console.print(f"[green]Backfilled {count} registry entries.[/green]")

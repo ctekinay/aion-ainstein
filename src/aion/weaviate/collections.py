@@ -344,6 +344,19 @@ class CollectionManager:
                     description="Document classification: content (actual ADR), index (list/overview), template",
                     tokenization=Tokenization.FIELD,
                 ),
+                # Dublin Core metadata from frontmatter
+                Property(
+                    name="dct_identifier",
+                    data_type=DataType.TEXT,
+                    description="Canonical document UUID from frontmatter (urn:uuid:...)",
+                    tokenization=Tokenization.FIELD,
+                ),
+                Property(
+                    name="dct_issued",
+                    data_type=DataType.TEXT,
+                    description="Document issue date from frontmatter (ISO format)",
+                    tokenization=Tokenization.FIELD,
+                ),
                 # Ownership properties from index.md
                 *self._get_ownership_properties(),
                 # Chunk properties for chunked ingestion mode
@@ -403,6 +416,19 @@ class CollectionManager:
                     data_type=DataType.TEXT,
                     description="Combined searchable text",
                     tokenization=Tokenization.WORD,
+                ),
+                # Dublin Core metadata from frontmatter
+                Property(
+                    name="dct_identifier",
+                    data_type=DataType.TEXT,
+                    description="Canonical document UUID from frontmatter (urn:uuid:...)",
+                    tokenization=Tokenization.FIELD,
+                ),
+                Property(
+                    name="dct_issued",
+                    data_type=DataType.TEXT,
+                    description="Document issue date from frontmatter (ISO format)",
+                    tokenization=Tokenization.FIELD,
                 ),
                 # Ownership properties from index.md
                 *self._get_ownership_properties(),

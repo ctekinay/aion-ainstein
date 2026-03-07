@@ -322,8 +322,8 @@ esa-ainstein-artifacts/
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `LLM_PROVIDER` | `ollama` | `ollama`, `github_models`, or `openai` |
-| `WEAVIATE_URL` | `http://localhost:8090` | Weaviate HTTP endpoint |
-| `WEAVIATE_GRPC_URL` | `localhost:50061` | Weaviate gRPC endpoint |
+| `WEAVIATE_URL` | `http://localhost:8080` | Weaviate HTTP endpoint |
+| `WEAVIATE_GRPC_URL` | `localhost:50051` | Weaviate gRPC endpoint |
 | `OLLAMA_URL` | `http://localhost:11434` | Ollama API |
 | `OLLAMA_MODEL` | `gpt-oss:20b` | Ollama chat model |
 | `OLLAMA_EMBEDDING_MODEL` | `nomic-embed-text-v2-moe` | Embedding model (all providers) |
@@ -332,7 +332,7 @@ esa-ainstein-artifacts/
 | `OPENAI_API_KEY` | — | Required when using `openai` provider (not for company data) |
 | `OPENAI_CHAT_MODEL` | `gpt-5.2` | OpenAI chat model |
 | `OPENAI_EMBEDDING_MODEL` | `text-embedding-3-large` | OpenAI embedding model |
-| `SKOSMOS_URL` | `http://localhost:8080` | SKOSMOS REST API endpoint for vocabulary lookups |
+| `SKOSMOS_URL` | `http://localhost:8090` | SKOSMOS REST API endpoint for vocabulary lookups |
 | `GITHUB_TOKEN` | — | GitHub PAT for MCP file fetching (requires `repo` scope; authorize for org SSO if applicable) |
 | `PERSONA_PROVIDER` | — | Override LLM provider for AInstein Persona only |
 | `TREE_PROVIDER` | — | Override LLM provider for Elysia Tree only |
@@ -341,7 +341,7 @@ esa-ainstein-artifacts/
 
 Weaviate runs locally via Docker (or Podman). The `docker-compose.yml` configures:
 - Weaviate 1.35.7 with text2vec-ollama and generative-ollama modules
-- HTTP on port 8090, gRPC on port 50061
+- HTTP on port 8080, gRPC on port 50051
 - Persistent storage via Docker volume
 
 ```bash
@@ -350,11 +350,20 @@ docker compose down          # Stop
 docker compose down -v       # Stop and delete all data
 ```
 
+If you are **not** using `setup.sh` (which handles port configuration automatically), verify that the following port assignments are correct in your `.env` and `docker-compose.yml`:
+
+| Service | Port | Protocol |
+|---------|------|----------|
+| Weaviate HTTP | 8080 | REST API |
+| Weaviate gRPC | 50051 | gRPC |
+| SKOSMOS | 8090 | REST API |
+| Fuseki (SPARQL) | 9030 | HTTP |
+
 **Podman users (Linux):** Use `podman-compose` instead of `docker compose`. If Ollama runs on the host, replace `host.docker.internal` with the host's actual IP in `.env` — Podman doesn't support `host.docker.internal` by default.
 
 ## SKOSMOS Setup
 
-SKOSMOS provides the vocabulary lookup service (5,200+ IEC/CIM/SKOS concepts). It runs as a separate container (Docker or Podman) and is accessed via REST API.
+SKOSMOS provides the vocabulary lookup service for ESA Architecture principles (ESAV vocabulary) and IEC/CIM/SKOS concepts. It currently runs as a local Docker/Podman stack, until MCP integration with the production Fuseki instance at `https://vocabs.alliander.com/` is implemented.
 
 The SKOSMOS instance and its vocabulary data are maintained in a separate Alliander repository:
 
@@ -367,7 +376,7 @@ docker compose up -d
 Then configure the endpoint in your AInstein `.env`:
 
 ```bash
-SKOSMOS_URL=http://localhost:8080
+SKOSMOS_URL=http://localhost:8090
 ```
 
 > **Note:** Access to `Alliander/esa-odei-skosmos` requires an Alliander GitHub account (same as this repository).
@@ -411,10 +420,10 @@ python -m src.aion.cli init --chunked
 This is required because:
 
 1. **SKOSMOS vocabulary moved out of Weaviate** — vocabulary concepts are now served via the SKOSMOS REST API instead of being embedded in Weaviate collections. The old vocabulary collection is no longer used.
-2. **Data structure changes** — document metadata, chunking strategy, and collection schemas have changed.
+2. **Data structure changes** — document metadata, chunking strategy, and collection schemas have changed. Notably, `dct_identifier` and `dct_issued` properties (Dublin Core metadata from frontmatter) require a schema update.
 3. **Embedding model alignment** — all collections must use the same embedding model. If you switched embedding models, existing vectors are incompatible.
 
-The `--recreate` flag drops and recreates all collections, then re-ingests all data from `data/`. Without it, `init` skips collections that already exist.
+**Important:** The `--recreate` flag drops and recreates all collections, then re-ingests all data from `data/`. Without it, `init` skips collections that already exist and **will not update the schema**. If you added new collection properties (e.g., `dct_identifier`), you **must** use `--recreate` — otherwise the old schema is preserved and new fields will be `None`.
 
 ## Known Limitations
 

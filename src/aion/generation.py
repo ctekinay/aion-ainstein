@@ -320,7 +320,7 @@ class GenerationPipeline:
                         pipeline_info["diff_merge"] = False
 
                 # Integration Point B: reconcile element IDs with registry
-                yaml_text = self._reconcile_with_registry(yaml_text, doc_refs)
+                yaml_text = self._reconcile_with_registry(yaml_text, doc_refs, source_metadata)
 
                 # Enrich with dct properties before XML conversion.
                 # Always call — strips source_ref even when no metadata matches.
@@ -359,7 +359,7 @@ class GenerationPipeline:
                     yaml_text = self._extract_yaml(retry_output)
                     if yaml_text:
                         yaml_text = self._reconcile_with_registry(
-                            yaml_text, doc_refs
+                            yaml_text, doc_refs, source_metadata
                         )
                         yaml_text = self._enrich_yaml_with_dct(
                             yaml_text, source_metadata
@@ -702,9 +702,10 @@ class GenerationPipeline:
             pn = src.get("principle_number", "")
             an = src.get("adr_number", "")
             kb_uuid = src.get("kb_uuid", "")
+            dct_id = src.get("dct_identifier", "")
             title = src.get("title", "")
             owner = src.get("owner_display", "")
-            if not kb_uuid:
+            if not kb_uuid and not dct_id:
                 continue
             if pn and an:
                 logger.warning(
@@ -719,13 +720,25 @@ class GenerationPipeline:
             elif an:
                 ref = f"ADR.{int(an)}"
             if ref:
+                # Prefer frontmatter UUID (canonical) over Weaviate chunk UUID (random)
+                if dct_id:
+                    resolved_uuid = dct_id if dct_id.startswith("urn:uuid:") else f"urn:uuid:{dct_id}"
+                elif kb_uuid:
+                    resolved_uuid = f"urn:uuid:{kb_uuid}"
+                else:
+                    resolved_uuid = ""
+
                 entry: dict[str, str] = {
-                    "kb_uuid": f"urn:uuid:{kb_uuid}",
+                    "kb_uuid": resolved_uuid,
                     "title": title,
+                    "_raw_dct_identifier": dct_id,  # for UUID integrity check
                 }
                 if owner:
                     entry["creator"] = owner
-                # Phase 3 will add: "issued", "language"
+                issued = src.get("dct_issued", "")
+                if issued:
+                    entry["issued"] = issued
+                entry["language"] = "en"
                 meta[ref] = entry
         return meta
 
@@ -781,6 +794,19 @@ class GenerationPipeline:
                 props["dct:title"] = meta["title"]
                 if "creator" in meta:
                     props["dct:creator"] = meta["creator"]
+                if "issued" in meta:
+                    props["dct:issued"] = meta["issued"]
+                if "language" in meta:
+                    props["dct:language"] = meta["language"]
+
+                # UUID integrity check — catch pipeline corruption
+                raw_dct_id = meta.get("_raw_dct_identifier", "")
+                if raw_dct_id and props["dct:identifier"] != raw_dct_id:
+                    logger.warning(
+                        "[generation] UUID mismatch for %s: enriched=%s, kb=%s",
+                        ref, props["dct:identifier"], raw_dct_id,
+                    )
+
                 elem["properties"] = props
                 enriched += 1
                 if via_fallback:
@@ -819,6 +845,7 @@ class GenerationPipeline:
     def _reconcile_with_registry(
         yaml_text: str,
         doc_refs: list[str] | None = None,
+        source_metadata: dict | None = None,
         db_path=None,
     ) -> str:
         """Reconcile YAML elements with the element registry.
@@ -839,7 +866,9 @@ class GenerationPipeline:
             return yaml_text
 
         elements = data.get("elements", [])
-        kwargs = {"doc_refs": doc_refs}
+        kwargs: dict = {"doc_refs": doc_refs}
+        if source_metadata is not None:
+            kwargs["source_metadata"] = source_metadata
         if db_path is not None:
             kwargs["db_path"] = db_path
         result = reconcile_elements(elements, **kwargs)

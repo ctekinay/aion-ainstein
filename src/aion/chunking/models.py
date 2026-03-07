@@ -78,6 +78,10 @@ class ChunkMetadata:
     # ADR-specific
     adr_status: str = ""  # accepted, deprecated, superseded, etc.
 
+    # Dublin Core metadata (from frontmatter)
+    dct_identifier: str = ""  # urn:uuid:... from frontmatter dct.identifier
+    dct_issued: str = ""  # ISO date from frontmatter dct.issued
+
     # Quality signals
     completeness: float = 1.0  # 0-1, how complete this chunk is
     confidence: float = 1.0  # 0-1, confidence in chunk boundaries
@@ -115,6 +119,8 @@ class ChunkMetadata:
             "has_list": self.has_list,
             "language": self.language,
             "adr_status": self.adr_status,
+            "dct_identifier": self.dct_identifier,
+            "dct_issued": self.dct_issued,
             "completeness": self.completeness,
             "confidence": self.confidence,
             "created_at": self.created_at,

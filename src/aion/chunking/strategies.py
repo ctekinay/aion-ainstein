@@ -180,6 +180,8 @@ class ChunkingStrategy(ABC):
             meta.owner_organization = metadata.get("owner_organization", "")
             meta.owner_display = metadata.get("owner_display", "")
             meta.collection_name = metadata.get("collection_name", "")
+            meta.dct_identifier = metadata.get("dct_identifier", "")
+            meta.dct_issued = metadata.get("dct_issued", "")
 
         chunk = Chunk(
             content=content,
