@@ -138,11 +138,16 @@ def backfill(
     console.print("[dim]Building source metadata from Weaviate...[/dim]")
     try:
         from src.aion.generation import GenerationPipeline
+        from src.aion.weaviate.client import get_weaviate_client
 
-        pipeline = GenerationPipeline.__new__(GenerationPipeline)
-        sources = pipeline._fetch_pcps(list(range(10, 50)))
-        sources.extend(pipeline._fetch_adrs(list(range(0, 40))))
+        client = get_weaviate_client()
+        pipeline = GenerationPipeline(client)
+        pcp_refs = [f"PCP.{i}" for i in range(10, 50)]
+        adr_refs = [f"ADR.{i}" for i in range(0, 40)]
+        sources = pipeline._fetch_pcps(pcp_refs)
+        sources.extend(pipeline._fetch_adrs(adr_refs))
         source_metadata = GenerationPipeline._build_source_metadata(sources)
+        client.close()
     except Exception as e:
         console.print(f"[red]Failed to build source metadata: {e}[/red]")
         raise typer.Exit(code=1)
