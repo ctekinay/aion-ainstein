@@ -7,9 +7,10 @@ Supports two modes:
 
 import logging
 import re
+from collections.abc import Iterator
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Iterator, Optional
+from typing import Optional
 
 import frontmatter
 
@@ -19,10 +20,9 @@ from src.aion.loaders.index_metadata_loader import get_document_metadata
 try:
     from src.aion.chunking import (
         ADRChunkingStrategy,
-        PrincipleChunkingStrategy,
-        ChunkingConfig,
-        Chunk,
         ChunkedDocument,
+        ChunkingConfig,
+        PrincipleChunkingStrategy,
     )
     CHUNKING_AVAILABLE = True
 except ImportError:
@@ -208,7 +208,7 @@ class MarkdownLoader:
                 logger.error(f"Error loading principle {principle_file}: {e}")
                 continue
 
-    def _load_file(self, file_path: Path) -> Optional[MarkdownDocument]:
+    def _load_file(self, file_path: Path) -> MarkdownDocument | None:
         """Load a single Markdown file.
 
         Args:
@@ -344,7 +344,7 @@ class MarkdownLoader:
         except ValueError:
             return f"ADR.{adr_number}"
 
-    def _load_adr(self, file_path: Path) -> Optional[MarkdownDocument]:
+    def _load_adr(self, file_path: Path) -> MarkdownDocument | None:
         """Load an Architectural Decision Record.
 
         Args:
@@ -480,7 +480,7 @@ class MarkdownLoader:
         except ValueError:
             return f"PCP.{principle_number}"
 
-    def _load_principle(self, file_path: Path) -> Optional[MarkdownDocument]:
+    def _load_principle(self, file_path: Path) -> MarkdownDocument | None:
         """Load a principle document.
 
         Args:

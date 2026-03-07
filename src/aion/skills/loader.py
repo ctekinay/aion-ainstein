@@ -9,7 +9,7 @@ import logging
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 import yaml
 
@@ -47,7 +47,7 @@ class Skill:
 class SkillLoader:
     """Loads and parses skills from the skills directory."""
 
-    def __init__(self, skills_dir: Optional[Path] = None):
+    def __init__(self, skills_dir: Path | None = None):
         """Initialize the skill loader.
 
         Args:
@@ -58,7 +58,7 @@ class SkillLoader:
 
     def load_skill(
         self, skill_name: str, skill_type: str = "skill"
-    ) -> Optional[Skill]:
+    ) -> Skill | None:
         """Load a skill by name.
 
         Args:
@@ -97,7 +97,7 @@ class SkillLoader:
 
     def _load_references_skill(
         self, skill_name: str, skill_path: Path
-    ) -> Optional[Skill]:
+    ) -> Skill | None:
         """Build a Skill from a references/ directory (no SKILL.md needed)."""
         refs_dir = skill_path / "references"
         if not refs_dir.exists():
@@ -131,7 +131,7 @@ class SkillLoader:
         )
         return skill
 
-    def _parse_skill_file(self, skill_md_path: Path) -> Optional[Skill]:
+    def _parse_skill_file(self, skill_md_path: Path) -> Skill | None:
         """Parse a SKILL.md file.
 
         Args:

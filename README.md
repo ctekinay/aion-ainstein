@@ -11,16 +11,17 @@ AInstein lets architects and engineers query Alliander's architecture knowledge 
 - **49 Decision Approval Records (DARs)** — governance and approval history
 - **5,200+ SKOS Vocabulary Concepts** — IEC 61970/61968/62325 standards, CIM models, domain ontologies via SKOSMOS REST API
 - **Policy Documents** — data governance, privacy, security policies
-- **ArchiMate 3.2 Model Generation** — validated Open Exchange XML from architecture descriptions
+- **ArchiMate 3.2 Model Generation** — validated Open Exchange XML from architecture descriptions, with optional Dublin Core (`dct:*`) metadata properties on elements and relationships
 - **ArchiMate Model Inspection** — analyze, describe, and compare ArchiMate models from conversation artifacts, file uploads, or URLs
+- **GitHub Repository Browsing** — inspect GitHub repos (metadata, README, directory structure), org/user profiles (top repositories), and individual files via MCP and REST API
 - **SKOSMOS Vocabulary Lookups** — term definitions, abbreviations, concept hierarchies via structured API
 
 Queries are handled by the AInstein Persona, which classifies intent, emits skill tags for domain-specific capabilities, and rewrites queries. The Persona routes to the appropriate execution path:
 
 - **Retrieval queries** ("What ADRs exist?", "What is document 22?", "Define active power") go to the **Elysia Decision Tree**, which selects tools, searches collections, and formats responses with citations.
 - **Generation queries** ("Create an ArchiMate model for ADR.29") go to the **Generation Pipeline**, which fetches source content, builds a prompt from the matching skill, makes a single LLM call, validates, and saves the artifact for download. Token usage is tracked across all LLM calls (generation, view repair, validation retries) and reported in a single summary log line at completion.
-- **Refinement queries** ("Add a Technology layer to the model") go to the **Generation Pipeline** with the previous artifact loaded as context. The LLM returns a structured YAML diff envelope (~200 tokens) instead of regenerating the full model (~4,600 tokens). A deterministic merge engine applies the diff; if parsing fails, the pipeline falls back transparently to full regeneration.
-- **Inspection queries** ("Describe the model you just generated", "What elements are in this ArchiMate file?") go to the **Inspection path**, which converts XML to compact YAML (~90% token reduction), sends it to the LLM for analysis, and streams the response. Models can come from conversation artifacts, file uploads (.xml/.yaml), or URLs. GitHub URLs are fetched via MCP (Model Context Protocol) using the remote GitHub MCP server, with httpx fallback for non-GitHub URLs.
+- **Refinement queries** ("Add a Technology layer to the model", "Add dct:* properties to all elements") go to the **Generation Pipeline** with the previous artifact loaded as context. The LLM returns a structured YAML diff envelope (~200 tokens) instead of regenerating the full model (~4,600 tokens). A deterministic merge engine applies the diff — supporting element/relationship addition, removal, property modification (additive merge), and relationship modification via derived IDs; if parsing fails, the pipeline falls back transparently to full regeneration.
+- **Inspection queries** ("Describe the model you just generated", "What elements are in this ArchiMate file?", "https://github.com/OpenSTEF") go to the **Inspection path**. ArchiMate files are converted to compact YAML (~90% token reduction) for LLM analysis. GitHub repo URLs fetch metadata + README + directory listing via MCP for repo-level analysis. GitHub org/user URLs fetch profile and top repositories via REST API. Non-ArchiMate files (e.g., `.py`, `.toml`) get generic file analysis. Models can come from conversation artifacts, file uploads, or URLs.
 - **Direct response queries** ("Who are you?", "What's the weather?") are answered by the Persona without any backend call.
 
 **Disclaimer:** Currently, the above-mentioned data sources are integrated stand-alone via the data/ folder. The short-term goal for AInstein is full integration with ESA repositories, tools, and other internal data sources directly. 
@@ -30,7 +31,7 @@ Queries are handled by the AInstein Persona, which classifies intent, emits skil
 ```
 ┌──────────────────────────────────────────────────────────────────────┐
 │                         Web UI / CLI                                 │
-│              localhost:8081  |  python -m src.aion.cli               │
+│              localhost:8081  |  python -m src.aion.chat_ui            │
 └──────────────┬───────────────────────────────────────────────────────┘
                │
 ┌──────────────▼───────────────────────────────────────────────────────┐
@@ -98,7 +99,7 @@ Queries are handled by the AInstein Persona, which classifies intent, emits skil
 │  │ archimate-      │ │ archimate-view-  │ │ skosmos-             │   │
 │  │ generator       │ │ generator        │ │ vocabulary           │   │
 │  │ ArchiMate 3.2   │ │ View layout +    │ │ SKOSMOS REST API     │   │
-│  │ XML generation  │ │ merge            │ │ term definitions     │   │
+│  │ XML + properties│ │ merge            │ │ term definitions     │   │
 │  │ tag: archimate  │ │ tag: archimate   │ │ tag: vocabulary      │   │
 │  └─────────────────┘ └──────────────────┘ └──────────────────────┘   │
 └──────────────────────────────────────────────────────────────────────┘
@@ -139,7 +140,7 @@ Queries are handled by the AInstein Persona, which classifies intent, emits skil
 git clone <your-fork-url>
 cd esa-ainstein-artifacts
 
-# 2. Start Weaviate
+# 2. Start Weaviate (use podman-compose on Linux if not using Docker)
 docker compose up -d
 
 # 3. Start Ollama and pull models
@@ -156,26 +157,31 @@ cp .env.example .env
 
 # 6. Initialize and run
 python -m src.aion.cli init
-python -m src.aion.cli chat --port 8081
+python -m src.aion.chat_ui --port 8081
 # Open http://localhost:8081
 ```
 
 ## Prerequisites
 
-- **Docker** — for Weaviate vector database and SKOSMOS vocabulary service
+- **Docker** (or **Podman**) — for Weaviate vector database and SKOSMOS vocabulary service
 - **Python 3.11-3.12** (3.10 and 3.13+ not supported)
 - **Ollama** (default, local, free) — [ollama.ai/download](https://ollama.ai/download)
 - **SKOSMOS** — vocabulary lookup service (runs separately via Docker, see [SKOSMOS Setup](#skosmos-setup))
 - Or **GitHub CoPilot Models** (Alliander Enterprise Account, 8K token limit) — set `LLM_PROVIDER=github_models` and `GITHUB_MODELS_API_KEY` in `.env`
 - Or **OpenAI API key** (cloud, paid — do not use with company data) — set `LLM_PROVIDER=openai` and `OPENAI_API_KEY` in `.env`
 
-## CLI Commands
+## Commands
 
 ```bash
+# Web UI
+python -m src.aion.chat_ui --port 8081       # Start web UI (default: localhost:8081)
+
+# Data management
 python -m src.aion.cli init                  # Initialize collections and ingest data
 python -m src.aion.cli init --chunked        # Ingest with section-based chunking
 python -m src.aion.cli init --recreate       # Recreate collections from scratch
-python -m src.aion.cli chat --port 8081      # Start web UI
+
+# Debugging
 python -m src.aion.cli query "question"      # Single query from terminal (bypasses AInstein Persona)
 ```
 
@@ -203,7 +209,8 @@ skills/
 │   ├── SKILL.md                     # Citation format, abstention rules
 │   └── references/thresholds.yaml   # Distance threshold, retrieval limits
 ├── esa-document-ontology/
-│   └── SKILL.md                     # ADR/PCP/DAR naming, numbering, disambiguation
+│   ├── SKILL.md                     # ADR/PCP/DAR naming, numbering, disambiguation
+│   └── references/registry-index.md # Condensed document registry (49 entries: ID, status, date, owner)
 ├── response-formatter/
 │   └── SKILL.md                     # Numbered lists, statistics, follow-up options
 ├── archimate-generator/             # On-demand (tag: archimate)
@@ -232,7 +239,7 @@ This reduces prompt size by 40-80% for standard queries compared to loading all 
 ```
 esa-ainstein-artifacts/
 ├── src/aion/
-│   ├── cli.py                    # Typer CLI (init, chat, query, evaluate)
+│   ├── cli.py                    # Typer CLI (init, query — data management and debugging)
 │   ├── config.py                 # Pydantic settings from .env (3-provider config)
 │   ├── persona.py                # AInstein Persona — intent classification, query rewriting
 │   ├── generation.py             # Direct LLM generation pipeline (ArchiMate XML, etc.)
@@ -244,7 +251,7 @@ esa-ainstein-artifacts/
 │   │   ├── config.yaml           # MCP server registry (URLs, auth, transport)
 │   │   ├── registry.py           # MCPServerConfig + load_registry() + get_server()
 │   │   ├── client.py             # Generic MCP client (streamable HTTP transport)
-│   │   └── github.py             # GitHub file fetching + URL parsing
+│   │   └── github.py             # GitHub file/repo/org fetching + URL parsing
 │   ├── tools/
 │   │   ├── archimate.py          # ArchiMate 3.2 validation, inspection, merge
 │   │   ├── yaml_to_xml.py        # ArchiMate YAML ↔ XML converter (generation + inspection)
@@ -259,6 +266,9 @@ esa-ainstein-artifacts/
 │   │   ├── document_loader.py    # DOCX/PDF parser for policies
 │   │   └── registry_parser.py    # ESA registry table parser
 │   ├── chunking/                 # Section-based document chunking
+│   ├── registry/
+│   │   ├── element_registry.py   # Element identity registry (SQLite, dedup, near-miss detection)
+│   │   └── cli.py                # Registry management CLI (list, stats, duplicates)
 │   ├── memory/
 │   │   ├── session_store.py      # SQLite session management, user profiles
 │   │   ├── summarizer.py         # Rolling conversation summaries
@@ -301,9 +311,9 @@ esa-ainstein-artifacts/
 | `PERSONA_PROVIDER` | — | Override LLM provider for AInstein Persona only |
 | `TREE_PROVIDER` | — | Override LLM provider for Elysia Tree only |
 
-### Docker
+### Docker / Podman
 
-Weaviate runs locally via Docker. The `docker-compose.yml` configures:
+Weaviate runs locally via Docker (or Podman). The `docker-compose.yml` configures:
 - Weaviate 1.35.7 with text2vec-ollama and generative-ollama modules
 - HTTP on port 8090, gRPC on port 50061
 - Persistent storage via Docker volume
@@ -314,9 +324,11 @@ docker compose down          # Stop
 docker compose down -v       # Stop and delete all data
 ```
 
+**Podman users (Linux):** Use `podman-compose` instead of `docker compose`. If Ollama runs on the host, replace `host.docker.internal` with the host's actual IP in `.env` — Podman doesn't support `host.docker.internal` by default.
+
 ## SKOSMOS Setup
 
-SKOSMOS provides the vocabulary lookup service (5,200+ IEC/CIM/SKOS concepts). It runs as a separate Docker container and is accessed via REST API.
+SKOSMOS provides the vocabulary lookup service (5,200+ IEC/CIM/SKOS concepts). It runs as a separate container (Docker or Podman) and is accessed via REST API.
 
 The SKOSMOS instance and its vocabulary data are maintained in a separate Alliander repository:
 
@@ -354,7 +366,7 @@ When AInstein generates structured output (e.g., ArchiMate XML), it saves the co
 - **Download card** in the chat UI (appears automatically after generation)
 - **API endpoint** `GET /api/artifact/{id}/download` — returns the artifact content with the appropriate MIME type
 - **File upload** — click the paperclip button to upload ArchiMate files (.xml, .yaml, .yml) for inspection and analysis
-- **URL fetch** — paste a GitHub URL (blob or raw) or any file URL to an ArchiMate file in the chat; GitHub URLs are fetched via MCP (authenticated, supports private repos), others via httpx
+- **URL fetch** — paste a GitHub URL in the chat: file URLs (blob/raw) fetch via MCP, repo root URLs fetch metadata + README + directory listing, org/user URLs fetch profile + top repos via REST API. Non-GitHub URLs are fetched via httpx. Supports private repos when `GITHUB_TOKEN` is set.
 
 Artifacts persist across sessions and can be loaded for refinement ("Add security constraints to the model") or inspection ("Describe the model you just generated").
 
@@ -365,7 +377,9 @@ Artifacts persist across sessions and can be loaded for refinement ("Add securit
 If you are upgrading from a previous version, you **must** recreate all Weaviate collections:
 
 ```bash
-python -m src.aion.cli init --recreate
+python -m src.aion.cli init --recreate --chunked
+# or for a fresh install:
+python -m src.aion.cli init --chunked
 ```
 
 This is required because:

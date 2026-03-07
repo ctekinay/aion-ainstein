@@ -1,7 +1,7 @@
 """Configuration management for the AInstein RAG system."""
 
 from pathlib import Path
-from typing import Literal, Optional
+from typing import Literal
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -23,8 +23,8 @@ class Settings(BaseSettings):
     weaviate_url: str = Field(default="http://localhost:8080")
     weaviate_grpc_url: str = Field(default="localhost:50051")
     weaviate_is_local: bool = Field(default=True)
-    wcd_url: Optional[str] = Field(default=None)
-    wcd_api_key: Optional[str] = Field(default=None)
+    wcd_url: str | None = Field(default=None)
+    wcd_api_key: str | None = Field(default=None)
 
     # SKOSMOS Configuration
     skosmos_url: str = Field(default="http://localhost:8080")
@@ -40,19 +40,19 @@ class Settings(BaseSettings):
     ollama_embedding_model: str = Field(default="nomic-embed-text-v2-moe")
 
     # --- GitHub Models (Free, 8K token limit) ---
-    github_models_api_key: Optional[str] = Field(default=None)
+    github_models_api_key: str | None = Field(default=None)
     github_models_model: str = Field(default="openai/gpt-4.1")
 
     # --- OpenAI (Pay-per-token) ---
-    openai_api_key: Optional[str] = Field(default=None)
+    openai_api_key: str | None = Field(default=None)
     openai_chat_model: str = Field(default="gpt-5.2")
     openai_embedding_model: str = Field(default="text-embedding-3-large")
 
     # Per-component LLM overrides (None = use global llm_provider / model).
-    persona_provider: Optional[PROVIDER_TYPE] = Field(default=None)
-    persona_model: Optional[str] = Field(default=None)
-    tree_provider: Optional[PROVIDER_TYPE] = Field(default=None)
-    tree_model: Optional[str] = Field(default=None)
+    persona_provider: PROVIDER_TYPE | None = Field(default=None)
+    persona_model: str | None = Field(default=None)
+    tree_provider: PROVIDER_TYPE | None = Field(default=None)
+    tree_model: str | None = Field(default=None)
 
     def get_openai_client_kwargs(self, provider: str = None) -> dict:
         """Build kwargs for OpenAI() client based on provider.

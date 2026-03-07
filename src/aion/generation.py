@@ -11,13 +11,18 @@ import logging
 import re
 import time
 import xml.etree.ElementTree as ET
+from datetime import datetime
 from queue import Queue
-from typing import Optional
 
 from weaviate import WeaviateClient
 from weaviate.classes.query import Filter, MetadataQuery
 
 from src.aion.config import settings
+from src.aion.registry.element_registry import (
+    format_registry_context,
+    query_registry_for_prompt,
+    reconcile_elements,
+)
 from src.aion.skills.loader import SkillLoader
 from src.aion.skills.registry import get_skill_registry
 from src.aion.tools.archimate import (
@@ -25,6 +30,8 @@ from src.aion.tools.archimate import (
     NS,
     TAG,
     XSI,
+)
+from src.aion.tools.archimate import (
     validate_archimate as _validate_archimate,
 )
 from src.aion.tools.yaml_to_xml import yaml_to_archimate_xml
@@ -70,6 +77,7 @@ class GenerationPipeline:
         query: str,
         skill_tags: list[str],
         doc_refs: list[str] | None = None,
+        github_refs: list[str] | None = None,
         conversation_id: str | None = None,
         event_queue: Queue | None = None,
         intent: str = "generation",
@@ -130,8 +138,14 @@ class GenerationPipeline:
                     is_refinement = False  # fall back to generation mode
 
         if not source_text:
-            self._emit(event_queue, "status", "Retrieving source content...", start)
-            sources, source_text = await self._fetch_content(query, doc_refs)
+            if github_refs:
+                self._emit(event_queue, "status", "Fetching GitHub repositories...", start)
+                source_text = await self._fetch_github_content(github_refs, event_queue, start)
+            else:
+                self._emit(event_queue, "status", "Retrieving source content...", start)
+                sources, source_text = await self._fetch_content(query, doc_refs)
+
+        source_metadata = self._build_source_metadata(sources)
 
         if not source_text:
             return (
@@ -151,10 +165,23 @@ class GenerationPipeline:
         skill = loader.load_skill(skill_entry.name)
         system_prompt = skill.get_injectable_content() if skill else ""
 
+        # Integration Point A: inject registry context for archimate-generator
+        registry_context = ""
+        if skill_entry.name == "archimate-generator":
+            limit = self._get_registry_prompt_limit()
+            known = query_registry_for_prompt(doc_refs=doc_refs, limit=limit)
+            if known:
+                registry_context = format_registry_context(known) + "\n\n"
+                logger.info(
+                    "[generation] registry context: %d known elements injected into prompt",
+                    len(known),
+                )
+
         if is_refinement and yaml_refinement:
             user_prompt = (
                 f"EXISTING MODEL (read-only context — do NOT reproduce this):\n"
                 f"```yaml\n{source_text}```\n\n"
+                f"{registry_context}"
                 f"MODIFICATION REQUEST:\n{query}\n\n"
                 f"Return ONLY a YAML diff envelope describing the changes. Format:\n\n"
                 f"```yaml\n"
@@ -164,6 +191,8 @@ class GenerationPipeline:
                 f"      - id: <short-code>\n"
                 f"        type: <ArchiMateElementType>\n"
                 f"        name: \"<display name>\"\n"
+                f"        properties:              # optional\n"
+                f"          \"<key>\": \"<value>\"\n"
                 f"    relationships:\n"
                 f"      - type: <RelationshipType>\n"
                 f"        source: <element-id>\n"
@@ -171,6 +200,11 @@ class GenerationPipeline:
                 f"  modify:\n"
                 f"    <element-id>:\n"
                 f"      name: \"<new name>\"\n"
+                f"      properties:                # add/update properties\n"
+                f"        \"<key>\": \"<value>\"\n"
+                f"    rel-<source>-<target>:        # modify relationship\n"
+                f"      properties:\n"
+                f"        \"<key>\": \"<value>\"\n"
                 f"  remove:\n"
                 f"    elements: [<id>, ...]\n"
                 f"```\n\n"
@@ -178,6 +212,10 @@ class GenerationPipeline:
                 f"- Omit sections with no changes (e.g., no removals → omit remove:)\n"
                 f"- Use short element IDs (a1, t1, etc.) without the id- prefix\n"
                 f"- Source/target in relationships must reference existing or newly added element IDs\n"
+                f"- To add properties to existing elements, use modify with a properties mapping\n"
+                f"- To modify relationships, use rel-<source>-<target> as the key in modify\n"
+                f"- Properties are additive — existing properties are preserved, new ones are added/updated\n"
+                f"- When an element directly represents a source document, include source_ref with the document ID (e.g., source_ref: PCP.10) — do NOT generate dct:* properties, the pipeline adds them\n"
                 f"- Do NOT return the full model — only the diff\n"
                 f"- Wrap the output in ```yaml code fences\n"
                 f"- Do not include commentary before or after the YAML\n\n"
@@ -199,6 +237,7 @@ class GenerationPipeline:
             user_prompt = (
                 f"EXISTING MODEL (do NOT remove or replace existing elements):\n"
                 f"{source_text}\n\n"
+                f"{registry_context}"
                 f"MODIFICATION REQUEST:\n{query}\n\n"
                 f"ADD the requested elements and relationships to the existing model. "
                 f"Keep ALL existing elements, relationships, and views intact. "
@@ -208,6 +247,7 @@ class GenerationPipeline:
         else:
             user_prompt = (
                 f"SOURCE CONTENT:\n{source_text}\n\n"
+                f"{registry_context}"
                 f"USER REQUEST:\n{query}\n\n"
                 f"Generate the YAML following the schema in your instructions. "
                 f"Do not include commentary or any other text."
@@ -234,8 +274,15 @@ class GenerationPipeline:
             )
 
         # Step 3: LLM call
+        # Scale token budget for GitHub-sourced generation (more source → more output)
+        max_tokens_override = None
+        if github_refs and source_text:
+            max_tokens_override = min(32768, 16384 + (len(source_text) // 20000) * 4096)
+
         self._emit(event_queue, "status", "Generating...", start)
-        raw_output, llm_stats = await self._call_llm(system_prompt, user_prompt)
+        raw_output, llm_stats = await self._call_llm(
+            system_prompt, user_prompt, max_tokens_override=max_tokens_override,
+        )
         total_tokens = {
             "prompt_tokens": llm_stats["prompt_tokens"],
             "completion_tokens": llm_stats["completion_tokens"],
@@ -272,6 +319,13 @@ class GenerationPipeline:
                     else:
                         pipeline_info["diff_merge"] = False
 
+                # Integration Point B: reconcile element IDs with registry
+                yaml_text = self._reconcile_with_registry(yaml_text, doc_refs)
+
+                # Enrich with dct properties before XML conversion.
+                # Always call — strips source_ref even when no metadata matches.
+                yaml_text = self._enrich_yaml_with_dct(yaml_text, source_metadata)
+
                 convert_start = time.perf_counter()
                 try:
                     raw_output, _info = yaml_to_archimate_xml(yaml_text)
@@ -298,11 +352,18 @@ class GenerationPipeline:
                     )
                     retry_output, retry_stats = await self._call_llm(
                         system_prompt, retry_prompt,
+                        max_tokens_override=max_tokens_override,
                     )
                     total_tokens["prompt_tokens"] += retry_stats["prompt_tokens"]
                     total_tokens["completion_tokens"] += retry_stats["completion_tokens"]
                     yaml_text = self._extract_yaml(retry_output)
                     if yaml_text:
+                        yaml_text = self._reconcile_with_registry(
+                            yaml_text, doc_refs
+                        )
+                        yaml_text = self._enrich_yaml_with_dct(
+                            yaml_text, source_metadata
+                        )
                         convert_start = time.perf_counter()
                         try:
                             raw_output, _info = yaml_to_archimate_xml(yaml_text)
@@ -487,6 +548,7 @@ class GenerationPipeline:
 
             if num not in docs:
                 docs[num] = {k: obj.properties.get(k, "") for k in props}
+                docs[num]["kb_uuid"] = str(obj.uuid)
             else:
                 chunk_content = obj.properties.get("content", "")
                 if chunk_content:
@@ -541,6 +603,7 @@ class GenerationPipeline:
 
             if pn not in docs:
                 docs[pn] = {k: obj.properties.get(k, "") for k in props}
+                docs[pn]["kb_uuid"] = str(obj.uuid)
             else:
                 chunk_content = obj.properties.get("content", "")
                 if chunk_content:
@@ -574,7 +637,9 @@ class GenerationPipeline:
                     continue
                 if title.startswith(("Decision Approval Record", "Principle Approval Record")):
                     continue
-                results.append({k: obj.properties.get(k, "") for k in props})
+                entry = {k: obj.properties.get(k, "") for k in props}
+                entry["kb_uuid"] = str(obj.uuid)
+                results.append(entry)
 
         return results[:limit]
 
@@ -588,8 +653,348 @@ class GenerationPipeline:
             or source.get("principle_number", "")
             or ""
         )
+        kb_uuid = source.get("kb_uuid", "")
+        uuid_line = f"\nKB UUID: urn:uuid:{kb_uuid}" if kb_uuid else ""
         header = f"## {doc_id} — {title}" if doc_id else f"## {title}"
-        return f"{header}\n\n{content}"
+        return f"{header}{uuid_line}\n\n{content}"
+
+    # -- Document type aliases for source_ref normalization --
+    # Maps LLM-variant prefixes to canonical form.
+    # Extensible: add new doc types here (e.g., "POLICY": "POL").
+    _DOC_TYPE_ALIASES: dict[str, str] = {
+        "PCP": "PCP",
+        "PRINCIPLE": "PCP",
+        "ADR": "ADR",
+    }
+
+    # ArchiMate type → document prefix for type-gated fallback.
+    # Only these element types can have source_ref inferred from name.
+    _SOURCE_DOC_TYPES: dict[str, str] = {
+        "Principle": "PCP",
+        "ArchitecturalDecision": "ADR",
+    }
+
+    @staticmethod
+    def _normalize_ref(raw: str) -> str | None:
+        """Normalize source_ref variants to canonical form (PCP.10, ADR.29).
+
+        Handles: "PCP.10", "PCP 10", "PCP-10", "PCP10", "Principle 10",
+        "ADR.29", "ADR 29". Bare numbers ("0010") are ambiguous — skipped.
+        """
+        s = raw.strip().upper()
+        for alias, canonical in GenerationPipeline._DOC_TYPE_ALIASES.items():
+            m = re.match(rf"{alias}[.\s-]*(\d+)", s)
+            if m:
+                return f"{canonical}.{int(m.group(1))}"
+        return None
+
+    @staticmethod
+    def _build_source_metadata(sources: list[dict]) -> dict[str, dict]:
+        """Build doc_ref -> metadata lookup from fetched sources.
+
+        Keys are canonical doc refs (e.g. "PCP.10", "ADR.29").
+        Values carry all available dct-relevant fields. Designed for
+        extensibility: Phase 2 (registry) and Phase 3 (additional dct
+        fields) add fields here without changing _enrich_yaml_with_dct().
+        """
+        meta: dict[str, dict] = {}
+        for src in sources:
+            pn = src.get("principle_number", "")
+            an = src.get("adr_number", "")
+            kb_uuid = src.get("kb_uuid", "")
+            title = src.get("title", "")
+            owner = src.get("owner_display", "")
+            if not kb_uuid:
+                continue
+            if pn and an:
+                logger.warning(
+                    "Source has both principle_number=%s and adr_number=%s "
+                    "(kb_uuid=%s) — using principle_number. "
+                    "Investigate KB data quality.",
+                    pn, an, kb_uuid,
+                )
+            ref = None
+            if pn:
+                ref = f"PCP.{int(pn)}"
+            elif an:
+                ref = f"ADR.{int(an)}"
+            if ref:
+                entry: dict[str, str] = {
+                    "kb_uuid": f"urn:uuid:{kb_uuid}",
+                    "title": title,
+                }
+                if owner:
+                    entry["creator"] = owner
+                # Phase 3 will add: "issued", "language"
+                meta[ref] = entry
+        return meta
+
+    @staticmethod
+    def _enrich_yaml_with_dct(yaml_text: str, source_metadata: dict) -> str:
+        """Enrich YAML elements with dct properties, strip source_ref.
+
+        For elements with source_ref matching a source_metadata key,
+        adds dct:identifier, dct:title, and dct:creator (if available).
+        Falls back to inferring source_ref from element name — only for
+        elements whose type matches the source doc type (Principle/ADR).
+        Strips source_ref afterward (not an ArchiMate field).
+        Returns original yaml_text unchanged on any parse error.
+        """
+        import yaml as _yaml
+
+        try:
+            data = _yaml.safe_load(yaml_text)
+        except Exception:
+            return yaml_text
+        if not data or "elements" not in data:
+            return yaml_text
+
+        total = 0
+        enriched = 0
+        explicit = 0
+        fallback = 0
+
+        for elem in data.get("elements", []):
+            total += 1
+            ref_raw = elem.pop("source_ref", None)
+            ref = GenerationPipeline._normalize_ref(ref_raw) if ref_raw else None
+            via_fallback = False
+
+            # Type-gated fallback: only infer for Principle/ADR elements
+            if not ref:
+                expected_prefix = GenerationPipeline._SOURCE_DOC_TYPES.get(
+                    elem.get("type", "")
+                )
+                if expected_prefix:
+                    name = elem.get("name", "")
+                    m = re.match(r"(?:PCP|ADR)[.\s-]*(\d+)", name, re.I)
+                    if m:
+                        ref = GenerationPipeline._normalize_ref(m.group(0))
+                        via_fallback = True
+
+            if ref and ref in source_metadata:
+                props = elem.get("properties", {})
+                if not isinstance(props, dict):
+                    props = {}
+                meta = source_metadata[ref]
+                props["dct:identifier"] = meta["kb_uuid"]
+                props["dct:title"] = meta["title"]
+                if "creator" in meta:
+                    props["dct:creator"] = meta["creator"]
+                elem["properties"] = props
+                enriched += 1
+                if via_fallback:
+                    fallback += 1
+                else:
+                    explicit += 1
+
+        logger.info(
+            "dct enrichment: %d/%d elements enriched "
+            "(%d via source_ref, %d via name fallback)",
+            enriched, total, explicit, fallback,
+        )
+
+        return _yaml.dump(
+            data, default_flow_style=False, allow_unicode=True, sort_keys=False
+        )
+
+    # ------------------------------------------------------------------
+    # Element Registry integration (Phase 2)
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _get_registry_prompt_limit() -> int:
+        """Read element_registry.prompt_limit from thresholds.yaml."""
+        try:
+            registry = get_skill_registry()
+            entry = registry.get_skill_entry("rag-quality-assurance")
+            if entry and entry.enabled:
+                thresholds = registry.loader.get_thresholds("rag-quality-assurance")
+                return thresholds.get("element_registry", {}).get("prompt_limit", 30)
+        except Exception:
+            pass
+        return 30
+
+    @staticmethod
+    def _reconcile_with_registry(
+        yaml_text: str,
+        doc_refs: list[str] | None = None,
+        db_path=None,
+    ) -> str:
+        """Reconcile YAML elements with the element registry.
+
+        Rewrites element IDs to canonical registry IDs and updates
+        relationship source/target references. Preserves source_ref
+        and all other fields — only IDs are changed.
+
+        Returns original yaml_text unchanged on any parse error.
+        """
+        import yaml as _yaml
+
+        try:
+            data = _yaml.safe_load(yaml_text)
+        except Exception:
+            return yaml_text
+        if not data or "elements" not in data:
+            return yaml_text
+
+        elements = data.get("elements", [])
+        kwargs = {"doc_refs": doc_refs}
+        if db_path is not None:
+            kwargs["db_path"] = db_path
+        result = reconcile_elements(elements, **kwargs)
+        id_map = result["id_map"]
+
+        # Rewrite relationship source/target using id_map
+        for rel in data.get("relationships", []):
+            src = rel.get("source", "")
+            tgt = rel.get("target", "")
+            if src in id_map:
+                rel["source"] = id_map[src]
+            if tgt in id_map:
+                rel["target"] = id_map[tgt]
+
+        # Rewrite view node refs if present
+        for view in data.get("views", []):
+            for node in view.get("nodes", []):
+                ref = node.get("element_ref", "")
+                if ref in id_map:
+                    node["element_ref"] = id_map[ref]
+            for conn in view.get("connections", []):
+                ref = conn.get("relationship_ref", "")
+                # Relationship refs use source-target pattern, remap both parts
+                src = conn.get("source_node", "")
+                tgt = conn.get("target_node", "")
+                if src in id_map:
+                    conn["source_node"] = id_map[src]
+                if tgt in id_map:
+                    conn["target_node"] = id_map[tgt]
+
+        logger.info(
+            "registry reconciliation: %d elements reconciled, %d IDs remapped",
+            len(elements), len(id_map),
+        )
+
+        return _yaml.dump(
+            data, default_flow_style=False, allow_unicode=True, sort_keys=False
+        )
+
+    @staticmethod
+    def _extract_default_branch(metadata: str) -> str:
+        """Extract default branch from GitHub repo metadata response.
+
+        Handles two formats:
+        - Structured text: "Default branch: develop"
+        - JSON-like: {"default_branch": "develop"}
+        Falls back to "main" if parsing fails.
+        """
+        if metadata:
+            # Structured text from REST API (e.g. "Default branch: develop")
+            m = re.search(r'Default branch:\s*(\S+)', metadata)
+            if m:
+                return m.group(1)
+            # JSON-like content (legacy/fallback)
+            m = re.search(r'"default_branch"\s*:\s*"([^"]+)"', metadata)
+            if m:
+                return m.group(1)
+        return "main"
+
+    async def _fetch_github_content(
+        self,
+        github_refs: list[str],
+        event_queue: Queue | None = None,
+        start: float = 0,
+    ) -> str:
+        """Fetch content from GitHub repositories for generation.
+
+        Fetches metadata first to detect the default branch, then
+        parallel-fetches README and root directory listing using the
+        correct branch. Uses existing MCP wrappers from github.py.
+        """
+        import asyncio
+
+        from src.aion.mcp.github import (
+            get_repo_metadata,
+            get_repo_readme,
+            list_directory,
+        )
+
+        max_readme = max(10_000, 50_000 // len(github_refs))
+
+        async def fetch_one(ref: str) -> str:
+            """Fetch metadata + README + dir listing for a single repo."""
+            parts = ref.split("/", 1)
+            if len(parts) != 2:
+                logger.warning(f"[generation] invalid github_ref format: {ref}")
+                return ""
+            owner, repo = parts
+
+            sections = [f"# Repository: {ref}"]
+
+            # Fetch metadata first to determine default branch
+            try:
+                metadata = await get_repo_metadata(owner, repo)
+            except BaseException as e:
+                logger.warning(f"[generation] metadata fetch failed for {ref}: {e}")
+                metadata = ""
+
+            default_branch = GenerationPipeline._extract_default_branch(metadata)
+            if metadata:
+                sections.append(f"## Metadata\n{metadata}")
+
+            # Fetch README and directory listing with detected default branch
+            results = await asyncio.gather(
+                get_repo_readme(owner, repo, ref=default_branch),
+                list_directory(owner, repo, path="", ref=default_branch),
+                return_exceptions=True,
+            )
+
+            readme, directory = results
+
+            if isinstance(directory, BaseException):
+                logger.warning(f"[generation] directory listing failed for {ref}: {directory}")
+                directory = ""
+            if directory:
+                sections.append(f"## Root Directory\n{directory}")
+
+            if isinstance(readme, BaseException):
+                logger.warning(f"[generation] README fetch failed for {ref}: {readme}")
+                readme = ""
+            if readme:
+                if len(readme) > max_readme:
+                    readme = readme[:max_readme] + "\n\n[... truncated]"
+                sections.append(f"## README.md\n{readme}")
+
+            return "\n\n".join(sections)
+
+        # Fetch all repos in parallel
+        repo_results = await asyncio.gather(
+            *(fetch_one(ref) for ref in github_refs),
+            return_exceptions=True,
+        )
+
+        parts = []
+        for i, result in enumerate(repo_results):
+            if isinstance(result, BaseException):
+                logger.warning(
+                    f"[generation] repo fetch failed for {github_refs[i]}: {result}"
+                )
+                continue
+            if result:
+                parts.append(result)
+
+        if parts:
+            self._emit(
+                event_queue, "status",
+                f"Fetched {len(parts)}/{len(github_refs)} repositories", start,
+            )
+
+        source_text = "\n\n---\n\n".join(parts)
+        logger.info(
+            f"[generation] GitHub content: {len(source_text)} chars "
+            f"from {len(parts)}/{len(github_refs)} repos"
+        )
+        return source_text
 
     # ------------------------------------------------------------------
     # Step 3: LLM call
@@ -597,15 +1002,17 @@ class GenerationPipeline:
 
     async def _call_llm(
         self, system_prompt: str, user_prompt: str,
+        max_tokens_override: int | None = None,
     ) -> tuple[str, dict]:
         """Make a single LLM call. Returns (text, token_stats)."""
         provider = settings.effective_tree_provider
         if provider in ("github_models", "openai"):
-            return await self._call_openai(system_prompt, user_prompt)
-        return await self._call_ollama(system_prompt, user_prompt)
+            return await self._call_openai(system_prompt, user_prompt, max_tokens_override)
+        return await self._call_ollama(system_prompt, user_prompt, max_tokens_override)
 
     async def _call_openai(
         self, system_prompt: str, user_prompt: str,
+        max_tokens_override: int | None = None,
     ) -> tuple[str, dict]:
         from openai import OpenAI
 
@@ -621,11 +1028,12 @@ class GenerationPipeline:
         }
         # GPT-5.x reasoning models consume reasoning tokens within
         # max_completion_tokens. 16K gives room for reasoning + full XML.
+        # max_tokens_override scales up for GitHub-sourced generation.
         model_base = model.rsplit("/", 1)[-1] if "/" in model else model
         if model_base.startswith("gpt-5"):
-            kwargs["max_completion_tokens"] = 16384
+            kwargs["max_completion_tokens"] = max_tokens_override or 16384
         else:
-            kwargs["max_tokens"] = 8192
+            kwargs["max_tokens"] = max_tokens_override or 8192
 
         max_tok = kwargs.get("max_completion_tokens", kwargs.get("max_tokens"))
         logger.info(
@@ -660,18 +1068,20 @@ class GenerationPipeline:
 
     async def _call_ollama(
         self, system_prompt: str, user_prompt: str,
+        max_tokens_override: int | None = None,
     ) -> tuple[str, dict]:
         import httpx
 
         model = settings.effective_tree_model
         full_prompt = f"{system_prompt}\n\n{user_prompt}"
+        num_predict = max_tokens_override or 8192
 
         logger.info(
             f"[generation] LLM call: model={model}, "
             f"system_prompt={len(system_prompt)} chars, "
             f"user_prompt={len(user_prompt)} chars, "
             f"est_tokens=~{(len(full_prompt)) // 4}, "
-            f"num_predict=8192"
+            f"num_predict={num_predict}"
         )
 
         start = time.perf_counter()
@@ -682,7 +1092,7 @@ class GenerationPipeline:
                     "model": model,
                     "prompt": full_prompt,
                     "stream": False,
-                    "options": {"num_predict": 8192},
+                    "options": {"num_predict": num_predict},
                 },
             )
             response.raise_for_status()
@@ -847,6 +1257,7 @@ class GenerationPipeline:
     ) -> str:
         """Derive artifact filename. Priority: XML <name> > doc_refs > fallback."""
         ext = ".archimate.xml" if "archimate" in skill_entry.name else ".txt"
+        ts = datetime.now().strftime("%y%m%d-%H%M%S")
 
         # 1. Try XML model name
         name_match = re.search(r'<name xml:lang="en">(.*?)</name>', content)
@@ -854,15 +1265,15 @@ class GenerationPipeline:
             name = name_match.group(1).strip()
             slug = re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")[:60]
             if slug:
-                return f"{slug}{ext}"
+                return f"{slug}_{ts}{ext}"
 
         # 2. Try doc_refs
         if doc_refs:
             slug = "-".join(r.lower().replace(".", "") for r in doc_refs[:3])
-            return f"{slug}{ext}"
+            return f"{slug}_{ts}{ext}"
 
         # 3. Fallback
-        return f"model{ext}"
+        return f"model_{ts}{ext}"
 
     # ------------------------------------------------------------------
     # Step 6: Build response

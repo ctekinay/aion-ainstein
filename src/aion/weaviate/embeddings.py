@@ -13,7 +13,6 @@ Instead of relying on Weaviate's vectorizer, we:
 import atexit
 import logging
 import time
-from typing import Optional
 
 import httpx
 
@@ -89,8 +88,8 @@ class OllamaEmbeddings:
 
     def __init__(
         self,
-        model: Optional[str] = None,
-        base_url: Optional[str] = None,
+        model: str | None = None,
+        base_url: str | None = None,
         timeout: float = 300.0,  # Increased from 60s to 5 minutes for batch operations
     ):
         """Initialize the embeddings client.
@@ -188,7 +187,6 @@ class OllamaEmbeddings:
             return [[0.0] * self._dimension for _ in texts]
 
         # Try batch embedding with retries
-        last_error = None
         for attempt in range(MAX_RETRIES):
             try:
                 response = self.client.post(
@@ -219,7 +217,6 @@ class OllamaEmbeddings:
                 return result
 
             except httpx.HTTPError as e:
-                last_error = e
                 if attempt < MAX_RETRIES - 1:
                     logger.warning(
                         f"Batch embedding attempt {attempt + 1} failed: {e}. "
@@ -227,8 +224,7 @@ class OllamaEmbeddings:
                     )
                     time.sleep(RETRY_DELAY_SECONDS)
                 continue
-            except Exception as e:
-                last_error = e
+            except Exception:
                 break
 
         # Batch failed - fall back to one-at-a-time processing
@@ -281,7 +277,7 @@ class OllamaEmbeddings:
 
 
 # Global instance for convenience
-_embeddings_client: Optional[OllamaEmbeddings] = None
+_embeddings_client: OllamaEmbeddings | None = None
 
 
 def get_embeddings_client() -> OllamaEmbeddings:

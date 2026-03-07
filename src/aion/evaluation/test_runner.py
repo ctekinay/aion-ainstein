@@ -24,7 +24,6 @@ import time
 from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
 
 # Suppress verbose logging during tests
 logging.getLogger("httpx").setLevel(logging.WARNING)
@@ -35,7 +34,6 @@ logging.getLogger("elysia").setLevel(logging.WARNING)
 @contextmanager
 def suppress_output():
     """Suppress stdout/stderr and Rich console output for Elysia's verbose output."""
-    import os
 
     # Save original file descriptors
     old_stdout = sys.stdout
@@ -184,7 +182,7 @@ QUICK_TEST_IDS = ["V1", "A1", "A3", "P1", "PO1", "X1", "C1", "D2", "N1", "N3"]
 
 # Faster Ollama model alternatives when default times out
 FAST_OLLAMA_MODELS = [
-    "alibayram/smollm3:latest",  # Small, fast model
+    "qwen3.5:9b",                # Qwen 3.5 9B model
     "llama3.2:1b",               # 1B parameter model
     "phi3:mini",                 # Microsoft's small model
     "gemma2:2b",                 # Google's 2B model
@@ -241,7 +239,7 @@ async def check_service_health(verbose: bool = True) -> dict:
     return status
 
 
-def suggest_faster_model(current_model: str, available_models: list) -> Optional[str]:
+def suggest_faster_model(current_model: str, available_models: list) -> str | None:
     """Suggest a faster model if current one times out."""
     for fast_model in FAST_OLLAMA_MODELS:
         # Check if model or a variant is available
@@ -416,8 +414,8 @@ async def init_rag_system(provider: str = "ollama", model: str = None) -> bool:
 
     # Import here to avoid circular imports
     from src.aion.config import settings
-    from src.aion.weaviate.client import get_weaviate_client
     from src.aion.elysia_agents import ElysiaRAGSystem
+    from src.aion.weaviate.client import get_weaviate_client
 
     # Default models for each provider
     default_models = {
@@ -662,7 +660,7 @@ async def run_tests(provider: str = "ollama", model: str = None, quick: bool = F
                 print("="*60)
                 print("The current model may be too slow. Consider:")
                 print("  1. Using a faster model: --model llama3.2:1b")
-                print("  2. Using a smaller model: --model alibayram/smollm3:latest")
+                print("  2. Using a smaller model: --model qwen3.5:9b")
                 print("  3. Switching to OpenAI: --openai")
                 print("  4. Increasing server timeout in elysia_agents.py")
                 print("="*60 + "\n")

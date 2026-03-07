@@ -20,9 +20,13 @@ Usage:
     active_content = registry.get_all_skill_content()
 """
 
-from src.aion.skills.loader import Skill, SkillLoader
-from src.aion.skills.registry import SkillRegistry, SkillRegistryEntry, get_skill_registry
 from src.aion.skills.filters import build_document_filter, build_intent_aware_filter
+from src.aion.skills.loader import Skill, SkillLoader
+from src.aion.skills.registry import (
+    SkillRegistry,
+    SkillRegistryEntry,
+    get_skill_registry,
+)
 
 # Default skill name - single source of truth
 DEFAULT_SKILL = "rag-quality-assurance"

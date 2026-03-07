@@ -11,13 +11,12 @@ Usage:
 
 import argparse
 import json
-from pathlib import Path
 
+from weaviate.classes.query import HybridFusion, MetadataQuery
+
+from src.aion.config import settings
 from src.aion.weaviate.client import get_weaviate_client as get_client
 from src.aion.weaviate.embeddings import embed_text
-from src.aion.config import settings
-from weaviate.classes.query import MetadataQuery, HybridFusion
-
 
 # Test questions for diagnostics
 TEST_QUESTIONS = [
@@ -159,7 +158,7 @@ def compare_alpha_values(question: str, collection_name: str, alphas: list = Non
 def print_inspection_report(results: dict, verbose: bool = False):
     """Pretty print the inspection results."""
     print("\n" + "=" * 70)
-    print(f"RETRIEVAL INSPECTION REPORT")
+    print("RETRIEVAL INSPECTION REPORT")
     print("=" * 70)
     print(f"\nQuestion: {results.get('question', 'N/A')}")
 

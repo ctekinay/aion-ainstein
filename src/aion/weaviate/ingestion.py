@@ -8,10 +8,10 @@ from uuid import uuid4
 from weaviate import WeaviateClient
 from weaviate.classes.data import DataObject
 
-from src.aion.config import settings
-from src.aion.loaders import MarkdownLoader, DocumentLoader
-from src.aion.loaders.registry_parser import get_registry_lookup
 from src.aion.chunking.strategies import ChunkingConfig
+from src.aion.config import settings
+from src.aion.loaders import DocumentLoader, MarkdownLoader
+from src.aion.loaders.registry_parser import get_registry_lookup
 from src.aion.weaviate.collections import CollectionManager
 from src.aion.weaviate.embeddings import embed_texts
 

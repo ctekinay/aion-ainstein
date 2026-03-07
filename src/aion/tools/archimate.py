@@ -13,10 +13,11 @@ from collections import defaultdict
 
 logger = logging.getLogger(__name__)
 
-# ArchiMate namespace constants (3.0 namespace is shared by 3.1 and 3.2)
+# ArchiMate Open Exchange Format namespace — 3.0 URI is used for all 3.x
+# versions (3.0, 3.1, 3.2). Archi validates imports against this namespace.
 NS = "http://www.opengroup.org/xsd/archimate/3.0/"
 XSI = "http://www.w3.org/2001/XMLSchema-instance"
-TAG = lambda t: f"{{{NS}}}{t}"
+def TAG(t): return f"{{{NS}}}{t}"  # noqa: N802
 
 ET.register_namespace("", NS)
 ET.register_namespace("xsi", XSI)

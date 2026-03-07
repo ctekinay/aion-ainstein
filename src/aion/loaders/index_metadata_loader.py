@@ -83,7 +83,6 @@ import logging
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional
 
 import yaml
 
@@ -240,7 +239,7 @@ class IndexMetadata:
             "keywords": self.collection.keywords_en,
         }
 
-    def get_document_by_filename(self, filename: str) -> Optional[DocumentInfo]:
+    def get_document_by_filename(self, filename: str) -> DocumentInfo | None:
         """Find document metadata by filename."""
         for doc in self.documents:
             if doc.file_name == filename:
@@ -330,7 +329,7 @@ def _parse_documents(data: list | None, base_path: Path) -> list[DocumentInfo]:
     return [_parse_document(doc, base_path) for doc in data if isinstance(doc, dict)]
 
 
-def load_index_metadata(index_path: Path) -> Optional[IndexMetadata]:
+def load_index_metadata(index_path: Path) -> IndexMetadata | None:
     """Load and parse an index.md file.
 
     Args:
@@ -378,7 +377,7 @@ def load_index_metadata(index_path: Path) -> Optional[IndexMetadata]:
         return None
 
 
-def find_index_metadata(file_path: Path) -> Optional[IndexMetadata]:
+def find_index_metadata(file_path: Path) -> IndexMetadata | None:
     """Find and load index.md metadata for a file.
 
     Searches for index.md in the file's directory and parent directories
@@ -415,9 +414,9 @@ class IndexMetadataCache:
     """Cache for index.md metadata to avoid repeated file reads."""
 
     def __init__(self):
-        self._cache: dict[str, Optional[IndexMetadata]] = {}
+        self._cache: dict[str, IndexMetadata | None] = {}
 
-    def get_metadata(self, file_path: Path) -> Optional[IndexMetadata]:
+    def get_metadata(self, file_path: Path) -> IndexMetadata | None:
         """Get metadata for a file, using cache when possible."""
         dir_path = file_path.parent if file_path.is_file() else file_path
         cache_key = str(dir_path)

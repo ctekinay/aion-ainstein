@@ -1,10 +1,15 @@
 """Weaviate collection schema definitions and management."""
 
 import logging
-from typing import Optional
 
 from weaviate import WeaviateClient
-from weaviate.classes.config import Configure, Property, DataType, Tokenization, VectorDistances
+from weaviate.classes.config import (
+    Configure,
+    DataType,
+    Property,
+    Tokenization,
+    VectorDistances,
+)
 
 from src.aion.config import settings
 

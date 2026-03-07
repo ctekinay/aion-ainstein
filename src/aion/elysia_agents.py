@@ -5,23 +5,31 @@ and agentic query processing.
 """
 
 import logging
-import time
-from typing import Optional, Any
-
 import re
+import time
+from pathlib import Path
+
 from weaviate import WeaviateClient
 from weaviate.classes.query import Filter, MetadataQuery
 
 from src.aion.config import settings
 from src.aion.tools.archimate import (
-    validate_archimate as _validate_archimate,
     inspect_archimate_model as _inspect_archimate,
+)
+from src.aion.tools.archimate import (
     merge_archimate_view as _merge_archimate_view,
+)
+from src.aion.tools.archimate import (
+    validate_archimate as _validate_archimate,
+)
+from src.aion.tools.skosmos import (
+    skosmos_concept_details as _skosmos_details,
+)
+from src.aion.tools.skosmos import (
+    skosmos_list_vocabularies as _skosmos_vocabs,
 )
 from src.aion.tools.skosmos import (
     skosmos_search as _skosmos_search,
-    skosmos_concept_details as _skosmos_details,
-    skosmos_list_vocabularies as _skosmos_vocabs,
 )
 
 # Skills framework — optional, degrades gracefully
@@ -31,11 +39,76 @@ try:
 except ImportError:
     _SKILLS_AVAILABLE = False
 
+logger = logging.getLogger(__name__)
+
 # Hardcoded fallbacks for when skills framework is unavailable or disabled
 _DEFAULT_DISTANCE_THRESHOLD = 0.5
 _DEFAULT_RETRIEVAL_LIMITS = {"adr": 8, "principle": 6, "policy": 4, "vocabulary": 4}
 _DEFAULT_TRUNCATION = {"content_max_chars": 800, "elysia_content_chars": 500,
                        "elysia_summary_chars": 300, "max_context_results": 10}
+
+# Ownership correction for principles. Weaviate's Principle collection stores
+# "Energy System Architecture" / "ESA" as owner_team for ALL PCPs because the
+# index.md defines a single collection-level ownership block. The actual
+# per-PCP ownership is parsed from the registry-index.md source of truth.
+# Adding new PCPs or changing ownership only requires editing the registry.
+_OWNER_METADATA = {
+    "BA": {
+        "owner_team": "Business Architecture",
+        "owner_team_abbr": "BA",
+        "owner_display": "Alliander / Business Architecture Group",
+    },
+    "DO": {
+        "owner_team": "Data Office",
+        "owner_team_abbr": "DO",
+        "owner_display": "Alliander / Data Office",
+    },
+    "ESA": {
+        "owner_team": "Energy System Architecture",
+        "owner_team_abbr": "ESA",
+        "owner_display": "Alliander / System Operations / Energy System Architecture",
+    },
+}
+
+
+def _load_principle_owners() -> dict[str, str]:
+    """Parse registry-index.md to build PCP number → owner abbreviation map.
+
+    Returns e.g. {"0010": "ESA", "0021": "BA", "0035": "DO", "0039": "ESA"}.
+    Falls back to empty dict if registry is missing or unparseable.
+    """
+    registry_path = Path(__file__).resolve().parent.parent.parent / (
+        "skills/esa-document-ontology/references/registry-index.md"
+    )
+    if not registry_path.exists():
+        logger.warning(f"Registry not found at {registry_path}, ownership correction disabled")
+        return {}
+
+    owners: dict[str, str] = {}
+    try:
+        for line in registry_path.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if not line.startswith("| PCP."):
+                continue
+            cols = [c.strip() for c in line.split("|")]
+            # cols: ['', 'PCP.XX', 'Title', 'Status', 'Date', 'Owner', '']
+            if len(cols) < 6:
+                continue
+            pcp_id = cols[1]   # "PCP.10"
+            owner = cols[5]    # "ESA", "BA", "DO"
+            num_str = pcp_id.replace("PCP.", "").zfill(4)
+            owners[num_str] = owner
+    except Exception as e:
+        logger.warning(f"Failed to parse registry-index.md: {e}")
+        return {}
+
+    logger.info(f"Loaded ownership for {len(owners)} principles from registry")
+    return owners
+
+
+# Loaded once at import time — registry changes require restart
+_PRINCIPLE_OWNERS = _load_principle_owners()
+
 
 
 def _get_skill_config(getter_name: str, default):
@@ -170,14 +243,12 @@ def get_abstention_response(reason: str) -> str:
 - For terminology questions, verify the term exists in SKOSMOS
 
 If you believe this information should be available, please contact the ESA team to have it added to the knowledge base."""
-from src.aion.weaviate.embeddings import embed_text
-
-logger = logging.getLogger(__name__)
+from src.aion.weaviate.embeddings import embed_text  # noqa: E402
 
 # Import elysia components
 try:
-    import elysia
-    from elysia import tool, Tree
+    import elysia  # noqa: F401
+    from elysia import Tree, tool
     ELYSIA_AVAILABLE = True
 except ImportError as e:
     ELYSIA_AVAILABLE = False
@@ -437,7 +508,8 @@ class ElysiaRAGSystem:
         """Build a result dict from a Weaviate object using dynamic properties.
 
         Returns all schema properties. Applies content_max_chars truncation
-        to the 'content' field only; everything else is returned as-is.
+        to the 'content' field only. Corrects principle ownership metadata
+        (Weaviate stores ESA for all PCPs; BA/DO overrides applied here).
         """
         result = {}
         for key in props:
@@ -445,9 +517,17 @@ class ElysiaRAGSystem:
             if key == "content" and content_limit and isinstance(val, str):
                 val = val[:content_limit]
             result[key] = val
+
+        # Correct ownership for principles using registry data
+        pn = result.get("principle_number")
+        if pn and pn in _PRINCIPLE_OWNERS:
+            owner_abbr = _PRINCIPLE_OWNERS[pn]
+            if owner_abbr in _OWNER_METADATA:
+                result.update(_OWNER_METADATA[owner_abbr])
+
         return result
 
-    def _get_query_vector(self, query: str) -> Optional[list[float]]:
+    def _get_query_vector(self, query: str) -> list[float] | None:
         """Compute query embedding for hybrid search.
 
         All collections use client-side embeddings (Vectorizer.none()),
@@ -1261,11 +1341,12 @@ class ElysiaRAGSystem:
         @tool(tree=self.tree)
         async def get_artifact(content_type: str = "") -> dict:
             """ALWAYS call this tool FIRST when the user wants to refine,
-            modify, or review a previously generated artifact. This loads the
-            full content from the previous turn so you can apply changes to
-            the complete artifact instead of reconstructing it from memory.
-            Without calling this tool, refinement requests will produce
-            incomplete or fragmented output.
+            modify, review, compare, or analyze a previously generated or
+            uploaded artifact. This loads the full content from the previous
+            turn so you can work with the complete artifact instead of
+            reconstructing it from memory. Without calling this tool,
+            requests involving artifacts will produce incomplete or
+            fragmented output.
 
             Args:
                 content_type: Optional filter (e.g., "archimate/xml",
@@ -1320,10 +1401,11 @@ class ElysiaRAGSystem:
 
         logger.info("Registered Elysia tools: ADR, principles, policies, search_by_team, archimate(3), skosmos(3), artifacts(2)")
 
-    async def query(self, question: str, collection_names: Optional[list[str]] = None,
+    async def query(self, question: str, collection_names: list[str] | None = None,
                     event_queue=None, skill_tags: list[str] | None = None,
                     doc_refs: list[str] | None = None,
-                    conversation_id: str | None = None) -> tuple[str, list[dict]]:
+                    conversation_id: str | None = None,
+                    artifact_context: str | None = None) -> tuple[str, list[dict]]:
         """Process a query using Elysia's decision tree.
 
         Iterates Tree.async_run() directly (bypassing tree.run() which wraps
@@ -1337,6 +1419,9 @@ class ElysiaRAGSystem:
             doc_refs: Structured document references from the Persona
                 (e.g., ["ADR.29"], ["PCP.22", "ADR.12"], [])
             conversation_id: Optional conversation ID for artifact storage
+            artifact_context: Pre-built artifact block to inject into atlas
+                after skill content. Used for follow-ups that reference a
+                previously inspected/generated artifact.
 
         Returns:
             Tuple of (response text, retrieved objects)
@@ -1374,6 +1459,14 @@ class ElysiaRAGSystem:
                 f"Injected {len(skill_content)} chars of skill content into Tree atlas"
                 f" (skill_tags={skill_tags})"
             )
+
+        # Append artifact context AFTER skill content injection (which does a
+        # hard overwrite of agent_description). This ensures the artifact
+        # survives the skill injection at the line above.
+        if artifact_context:
+            current = self.tree.tree_data.atlas.agent_description or ""
+            self.tree.tree_data.atlas.agent_description = current + artifact_context
+            logger.info(f"Injected artifact context ({len(artifact_context)} chars) into Tree atlas")
 
         # Sync Tree's LLM with AInstein's config (handles runtime provider switches)
         self._configure_tree_provider()
@@ -1485,7 +1578,7 @@ class ElysiaRAGSystem:
 
         return final_response, objects
 
-    def _map_tree_result_to_event(self, result: dict) -> Optional[dict]:
+    def _map_tree_result_to_event(self, result: dict) -> dict | None:
         """Map a Tree async_run() result to an SSE event dict.
 
         The Tree yields typed dicts with 'type' and 'payload' fields.
@@ -1735,9 +1828,10 @@ Guidelines:
         Returns:
             Generated response text
         """
-        import httpx
         import re
         import time
+
+        import httpx
 
         start_time = time.time()
         full_prompt = f"{system_prompt}\n\n{user_prompt}"

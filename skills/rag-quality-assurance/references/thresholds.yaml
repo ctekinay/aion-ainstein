@@ -15,3 +15,5 @@ truncation:
   max_context_results: 10
 tree:
   recursion_limit: 4
+element_registry:
+  prompt_limit: 30

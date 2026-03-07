@@ -12,6 +12,7 @@ compact YAML for LLM inspection and reasoning (~90% token reduction).
 
 import logging
 import math
+import re
 import xml.etree.ElementTree as ET
 from collections import defaultdict
 
@@ -207,6 +208,40 @@ def generate_viewpoint_xml(
 
 
 # ---------------------------------------------------------------------------
+# Property helpers
+# ---------------------------------------------------------------------------
+
+def _validate_properties(raw) -> dict[str, str]:
+    """Validate and normalize a properties mapping.
+
+    Accepts a dict of key→value pairs. Non-dict input returns empty dict.
+    Keys and values are coerced to strings and stripped.
+    """
+    if not raw or not isinstance(raw, dict):
+        return {}
+    result = {}
+    for k, v in raw.items():
+        k_str = str(k).strip()
+        if not k_str:
+            continue
+        result[k_str] = str(v).strip()
+    return result
+
+
+def _prop_def_id(key: str) -> str:
+    """Convert a property key to an XML-safe propertyDefinition identifier.
+
+    E.g., 'dct:identifier' → 'propdef-dct-identifier'
+
+    Note: Keys that differ only by separator (e.g., 'dct:type' vs 'dct-type')
+    would collide. In practice all ArchiMate property keys use colon notation
+    (Dublin Core dct:*, ArchiMate archi:*), so this is acceptable.
+    """
+    sanitized = re.sub(r'[^a-zA-Z0-9-]', '-', key).strip('-').lower()
+    return f"propdef-{sanitized}"
+
+
+# ---------------------------------------------------------------------------
 # Stage 1: Parse and validate YAML
 # ---------------------------------------------------------------------------
 
@@ -268,12 +303,16 @@ def _parse_and_validate(yaml_str: str) -> dict:
             raise ValueError(f"Duplicate element id: '{eid}'")
         element_ids.add(full_id)
 
-        normalized_elements.append({
+        entry = {
             "id": full_id,
             "type": etype,
             "name": ename,
             "documentation": str(elem.get("documentation", "")).strip(),
-        })
+        }
+        props = _validate_properties(elem.get("properties"))
+        if props:
+            entry["properties"] = props
+        normalized_elements.append(entry)
 
     # Build element type index for relationship validation
     element_type_index = {e["id"]: e["type"] for e in normalized_elements}
@@ -343,13 +382,17 @@ def _parse_and_validate(yaml_str: str) -> dict:
 
         rname = str(rel.get("name", "")).strip()
 
-        normalized_rels.append({
+        rel_entry = {
             "id": rid,
             "type": rtype,
             "source": full_source,
             "target": full_target,
             "name": rname,
-        })
+        }
+        rel_props = _validate_properties(rel.get("properties"))
+        if rel_props:
+            rel_entry["properties"] = rel_props
+        normalized_rels.append(rel_entry)
 
     return {
         "model": {
@@ -367,7 +410,7 @@ def _parse_and_validate(yaml_str: str) -> dict:
 
 _SCHEMA_LOC = (
     f"{NS} "
-    "http://www.opengroup.org/xsd/archimate/3.2/archimate3_Diagram.xsd"
+    "http://www.opengroup.org/xsd/archimate/3.0/archimate3_Diagram.xsd"
 )
 
 
@@ -391,6 +434,21 @@ def _build_model(data: dict) -> ET.Element:
         doc_el.set("xml:lang", "en")
         doc_el.text = data["model"]["documentation"]
 
+    # Collect all property keys (needed for propertyDefinitionRef on elements
+    # and relationships). The <propertyDefinitions> block itself is emitted
+    # AFTER <relationships> per ArchiMate Open Exchange schema ordering:
+    # name, documentation, elements, relationships, organizations,
+    # propertyDefinitions, views.
+    all_prop_keys: dict[str, str] = {}  # key → propertyDefinitionRef ID
+    for elem in data["elements"]:
+        for k in elem.get("properties", {}):
+            if k not in all_prop_keys:
+                all_prop_keys[k] = _prop_def_id(k)
+    for rel in data["relationships"]:
+        for k in rel.get("properties", {}):
+            if k not in all_prop_keys:
+                all_prop_keys[k] = _prop_def_id(k)
+
     # Elements
     elements_el = ET.SubElement(root, f"{{{NS}}}elements")
     for elem in data["elements"]:
@@ -404,6 +462,18 @@ def _build_model(data: dict) -> ET.Element:
             d = ET.SubElement(el, f"{{{NS}}}documentation")
             d.set("xml:lang", "en")
             d.text = elem["documentation"]
+        elem_props = elem.get("properties", {})
+        if elem_props:
+            props_el = ET.SubElement(el, f"{{{NS}}}properties")
+            for pkey, pval in elem_props.items():
+                ref_id = all_prop_keys.get(pkey, _prop_def_id(pkey))
+                prop = ET.SubElement(
+                    props_el, f"{{{NS}}}property",
+                    attrib={"propertyDefinitionRef": ref_id},
+                )
+                v = ET.SubElement(prop, f"{{{NS}}}value")
+                v.set("xml:lang", "en")
+                v.text = pval
 
     # Relationships
     if data["relationships"]:
@@ -418,6 +488,30 @@ def _build_model(data: dict) -> ET.Element:
                 n = ET.SubElement(r, f"{{{NS}}}name")
                 n.set("xml:lang", "en")
                 n.text = rel["name"]
+            rel_props = rel.get("properties", {})
+            if rel_props:
+                rprops_el = ET.SubElement(r, f"{{{NS}}}properties")
+                for pkey, pval in rel_props.items():
+                    ref_id = all_prop_keys.get(pkey, _prop_def_id(pkey))
+                    prop = ET.SubElement(
+                        rprops_el, f"{{{NS}}}property",
+                        attrib={"propertyDefinitionRef": ref_id},
+                    )
+                    v = ET.SubElement(prop, f"{{{NS}}}value")
+                    v.set("xml:lang", "en")
+                    v.text = pval
+
+    # Property definitions — after relationships, before views (schema order)
+    if all_prop_keys:
+        pdefs_el = ET.SubElement(root, f"{{{NS}}}propertyDefinitions")
+        for key, ref_id in sorted(all_prop_keys.items()):
+            pdef = ET.SubElement(
+                pdefs_el, f"{{{NS}}}propertyDefinition",
+                attrib={"identifier": ref_id, "type": "string"},
+            )
+            pn = ET.SubElement(pdef, f"{{{NS}}}name")
+            pn.set("xml:lang", "en")
+            pn.text = key
 
     return root
 
@@ -630,7 +724,7 @@ def _generate_view(
 # Reverse: XML → YAML
 # ---------------------------------------------------------------------------
 
-_TAG = lambda t: f"{{{NS}}}{t}"
+def _TAG(t): return f"{{{NS}}}{t}"  # noqa: N802
 
 
 def xml_to_yaml(xml_str: str) -> str:
@@ -660,6 +754,16 @@ def xml_to_yaml(xml_str: str) -> str:
     doc_el = root.find(_TAG("documentation"))
     model_doc = doc_el.text.strip() if doc_el is not None and doc_el.text else ""
 
+    # Property definitions: map propertyDefinitionRef → human-readable key
+    prop_defs: dict[str, str] = {}
+    prop_defs_node = root.find(_TAG("propertyDefinitions"))
+    if prop_defs_node is not None:
+        for pdef in prop_defs_node.findall(_TAG("propertyDefinition")):
+            pdef_id = pdef.get("identifier", "")
+            pdef_name_el = pdef.find(_TAG("name"))
+            if pdef_id and pdef_name_el is not None and pdef_name_el.text:
+                prop_defs[pdef_id] = pdef_name_el.text.strip()
+
     # Elements
     elements_node = root.find(_TAG("elements"))
     if elements_node is None:
@@ -684,6 +788,19 @@ def xml_to_yaml(xml_str: str) -> str:
         entry: dict = {"id": short_id, "type": etype, "name": ename}
         if edoc:
             entry["documentation"] = edoc
+        # Parse <properties><property> children (schema-correct wrapper)
+        props = {}
+        props_container = elem.find(_TAG("properties"))
+        prop_source = props_container if props_container is not None else elem
+        for prop_el in prop_source.findall(_TAG("property")):
+            ref = prop_el.get("propertyDefinitionRef", "")
+            val_el = prop_el.find(_TAG("value"))
+            val = val_el.text.strip() if val_el is not None and val_el.text else ""
+            key = prop_defs.get(ref, ref)
+            if key and val:
+                props[key] = val
+        if props:
+            entry["properties"] = props
         elements.append(entry)
 
     if not elements:
@@ -711,6 +828,19 @@ def xml_to_yaml(xml_str: str) -> str:
             }
             if rname:
                 entry["name"] = rname
+            # Parse <properties><property> children (schema-correct wrapper)
+            rel_props = {}
+            rel_props_container = rel.find(_TAG("properties"))
+            rel_prop_source = rel_props_container if rel_props_container is not None else rel
+            for prop_el in rel_prop_source.findall(_TAG("property")):
+                ref = prop_el.get("propertyDefinitionRef", "")
+                val_el = prop_el.find(_TAG("value"))
+                val = val_el.text.strip() if val_el is not None and val_el.text else ""
+                key = prop_defs.get(ref, ref)
+                if key and val:
+                    rel_props[key] = val
+            if rel_props:
+                entry["properties"] = rel_props
             relationships.append(entry)
 
     result = _serialize_yaml(
@@ -762,6 +892,10 @@ def _serialize_yaml(
             lines.append(f'    name: "{_yaml_escape(elem["name"])}"')
             if elem.get("documentation"):
                 lines.append(f'    documentation: "{_yaml_escape(elem["documentation"])}"')
+            if elem.get("properties"):
+                lines.append("    properties:")
+                for pkey, pval in elem["properties"].items():
+                    lines.append(f'      "{_yaml_escape(pkey)}": "{_yaml_escape(pval)}"')
 
     lines.append("")
     if relationships:
@@ -772,6 +906,10 @@ def _serialize_yaml(
             lines.append(f"    target: {rel['target']}")
             if rel.get("name"):
                 lines.append(f'    name: "{_yaml_escape(rel["name"])}"')
+            if rel.get("properties"):
+                lines.append("    properties:")
+                for pkey, pval in rel["properties"].items():
+                    lines.append(f'      "{_yaml_escape(pkey)}": "{_yaml_escape(pval)}"')
     else:
         lines.append("relationships: []")
 
@@ -788,8 +926,11 @@ def _yaml_escape(text: str) -> str:
 # ---------------------------------------------------------------------------
 
 # Fields that can be patched via modify (not id — that's the lookup key,
-# not type — changing ArchiMate layer should be remove+add)
-_PATCHABLE_ELEMENT_FIELDS = {"name", "documentation"}
+# not type — changing ArchiMate layer should be remove+add).
+# "properties" requires special handling in the modify loop: additive merge
+# instead of str() replacement. The set only gates which field names are
+# accepted — the if/else in the loop handles the type difference.
+_PATCHABLE_ELEMENT_FIELDS = {"name", "documentation", "properties"}
 
 
 def apply_yaml_diff(base_yaml: str, diff_yaml: str) -> tuple[str, dict]:
@@ -845,6 +986,17 @@ def apply_yaml_diff(base_yaml: str, diff_yaml: str) -> tuple[str, dict]:
         rel["source"] = str(rel.get("source", "")).removeprefix("id-")
         rel["target"] = str(rel.get("target", "")).removeprefix("id-")
 
+    # Derive relationship IDs from base model (before adds).
+    # Modify keys must reference these base IDs, not post-add IDs.
+    pair_counts: dict[str, int] = defaultdict(int)
+    rel_index: dict[str, dict] = {}
+    for rel in relationships:
+        pair_key = f"{rel['source']}-{rel['target']}"
+        pair_counts[pair_key] += 1
+        count = pair_counts[pair_key]
+        derived = f"rel-{pair_key}" if count == 1 else f"rel-{pair_key}-{count}"
+        rel_index[derived] = rel
+
     summary = {
         "added_elements": 0,
         "added_relationships": 0,
@@ -878,6 +1030,9 @@ def apply_yaml_diff(base_yaml: str, diff_yaml: str) -> tuple[str, dict]:
         edoc = str(new_elem.get("documentation", "")).strip()
         if edoc:
             entry["documentation"] = edoc
+        entry_props = _validate_properties(new_elem.get("properties"))
+        if entry_props:
+            entry["properties"] = entry_props
         elements.append(entry)
         element_index[eid] = entry
         summary["added_elements"] += 1
@@ -905,10 +1060,13 @@ def apply_yaml_diff(base_yaml: str, diff_yaml: str) -> tuple[str, dict]:
         rname = str(new_rel.get("name", "")).strip()
         if rname:
             entry["name"] = rname
+        rel_props = _validate_properties(new_rel.get("properties"))
+        if rel_props:
+            entry["properties"] = rel_props
         relationships.append(entry)
         summary["added_relationships"] += 1
 
-    # -- MODIFY elements + model metadata -----------------------------------
+    # -- MODIFY elements, relationships, + model metadata --------------------
     modify_section = ref.get("modify", {}) or {}
     for key, patches in modify_section.items():
         if not isinstance(patches, dict):
@@ -926,7 +1084,29 @@ def apply_yaml_diff(base_yaml: str, diff_yaml: str) -> tuple[str, dict]:
             summary["modified"] += 1
             continue
 
-        # Patch element
+        # Relationship modify: key starts with "rel-"
+        if key.startswith("rel-"):
+            if key not in rel_index:
+                raise ValueError(f"Modify '{key}': relationship not found in model")
+            target_rel = rel_index[key]
+            for field, value in patches.items():
+                if field == "properties":
+                    existing = target_rel.get("properties", {})
+                    if not isinstance(existing, dict):
+                        existing = {}
+                    existing.update(_validate_properties(value))
+                    target_rel["properties"] = existing
+                elif field == "name":
+                    target_rel["name"] = str(value).strip()
+                else:
+                    raise ValueError(
+                        f"Modify '{key}': cannot patch field '{field}' on relationship "
+                        f"(allowed: name, properties)"
+                    )
+            summary["modified"] += 1
+            continue
+
+        # Element modify
         eid = str(key).strip().removeprefix("id-")
         if eid not in element_index:
             raise ValueError(f"Modify '{eid}': element not found in model")
@@ -937,7 +1117,14 @@ def apply_yaml_diff(base_yaml: str, diff_yaml: str) -> tuple[str, dict]:
                     f"Modify '{eid}': cannot patch field '{field}' "
                     f"(allowed: {', '.join(sorted(_PATCHABLE_ELEMENT_FIELDS))})"
                 )
-            elem[field] = str(value).strip()
+            if field == "properties":
+                existing = elem.get("properties", {})
+                if not isinstance(existing, dict):
+                    existing = {}
+                existing.update(_validate_properties(value))
+                elem["properties"] = existing
+            else:
+                elem[field] = str(value).strip()
         summary["modified"] += 1
 
     # -- REMOVE elements (with cascade) -------------------------------------

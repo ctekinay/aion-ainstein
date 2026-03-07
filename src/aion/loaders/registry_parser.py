@@ -7,7 +7,6 @@ markdown tables for use as a fallback enrichment source during ingestion.
 import logging
 import re
 from pathlib import Path
-from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -80,7 +79,7 @@ def parse_registry(registry_path: Path) -> dict[str, dict]:
     return registry
 
 
-def get_registry_lookup(base_path: Optional[Path] = None) -> dict[str, dict]:
+def get_registry_lookup(base_path: Path | None = None) -> dict[str, dict]:
     """Load the registry with default path resolution.
 
     Args:

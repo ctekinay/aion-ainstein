@@ -5,8 +5,7 @@ import os
 import pytest
 
 from src.aion.mcp.github import parse_github_url
-from src.aion.mcp.registry import get_server, load_registry, _servers
-
+from src.aion.mcp.registry import _servers, get_server, load_registry
 
 # ---------------------------------------------------------------------------
 # URL parsing
@@ -18,6 +17,7 @@ class TestParseGithubUrl:
         url = "https://github.com/Alliander/esa-ainstein-artifacts/blob/main/tests/model.xml"
         result = parse_github_url(url)
         assert result == {
+            "type": "file",
             "owner": "Alliander",
             "repo": "esa-ainstein-artifacts",
             "ref": "main",
@@ -27,6 +27,7 @@ class TestParseGithubUrl:
     def test_blob_url_with_branch(self):
         url = "https://github.com/Alliander/repo/blob/ainstein-skills-framework-v2/path/to/file.xml"
         result = parse_github_url(url)
+        assert result["type"] == "file"
         assert result["ref"] == "ainstein-skills-framework-v2"
         assert result["path"] == "path/to/file.xml"
 
@@ -34,6 +35,7 @@ class TestParseGithubUrl:
         url = "https://raw.githubusercontent.com/Alliander/repo/main/file.xml"
         result = parse_github_url(url)
         assert result == {
+            "type": "file",
             "owner": "Alliander",
             "repo": "repo",
             "ref": "main",
@@ -43,12 +45,58 @@ class TestParseGithubUrl:
     def test_non_github_url(self):
         assert parse_github_url("https://example.com/file.xml") is None
 
-    def test_repo_url_without_file(self):
-        assert parse_github_url("https://github.com/Alliander/repo") is None
+    def test_repo_root_url(self):
+        result = parse_github_url("https://github.com/Alliander/repo")
+        assert result == {
+            "type": "repo",
+            "owner": "Alliander",
+            "repo": "repo",
+            "ref": "main",
+        }
 
-    def test_github_url_no_blob(self):
-        """Tree URLs (without /blob/) are not file URLs."""
-        assert parse_github_url("https://github.com/Alliander/repo/tree/main") is None
+    def test_repo_root_url_trailing_slash(self):
+        result = parse_github_url("https://github.com/Alliander/repo/")
+        assert result is not None
+        assert result["type"] == "repo"
+        assert result["owner"] == "Alliander"
+        assert result["repo"] == "repo"
+
+    def test_repo_tree_url(self):
+        result = parse_github_url("https://github.com/Alliander/repo/tree/develop")
+        assert result == {
+            "type": "repo",
+            "owner": "Alliander",
+            "repo": "repo",
+            "ref": "develop",
+        }
+
+    def test_repo_tree_url_default_ref(self):
+        """Repo root without /tree/ defaults to main."""
+        result = parse_github_url("https://github.com/OpenSTEF/openstef")
+        assert result["type"] == "repo"
+        assert result["ref"] == "main"
+
+    def test_file_url_never_matches_repo(self):
+        """File URLs with /blob/ always return type 'file', never 'repo'."""
+        url = "https://github.com/Alliander/repo/blob/main/model.archimate.xml"
+        result = parse_github_url(url)
+        assert result["type"] == "file"
+        assert result["path"] == "model.archimate.xml"
+
+    def test_org_url(self):
+        result = parse_github_url("https://github.com/OpenSTEF")
+        assert result == {"type": "org", "owner": "OpenSTEF"}
+
+    def test_org_url_trailing_slash(self):
+        result = parse_github_url("https://github.com/OpenSTEF/")
+        assert result == {"type": "org", "owner": "OpenSTEF"}
+
+    def test_org_url_not_confused_with_repo(self):
+        """Single-segment URL is org, two-segment URL is repo."""
+        org = parse_github_url("https://github.com/OpenSTEF")
+        repo = parse_github_url("https://github.com/OpenSTEF/openstef")
+        assert org["type"] == "org"
+        assert repo["type"] == "repo"
 
 
 # ---------------------------------------------------------------------------
@@ -111,3 +159,169 @@ class TestGetFileContents:
         )
         assert len(content) > 100
         assert "MCP" in content
+
+
+class TestGetRepoReadme:
+
+    @pytest.mark.skipif(
+        not os.environ.get("GITHUB_TOKEN"),
+        reason="No GITHUB_TOKEN set",
+    )
+    @pytest.mark.asyncio
+    async def test_fetch_readme(self):
+        from src.aion.mcp.github import get_repo_readme
+
+        content = await get_repo_readme(
+            owner="modelcontextprotocol",
+            repo="python-sdk",
+            ref="main",
+        )
+        assert len(content) > 100
+        assert "MCP" in content
+
+
+class TestListDirectory:
+
+    @pytest.mark.skipif(
+        not os.environ.get("GITHUB_TOKEN"),
+        reason="No GITHUB_TOKEN set",
+    )
+    @pytest.mark.asyncio
+    async def test_list_root(self):
+        from src.aion.mcp.github import list_directory
+
+        result = await list_directory(
+            owner="modelcontextprotocol",
+            repo="python-sdk",
+            path="",
+            ref="main",
+        )
+        assert len(result) > 0
+
+
+class TestGetRepoMetadata:
+
+    @pytest.mark.skipif(
+        not os.environ.get("GITHUB_TOKEN"),
+        reason="No GITHUB_TOKEN set",
+    )
+    @pytest.mark.asyncio
+    async def test_get_metadata(self):
+        from src.aion.mcp.github import get_repo_metadata
+
+        result = await get_repo_metadata(
+            owner="modelcontextprotocol",
+            repo="python-sdk",
+        )
+        assert len(result) > 0
+
+
+class TestGetOrgOverview:
+
+    @pytest.mark.skipif(
+        not os.environ.get("GITHUB_TOKEN"),
+        reason="No GITHUB_TOKEN set",
+    )
+    @pytest.mark.asyncio
+    async def test_get_org(self):
+        from src.aion.mcp.github import get_org_overview
+
+        result = await get_org_overview("OpenSTEF")
+        assert "OpenSTEF" in result
+        assert "REPOSITORIES" in result
+
+
+# ---------------------------------------------------------------------------
+# GitHub-sourced generation content fetching
+# ---------------------------------------------------------------------------
+
+class TestFetchGithubContent:
+    """Tests for GenerationPipeline._fetch_github_content()."""
+
+    @pytest.mark.skipif(
+        not os.environ.get("GITHUB_TOKEN"),
+        reason="No GITHUB_TOKEN set",
+    )
+    @pytest.mark.asyncio
+    async def test_single_repo(self):
+        """Fetch a single repo and verify assembly."""
+        from unittest.mock import MagicMock
+
+        from src.aion.generation import GenerationPipeline
+
+        pipeline = GenerationPipeline(client=MagicMock())
+        result = await pipeline._fetch_github_content(["OpenSTEF/openstef"])
+        assert "# Repository: OpenSTEF/openstef" in result
+        assert "## Metadata" in result
+        assert "## README.md" in result
+
+    @pytest.mark.skipif(
+        not os.environ.get("GITHUB_TOKEN"),
+        reason="No GITHUB_TOKEN set",
+    )
+    @pytest.mark.asyncio
+    async def test_multiple_repos(self):
+        """Fetch multiple repos in parallel."""
+        from unittest.mock import MagicMock
+
+        from src.aion.generation import GenerationPipeline
+
+        pipeline = GenerationPipeline(client=MagicMock())
+        result = await pipeline._fetch_github_content([
+            "OpenSTEF/openstef",
+            "OpenSTEF/openstef-reference",
+        ])
+        assert "# Repository: OpenSTEF/openstef" in result
+        assert "# Repository: OpenSTEF/openstef-reference" in result
+        assert "---" in result  # separator between repos
+
+    @pytest.mark.asyncio
+    async def test_invalid_ref_format(self):
+        """Invalid ref format (no slash) should be skipped gracefully."""
+        from unittest.mock import MagicMock
+
+        from src.aion.generation import GenerationPipeline
+
+        pipeline = GenerationPipeline(client=MagicMock())
+        result = await pipeline._fetch_github_content(["invalid-no-slash"])
+        assert result == ""
+
+    @pytest.mark.skipif(
+        not os.environ.get("GITHUB_TOKEN"),
+        reason="No GITHUB_TOKEN set",
+    )
+    @pytest.mark.asyncio
+    async def test_partial_failure(self):
+        """One nonexistent repo should not prevent fetching others."""
+        from unittest.mock import MagicMock
+
+        from src.aion.generation import GenerationPipeline
+
+        pipeline = GenerationPipeline(client=MagicMock())
+        result = await pipeline._fetch_github_content([
+            "OpenSTEF/openstef",
+            "OpenSTEF/nonexistent-repo-xyz-12345",
+        ])
+        # Should have at least the successful repo
+        assert "# Repository: OpenSTEF/openstef" in result
+
+    @pytest.mark.asyncio
+    async def test_readme_truncation(self):
+        """Verify dynamic README budget is applied."""
+        from unittest.mock import AsyncMock, MagicMock, patch
+
+        from src.aion.generation import GenerationPipeline
+
+        pipeline = GenerationPipeline(client=MagicMock())
+
+        long_readme = "x" * 200_000  # 200K chars
+
+        with patch("src.aion.mcp.github.get_repo_metadata", new_callable=AsyncMock, return_value="desc"), \
+             patch("src.aion.mcp.github.get_repo_readme", new_callable=AsyncMock, return_value=long_readme), \
+             patch("src.aion.mcp.github.list_directory", new_callable=AsyncMock, return_value="dir"):
+            result = await pipeline._fetch_github_content(["owner/repo"])
+
+        # max_readme = max(10_000, 50_000 // 1) = 50_000
+        # README should be truncated to ~50K + truncation marker
+        assert "[... truncated]" in result
+        assert len(result) < 200_000

@@ -7,15 +7,14 @@ which skills should be activated for a given query.
 import logging
 import re
 import shutil
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from datetime import datetime
-from collections.abc import Sequence
 from pathlib import Path
-from typing import Optional
 
 import yaml
 
-from src.aion.skills.loader import SkillLoader, Skill, DEFAULT_SKILLS_DIR
+from src.aion.skills.loader import DEFAULT_SKILLS_DIR, Skill, SkillLoader
 
 logger = logging.getLogger(__name__)
 
@@ -59,8 +58,8 @@ class SkillRegistry:
 
     def __init__(
         self,
-        skills_dir: Optional[Path] = None,
-        loader: Optional[SkillLoader] = None
+        skills_dir: Path | None = None,
+        loader: SkillLoader | None = None
     ):
         self.skills_dir = skills_dir or DEFAULT_SKILLS_DIR
         self.loader = loader or SkillLoader(self.skills_dir)
@@ -237,7 +236,7 @@ class SkillRegistry:
 
         return "\n\n---\n\n".join(parts)
 
-    def get_skill_entry(self, skill_name: str) -> Optional[SkillRegistryEntry]:
+    def get_skill_entry(self, skill_name: str) -> SkillRegistryEntry | None:
         """Get a registry entry by skill name."""
         if not self._loaded:
             self.load_registry()
@@ -267,7 +266,7 @@ class SkillRegistry:
 
         return "tree"
 
-    def get_generation_skill(self, skill_tags: Sequence[str]) -> Optional[SkillRegistryEntry]:
+    def get_generation_skill(self, skill_tags: Sequence[str]) -> SkillRegistryEntry | None:
         """Find the generation skill entry matching the given tags.
 
         Returns the first enabled skill with execution="generation" whose
@@ -547,7 +546,7 @@ class SkillRegistry:
 
 
 # Singleton instance
-_global_registry: Optional[SkillRegistry] = None
+_global_registry: SkillRegistry | None = None
 
 
 def get_skill_registry() -> SkillRegistry:

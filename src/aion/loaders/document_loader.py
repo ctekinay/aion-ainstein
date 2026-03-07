@@ -6,19 +6,19 @@ Supports two modes:
 """
 
 import logging
+from collections.abc import Iterator
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Iterator, Optional
+from typing import Optional
 
 from src.aion.loaders.index_metadata_loader import get_document_metadata
 
 # Import chunking module (optional, for enhanced chunking)
 try:
     from src.aion.chunking import (
-        PolicyChunkingStrategy,
-        ChunkingConfig,
-        Chunk,
         ChunkedDocument,
+        ChunkingConfig,
+        PolicyChunkingStrategy,
     )
     CHUNKING_AVAILABLE = True
 except ImportError:

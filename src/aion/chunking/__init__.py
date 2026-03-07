@@ -7,13 +7,13 @@ This module provides:
 - Content-aware chunking that respects document structure
 """
 
-from src.aion.chunking.models import Chunk, ChunkType, ChunkMetadata, ChunkedDocument
+from src.aion.chunking.models import Chunk, ChunkedDocument, ChunkMetadata, ChunkType
 from src.aion.chunking.strategies import (
-    ChunkingStrategy,
-    ChunkingConfig,
     ADRChunkingStrategy,
-    PrincipleChunkingStrategy,
+    ChunkingConfig,
+    ChunkingStrategy,
     PolicyChunkingStrategy,
+    PrincipleChunkingStrategy,
     VocabularyChunkingStrategy,
     get_chunking_strategy,
 )

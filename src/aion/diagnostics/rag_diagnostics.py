@@ -17,16 +17,14 @@ Usage:
 import argparse
 import asyncio
 import json
-from collections import defaultdict
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
 
+from weaviate.classes.query import HybridFusion, MetadataQuery
+
+from src.aion.config import settings
 from src.aion.weaviate.client import get_weaviate_client
 from src.aion.weaviate.embeddings import embed_text
-from src.aion.config import settings
-from weaviate.classes.query import MetadataQuery, HybridFusion
-
 
 # Gold standard test questions with expected retrieval targets
 DIAGNOSTIC_QUESTIONS = [
@@ -255,7 +253,7 @@ class RAGDiagnostics:
                     results["passed"] += 1
                     test_detail["passed"] = True
                 else:
-                    print(f"  ❌ FAIL: Did not find expected document")
+                    print("  ❌ FAIL: Did not find expected document")
                     for r in top_results[:3]:
                         print(f"    Got: [{r['collection']}] {r['title']} (score: {r['score']:.3f})")
                     results["failed"] += 1
@@ -372,11 +370,11 @@ class RAGDiagnostics:
         print(f"Context length: {result['context_length']} chars")
 
         if grounding_issues:
-            print(f"\n⚠️  POTENTIAL HALLUCINATION DETECTED:")
+            print("\n⚠️  POTENTIAL HALLUCINATION DETECTED:")
             for issue in grounding_issues:
                 print(f"  - {issue}")
         else:
-            print(f"\n✅ Response appears grounded in context")
+            print("\n✅ Response appears grounded in context")
 
         return result
 
@@ -418,7 +416,7 @@ class RAGDiagnostics:
         chunk = report["diagnostics"]["chunk_analysis"]
         retrieval = report["diagnostics"]["retrieval_quality"]
 
-        print(f"\n1. CHUNK ANALYSIS:")
+        print("\n1. CHUNK ANALYSIS:")
         total_large = sum(c.get("over_5000", 0) for c in chunk.values())
         total_docs = sum(c.get("count", 0) for c in chunk.values())
         if total_large > 0:
@@ -426,14 +424,14 @@ class RAGDiagnostics:
         else:
             print(f"   ✅ All {total_docs} documents are reasonably sized")
 
-        print(f"\n2. RETRIEVAL QUALITY:")
+        print("\n2. RETRIEVAL QUALITY:")
         passed = retrieval.get("passed", 0)
         total = passed + retrieval.get("failed", 0)
         pct = passed/total*100 if total else 0
         status = "✅" if pct >= 80 else "⚠️" if pct >= 60 else "❌"
         print(f"   {status} {passed}/{total} tests passed ({pct:.0f}%)")
 
-        print(f"\n3. RECOMMENDATIONS:")
+        print("\n3. RECOMMENDATIONS:")
         # Generate recommendations based on findings
         recommendations = []
 
@@ -447,7 +445,7 @@ class RAGDiagnostics:
         # Check alpha tuning results
         alpha_results = report["diagnostics"].get("alpha_tuning", {})
         if alpha_results:
-            recommendations.append(f"- Review alpha tuning results for optimal values")
+            recommendations.append("- Review alpha tuning results for optimal values")
 
         if not recommendations:
             recommendations.append("- RAG pipeline appears healthy!")

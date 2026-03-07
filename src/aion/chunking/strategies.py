@@ -8,8 +8,6 @@ import logging
 import re
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from pathlib import Path
-from typing import Iterator, Optional
 
 from src.aion.chunking.models import Chunk, ChunkedDocument, ChunkMetadata, ChunkType
 
@@ -41,7 +39,7 @@ class ChunkingConfig:
 class ChunkingStrategy(ABC):
     """Abstract base class for document-type specific chunking strategies."""
 
-    def __init__(self, config: Optional[ChunkingConfig] = None):
+    def __init__(self, config: ChunkingConfig | None = None):
         self.config = config or ChunkingConfig()
 
     @abstractmethod
@@ -50,7 +48,7 @@ class ChunkingStrategy(ABC):
         content: str,
         file_path: str,
         title: str,
-        metadata: Optional[dict] = None,
+        metadata: dict | None = None,
     ) -> ChunkedDocument:
         """Chunk a document according to its type-specific strategy.
 
@@ -153,8 +151,8 @@ class ChunkingStrategy(ABC):
         section_type: str = "",
         position_in_document: int = 0,
         position_in_section: int = 0,
-        parent_chunk_id: Optional[str] = None,
-        metadata: Optional[dict] = None,
+        parent_chunk_id: str | None = None,
+        metadata: dict | None = None,
         completeness: float = 1.0,
     ) -> Chunk:
         """Create a chunk with full metadata."""
@@ -289,7 +287,7 @@ class ADRChunkingStrategy(ChunkingStrategy):
         content: str,
         file_path: str,
         title: str,
-        metadata: Optional[dict] = None,
+        metadata: dict | None = None,
     ) -> ChunkedDocument:
         """Chunk an ADR into section-based chunks."""
         metadata = metadata or {}
@@ -442,7 +440,7 @@ class PrincipleChunkingStrategy(ChunkingStrategy):
         content: str,
         file_path: str,
         title: str,
-        metadata: Optional[dict] = None,
+        metadata: dict | None = None,
     ) -> ChunkedDocument:
         """Chunk a principle document into section-based chunks."""
         metadata = metadata or {}
@@ -575,7 +573,7 @@ class PolicyChunkingStrategy(ChunkingStrategy):
         content: str,
         file_path: str,
         title: str,
-        metadata: Optional[dict] = None,
+        metadata: dict | None = None,
     ) -> ChunkedDocument:
         """Chunk a policy document."""
         metadata = metadata or {}
@@ -698,7 +696,7 @@ class VocabularyChunkingStrategy(ChunkingStrategy):
         content: str,
         file_path: str,
         title: str,
-        metadata: Optional[dict] = None,
+        metadata: dict | None = None,
     ) -> ChunkedDocument:
         """Create a single chunk for a vocabulary concept."""
         metadata = metadata or {}
@@ -723,7 +721,7 @@ class VocabularyChunkingStrategy(ChunkingStrategy):
 
 def get_chunking_strategy(
     document_type: str,
-    config: Optional[ChunkingConfig] = None,
+    config: ChunkingConfig | None = None,
 ) -> ChunkingStrategy:
     """Get the appropriate chunking strategy for a document type.
 

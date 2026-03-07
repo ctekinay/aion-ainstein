@@ -2,29 +2,28 @@
 
 import asyncio
 import logging
-import sys
 import warnings
 from pathlib import Path
-from typing import Optional
 
 # Suppress deprecation warnings from external dependencies
 warnings.filterwarnings("ignore", category=DeprecationWarning, module="spacy")
 warnings.filterwarnings("ignore", category=DeprecationWarning, module="websockets")
 warnings.filterwarnings("ignore", category=DeprecationWarning, module="uvicorn")
 
-import typer
-from rich.console import Console
-from rich.table import Table
-from rich.panel import Panel
-from rich.markdown import Markdown
-from rich.progress import Progress, SpinnerColumn, TextColumn
+import typer  # noqa: E402
+from rich.console import Console  # noqa: E402
+from rich.markdown import Markdown  # noqa: E402
+from rich.panel import Panel  # noqa: E402
+from rich.progress import Progress, SpinnerColumn, TextColumn  # noqa: E402
+from rich.table import Table  # noqa: E402
 
-from src.aion.config import settings
-from src.aion.memory.cli import app as memory_app
-from src.aion.weaviate.client import get_weaviate_client, weaviate_client
-from src.aion.weaviate.collections import CollectionManager
-from src.aion.weaviate.ingestion import DataIngestionPipeline
-from src.aion.elysia_agents import ElysiaRAGSystem, ELYSIA_AVAILABLE
+from src.aion.config import settings  # noqa: E402
+from src.aion.elysia_agents import ELYSIA_AVAILABLE, ElysiaRAGSystem  # noqa: E402
+from src.aion.memory.cli import app as memory_app  # noqa: E402
+from src.aion.registry.cli import app as registry_app  # noqa: E402
+from src.aion.weaviate.client import get_weaviate_client, weaviate_client  # noqa: E402
+from src.aion.weaviate.collections import CollectionManager  # noqa: E402
+from src.aion.weaviate.ingestion import DataIngestionPipeline  # noqa: E402
 
 # Set up logging
 logging.basicConfig(
@@ -40,6 +39,7 @@ app = typer.Typer(
     add_completion=False,
 )
 app.add_typer(memory_app, name="memory")
+app.add_typer(registry_app, name="registry")
 console = Console()
 
 
@@ -130,7 +130,7 @@ def init(
     console.print(f"  OLLAMA_EMBEDDING_MODEL: {settings.ollama_embedding_model}")
     console.print(f"  Batch size: {batch_size}")
     if chunked:
-        console.print(f"  [blue]Chunked ingestion: section-based splitting enabled[/blue]")
+        console.print("  [blue]Chunked ingestion: section-based splitting enabled[/blue]")
 
     with Progress(
         SpinnerColumn(),
@@ -499,6 +499,7 @@ def chat(
 
     try:
         import uvicorn
+
         from src.aion.chat_ui import app as chat_app
 
         console.print("[green]Starting server...[/green]")
@@ -518,11 +519,11 @@ def chat(
 
 @app.command()
 def evaluate(
-    categories: Optional[str] = typer.Option(
+    categories: str | None = typer.Option(
         None, "--categories", "-c",
         help="Comma-separated list of categories to test (vocabulary,adr,principle,cross_domain,general)"
     ),
-    output: Optional[Path] = typer.Option(
+    output: Path | None = typer.Option(
         None, "--output", "-o",
         help="Output file path for detailed JSON results"
     ),
@@ -542,6 +543,7 @@ def evaluate(
         python -m src.aion.cli evaluate --output results.json
     """
     import asyncio
+
     from src.aion.evaluation import RAGEvaluator
 
     console.print(Panel(
@@ -579,7 +581,7 @@ def evaluate(
     console.print("[dim]Running evaluation (this may take several minutes)...[/dim]")
 
     try:
-        results = asyncio.run(run_evaluation())
+        asyncio.run(run_evaluation())
         console.print("[green]Evaluation complete![/green]")
     except Exception as e:
         console.print(f"[red]Error: {e}[/red]")

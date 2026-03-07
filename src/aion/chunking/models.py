@@ -9,7 +9,7 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any, Optional
+from typing import Any
 
 
 class ChunkType(Enum):
@@ -64,8 +64,8 @@ class ChunkMetadata:
     position_in_section: int = 0  # Order within the section
 
     # Hierarchical relationships
-    parent_chunk_id: Optional[str] = None
-    root_document_id: Optional[str] = None
+    parent_chunk_id: str | None = None
+    root_document_id: str | None = None
 
     # Content characteristics
     char_count: int = 0
@@ -153,7 +153,7 @@ class Chunk:
     metadata: ChunkMetadata = field(default_factory=ChunkMetadata)
 
     # Embedding (optional, populated after embedding generation)
-    embedding: Optional[list[float]] = None
+    embedding: list[float] | None = None
 
     def __post_init__(self):
         """Generate content hash if not provided."""
@@ -251,7 +251,7 @@ class ChunkedDocument:
     chunks: list[Chunk] = field(default_factory=list)
 
     # Document-level chunk (the full document as a single chunk)
-    document_chunk: Optional[Chunk] = None
+    document_chunk: Chunk | None = None
 
     # Section-level chunks
     section_chunks: list[Chunk] = field(default_factory=list)

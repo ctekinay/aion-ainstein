@@ -18,6 +18,20 @@ When generating a model, include all layers present in the source document and u
 extended view (implications, security considerations, constraints). Model all actors and
 participants.
 
+### Model Comprehensiveness
+
+Always generate comprehensive models. For a single-document input (one ADR or PCP):
+- **30–40 elements** across all relevant layers
+- **40–60 relationships** connecting them
+- Cover Motivation, Strategy, Business, Application, Technology, and Implementation layers
+  when the source material warrants it
+
+For multi-document input (e.g., PCP.10 through PCP.15), scale proportionally — each
+document should contribute roughly 5–10 unique elements beyond shared infrastructure.
+
+Do NOT generate minimal or abbreviated models. Every concept, constraint, implication,
+actor, and technology mentioned in the source should have a corresponding element.
+
 ## Workflow
 
 ### Step 1: Parse Input and Classify Elements
@@ -67,12 +81,16 @@ elements:
     type: <ArchiMateElementType>
     name: "<Element Name>"
     documentation: "<1-2 sentence description — required for every element>"
+    properties:                              # Optional — only when user requests metadata
+      "<property-key>": "<value>"
 
 relationships:
   - type: <ArchiMateRelationshipType>
     source: <element-id>
     target: <element-id>
     name: "<Optional verb label>"
+    properties:                              # Optional
+      "<property-key>": "<value>"
 ```
 
 **Strict rules:**
@@ -83,7 +101,7 @@ relationships:
 4. Every `source` and `target` in relationships MUST reference a valid element `id`
 5. Relationships do NOT have an `id` field — identifiers are generated automatically
 6. Every element MUST include a `documentation` field with a 1-2 sentence description
-7. Do NOT include nested elements, property tags, or any XML-specific constructs
+7. Do NOT include nested elements or any XML-specific constructs. The `properties` field is supported (see schema above) — only include it when the user explicitly requests metadata fields
 8. Wrap the entire output in ```yaml code fences
 9. Do NOT include any text before or after the YAML code fence
 
@@ -127,6 +145,50 @@ relationships:
 
 ---
 
+## Source Reference
+
+When an element directly represents a source document from the prompt (e.g., a
+Principle element for PCP.10), include a `source_ref` field with the document
+identifier:
+
+```yaml
+elements:
+  - id: m1
+    type: Principle
+    name: "PCP.10 Eventual Consistency by Design"
+    source_ref: PCP.10
+    documentation: "Eventual consistency principle for distributed systems."
+```
+
+Rules:
+- Only on elements that DIRECTLY represent a specific source document
+- Most elements will NOT have source_ref — only the primary element for each
+  source document should have one
+- The pipeline automatically adds Dublin Core properties (`dct:identifier`,
+  `dct:title`, `dct:creator`) using source_ref — do NOT generate `dct:*`
+  properties yourself
+
+## Properties (Optional)
+
+Elements and relationships can include a `properties:` mapping for custom
+metadata attributes. Dublin Core properties are added automatically by the
+pipeline — do NOT generate them manually.
+
+```yaml
+elements:
+  - id: m1
+    type: Principle
+    name: "PCP.10 Eventual Consistency"
+    documentation: "Eventual consistency principle for distributed systems."
+    properties:
+      "custom:priority": "high"
+```
+
+The converter transforms these into standard ArchiMate `<property>` and
+`<propertyDefinitions>` XML elements that tools like Archi can read.
+
+---
+
 ## ID Convention
 
 Use short, readable identifiers with layer-prefix codes:
@@ -141,3 +203,20 @@ Use short, readable identifiers with layer-prefix codes:
 
 The converter automatically adds the `id-` prefix and generates all XML identifiers,
 view nodes, and connections. You only need to define elements and relationships.
+
+---
+
+## Element Reuse
+
+The prompt may include a `KNOWN ELEMENTS` block listing elements from previous
+generations. When your model includes an element that matches a known element
+(same type and name), **reuse its ID exactly** instead of assigning a new one.
+
+This ensures stable identity across generations — the same conceptual element
+gets the same ID whether generated now or in a previous session.
+
+Rules:
+- Match by type AND name (case-insensitive)
+- If a known element fits your model, use its `id` value as-is
+- Only reuse elements that genuinely belong in your model — do not force-fit
+- New elements that do not match any known element get fresh short IDs as usual

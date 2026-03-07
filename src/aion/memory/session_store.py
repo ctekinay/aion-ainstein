@@ -8,7 +8,6 @@ import logging
 import sqlite3
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -16,7 +15,7 @@ logger = logging.getLogger(__name__)
 _DB_PATH = Path(__file__).parent.parent.parent.parent / "chat_history.db"
 
 
-def init_memory_tables(db_path: Optional[Path] = None) -> None:
+def init_memory_tables(db_path: Path | None = None) -> None:
     """Create sessions and user_profiles tables if they don't exist.
 
     Called from chat_ui.init_db() during startup — not independently.
@@ -55,7 +54,7 @@ def init_memory_tables(db_path: Optional[Path] = None) -> None:
 # Session CRUD
 # ---------------------------------------------------------------------------
 
-def create_session(conversation_id: str, db_path: Optional[Path] = None) -> str:
+def create_session(conversation_id: str, db_path: Path | None = None) -> str:
     """Create a session record for a conversation. Returns session_id.
 
     session_id == conversation_id (1:1 mapping for Phase 1).
@@ -78,7 +77,7 @@ def create_session(conversation_id: str, db_path: Optional[Path] = None) -> str:
     return session_id
 
 
-def get_running_summary(conversation_id: str, db_path: Optional[Path] = None) -> str:
+def get_running_summary(conversation_id: str, db_path: Path | None = None) -> str:
     """Get the running summary for a conversation's session."""
     path = db_path or _DB_PATH
     conn = sqlite3.connect(path)
@@ -95,7 +94,7 @@ def get_running_summary(conversation_id: str, db_path: Optional[Path] = None) ->
 
 
 def update_running_summary(
-    conversation_id: str, summary: str, db_path: Optional[Path] = None
+    conversation_id: str, summary: str, db_path: Path | None = None
 ) -> None:
     """Persist an updated running summary for the session."""
     path = db_path or _DB_PATH
@@ -111,7 +110,7 @@ def update_running_summary(
     conn.close()
 
 
-def end_session(conversation_id: str, db_path: Optional[Path] = None) -> None:
+def end_session(conversation_id: str, db_path: Path | None = None) -> None:
     """Mark a session as ended."""
     path = db_path or _DB_PATH
     now = datetime.now().isoformat()
@@ -135,7 +134,7 @@ def end_session(conversation_id: str, db_path: Optional[Path] = None) -> None:
 _DEFAULT_USER = "default"
 
 
-def get_user_profile(user_id: str = _DEFAULT_USER, db_path: Optional[Path] = None) -> dict:
+def get_user_profile(user_id: str = _DEFAULT_USER, db_path: Path | None = None) -> dict:
     """Get a user profile. Returns empty dict if not found."""
     path = db_path or _DB_PATH
     conn = sqlite3.connect(path)
@@ -165,7 +164,7 @@ def upsert_user_profile(
     display_name: str = "",
     profile_block: str = "",
     user_id: str = _DEFAULT_USER,
-    db_path: Optional[Path] = None,
+    db_path: Path | None = None,
 ) -> None:
     """Create or update a user profile."""
     path = db_path or _DB_PATH

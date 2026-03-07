@@ -7,7 +7,6 @@ Wired into src/aion/cli.py as the `memory` subcommand.
 import json
 import sqlite3
 from pathlib import Path
-from typing import Optional
 
 import typer
 from rich.console import Console
@@ -16,10 +15,8 @@ from rich.table import Table
 
 from src.aion.memory.session_store import (
     _DB_PATH,
-    init_memory_tables,
-    get_running_summary,
     get_user_profile,
-    upsert_user_profile,
+    init_memory_tables,
 )
 
 app = typer.Typer(

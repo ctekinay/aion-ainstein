@@ -5,42 +5,42 @@ Streams the full Elysia thinking process to the UI.
 """
 
 import asyncio
-import io
 import json
 import logging
 import re
 import sqlite3
-import sys
 import time
 import uuid
-from contextlib import asynccontextmanager, redirect_stdout, redirect_stderr
+from collections.abc import AsyncGenerator
+from contextlib import asynccontextmanager
 from datetime import datetime
 from pathlib import Path
-from typing import Optional, AsyncGenerator
+from queue import Empty, Queue
 from threading import Thread
-from queue import Queue, Empty
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse, FileResponse, StreamingResponse
+from fastapi.responses import FileResponse, HTMLResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
-
 from weaviate.classes.query import Filter
 
 from src.aion.config import settings
+from src.aion.elysia_agents import ELYSIA_AVAILABLE, ElysiaRAGSystem
+from src.aion.generation import GenerationPipeline
 from src.aion.memory.session_store import (
-    init_memory_tables, create_session, get_running_summary,
+    create_session,
+    get_running_summary,
+    init_memory_tables,
     update_running_summary,
 )
-from src.aion.memory.summarizer import generate_rolling_summary, SUMMARIZE_TRIGGER_COUNT
-from src.aion.persona import Persona, PermanentLLMError
+from src.aion.memory.summarizer import SUMMARIZE_TRIGGER_COUNT, generate_rolling_summary
+from src.aion.persona import PermanentLLMError, Persona
+from src.aion.registry.element_registry import init_registry_table
 from src.aion.skills import api as skills_api
-from src.aion.weaviate.client import get_weaviate_client
-from src.aion.weaviate.embeddings import embed_text, close_embeddings_client
-from src.aion.elysia_agents import ElysiaRAGSystem, ELYSIA_AVAILABLE
-from src.aion.generation import GenerationPipeline
 from src.aion.skills.registry import get_skill_registry
+from src.aion.weaviate.client import get_weaviate_client
+from src.aion.weaviate.embeddings import close_embeddings_client, embed_text
 
 logger = logging.getLogger(__name__)
 
@@ -140,8 +140,8 @@ app.add_middleware(
 class ChatMessage(BaseModel):
     role: str  # "user" or "assistant"
     content: str
-    timestamp: Optional[str] = None
-    sources: Optional[list[dict]] = None
+    timestamp: str | None = None
+    sources: list[dict] | None = None
 
 
 class LLMSettings(BaseModel):
@@ -149,22 +149,22 @@ class LLMSettings(BaseModel):
     provider: str = "ollama"  # "ollama", "github_models", or "openai"
     model: str = "gpt-oss:20b"
     # Per-component overrides (None = use global provider/model)
-    persona_provider: Optional[str] = None
-    persona_model: Optional[str] = None
-    tree_provider: Optional[str] = None
-    tree_model: Optional[str] = None
+    persona_provider: str | None = None
+    persona_model: str | None = None
+    tree_provider: str | None = None
+    tree_model: str | None = None
 
 
 class ChatRequest(BaseModel):
     message: str
-    conversation_id: Optional[str] = None
-    llm_settings: Optional[LLMSettings] = None  # Optional override per request
+    conversation_id: str | None = None
+    llm_settings: LLMSettings | None = None
 
 
 class ComparisonRequest(BaseModel):
     """Request for side-by-side LLM comparison (Test Mode)."""
     message: str
-    conversation_id: Optional[str] = None
+    conversation_id: str | None = None
     ollama_model: str = "gpt-oss:20b"
     openai_model: str = "gpt-5.2"
 
@@ -187,9 +187,9 @@ class ThresholdsUpdate(BaseModel):
 
 
 class SkillContentUpdate(BaseModel):
-    content: Optional[str] = None
-    metadata: Optional[dict] = None
-    body: Optional[str] = None
+    content: str | None = None
+    metadata: dict | None = None
+    body: str | None = None
 
 
 class ToggleRequest(BaseModel):
@@ -202,7 +202,7 @@ AVAILABLE_MODELS = {
         {"id": "gpt-oss:20b", "name": "GPT-OSS (Local, 20B)"},
         {"id": "qwen3:14b", "name": "Qwen3 (Local, 14B)"},
         {"id": "qwen3:4b", "name": "Qwen3 (Local, 4B)"},
-        {"id": "alibayram/smollm3:latest", "name": "SmolLM3 (Local, 3.1B)"},
+        {"id": "qwen3.5:9b", "name": "Qwen3.5 (Local, 9B)"},
     ],
     # GitHub CoPilot Models — catalog IDs use publisher/model format.
     # Full catalog: https://models.github.ai/catalog/models
@@ -306,6 +306,9 @@ def init_db():
 
     # Memory tables (sessions, user_profiles) — same database file
     init_memory_tables(_db_path)
+
+    # Element registry table — stable identity for generated elements
+    init_registry_table(_db_path)
 
 
 def save_message(conversation_id: str, role: str, content: str, sources: list[dict] = None, timing: dict = None, turn_summary: str = None, thinking_steps: list[dict] = None, artifact_ids: list[str] = None):
@@ -709,6 +712,23 @@ async def _maybe_update_summary(conversation_id: str) -> None:
         logger.warning(f"Rolling summary update failed: {e}")
 
 
+def _query_references_artifact(query: str, intent: str, artifact: dict) -> bool:
+    """Check if the query references a previously loaded artifact.
+
+    Intent-based + content-type-aware: follow_up and retrieval queries that
+    mention artifact-relevant terms when there's an active artifact.
+    Not routing — the Persona already classified intent. This is a content
+    availability check for whether the Tree needs the artifact in its atlas.
+    """
+    if intent not in ("follow_up", "retrieval"):
+        return False
+    q = query.lower()
+    ct = artifact.get("content_type", "")
+    if "archimate" in ct or "yaml" in ct:
+        return any(t in q for t in ("model", "archimate", "element", "relationship", "artifact"))
+    return "artifact" in q
+
+
 def _get_execution_model(intent: str, skill_tags: list[str] | None) -> str:
     """Determine execution path based on intent and skill registry.
 
@@ -730,6 +750,7 @@ def run_generation_query(
     question: str, result_queue: Queue, output_queue: Queue,
     skill_tags: list[str] | None = None,
     doc_refs: list[str] | None = None,
+    github_refs: list[str] | None = None,
     conversation_id: str | None = None,
     intent: str = "generation",
 ):
@@ -746,6 +767,7 @@ def run_generation_query(
                     question,
                     skill_tags=skill_tags or [],
                     doc_refs=doc_refs,
+                    github_refs=github_refs,
                     conversation_id=conversation_id,
                     event_queue=output_queue,
                     intent=intent,
@@ -782,6 +804,7 @@ async def stream_generation_response(
     question: str,
     skill_tags: list[str] | None = None,
     doc_refs: list[str] | None = None,
+    github_refs: list[str] | None = None,
     conversation_id: str | None = None,
     intent: str = "generation",
 ) -> AsyncGenerator[str, None]:
@@ -799,6 +822,7 @@ async def stream_generation_response(
         kwargs={
             "skill_tags": skill_tags,
             "doc_refs": doc_refs,
+            "github_refs": github_refs,
             "conversation_id": conversation_id,
             "intent": intent,
         },
@@ -875,20 +899,23 @@ async def stream_inspect_response(
     question: str,
     conversation_id: str | None = None,
 ) -> AsyncGenerator[str, None]:
-    """Stream model inspection response as SSE events.
+    """Stream inspection response as SSE events.
 
     Three input paths (tried in order):
     1. Load latest ArchiMate artifact from the conversation (XML or YAML)
-    2. Detect a URL in the query, fetch it, validate as ArchiMate content
+    2. Detect a URL in the query: repo root → README analysis,
+       file URL → ArchiMate validation, generic URL → httpx fetch
     3. No model found — prompt user to generate or upload
     """
-    from src.aion.tools.yaml_to_xml import xml_to_yaml, _parse_and_validate
+    from src.aion.tools.yaml_to_xml import _parse_and_validate, xml_to_yaml
 
     yield f"data: {json.dumps({'type': 'status', 'content': 'Loading model...'})}\n\n"
 
     yaml_content = None
     source_filename = None
     source = None
+    content_type = "archimate"  # "archimate", "github_repo", or "github_file"
+    github_content = None
 
     # Path 1: Load latest artifact from conversation (try XML first, then YAML)
     artifact = None
@@ -915,9 +942,67 @@ async def stream_inspect_response(
         if url_match:
             url = url_match.group(0).rstrip('.,;:)')
             try:
-                from src.aion.mcp.github import get_file_contents as mcp_get_file, parse_github_url
+                from src.aion.mcp.github import (
+                    get_file_contents as mcp_get_file,
+                )
+                from src.aion.mcp.github import (
+                    get_org_overview,
+                    get_repo_metadata,
+                    get_repo_readme,
+                    list_directory,
+                    parse_github_url,
+                )
                 parsed = parse_github_url(url)
-                if parsed:
+                if parsed and parsed.get("type") == "org":
+                    yield f"data: {json.dumps({'type': 'status', 'content': 'Fetching organization info...'})}\n\n"
+                    github_content = await get_org_overview(parsed["owner"])
+                    source_filename = parsed["owner"]
+                    source = f"GitHub org/user: {parsed['owner']}"
+                    content_type = "github_org"
+                    logger.info(f"Fetched org overview for {parsed['owner']} ({len(github_content)} chars)")
+                elif parsed and parsed.get("type") == "repo":
+                    yield f"data: {json.dumps({'type': 'status', 'content': 'Fetching repository info...'})}\n\n"
+                    # Parallel fetch: metadata, README, and directory listing
+                    metadata_task = asyncio.ensure_future(
+                        get_repo_metadata(parsed["owner"], parsed["repo"])
+                    )
+                    readme_task = asyncio.ensure_future(
+                        get_repo_readme(parsed["owner"], parsed["repo"], parsed["ref"])
+                    )
+                    dir_task = asyncio.ensure_future(
+                        list_directory(parsed["owner"], parsed["repo"], "", parsed["ref"])
+                    )
+                    metadata = readme = dir_listing = ""
+                    for name, task in [("metadata", metadata_task), ("README", readme_task), ("directory", dir_task)]:
+                        try:
+                            result = await task
+                            if name == "metadata":
+                                metadata = result
+                            elif name == "README":
+                                readme = result
+                            else:
+                                dir_listing = result
+                        except Exception as e:
+                            logger.warning(f"Repo {name} fetch failed: {e}")
+                    if not metadata and not readme and not dir_listing:
+                        raise ValueError(f"Could not fetch any content from {parsed['owner']}/{parsed['repo']}")
+                    # Assemble context for LLM
+                    parts = []
+                    if metadata:
+                        parts.append(f"REPOSITORY METADATA:\n{metadata}")
+                    if dir_listing:
+                        parts.append(f"ROOT DIRECTORY:\n{dir_listing}")
+                    if readme:
+                        max_readme = 50000
+                        if len(readme) > max_readme:
+                            readme = readme[:max_readme] + "\n\n[README truncated]"
+                        parts.append(f"README.md:\n{readme}")
+                    github_content = "\n\n---\n\n".join(parts)
+                    source_filename = f"{parsed['owner']}/{parsed['repo']}"
+                    source = f"GitHub repo: {parsed['owner']}/{parsed['repo']}@{parsed['ref']}"
+                    content_type = "github_repo"
+                    logger.info(f"Fetched repo info for {parsed['owner']}/{parsed['repo']}@{parsed['ref']} ({len(github_content)} chars)")
+                elif parsed:
                     yield f"data: {json.dumps({'type': 'status', 'content': 'Fetching from GitHub...'})}\n\n"
                     fetched = await mcp_get_file(
                         owner=parsed["owner"], repo=parsed["repo"],
@@ -925,6 +1010,15 @@ async def stream_inspect_response(
                     )
                     source_filename = parsed["path"].rsplit("/", 1)[-1]
                     source = f"Fetched from GitHub: {url}"
+                    # Non-ArchiMate file: analyze generically
+                    is_archimate = source_filename.endswith((".xml", ".yaml", ".yml"))
+                    if not is_archimate:
+                        binary_exts = {".png", ".jpg", ".jpeg", ".gif", ".ico", ".pdf", ".zip", ".tar", ".gz", ".whl", ".pyc"}
+                        ext = "." + source_filename.rsplit(".", 1)[-1].lower() if "." in source_filename else ""
+                        if ext in binary_exts:
+                            raise ValueError(f"Binary files ({ext}) cannot be analyzed. Try a text-based file instead.")
+                        github_content = fetched
+                        content_type = "github_file"
                 else:
                     yield f"data: {json.dumps({'type': 'status', 'content': 'Fetching model from URL...'})}\n\n"
                     import httpx
@@ -935,26 +1029,27 @@ async def stream_inspect_response(
                     source_filename = url.rsplit("/", 1)[-1] if "/" in url else "fetched-model.xml"
                     source = f"Fetched from URL: {url}"
 
-                is_yaml = source_filename.endswith((".yaml", ".yml"))
-                is_xml = source_filename.endswith(".xml")
+                if content_type == "archimate":
+                    is_yaml = source_filename.endswith((".yaml", ".yml"))
+                    is_xml = source_filename.endswith(".xml")
 
-                if not is_yaml and not is_xml:
-                    raise ValueError(
-                        f"Unsupported file type: {source_filename}. "
-                        "The inspect pipeline supports ArchiMate XML (.xml) and YAML (.yaml, .yml) files."
-                    )
+                    if not is_yaml and not is_xml:
+                        raise ValueError(
+                            f"Unsupported file type: {source_filename}. "
+                            "The inspect pipeline supports ArchiMate XML (.xml) and YAML (.yaml, .yml) files."
+                        )
 
-                if is_yaml:
-                    _parse_and_validate(fetched)
-                    yaml_content = fetched
-                    if conversation_id:
-                        save_artifact(conversation_id, source_filename, fetched, "text/yaml", f"Fetched from: {url}")
-                else:
-                    yaml_content = xml_to_yaml(fetched)
-                    if conversation_id:
-                        save_artifact(conversation_id, source_filename, fetched, "archimate/xml", f"Fetched from: {url}")
+                    if is_yaml:
+                        _parse_and_validate(fetched)
+                        yaml_content = fetched
+                        if conversation_id:
+                            save_artifact(conversation_id, source_filename, fetched, "text/yaml", f"Fetched from: {url}")
+                    else:
+                        yaml_content = xml_to_yaml(fetched)
+                        if conversation_id:
+                            save_artifact(conversation_id, source_filename, fetched, "archimate/xml", f"Fetched from: {url}")
 
-                logger.info(f"Fetched ArchiMate model from URL: {url} ({len(fetched)} chars)")
+                    logger.info(f"Fetched ArchiMate model from URL: {url} ({len(fetched)} chars)")
             except ValueError as e:
                 yield f"data: {json.dumps({'type': 'complete', 'response': f'Failed to fetch model: {e}', 'sources': [], 'timing': {}})}\n\n"
                 return
@@ -962,28 +1057,82 @@ async def stream_inspect_response(
                 yield f"data: {json.dumps({'type': 'complete', 'response': f'Failed to fetch URL: {e}', 'sources': [], 'timing': {}})}\n\n"
                 return
 
-    # Path 3: No model found
-    if not yaml_content:
+    # Path 3: No model found (only for ArchiMate — GitHub content skips this)
+    if content_type == "archimate" and not yaml_content:
         yield f"data: {json.dumps({'type': 'complete', 'response': 'No ArchiMate model found in this conversation. Generate a model first, upload an ArchiMate XML/YAML file, or paste a URL to one.', 'sources': [], 'timing': {}})}\n\n"
         return
 
-    # LLM analysis
-    yield f"data: {json.dumps({'type': 'status', 'content': 'Analyzing model...'})}\n\n"
-
-    system_prompt = (
-        "You are AInstein, reviewing an ArchiMate model. "
-        "The model has been converted to a compact YAML representation that "
-        "contains all elements and relationships. View definitions (diagram "
-        "layouts) are intentionally omitted for efficiency — they contain "
-        "positioning data, not semantic content. "
-        "Analyze the elements and relationships directly. "
-        "Never state that views are missing, that content is incomplete, or "
-        "that you cannot access the model — you have everything needed for "
-        "semantic analysis. "
-        "Be specific — reference element names, types, and relationships from the model. "
-        "Use markdown formatting for readability."
-    )
-    user_prompt = f"[Source: {source}]\n\nARCHIMATE MODEL (YAML):\n```yaml\n{yaml_content}```\n\nQUESTION: {question}"
+    # LLM analysis — branched prompts, shared LLM call
+    if content_type == "github_org":
+        yield f"data: {json.dumps({'type': 'status', 'content': 'Analyzing organization...'})}\n\n"
+        system_prompt = (
+            "You are AInstein, the Energy System Architecture AI Assistant. "
+            "You are reviewing a GitHub organization or user profile. "
+            "Summarize what this organization does, their key repositories, "
+            "technologies used, and any notable projects or patterns. "
+            "Be specific — reference actual repository names and descriptions. "
+            "Use markdown formatting for readability."
+        )
+        user_prompt = f"[Source: {source}]\n\n{github_content}\n\nQUESTION: {question}"
+        source_info = {
+            "type": "GitHub Organization",
+            "title": source_filename,
+            "preview": github_content[:200] if github_content else "",
+        }
+    elif content_type == "github_repo":
+        yield f"data: {json.dumps({'type': 'status', 'content': 'Analyzing repository...'})}\n\n"
+        system_prompt = (
+            "You are AInstein, the Energy System Architecture AI Assistant. "
+            "You are reviewing a GitHub repository. "
+            "Analyze the repository metadata, directory structure, and README. "
+            "Summarize what this project does, its architecture, key components, "
+            "technologies used, and any notable patterns. "
+            "Be specific — reference actual content from the repository. "
+            "Use markdown formatting for readability."
+        )
+        user_prompt = f"[Source: {source}]\n\n{github_content}\n\nQUESTION: {question}"
+        source_info = {
+            "type": "GitHub Repository",
+            "title": source_filename,
+            "preview": github_content[:200] if github_content else "",
+        }
+    elif content_type == "github_file":
+        yield f"data: {json.dumps({'type': 'status', 'content': 'Analyzing file...'})}\n\n"
+        ext = source_filename.rsplit(".", 1)[-1] if "." in source_filename else "text"
+        system_prompt = (
+            "You are AInstein, the Energy System Architecture AI Assistant. "
+            "You are reviewing a file from a GitHub repository. "
+            "Analyze the file content and explain its purpose, structure, "
+            "and key patterns. Be specific — reference actual code or content. "
+            "Use markdown formatting for readability."
+        )
+        user_prompt = f"[Source: {source}]\n\nFILE: {source_filename}\n```{ext}\n{github_content}```\n\nQUESTION: {question}"
+        source_info = {
+            "type": "GitHub File",
+            "title": source_filename,
+            "preview": github_content[:200] if github_content else "",
+        }
+    else:
+        yield f"data: {json.dumps({'type': 'status', 'content': 'Analyzing model...'})}\n\n"
+        system_prompt = (
+            "You are AInstein, reviewing an ArchiMate model. "
+            "The model has been converted to a compact YAML representation that "
+            "contains all elements and relationships. View definitions (diagram "
+            "layouts) are intentionally omitted for efficiency — they contain "
+            "positioning data, not semantic content. "
+            "Analyze the elements and relationships directly. "
+            "Never state that views are missing, that content is incomplete, or "
+            "that you cannot access the model — you have everything needed for "
+            "semantic analysis. "
+            "Be specific — reference element names, types, and relationships from the model. "
+            "Use markdown formatting for readability."
+        )
+        user_prompt = f"[Source: {source}]\n\nARCHIMATE MODEL (YAML):\n```yaml\n{yaml_content}```\n\nQUESTION: {question}"
+        source_info = {
+            "type": "ArchiMate Model",
+            "title": source_filename or "model.archimate.xml",
+            "preview": f"Model with {yaml_content.count('- id:')} elements",
+        }
 
     start_time = time.time()
     try:
@@ -1026,11 +1175,7 @@ async def stream_inspect_response(
         total_ms = int((time.time() - start_time) * 1000)
         timing = {"total_ms": total_ms}
 
-        sources = [{
-            "type": "ArchiMate Model",
-            "title": source_filename or "model.archimate.xml",
-            "preview": f"Model with {yaml_content.count('- id:')} elements",
-        }]
+        sources = [source_info]
 
         logger.info(f"Inspect complete: {total_ms}ms, {len(response_text)} chars")
         yield f"data: {json.dumps({'type': 'complete', 'response': response_text, 'sources': sources, 'timing': timing})}\n\n"
@@ -1043,7 +1188,8 @@ async def stream_inspect_response(
 def run_elysia_query(question: str, result_queue: Queue, output_queue: Queue,
                      skill_tags: list[str] | None = None,
                      doc_refs: list[str] | None = None,
-                     conversation_id: str | None = None):
+                     conversation_id: str | None = None,
+                     artifact_context: str | None = None):
     """Run Elysia query in a thread, emitting typed events via output_queue.
 
     Events are emitted directly from Tree.async_run() results — no stdout
@@ -1063,7 +1209,8 @@ def run_elysia_query(question: str, result_queue: Queue, output_queue: Queue,
                 _elysia_system.query(question, event_queue=output_queue,
                                      skill_tags=skill_tags,
                                      doc_refs=doc_refs,
-                                     conversation_id=conversation_id)
+                                     conversation_id=conversation_id,
+                                     artifact_context=artifact_context)
             )
         finally:
             pending = asyncio.all_tasks(loop)
@@ -1096,7 +1243,8 @@ def run_elysia_query(question: str, result_queue: Queue, output_queue: Queue,
 async def stream_elysia_response(question: str,
                                  skill_tags: list[str] | None = None,
                                  doc_refs: list[str] | None = None,
-                                 conversation_id: str | None = None) -> AsyncGenerator[str, None]:
+                                 conversation_id: str | None = None,
+                                 artifact_context: str | None = None) -> AsyncGenerator[str, None]:
     """Stream Elysia's thinking process as SSE events."""
     result_queue = Queue()
     output_queue = Queue()
@@ -1110,7 +1258,8 @@ async def stream_elysia_response(question: str,
     thread = Thread(target=run_elysia_query,
                     args=(question, result_queue, output_queue),
                     kwargs={"skill_tags": skill_tags, "doc_refs": doc_refs,
-                            "conversation_id": conversation_id})
+                            "conversation_id": conversation_id,
+                            "artifact_context": artifact_context})
     thread.daemon = True
     thread.start()
 
@@ -1637,7 +1786,7 @@ async def chat_stream(request: ChatRequest):
             return
 
         # Emit Persona classification result with latency
-        yield f"data: {json.dumps({'type': 'persona_intent', 'intent': persona_result.intent, 'rewritten_query': persona_result.rewritten_query, 'skill_tags': persona_result.skill_tags, 'doc_refs': persona_result.doc_refs, 'latency_ms': persona_result.latency_ms})}\n\n"
+        yield f"data: {json.dumps({'type': 'persona_intent', 'intent': persona_result.intent, 'rewritten_query': persona_result.rewritten_query, 'skill_tags': persona_result.skill_tags, 'doc_refs': persona_result.doc_refs, 'github_refs': persona_result.github_refs, 'latency_ms': persona_result.latency_ms})}\n\n"
 
         # Direct response intents: respond immediately, no Tree needed
         if persona_result.direct_response is not None:
@@ -1661,13 +1810,39 @@ async def chat_stream(request: ChatRequest):
         )
         logger.info(f"Execution model: {execution_model} (intent={persona_result.intent})")
 
+        # Build artifact context for follow-ups that reference a prior model.
+        # Threaded into ElysiaAgent.query() where it's appended to the atlas
+        # AFTER skill content injection (which does a hard overwrite).
+        artifact_context = None
+        if execution_model == "tree" and conversation_id:
+            artifact = get_latest_artifact(conversation_id)
+            if artifact and _query_references_artifact(
+                persona_result.rewritten_query or request.message,
+                persona_result.intent,
+                artifact,
+            ):
+                from src.aion.tools.yaml_to_xml import xml_to_yaml
+                content = artifact["content"]
+                if artifact["content_type"] == "archimate/xml":
+                    try:
+                        content = xml_to_yaml(content)
+                    except ValueError:
+                        pass
+                artifact_context = (
+                    f"\n\n## LOADED ARTIFACT: {artifact.get('filename', 'model')}\n"
+                    f"The user previously uploaded or generated this model. "
+                    f"Use it as context when answering.\n\n"
+                    f"```\n{content}\n```\n"
+                )
+                yield f"data: {json.dumps({'type': 'status', 'content': 'Loading model into context...'})}\n\n"
+
         final_response = None
         final_sources = []
         final_timing = None
         thinking_steps = []
         artifact_ids = []
 
-        _THINKING_TYPES = {"status", "decision", "assistant", "thinking_aloud", "persona_intent"}
+        thinking_types = {"status", "decision", "assistant", "thinking_aloud", "persona_intent"}
 
         def _capture_event(event):
             """Extract persistent data from an SSE event."""
@@ -1679,7 +1854,7 @@ async def chat_stream(request: ChatRequest):
                     final_response = data.get("response")
                     final_sources = data.get("sources", [])
                     final_timing = data.get("timing")
-                elif evt_type in _THINKING_TYPES:
+                elif evt_type in thinking_types:
                     thinking_steps.append({"text": data.get("content", ""), "type": evt_type})
                 elif evt_type == "artifact":
                     aid = data.get("artifact_id")
@@ -1697,6 +1872,7 @@ async def chat_stream(request: ChatRequest):
                 persona_result.rewritten_query,
                 skill_tags=persona_result.skill_tags,
                 doc_refs=persona_result.doc_refs,
+                github_refs=persona_result.github_refs,
                 conversation_id=conversation_id,
                 intent=persona_result.intent,
             ):
@@ -1715,6 +1891,7 @@ async def chat_stream(request: ChatRequest):
                 skill_tags=persona_result.skill_tags,
                 doc_refs=persona_result.doc_refs,
                 conversation_id=conversation_id,
+                artifact_context=artifact_context,
             ):
                 yield event
                 _capture_event(event)
@@ -1965,7 +2142,7 @@ async def upload_file(request: Request):
     Validates the file based on extension: XML via xml_to_yaml(), YAML via
     _parse_and_validate(). Stores as artifact and returns metadata.
     """
-    from src.aion.tools.yaml_to_xml import xml_to_yaml, _parse_and_validate
+    from src.aion.tools.yaml_to_xml import _parse_and_validate, xml_to_yaml
 
     form = await request.form()
     file = form.get("file")

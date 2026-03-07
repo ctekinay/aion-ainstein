@@ -1,12 +1,12 @@
 """Weaviate client configuration and connection management."""
 
 import logging
+from collections.abc import Generator
 from contextlib import contextmanager
-from typing import Optional, Generator
 
 import weaviate
 from weaviate import WeaviateClient
-from weaviate.classes.init import Auth, AdditionalConfig, Timeout
+from weaviate.classes.init import Auth
 
 from src.aion.config import settings
 

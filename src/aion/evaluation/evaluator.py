@@ -10,9 +10,8 @@ import asyncio
 import json
 import logging
 import time
-from dataclasses import dataclass, field, asdict
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Optional
 
 import httpx
 
@@ -106,7 +105,7 @@ class ProviderResult:
     retrieval_latency_ms: int = 0
     generation_latency_ms: int = 0
     total_latency_ms: int = 0
-    error: Optional[str] = None
+    error: str | None = None
     context_truncated: bool = False
 
     # Quality metrics (computed after)
@@ -124,8 +123,8 @@ class EvaluationResult:
     category: str
     required_terms: list
     expected_collections: list
-    ollama: Optional[ProviderResult] = None
-    openai: Optional[ProviderResult] = None
+    ollama: ProviderResult | None = None
+    openai: ProviderResult | None = None
 
 
 class RAGEvaluator:
@@ -133,7 +132,7 @@ class RAGEvaluator:
 
     def __init__(
         self,
-        test_cases: Optional[list[dict]] = None,
+        test_cases: list[dict] | None = None,
         base_url: str = "http://127.0.0.1:8081",
     ):
         """Initialize evaluator.
@@ -283,7 +282,7 @@ class RAGEvaluator:
             openai=openai_result,
         )
 
-    async def run_all(self, categories: Optional[list[str]] = None) -> list[EvaluationResult]:
+    async def run_all(self, categories: list[str] | None = None) -> list[EvaluationResult]:
         """Run all test cases (optionally filtered by category).
 
         Args:
