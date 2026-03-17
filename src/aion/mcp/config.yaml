@@ -1,0 +1,11 @@
+servers:
+  github:
+    url: "https://api.githubcopilot.com/mcp/"
+    transport: http
+    auth:
+      type: bearer
+      env_var: GITHUB_TOKEN
+    toolsets: [repos]
+    read_only: true
+    headers:
+      X-MCP-Readonly: "true"
