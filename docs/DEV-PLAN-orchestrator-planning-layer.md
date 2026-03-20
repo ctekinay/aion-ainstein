@@ -1,93 +1,88 @@
-# Implementation Plan: Separate Planning from Classification
+# Implementation Plan: Fix Repo Review Misroute
 
-**Status:** Proposal
+**Status:** Proposal (revision 2 — replaces keyword-matching approach)
 **Author:** Architecture review
-**Date:** 2025-03-20
+**Date:** 2026-03-20
 
 ---
 
 ## 1. The Problem — Why We're Doing This
 
-### 1.1 The Concrete Bug That Exposed the Problem
+### 1.1 The Concrete Bug
 
-A user asked AInstein: **"Review this repo"** with a GitHub `/tree/branch` URL.
+A user asked AInstein: **"Review this repo"** with a GitHub URL.
 
-Three things broke:
-1. **Branch URL parsing:** The `/tree/branch` suffix wasn't stripped correctly for `git clone`.
-2. **Module grouping:** All code files collapsed into one module due to 2-level path grouping.
-3. **ArchiMate generation:** Crashed because the architecture notes were too thin (too few components).
+They got the **inspect path** — a shallow fetch (README + directory listing via `stream_inspect_response()`) — instead of the **deep clone → AST extraction → architecture analysis** they needed.
 
-The dev fixed all three. But they were symptoms, not the root cause.
-
-### 1.2 The Structural Problem Those Bugs Revealed
-
-The Persona classified "Review this repo" as `intent=inspect` — correct per the SKILL.md rules (the user said "review," not "generate"). But the **repo-analysis pipeline is gated behind `intent == "generation"`** in `routing.py:41`:
+The repo-analysis pipeline is gated behind `intent == "generation"` in `routing.py:41`:
 
 ```python
-# routing.py:41
 if skill_tags and "repo-analysis" in skill_tags and intent == "generation":
     return ExecutionModel.REPO_ANALYSIS
 ```
 
-So the user got the **inspect path** — a shallow MCP fetch (README + directory listing via `stream_inspect_response()` at `chat_ui.py:1088`) — instead of the **deep clone → AST extraction → architecture analysis** they actually needed.
+The Persona classified "Review this repo" as `intent=inspect` — because that's exactly what the SKILL.md told it to do.
 
-The comment on line 39-40 even explains why this gate exists:
-```python
-# inspect is excluded: it's for reviewing existing models, not running the
-# extraction pipeline. See: misroute incident where Persona classified
-# "Is this compliant with our principles?" as inspect+repo-analysis.
-```
+### 1.2 Root Cause: Contradictory SKILL.md Rules
 
-This was a correct fix for one misroute, but it created a new one. **The routing is rigid** — it maps intent labels to fixed execution paths. When a query falls between paths (like "review this repo" which needs deep analysis but isn't "generation"), it silently degrades.
+The Persona SKILL.md contains two rules that contradict each other:
 
-### 1.3 The Deeper Architecture Issue
+**Rule A** — Repository Analysis Routing (line 180):
+> When the user provides a GitHub URL and asks to **analyze, model, map, or understand the repository's architecture**, add `"repo-analysis"` to skill_tags.
 
-The Persona can only route to paths that already exist. Its classification is a **label** — a single word from `VALID_INTENTS`. The routing engine (`get_execution_model()`) then maps that label to a fixed pipeline. There is no middle layer that:
+**Rule B** — Inspect vs Generation table (lines 254-256):
+> "Review this repo: https://github.com/..." → `inspect`, `github_refs: []`
+> "What does https://github.com/org/repo do?" → `inspect`, `github_refs: []`
+> "Check this repo: https://github.com/org/project" → `inspect`, `github_refs: []`
 
-1. Decomposes the user's **goal** into **steps**
-2. Checks which steps the system **can actually execute**
-3. Identifies **gaps** and either degrades gracefully or asks the user
-4. Executes the plan step-by-step
+"Review this repo" IS asking to understand the repository's architecture. Rule A says: add `"repo-analysis"` + classify as `generation`. Rule B says: classify as `inspect` with no tags. The Persona follows Rule B because explicit examples override general rules — and it routes to the shallow path.
 
-The system already has infrastructure for capability gap detection (`capability_gaps.py`, `capability_store.py`, `request_data` tool on every agent) — but it's passive and lives on the agents, not on the planning layer.
+### 1.3 Why the Previous Plan Was Wrong
 
-### 1.4 The `magic_fetch` Insight
+The v1 plan proposed adding `_implies_repo_understanding()` — a keyword matcher in the Orchestrator that would override the routing after Persona classification. This approach:
 
-The `request_data` tool (at `src/aion/tools/capability_gaps.py:12`) is a no-op tool registered on every agent. It does nothing — logs the call to SQLite via `capability_store.py`, returns `"Data retrieved successfully. Continue your reasoning."` The agent, reasoning through the problem, calls it with precise descriptions of what's missing. This becomes a prioritized roadmap of what to build next.
+1. **Violates the project's routing philosophy.** The skills-registry.yaml says *"no keyword triggers needed"* — the LLM decides routing. Adding a keyword second-guesser after the LLM spoke is working against the architecture, not with it.
+2. **Adds complexity in the wrong place.** A post-classification keyword heuristic is a code smell: it means the classification is wrong, not that we need a new layer to patch it.
+3. **Is brittle.** Any keyword list becomes a maintenance burden that drifts from the Persona's actual classification rules. You'd need to keep two routing authorities in sync.
 
-But it only fires **after** the wrong path has already been chosen. If the Orchestrator could do the same gap-check **before** execution, it could prevent the degradation entirely.
+The correct fix is to resolve the contradiction where it lives: in the SKILL.md.
+
+### 1.4 The Deeper Architecture Issue (Unchanged From v1)
+
+There IS a legitimate need for an Orchestrator planning layer — for multi-pipeline decomposition, proactive gap detection, and dynamic step planning. But those are future capabilities. Using an Orchestrator to paper over a classification prompt bug is solving the right problem at the wrong layer.
 
 ---
 
-## 2. The Proposal — Separate Planning from Classification
+## 2. The Fix — Resolve the SKILL.md Contradiction
 
-### Current Flow
-```
-User Message → [Persona: classify intent] → [Router: intent→pipeline] → [Agent: execute]
-```
+### Design Principle
 
-### Proposed Flow
-```
-User Message → [Persona: classify intent+skills+complexity]
-             → [Orchestrator: decompose goal → check capabilities → build plan]
-             → [Router: execute plan steps]
-```
+The Persona is the sole routing authority. The routing table (`get_execution_model()`) is a mechanical mapper — it trusts the Persona's output. If the Persona classifies wrong, fix the Persona's instructions, don't add a second classifier.
 
-### What Each Layer Does
+### What Changes
 
-| Layer | Responsibility | What Changes |
-|-------|---------------|-------------|
-| **Persona** | Fast classification: intent, skill_tags, complexity, query rewrite. Stays lean. | **No changes.** |
-| **Orchestrator** | Receives classification. Decomposes the goal into steps. Checks each step against the capability registry. Identifies gaps. Decides execution strategy. | **New logic added here.** |
-| **Router** | Executes the plan step by step. | **Minor changes** — accepts a plan instead of just intent+skills. |
+| Layer | Change |
+|-------|--------|
+| **Persona SKILL.md** | Reclassify "repo review/analysis" queries with GitHub URLs from `inspect` to `generation` + `repo-analysis` tag |
+| **`routing.py`** | No changes. The `intent == "generation"` gate stays. |
+| **`chat_ui.py`** | No changes. |
+| **`orchestrator.py`** | No changes. |
+| **E2E tests** | Update the misroute protection test to reflect new classification boundary |
 
-### What This Fixes
+### The Key Distinction (Revised)
 
-1. **The repo review bug vanishes.** The Orchestrator sees the goal is "deep repo review," checks that clone + extract + summarize are all available capabilities, and routes to `REPO_ANALYSIS` regardless of whether the intent label is "inspect" or "generation."
+The original SKILL.md drew the inspect/generation boundary at the **verb**: "review" → inspect, "generate" → generation. This is wrong for repositories, because reviewing a repo's architecture requires the deep extraction pipeline regardless of whether the user says "review," "analyze," or "generate."
 
-2. **Gap detection lives in the right place.** The Orchestrator knows the full capability registry. It doesn't need the Persona to guess what's possible.
+The correct boundary for repositories is the **goal**:
 
-3. **Cost scales with complexity.** Simple queries get a pass-through (no overhead). Complex queries get full decomposition.
+| Goal | Intent | Tags | Pipeline |
+|------|--------|------|----------|
+| **Understand repo architecture** ("review this repo," "analyze this codebase," "what does this repo do?") | `generation` | `["repo-analysis"]` | Deep clone → AST → architecture notes → ArchiMate |
+| **Browse a specific file** ("review this file: .../blob/main/model.xml") | `inspect` | `[]` | Shallow fetch + LLM analysis |
+| **Review a generated model** ("describe the model you just generated") | `inspect` | `[]` | Load artifact from conversation |
+| **Bare URL, no request** ("https://github.com/org/repo") | `inspect` | `[]` | Shallow fetch + LLM analysis |
+
+The distinguishing signal: **is the user pointing at a whole repository and asking to understand it?** If yes → `generation` + `repo-analysis`. If they're pointing at a specific file, a previously generated model, or dropping a bare URL with no ask → `inspect`.
 
 ---
 
@@ -95,242 +90,280 @@ User Message → [Persona: classify intent+skills+complexity]
 
 > **NON-NEGOTIABLE:** Before touching ANY existing file, read it in full. Understand what it does. Trace callers. Run existing tests. If you're going to modify an existing function, make sure you understand all its callers and that your change doesn't break them.
 
-### Step 1: Add Goal Decomposition to the Orchestrator
+### Step 1: Update the Persona SKILL.md
 
-**File:** `src/aion/orchestrator.py`
+**File:** `skills/persona-orchestrator/SKILL.md`
 
-**What exists now:** `MultiStepOrchestrator.run()` (line 34) takes a `PersonaResult` and executes its `steps` sequentially. Each step is a RAG call. It only handles the "multi-step retrieval" case — it doesn't reason about which pipeline to use.
+#### 1a. Update the `inspect` intent description (line 18)
 
-**What to add:** A new method `plan()` that sits between Persona output and execution. This method:
+The current `inspect` description includes repo-level examples that should now be `generation`:
 
-1. Receives `PersonaResult` (intent, skill_tags, rewritten_query, github_refs, steps, etc.)
-2. Analyzes the **goal** — not just the intent label — to determine what the user actually needs
-3. Checks if the selected execution path actually serves that goal
-4. Returns a `Plan` object that the execution path uses
-
-**Concrete logic for the repo review case:**
-
-```python
-# PSEUDOCODE — do NOT copy-paste. Read the actual code first.
-def plan(self, persona_result: PersonaResult) -> Plan:
-    """Decompose the user's goal into an execution plan.
-
-    This is where intent-label-to-pipeline mismatches get caught.
-    """
-    intent = persona_result.intent
-    skills = set(persona_result.skill_tags)
-    has_github_url = bool(persona_result.github_refs) or _contains_github_url(persona_result.original_message)
-    has_repo_path = _contains_local_path(persona_result.original_message)
-
-    # --- Repo analysis override ---
-    # The Persona correctly classifies "review this repo" as inspect.
-    # But inspect routes to shallow MCP fetch, not deep analysis.
-    # If the user provided a repo URL/path AND the query implies
-    # understanding the repo's architecture, upgrade to repo_analysis.
-    if (has_github_url or has_repo_path) and intent in ("inspect", "retrieval"):
-        if _implies_repo_understanding(persona_result.rewritten_query):
-            return Plan(
-                execution_model=ExecutionModel.REPO_ANALYSIS,
-                skill_tags=list(skills | {"repo-analysis"}),
-                reason="User wants to understand a repository — upgrading from inspect to repo_analysis",
-            )
-
-    # --- Default: use the existing routing logic ---
-    execution_model = get_execution_model(intent, persona_result.skill_tags)
-    return Plan(execution_model=execution_model, skill_tags=persona_result.skill_tags)
+**Current** (line 18, inspect examples):
+```
+"https://github.com/OpenSTEF/openstef", "What does https://github.com/org/repo do?", "Check this repo: https://github.com/org/project"
 ```
 
-**Key helper — `_implies_repo_understanding()`:**
+**Change to:** Remove the whole-repo examples from inspect. Keep file-level and model-level examples:
 
-This is a simple keyword/pattern check, NOT an LLM call. Examples of queries that imply deep repo understanding:
-- "Review this repo"
-- "Analyze the architecture"
-- "What does this repo do?"
-- "Map the components"
-- "Understand the codebase"
-
-Examples that do NOT (and should stay on inspect):
-- "Check this ArchiMate XML file" (single file review)
-- "Is this model valid?" (model validation)
-
-**Important:** `_contains_github_url()` must handle the same URL formats that `clone_repo()` in `repo_analysis.py:363` handles (https, git@, /tree/branch suffixes). Do NOT reinvent URL parsing — look at what `clone_repo()` already does and extract/reuse that logic.
-
-### Step 2: Create the Plan Data Structure
-
-**File:** `src/aion/orchestrator.py` (add to existing file)
-
-```python
-@dataclass
-class Plan:
-    """Execution plan produced by the Orchestrator."""
-    execution_model: ExecutionModel
-    skill_tags: list[str]
-    reason: str = ""  # Why this plan was chosen (for logging/debugging)
-    upgraded_from: str | None = None  # Original execution model if overridden
+```
+"Describe the model you just generated", "What elements are in this ArchiMate file?", "Analyze this architecture model", "How many relationships does the model have?", "https://github.com/org/repo/blob/main/model.xml", "Review https://github.com/org/repo/blob/main/file.archimate.xml"
 ```
 
-This is deliberately minimal. It's a data class, not a framework. Expand it later if needed.
+Also update the inspect description text. Change:
+> A message containing a GitHub URL is inspect when the user wants to **browse, review, or understand** the content — not when they want to generate a structured artifact from it. A bare URL with no other text is also inspect.
 
-### Step 3: Wire the Orchestrator into chat_ui.py
+To:
+> A message containing a GitHub URL pointing to a **specific file** (`.../blob/...`) is inspect. A **bare repository URL** with no other text is also inspect (shallow preview). But when the user asks to **review, analyze, or understand a whole repository's architecture**, that's `generation` with `repo-analysis` — see Repository Analysis Routing below.
 
-**File:** `src/aion/chat_ui.py`
+#### 1b. Update the `generation` intent description (line 17)
 
-**What exists now:** At line 2038, after Persona classification, the code calls `_get_execution_model()` directly:
+Add repo-review examples to the generation examples list:
 
-```python
-execution_model = _get_execution_model(
-    persona_result.intent, persona_result.skill_tags,
-)
+**Current examples:**
+```
+"Create an ArchiMate model for ADR.29", "Generate ArchiMate from the OAuth2 decision", "Build an architecture model for demand response", "Build an ArchiMate model from https://github.com/OpenSTEF/openstef", "Based on what you found in OpenSTEF, create an ArchiMate model"
 ```
 
-**What to change:** Insert the Orchestrator's `plan()` call between Persona and routing:
+**Add:**
+```
+"Review this repo: https://github.com/org/repo", "What does https://github.com/org/repo do?", "Analyze the architecture of https://github.com/org/repo", "Check this repo: https://github.com/org/project"
+```
+
+Also update the generation description text. Change:
+> When the message contains GitHub URLs or references AND requests artifact generation, classify as generation (not inspect) and populate `github_refs`.
+
+To:
+> When the message contains GitHub URLs or references AND the user wants to **understand, review, or analyze the repository** (not just browse a specific file), classify as generation with `repo-analysis` tag and populate `github_refs`. This includes "review this repo" and "what does this repo do?" — these require deep analysis, not a shallow fetch.
+
+#### 1c. Update the Repository Analysis Routing section (line 180)
+
+**Add** "review" and "understand" to the explicit verb list:
+
+**Current:**
+> asks to **analyze, model, map, or understand the repository's architecture**
+
+**Change to:**
+> asks to **review, analyze, model, map, check, or understand the repository's architecture**
+
+**Add examples:**
+```
+- "Review this repo: https://github.com/org/repo" → `skill_tags: ["repo-analysis"]`, `github_refs: ["org/repo"]`, intent: `generation`
+- "What does https://github.com/org/repo do?" → `skill_tags: ["repo-analysis"]`, `github_refs: ["org/repo"]`, intent: `generation`
+- "Check this repo: https://github.com/org/project" → `skill_tags: ["repo-analysis"]`, `github_refs: ["org/project"]`, intent: `generation`
+```
+
+#### 1d. Update the Inspect vs Generation table (line 243-256)
+
+**Current table rows to change:**
+
+| Message | Current | New |
+|---------|---------|-----|
+| `"https://github.com/OpenSTEF/openstef"` | inspect, [] | inspect, [] | *(no change — bare URL stays inspect)* |
+| `"Review this repo: https://github.com/OpenSTEF/openstef"` | inspect, [] | **generation, ["OpenSTEF/openstef"]** |
+| `"What does https://github.com/org/repo do?"` | inspect, [] | **generation, ["org/repo"]** |
+| `"Check this repo: https://github.com/org/project"` | inspect, [] | **generation, ["org/project"]** |
+
+**Add a new row for the file-level inspect case:**
+
+| Message | Intent | github_refs | Why |
+|---------|--------|-------------|-----|
+| `"Review this file: https://github.com/org/repo/blob/main/model.xml"` | inspect | [] | Points at a specific file, not the whole repo |
+
+#### 1e. Update the GitHub Reference Extraction section (line 233-241)
+
+**Current:**
+> Only populate for `generation` intent — never for `inspect`.
+
+This rule stays correct. Since "review this repo" is now `generation`, `github_refs` will be populated automatically.
+
+#### 1f. Add a disambiguation note
+
+Add a new subsection after the Inspect vs Generation table:
+
+```markdown
+### Bare URL vs Repo Review
+
+A bare GitHub URL with no accompanying text is `inspect` — it's a "show me what's there" gesture:
+- `"https://github.com/org/repo"` → inspect (no explicit ask)
+
+But once the user adds ANY verb that implies understanding the repo as a whole, it becomes `generation` + `repo-analysis`:
+- `"Review https://github.com/org/repo"` → generation + repo-analysis
+- `"https://github.com/org/repo — what does this do?"` → generation + repo-analysis
+
+The only exception is verbs that target a specific file within the repo:
+- `"Review https://github.com/org/repo/blob/main/README.md"` → inspect (single file)
+```
+
+### Step 2: Update E2E Test — Misroute Protection
+
+**File:** `tests/test_e2e_chat_pipeline.py`
+
+The existing test `test_repo_analysis_not_triggered_for_inspect_intent` (line 436) tests that `intent=inspect` + `skill_tags=["repo-analysis"]` routes to inspect, not repo_analysis.
+
+This test is **still valid** as a routing-layer safety net — if the Persona somehow emits `inspect` + `repo-analysis`, the routing table should still send it to inspect (the `intent == "generation"` gate in `routing.py:41` protects against this). **Do not delete this test.**
+
+However, the test docstring and scenario name need updating to reflect that this is now a defensive safety net rather than the expected happy path:
+
+**Current docstring:**
+```python
+"""inspect + repo-analysis tag must NOT route to REPO_ANALYSIS.
+This was the misrouting bug — 'Review this repo' classified as inspect
+should take the inspect path, not the repo analysis pipeline."""
+```
+
+**Change to:**
+```python
+"""inspect + repo-analysis tag must NOT route to REPO_ANALYSIS.
+Safety net: if the Persona misclassifies a repo query as inspect
+(it should classify whole-repo queries as generation), the routing
+table must still protect against triggering the extraction pipeline.
+See: original misroute incident where 'Is this compliant with our
+principles?' was classified as inspect+repo-analysis."""
+```
+
+### Step 3: Add a New E2E Test — Repo Review Happy Path
+
+**File:** `tests/test_e2e_chat_pipeline.py`
+
+Add a new test to `TestRepoAnalysisRouting` that verifies the **fixed** classification routes correctly:
 
 ```python
-# After persona classification, let the Orchestrator plan
-from aion.orchestrator import MultiStepOrchestrator
-orchestrator = MultiStepOrchestrator()
-plan = orchestrator.plan(persona_result)
-execution_model = plan.execution_model
-
-# Log if the Orchestrator overrode the default route
-if plan.upgraded_from:
-    logger.info(
-        "orchestrator_override",
-        original=plan.upgraded_from,
-        final=plan.execution_model.value,
-        reason=plan.reason,
+@pytest.mark.asyncio
+async def test_repo_review_classified_as_generation_routes_to_repo_analysis(
+    self, client, _mock_lifespan
+):
+    """'Review this repo' should be classified as generation+repo-analysis
+    by the Persona, which routes to the repo analysis pipeline.
+    This is the fixed behavior — previously it was classified as inspect."""
+    persona_result = _make_persona_result(
+        intent="generation",
+        rewritten_query="Review and analyze the architecture of org/repo",
+        skill_tags=["repo-analysis"],
     )
+    _mock_lifespan._persona.process = AsyncMock(return_value=persona_result)
+
+    call_log = []
+
+    async def mock_repo_archimate(*args, **kwargs):
+        call_log.append(True)
+        yield f"data: {json.dumps({'type': 'complete', 'response': 'analysis', 'sources': [], 'timing': {}})}\n\n"
+
+    with patch("aion.chat_ui.stream_repo_archimate_response", side_effect=mock_repo_archimate):
+        resp = await client.post(
+            "/api/chat/stream",
+            json={"message": "Review this repo: https://github.com/org/repo"},
+        )
+
+    assert len(call_log) == 1  # Repo analysis pipeline was invoked
 ```
-
-**CRITICAL — check all downstream uses of `execution_model`:** After this point, `execution_model` is used in many places (pixel agents, event capture, artifact saving, turn summary). The Plan's `execution_model` must be a valid `ExecutionModel` enum value. The existing `if/elif` chain starting at line 2231 must continue to work unchanged.
-
-**Also wire into `stream_rag_response`:** There's a second routing call at `chat_ui.py:2518` inside `stream_rag_response()`. Check whether this path also needs the Orchestrator. (It likely does — this is the non-streaming path used by the orchestrator's own steps.)
 
 ### Step 4: Update the Routing Comment
 
 **File:** `src/aion/routing.py`
 
-The comment at lines 36-40 explains why `inspect` is excluded from repo analysis:
+Update the comment at lines 36-40 to reflect the fix:
 
+**Current:**
 ```python
 # inspect is excluded: it's for reviewing existing models, not running the
 # extraction pipeline. See: misroute incident where Persona classified
 # "Is this compliant with our principles?" as inspect+repo-analysis.
 ```
 
-This gate stays. The `get_execution_model()` function is **not** changing. The Orchestrator overrides the routing **after** `get_execution_model()` returns, not inside it. Update the comment to reflect this:
-
+**Change to:**
 ```python
-# inspect is excluded here: it's for reviewing existing models, not running the
-# extraction pipeline. The Orchestrator (orchestrator.py) may upgrade
-# inspect→repo_analysis when the query implies deep repo understanding
-# (e.g., "review this repo" with a GitHub URL). This separation keeps
-# routing pure and puts goal-reasoning in the Orchestrator.
+# inspect is excluded: it's for reviewing existing models or browsing
+# specific files — not for running the extraction pipeline. Whole-repo
+# queries ("review this repo", "analyze this codebase") should be
+# classified as generation+repo-analysis by the Persona (see SKILL.md
+# Repository Analysis Routing section). This gate is a safety net.
+# See: misroute incident where "Is this compliant with our principles?"
+# was classified as inspect+repo-analysis.
 ```
 
-### Step 5: Add Logging for Plan Decisions
+### Step 5: Run Tests
 
-**File:** `src/aion/orchestrator.py`
-
-Every plan decision should be logged with structlog so we can debug misroutes:
-
-```python
-logger.info(
-    "orchestrator_plan",
-    intent=persona_result.intent,
-    default_route=default_execution_model.value,
-    planned_route=plan.execution_model.value,
-    upgraded=plan.upgraded_from is not None,
-    reason=plan.reason,
-    has_github_url=has_github_url,
-    has_repo_path=has_repo_path,
-)
-```
-
-This is essential for debugging. When a misroute happens in production, the logs should show exactly what the Orchestrator decided and why.
-
-### Step 6: Tests
-
-**Required tests (non-negotiable):**
-
-1. **Existing tests must pass.** Run the full test suite before making any changes. Run it again after. If anything breaks, fix it before proceeding.
-
-2. **New unit tests for `plan()`:**
-   - `intent=inspect` + GitHub URL + "review this repo" → `REPO_ANALYSIS`
-   - `intent=inspect` + GitHub URL + "check this ArchiMate file" → stays `INSPECT`
-   - `intent=generation` + `skill_tags=["repo-analysis"]` → `REPO_ANALYSIS` (existing behavior preserved)
-   - `intent=inspect` + no URL → stays `INSPECT` (existing behavior preserved)
-   - `intent=retrieval` + GitHub URL + "what does this repo do?" → `REPO_ANALYSIS`
-   - `intent=retrieval` + no URL → stays `TREE` (existing behavior preserved)
-   - `intent=generation` + no repo-analysis tag → stays `GENERATION` (existing behavior preserved)
-
-3. **Integration test:**
-   - Mock PersonaResult with `intent=inspect`, `github_refs=["org/repo"]`, `original_message="Review this repo https://github.com/org/repo"`
-   - Verify the Orchestrator returns `Plan(execution_model=REPO_ANALYSIS)`
-   - Verify downstream execution reaches `stream_repo_archimate_response` (not `stream_inspect_response`)
+1. Run the full test suite before making any changes. Confirm baseline.
+2. Make the SKILL.md changes (Step 1).
+3. Make the test changes (Steps 2-3).
+4. Make the comment change (Step 4).
+5. Run the full test suite again. Confirm nothing regresses.
 
 ---
 
 ## 4. What NOT to Change
 
-These are explicit boundaries. Do NOT touch these unless a test proves they're broken:
+These are explicit boundaries:
 
-1. **Persona classification logic** (`persona.py`). The Persona's job is to classify intent. It's doing that correctly. The problem is downstream.
+1. **`get_execution_model()` in `routing.py`**. The function stays as-is. The `intent == "generation"` gate is correct — it's the Persona's job to classify correctly, and the routing table maps mechanically.
 
-2. **`get_execution_model()` in `routing.py`**. This function stays as-is. It's the "default" route. The Orchestrator overrides it when needed, but doesn't replace it.
+2. **`orchestrator.py`**. No new `plan()` method. No keyword matching. The Orchestrator stays focused on multi-step RAG execution.
 
-3. **The SKILL.md prompt** (`skills/persona-orchestrator/SKILL.md`). This is the LLM classification prompt. It correctly classifies "review this repo" as inspect. Don't change the classification rules to hack around the routing problem.
+3. **`chat_ui.py` routing dispatch**. The `execution_model = get_execution_model(...)` call at line 2038 stays unchanged. No new layer between Persona and routing.
 
-4. **`capability_gaps.py` and `capability_store.py`**. These are fine. They're the passive gap detection system. In a future phase, the Orchestrator could use them proactively, but not in this change.
+4. **`persona.py` code**. The Persona's Python logic is correct — it parses the LLM's JSON output faithfully. The fix is in the LLM's instructions (SKILL.md), not in the parsing code.
 
-5. **Agent internals** (`rag_agent.py`, `archimate_agent.py`, `repo_analysis_agent.py`). These agents work. Don't modify their tool registrations, system prompts, or query methods.
+5. **Agent internals** (`rag_agent.py`, `archimate_agent.py`, `repo_analysis_agent.py`). These work. Don't touch them.
 
-6. **The `stream_repo_archimate_response()` chain** (`chat_ui.py:1479`). This two-phase chain (repo analysis → ArchiMate generation) works correctly. The only change is that it gets called for more queries (when the Orchestrator upgrades inspect→repo_analysis).
+6. **`capability_gaps.py` and `capability_store.py`**. Future Orchestrator work, not this change.
 
 ---
 
 ## 5. Risk Assessment
 
-| Risk | Mitigation |
-|------|-----------|
-| Orchestrator upgrades queries that shouldn't be upgraded (false positive) | `_implies_repo_understanding()` must be conservative. When in doubt, don't upgrade. Log every upgrade decision for monitoring. |
-| Existing inspect path breaks (e.g., "describe the model you generated") | Orchestrator only upgrades when a repo URL/path is present AND the query implies repo understanding. No URL = no upgrade. |
-| The `stream_rag_response` second routing path at line 2518 diverges | Check this path carefully. If it's used by the MultiStepOrchestrator's inner steps, it shouldn't need the planning layer (those steps are already planned). |
-| Performance — added latency from Orchestrator | The `plan()` method is pure Python pattern matching. No LLM calls. No I/O. Sub-millisecond. |
+| Risk | Likelihood | Mitigation |
+|------|-----------|-----------|
+| Persona over-classifies file-level inspect queries as generation | Low | The SKILL.md explicitly distinguishes `/blob/` file URLs from repo URLs. The bare-URL → inspect rule provides a safe fallback. |
+| Persona under-classifies — still emits inspect for "review this repo" | Medium | LLMs can be stubborn about learned patterns. **Mitigation:** The E2E test from Step 3 verifies the happy path. If the Persona still misclassifies in production, the routing safety net (inspect ≠ repo_analysis) prevents the extraction pipeline from running unexpectedly — it degrades to shallow inspect, same as today. |
+| Existing inspect use cases break ("describe the model you generated") | Very Low | These queries have no GitHub URL and no repo-analysis tag. The SKILL.md changes only affect repo-level GitHub URL queries. |
+| Follow-up routing changes ("Is this compliant with our principles?" after repo analysis) | None | The Follow-ups After Repository Analysis section (lines 192-204) is unchanged. Follow-ups don't get `repo-analysis` tags. |
 
 ---
 
-## 6. Future Phases (Not in This Change)
+## 6. Why This Is Better Than the v1 Plan
 
-For context only — don't implement these now:
-
-1. **Proactive gap detection:** Before executing a plan, check the capability registry for each step. If a step requires a capability that doesn't exist, log it as a gap AND tell the user transparently.
-
-2. **Magic fetch on the Orchestrator:** Move `request_data` from agent-level to Orchestrator-level. When the Orchestrator can't find a suitable pipeline for a goal, it calls `request_data` with what's needed. This surfaces integration priorities at the planning layer.
-
-3. **Dynamic step planning:** Instead of just overriding the execution model, the Orchestrator decomposes complex goals into multiple pipeline calls (e.g., "review this repo and compare it to our principles" → repo_analysis + RAG retrieval + synthesis).
+| Dimension | v1 (Orchestrator + keyword matching) | v2 (SKILL.md fix) |
+|-----------|---------------------------------------|---------------------|
+| **Files changed** | 4 (orchestrator.py, chat_ui.py, routing.py, tests) | 3 (SKILL.md, routing.py comment, tests) |
+| **New code** | ~80 lines (Plan dataclass, plan() method, helpers, wiring) | 0 lines of Python |
+| **New abstractions** | Plan dataclass, _implies_repo_understanding(), _contains_github_url() | None |
+| **Runtime cost** | Sub-millisecond (pure Python), but a new code path to maintain | Zero — the Persona LLM call already happens |
+| **Routing authorities** | Two (Persona + Orchestrator keyword matcher) | One (Persona) |
+| **Maintenance burden** | Keyword list must stay in sync with SKILL.md rules | Single source of truth in SKILL.md |
+| **Consistency with project philosophy** | Violates "no keyword triggers" | Follows existing pattern |
 
 ---
 
-## 7. Checklist Before Submitting
+## 7. Future Work — Orchestrator Planning Layer
 
-- [ ] Read `orchestrator.py` in full — understand `MultiStepOrchestrator.run()`
-- [ ] Read `routing.py` in full — understand `get_execution_model()`
-- [ ] Read `chat_ui.py` lines 2030-2400 — understand the execution dispatch
-- [ ] Read `chat_ui.py` lines 1088-1170 — understand `stream_inspect_response()`
-- [ ] Read `chat_ui.py` lines 1479-1548 — understand `stream_repo_archimate_response()`
-- [ ] Read `repo_analysis_agent.py` in full — understand the agent's tools and flow
-- [ ] Read `repo_analysis.py:363-469` — understand `clone_repo()` URL parsing
+The v1 plan's vision of an Orchestrator planning layer is valid for **future** capabilities that genuinely exceed the Persona's classification:
+
+1. **Multi-pipeline decomposition:** "Review this repo and compare it to our principles" → repo_analysis + RAG retrieval + synthesis. The Persona can't express this today (it returns a single intent).
+
+2. **Proactive gap detection:** Before execution, check the capability registry. If a step needs a tool that doesn't exist, tell the user instead of silently degrading.
+
+3. **Dynamic step planning with capability awareness:** The Orchestrator checks what agents/tools are available and builds a plan that uses them.
+
+These are real problems that justify an Orchestrator — but they should be built when the need arises, not retrofitted as a workaround for a classification prompt bug.
+
+---
+
+## 8. Checklist Before Submitting
+
+- [ ] Read `skills/persona-orchestrator/SKILL.md` in full
+- [ ] Read `routing.py` in full — confirm the generation gate
+- [ ] Read `tests/test_e2e_chat_pipeline.py` — understand existing misroute test
 - [ ] Run full test suite — confirm baseline passes
-- [ ] Implement `Plan` dataclass
-- [ ] Implement `plan()` method
-- [ ] Implement `_implies_repo_understanding()` and `_contains_github_url()`
-- [ ] Wire into `chat_ui.py` at line 2038
-- [ ] Update routing.py comment
-- [ ] Add structured logging
-- [ ] Write unit tests for `plan()`
-- [ ] Write integration test for the full flow
+- [ ] Update SKILL.md inspect intent description (Step 1a)
+- [ ] Update SKILL.md generation intent description (Step 1b)
+- [ ] Update SKILL.md Repository Analysis Routing section (Step 1c)
+- [ ] Update SKILL.md Inspect vs Generation table (Step 1d)
+- [ ] Add SKILL.md bare URL disambiguation note (Step 1f)
+- [ ] Update E2E test docstring (Step 2)
+- [ ] Add new E2E test for repo review happy path (Step 3)
+- [ ] Update routing.py comment (Step 4)
 - [ ] Run full test suite — confirm nothing regresses
-- [ ] Manual test: "Review this repo" + GitHub URL → verify deep analysis runs
+- [ ] Manual test: "Review this repo" + GitHub URL → verify Persona classifies as generation+repo-analysis
 - [ ] Manual test: "Describe the model you generated" → verify inspect still works
+- [ ] Manual test: "https://github.com/org/repo" (bare URL) → verify inspect still works
 - [ ] Manual test: "Generate ArchiMate from https://github.com/..." → verify generation+repo still works
