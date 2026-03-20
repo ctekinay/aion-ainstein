@@ -69,7 +69,7 @@ def _find_events(events: list[dict], event_type: str) -> list[dict]:
 # ── Fixtures ──────────────────────────────────────────────────────────────────
 
 @pytest.fixture()
-def _mock_lifespan():
+def _mock_lifespan(tmp_path):
     """Bypass the full lifespan (Weaviate, Ollama, etc.) for mock tests."""
     from contextlib import asynccontextmanager
 
@@ -78,8 +78,20 @@ def _mock_lifespan():
         yield
 
     import aion.chat_ui as chat_ui_mod
+    import aion.memory.session_store as session_store_mod
+    import aion.registry.element_registry as registry_mod
     original = chat_ui_mod.app.router.lifespan_context
     chat_ui_mod.app.router.lifespan_context = _noop_lifespan
+    # Use a temp database so tests don't pollute the real one
+    test_db = str(tmp_path / "test_chat.db")
+    original_db_path = chat_ui_mod._db_path
+    original_session_db = session_store_mod._DB_PATH
+    original_registry_db = registry_mod._DB_PATH
+    chat_ui_mod._db_path = test_db
+    session_store_mod._DB_PATH = test_db
+    registry_mod._DB_PATH = test_db
+    # Initialize the database tables (normally done in lifespan)
+    chat_ui_mod.init_db()
     # Initialize globals that the endpoint expects
     chat_ui_mod._persona = MagicMock()
     chat_ui_mod._rag_agent = MagicMock()
@@ -90,6 +102,9 @@ def _mock_lifespan():
     chat_ui_mod._generation_pipeline = MagicMock()
     yield chat_ui_mod
     chat_ui_mod.app.router.lifespan_context = original
+    chat_ui_mod._db_path = original_db_path
+    session_store_mod._DB_PATH = original_session_db
+    registry_mod._DB_PATH = original_registry_db
 
 
 @pytest.fixture()
