@@ -1,0 +1,59 @@
+abstention:
+  distance_threshold: 0.6
+retrieval_limits:
+  adr: 8
+  principle: 6
+  policy: 4
+  vocabulary: 4
+  team_search: 10
+truncation:
+  content_max_chars: 800
+  tool_content_chars: 500
+  tool_summary_chars: 300
+  consequences_max_chars: 4000
+  direct_doc_max_chars: 12000
+  max_context_results: 50
+  source_display_limit: 35
+tree:
+  recursion_limit: 4
+element_registry:
+  prompt_limit: 30
+quality_gate:
+  enabled: true
+  proportionality:
+    enabled: true
+    # Skip LLM evaluation if response is already under this word count
+    token_ceiling: 300
+    # Optional model override for gate LLM calls (null = use RAG model)
+    model_override: null
+    evaluation_prompt: >
+      You are evaluating whether a RAG response is proportionate to the query.
+      A "simple" query (single fact lookup, "what is X?") should get a 3-6 sentence
+      summary with citations, not an exhaustive enumeration of all document sections.
+      Does this response match that expectation?
+      Respond with exactly: PASS (proportionate) or FAIL (needs condensation).
+    condensation_prompt: >
+      Condense this response to a focused summary (3-6 sentences).
+      Preserve ALL document citations (ADR.XX, PCP.XX, policy titles).
+      Preserve markdown formatting: use headings, bullet lists, and
+      paragraph breaks exactly as the original. Do not flatten into
+      a single paragraph.
+      End with a single offer to elaborate.
+      Do not add disclaimers about the condensation.
+  abstention_cleanup:
+    enabled: true
+    item_threshold: 2
+    # Known limitation: this list won't catch all paraphrases.
+    # Expand from real production logs as new patterns emerge.
+    negation_signals:
+      - "no budget"
+      - "no relevant"
+      - "not found"
+      - "not in the knowledge base"
+      - "contains no"
+      - "does not contain"
+      - "does not specify"
+      - "doesn't contain"
+      - "doesn't specify"
+      - "no explicit"
+      - "no information"
