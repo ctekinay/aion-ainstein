@@ -6,6 +6,26 @@
 
 ---
 
+## Why We Are Doing This
+
+AInstein is moving from a prototype that works on the happy path to a system that architects can rely on daily. This changeset addresses the gaps that show up once real users hit the edges:
+
+- **Resource leaks under sustained use.** Every OpenAI API call was creating an HTTP client and never closing it. In a long chat session with dozens of queries, this silently exhausts connection pools and file descriptors. The AsyncOpenAI context-manager migration fixes this before it becomes a production incident.
+
+- **Dead ends on general knowledge questions.** When a user asks "What is the strangler fig pattern?" and the KB has nothing, AInstein currently returns a flat "I couldn't find relevant documents" — unhelpful for a tool positioned as an architecture assistant. The general knowledge fallback lets AInstein answer from its training data with a clear disclaimer, so users get value even outside the KB's coverage.
+
+- **Repo analysis output too thin for ArchiMate generation.** The Phase 1 → Phase 2 handoff (repo extraction → ArchiMate model) was losing context: no branch info, no commit provenance, no diff awareness, no component roles. The v1.0 architecture_notes template gives the generation LLM the structured context it needs to produce accurate models — especially for feature branches where knowing *what changed* matters.
+
+- **Settings corruption on crash.** A server crash mid-save could leave `~/.ainstein/settings.json` half-written, breaking the next startup. Atomic writes and validation make this impossible.
+
+- **No automated pipeline testing.** The routing logic (Persona → intent → agent) had zero test coverage. A misrouting bug (inspect intent + repo-analysis tag → wrong pipeline) was only caught manually. The E2E test suite locks down every routing path so regressions are caught before they ship.
+
+- **Dead code accumulation.** The Sugiyama layout inspector and the oracle prompt generator were one-off artifacts that no longer serve a purpose. Removing them keeps the repo focused.
+
+In short: this changeset is about making AInstein **production-grade** — closing resource leaks, eliminating dead ends, enriching data handoffs, hardening persistence, and adding the test coverage to keep it all working as the system evolves.
+
+---
+
 ## Summary of Changes
 
 This changeset delivers six themes:
