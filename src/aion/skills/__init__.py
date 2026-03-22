@@ -1,0 +1,40 @@
+"""Skills framework for externalizing rules and thresholds.
+
+This module provides the infrastructure for loading and managing
+Agent Skills following the agentskills.io open standard format.
+
+Usage:
+    from aion.skills import SkillLoader, SkillRegistry, DEFAULT_SKILL
+
+    # Load a specific skill
+    loader = SkillLoader()
+    skill = loader.load_skill(DEFAULT_SKILL)
+    content = skill.get_injectable_content()
+
+    # Get thresholds
+    thresholds = loader.get_thresholds(DEFAULT_SKILL)
+    distance_threshold = thresholds["abstention"]["distance_threshold"]
+
+    # Use registry — all enabled skills inject into every query
+    registry = SkillRegistry()
+    active_content = registry.get_all_skill_content()
+"""
+
+from aion.skills.loader import Skill, SkillLoader
+from aion.skills.registry import (
+    SkillRegistry,
+    SkillRegistryEntry,
+    get_skill_registry,
+)
+
+# Default skill name - single source of truth
+DEFAULT_SKILL = "rag-quality-assurance"
+
+__all__ = [
+    "DEFAULT_SKILL",
+    "Skill",
+    "SkillLoader",
+    "SkillRegistry",
+    "SkillRegistryEntry",
+    "get_skill_registry",
+]
