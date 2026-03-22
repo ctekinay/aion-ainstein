@@ -245,15 +245,21 @@ def _filter_adr_results(objects, props, content_limit, is_dar_query, build_resul
     return sorted(seen.values(), key=lambda x: x.get("file_path", ""))
 
 
+_PCP_EXCLUDED_DOC_TYPES = ("principle_approval", "template", "index")
+
+
 def _filter_pcp_results(objects, props, content_limit, is_dar_query, build_result_fn):
-    """Deduplicate PCP results by principle_number and filter out DARs."""
+    """Deduplicate PCP results by principle_number and filter out DARs/templates/index."""
     seen = {}
     for obj in objects:
         pn = obj.properties.get("principle_number", "")
         if not pn or pn in seen:
             continue
         if not is_dar_query:
+            doc_type = obj.properties.get("doc_type", "")
             title = obj.properties.get("title", "")
+            if doc_type in _PCP_EXCLUDED_DOC_TYPES:
+                continue
             if title.startswith(_PCP_EXCLUDED_TITLE_PREFIX):
                 continue
         seen[pn] = build_result_fn(obj, props, content_limit)
