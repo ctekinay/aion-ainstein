@@ -434,7 +434,7 @@ class DataIngestionPipeline:
             "title": chunk.metadata.document_title,
             "content": chunk.content,
             "full_text": chunk.full_text or chunk.build_full_text(),
-            "doc_type": chunk.metadata.document_type or doc_type,
+            "doc_type": doc_type,
             "status": chunk.metadata.adr_status,
             # Chunk-specific fields (Step 3)
             "chunk_type": chunk.chunk_type.value,
@@ -507,8 +507,11 @@ class DataIngestionPipeline:
                 logger.debug(f"Skipping non-content file: {chunked_doc.source_file}")
                 continue
 
-            number_match = re.match(r"(\d{4})D?-", Path(chunked_doc.source_file).name)
+            raw_filename = Path(chunked_doc.source_file).name
+            number_match = re.match(r"(\d{4})(D)?-", raw_filename)
             adr_number = number_match.group(1) if number_match else ""
+            is_dar = bool(number_match and number_match.group(2))
+            weaviate_doc_type = "adr_approval" if is_dar else "adr"
 
             chunks = chunked_doc.get_chunks_for_indexing(
                 include_document_level=config.index_document_level,
@@ -520,7 +523,7 @@ class DataIngestionPipeline:
                 self._enrich_chunk_from_registry(chunk, "adr", adr_number)
                 chunk.full_text = chunk.build_full_text()
 
-                props = self._chunk_to_properties(chunk, "adr", adr_number, chunk_idx)
+                props = self._chunk_to_properties(chunk, weaviate_doc_type, adr_number, chunk_idx)
                 batch.append(DataObject(properties=props, uuid=str(uuid4())))
                 count += 1
 
@@ -561,8 +564,11 @@ class DataIngestionPipeline:
                 logger.debug(f"Skipping non-content file: {chunked_doc.source_file}")
                 continue
 
-            number_match = re.match(r"(\d{4})D?-", Path(chunked_doc.source_file).name)
+            raw_filename = Path(chunked_doc.source_file).name
+            number_match = re.match(r"(\d{4})(D)?-", raw_filename)
             principle_number = number_match.group(1) if number_match else ""
+            is_dar = bool(number_match and number_match.group(2))
+            weaviate_doc_type = "principle_approval" if is_dar else "principle"
 
             chunks = chunked_doc.get_chunks_for_indexing(
                 include_document_level=config.index_document_level,
@@ -577,7 +583,7 @@ class DataIngestionPipeline:
                 self._override_principle_ownership(chunk, principle_number)
                 chunk.full_text = chunk.build_full_text()
 
-                props = self._chunk_to_properties(chunk, "principle", principle_number, chunk_idx)
+                props = self._chunk_to_properties(chunk, weaviate_doc_type, principle_number, chunk_idx)
                 batch.append(DataObject(properties=props, uuid=str(uuid4())))
                 count += 1
 

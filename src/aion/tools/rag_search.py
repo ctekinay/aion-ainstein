@@ -603,9 +603,12 @@ class RAGToolkit:
         for obj in results.objects:
             pn = obj.properties.get("principle_number", "")
             title = obj.properties.get("title", "")
+            doc_type = obj.properties.get("doc_type", "")
             if not pn or pn in seen:
                 continue
-            if title.startswith("Principle Approval Record List"):
+            if doc_type in ("principle_approval", "template", "index"):
+                continue
+            if title.startswith(_PCP_EXCLUDED_TITLE_PREFIX):
                 continue
             seen[pn] = self._build_result(obj, props, content_limit)
 
@@ -644,10 +647,9 @@ class RAGToolkit:
     def list_dars(self) -> list[dict]:
         """List all Decision Approval Records (DARs) from both collections.
 
-        ADR DARs use server-side filter (doc_type == "adr_approval") since the
-        ADR collection tags DARs correctly. PCP DARs use client-side title
-        filtering because the Principle collection has an ingestion bug where
-        DARs are tagged doc_type: "principle" (see CLAUDE.md §6).
+        Uses server-side doc_type filters: "adr_approval" for ADR DARs,
+        "principle_approval" for PCP DARs. Requires re-index with the
+        fixed ingestion pipeline that correctly tags DAR files.
 
         Returns combined list with dar_source field ("ADR" or "PCP").
         """
@@ -655,7 +657,7 @@ class RAGToolkit:
         content_limit = _get_truncation().get("direct_doc_max_chars", 12000)
         all_dars = []
 
-        # ADR DARs — server-side filter (ADR collection tags DARs correctly)
+        # ADR DARs — server-side doc_type filter (ingestion now tags correctly)
         try:
             collection = self._get_collection("ArchitecturalDecision")
             props = self._get_return_props(collection)
@@ -684,12 +686,14 @@ class RAGToolkit:
         except Exception as e:
             logger.warning(f"list_dars: ADR collection error: {e}")
 
-        # PCP DARs from Principle collection
+        # PCP DARs — server-side doc_type filter (ingestion now tags correctly)
         try:
             collection = self._get_collection("Principle")
             props = self._get_return_props(collection)
+            dar_filter = Filter.by_property("doc_type").equal("principle_approval")
             t0 = time.perf_counter()
             results = collection.query.fetch_objects(
+                filters=dar_filter,
                 limit=_FETCH_OBJECTS_LIMIT,
                 return_properties=props,
             )
@@ -699,11 +703,9 @@ class RAGToolkit:
                 pn = obj.properties.get("principle_number", "")
                 if not pn or pn in seen:
                     continue
-                title = obj.properties.get("title", "")
-                if title.startswith(_PCP_EXCLUDED_TITLE_PREFIX):
-                    result = self._build_result(obj, props, content_limit)
-                    result["dar_source"] = "PCP"
-                    seen[pn] = result
+                result = self._build_result(obj, props, content_limit)
+                result["dar_source"] = "PCP"
+                seen[pn] = result
             pcp_dars = sorted(seen.values(), key=lambda x: x.get("principle_number", ""))
             logger.info(
                 f"[timing] list_dars(PCP): weaviate={wv_ms}ms, "

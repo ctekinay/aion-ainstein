@@ -252,7 +252,7 @@ class MarkdownLoader:
         )
 
     def _classify_adr_document(self, file_path: Path, title: str, content: str) -> str:
-        """Classify an ADR document as content, index, template, or decision_approval_record.
+        """Classify an ADR document as content, index, template, or adr_approval.
 
         Args:
             file_path: Path to the ADR file
@@ -260,7 +260,7 @@ class MarkdownLoader:
             content: Document content
 
         Returns:
-            Classification: 'content', 'index', 'template', or 'decision_approval_record'
+            Classification: 'content', 'index', 'template', or 'adr_approval'
         """
         file_name = file_path.name.lower()
         title_lower = title.lower()
@@ -268,7 +268,7 @@ class MarkdownLoader:
         # Decision Approval Records: NNNND-*.md files (contain governance/approval history)
         # These track the DACI approval process, not the actual decision content
         if re.match(r"^\d{4}d-", file_name):
-            return 'decision_approval_record'
+            return 'adr_approval'
 
         # Index files: contain lists of documents, no actual decisions
         index_patterns = ['index.md', 'readme.md', 'overview.md', '_index.md']
@@ -368,7 +368,7 @@ class MarkdownLoader:
         # Use different prefix for Decision Approval Records
         if adr_number and not doc.title.lower().startswith("adr"):
             adr_id = self._format_adr_id(adr_number)
-            if doc.doc_type == 'decision_approval_record':
+            if doc.doc_type == 'adr_approval':
                 doc.title = f"{adr_id}D (Approval Record): {doc.title}"
             else:
                 doc.title = f"{adr_id}: {doc.title}"
@@ -401,7 +401,7 @@ class MarkdownLoader:
         return doc
 
     def _classify_principle_document(self, file_path: Path, title: str, content: str) -> str:
-        """Classify a principle document as content, index, template, or decision_approval_record.
+        """Classify a principle document as content, index, template, or principle_approval.
 
         Args:
             file_path: Path to the principle file
@@ -409,7 +409,7 @@ class MarkdownLoader:
             content: Document content
 
         Returns:
-            Classification: 'content', 'index', 'template', or 'decision_approval_record'
+            Classification: 'content', 'index', 'template', or 'principle_approval'
         """
         file_name = file_path.name.lower()
         title_lower = title.lower()
@@ -417,7 +417,7 @@ class MarkdownLoader:
         # Decision Approval Records: NNNND-*.md files (contain governance/approval history)
         # These track the DACI approval process, not the actual principle content
         if re.match(r"^\d{4}d-", file_name):
-            return 'decision_approval_record'
+            return 'principle_approval'
 
         # Index files
         index_patterns = ['index.md', 'readme.md', 'overview.md', '_index.md']
@@ -504,7 +504,7 @@ class MarkdownLoader:
         # Use different prefix for Decision Approval Records
         if principle_number and not doc.title.lower().startswith("pcp"):
             pcp_id = self._format_principle_id(principle_number)
-            if doc.doc_type == 'decision_approval_record':
+            if doc.doc_type == 'principle_approval':
                 doc.title = f"{pcp_id}D (Approval Record): {doc.title}"
             else:
                 doc.title = f"{pcp_id}: {doc.title}"
