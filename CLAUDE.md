@@ -31,3 +31,11 @@ When acting as QA reviewer, Claude is responsible for:
 - Rejecting hardcoded values, short-term hacks, or "save the day" fixes
 - Checking consistency across all affected files (no half-applied changes)
 - Flagging any deviation from the plan, even if it "works in practice"
+
+## Rule 5: Git workflow
+
+The developer pushes code to the **main** branch (flattened snapshots).
+Claude's review branch pulls from main to get the latest code:
+- `git fetch origin main` then `git merge origin/main` (or reset to origin/main)
+- When the dev says "pushed" or "done," always pull main before reviewing
+- Claude's own branch is for review notes, CLAUDE.md updates, etc. — never for code
