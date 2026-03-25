@@ -1,0 +1,14 @@
+# Persona conversation history settings
+# These control how much conversation context the Persona LLM sees
+# when classifying intent and rewriting queries.
+#
+# IMPORTANT: Larger values = more tokens per classification call.
+# Assistant messages use turn_summary (compact, ≤400 chars) rather than
+# full content, so message_truncation_chars primarily guards against very long
+# user messages and fallback cases. 20 messages x ~400 chars (summaries) +
+# ~25K skill prompt = well within cloud model limits.
+# Local models via Ollama with small context windows (4K-8K tokens) may need
+# verbatim_window reduced to 5-10 if classification fails.
+persona:
+  verbatim_window: 20
+  message_truncation_chars: 8000
