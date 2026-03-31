@@ -1,0 +1,113 @@
+# Skills Registry
+# Defines which skills are available. Enabled skills inject their
+# SKILL.md content into every LLM prompt. The RAG agent decides
+# how to apply the rules — no keyword triggers needed.
+#
+# Groups bundle related skills as a unit — they're enabled/disabled
+# together and members inherit group-level properties (tags, inject_mode).
+
+version: "1.0"
+
+groups:
+  - name: archimate
+    description: "ArchiMate 3.2 model generation, views, and reference library"
+    enabled: true
+    inject_into_tree: true
+    inject_mode: on_demand
+    tags: [archimate]
+    shared_references: archimate-shared
+    skills:
+      - name: archimate-generator
+        path: archimate-generator/SKILL.md
+        description: "ArchiMate 3.2 model generation rules, element types, and XML format"
+        load_order: 1
+        execution: generation
+        validation_tool: validate_archimate
+      - name: archimate-view-generator
+        path: archimate-view-generator/SKILL.md
+        description: "ArchiMate 3.2 view generation rules, layout conventions, and fragment format"
+        load_order: 2
+
+skills:
+  - name: ainstein-identity
+    path: ainstein-identity/SKILL.md
+    description: "Core identity rules and scope boundaries for the AInstein assistant"
+    enabled: true
+
+  - name: rag-quality-assurance
+    path: rag-quality-assurance/SKILL.md
+    description: "Anti-hallucination rules and citation requirements for RAG responses"
+    enabled: true
+
+  - name: esa-document-ontology
+    path: esa-document-ontology/SKILL.md
+    description: "Domain knowledge about ADRs, PCPs, DARs: naming, numbering, relationships, disambiguation"
+    enabled: true
+
+  - name: response-formatter
+    path: response-formatter/SKILL.md
+    description: "Ensures list-based responses use rich formatting with statistics, follow-up questions, and visualization suggestions."
+    enabled: true
+
+  - name: principle-quality-assessor
+    path: principle-quality-assessor/SKILL.md
+    description: "Quality assessment criteria and improvement recommendations for architecture principles (Enterprise and Architecture level)"
+    enabled: true
+    inject_into_tree: false
+    inject_mode: on_demand
+    execution: principle
+    tags: [principle-quality]
+
+  - name: principle-generator
+    path: principle-generator/SKILL.md
+    description: "Principle generation following TOGAF-aligned quality criteria and template structure"
+    enabled: true
+    inject_into_tree: false
+    inject_mode: on_demand
+    execution: principle
+    tags: [generate-principle]
+
+  - name: persona-orchestrator
+    path: persona-orchestrator/SKILL.md
+    description: "Intent classification and query rewriting for the AInstein Persona layer"
+    enabled: true
+    inject_into_tree: false
+
+  # --- On-demand domain skills (injected only when Persona emits matching tags) ---
+
+  - name: skosmos-vocabulary
+    path: skosmos-vocabulary/SKILL.md
+    description: "Vocabulary and terminology lookup via SKOSMOS REST API"
+    enabled: true
+    inject_into_tree: false
+    inject_mode: on_demand
+    execution: vocabulary
+    tags: [skosmos, vocabulary, definition, terminology, standard, IEC, abbreviation]
+
+  - name: archimate-tools
+    path: archimate-tools/SKILL.md
+    description: "ArchiMate model validation, inspection, and merge operations"
+    enabled: true
+    inject_into_tree: false
+    inject_mode: on_demand
+    execution: archimate
+    tags: [archimate-model, validate, inspect, merge]
+
+  - name: repo-to-archimate
+    path: repo-to-archimate/SKILL.md
+    description: "Repository analysis tool sequence and response format for the repo-to-ArchiMate pipeline"
+    enabled: true
+    inject_into_tree: false
+    inject_mode: on_demand
+    execution: repo_analysis
+    tags: [repo-analysis]
+
+  - name: repo-architecture-explorer
+    path: repo-architecture-explorer/SKILL.md
+    description: "Generate interactive HTML architecture explorer from repo analysis YAML"
+    enabled: true
+    inject_into_tree: false
+    inject_mode: on_demand
+    execution: generation
+    content_type: text/html
+    tags: [repo-architecture-explorer]
