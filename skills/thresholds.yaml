@@ -1,0 +1,145 @@
+abstention:
+  distance_threshold: 0.6
+retrieval_limits:
+  adr: 8
+  principle: 6
+  policy: 4
+  vocabulary: 4
+  team_search: 10
+truncation:
+  content_max_chars: 800
+  # list_* tools need full principle/ADR text for evaluation scenarios.
+  # 41 principles × 4000 = 164K chars ≈ 41K tokens — fits in GPT-5.2 128K context.
+  list_content_max_chars: 4000
+  tool_content_chars: 500
+  tool_summary_chars: 300
+  consequences_max_chars: 4000
+  direct_doc_max_chars: 12000
+  max_context_results: 50
+  source_display_limit: 35
+# TESTING: reduce to production values after verification
+upload:
+  max_file_bytes: 20971520     # 20 MB (testing)
+  max_text_chars: 1000000      # 1M chars (testing)
+  upload_doc_max_chars: 500000 # 500K chars (testing)
+  history_max_turn_pairs: 4    # Truncate follow-up conversation history
+element_registry:
+  prompt_limit: 30
+llm_token_limits:
+  # --- Persona intent classification ---
+  # Reasoning model needs 2048 because GPT-5 spends reasoning tokens
+  # WITHIN max_completion_tokens. At 500, reasoning consumes everything
+  # and visible output is empty. 2048 gives room for reasoning + the
+  # ~100-token JSON classification response.
+  persona_reasoning: 2048
+  persona_standard: 500
+  # --- Brief summaries (turn summaries, title generation) ---
+  summarize_reasoning: 512
+  summarize_standard: 150
+  # --- RAG agent summarization ---
+  rag_reasoning: 1000
+  rag_standard: 1000
+  # --- RAG with uploaded document in context (review, summarize) ---
+  rag_document_reasoning: 8192
+  rag_document_standard: 4096
+  # --- Document analysis agent (dedicated, tool-less) ---
+  # TESTING: reduce to production values after verification
+  document_analysis_reasoning: 16384
+  document_analysis_standard: 8192
+  # --- Cross-reference synthesis (document vs KB compliance analysis) ---
+  cross_reference_synthesis: 16384  # 16K (testing)
+  # --- Chat model review (stream_inspect_response) ---
+  chat_review_reasoning: 4096
+  chat_review_standard: 2000
+  # --- Direct LLM calls (generate_with_openai) ---
+  direct_reasoning: 1000
+  direct_standard: 1000
+document_agent:
+  # Separate from timeout_agent_multi_tool (180s) which is designed for
+  # multi-tool agents. Document agent has zero tools — one LLM call.
+  timeout_ollama: 300      # 5 min — large docs on local 20B model
+  timeout_cloud: 60        # 1 min — cloud models are fast
+  # Retrying a timeout on Ollama is pointless — the model won't get faster.
+  # Cloud models may recover from transient issues.
+  max_retries_ollama: 0    # No retry = 1 attempt
+  max_retries_cloud: 1     # 1 retry = 2 attempts
+  # Token streaming batch size (chars). Tokens are accumulated until
+  # this threshold, then emitted as one SSE 'text' event.
+  stream_batch_chars: 200
+persona:
+  # Models too slow for LLM classification (>120s on 62K prompt).
+  # These skip Persona and go straight to RAG with raw query.
+  skip_classification_models:
+    - "qwen3.5:35b-a3b"
+agents:
+  max_tool_calls:
+    # Keys match AGENT_LABELS in agents/__init__.py
+    default: 15
+    rag_agent: 15
+    principle_agent: 15
+    repo_analysis_agent: 12
+  # Compliance evaluation batching — splits principles into groups and
+  # evaluates each batch separately, then merges results programmatically.
+  # Enabled for all providers: batched path guarantees complete principle coverage.
+  # The non-batched path relies on the LLM calling list_principles on its own,
+  # which GPT-5.2 failed to do (called request_data instead).
+  compliance_batch_enabled: true
+  compliance_batch_size: 10
+  compliance_batch_force_providers:
+    - "ollama"
+  compliance_batch_optional_providers:
+    - "openai"
+    - "github_models"
+quality_gate:
+  enabled: true
+  # Intentionally tiny — expects single-word verdict ("PASS" or "FAIL").
+  # Do NOT increase: larger values waste tokens and may produce multi-word
+  # responses that break the .startswith("FAIL") check.
+  evaluation_max_tokens: 10
+  condensation_max_tokens: 1024
+  proportionality:
+    enabled: true
+    # Skip LLM evaluation if response is already under this word count
+    token_ceiling: 300
+    # Optional model override for gate LLM calls (null = use RAG model)
+    model_override: null
+    evaluation_prompt: >
+      You are evaluating whether a RAG response is proportionate to the query.
+      A "simple" query (single fact lookup, "what is X?") should get a 3-6 sentence
+      summary with citations, not an exhaustive enumeration of all document sections.
+      Does this response match that expectation?
+      Respond with exactly: PASS (proportionate) or FAIL (needs condensation).
+    condensation_prompt: >
+      Condense this response to a focused summary (3-6 sentences).
+      Preserve ALL document citations (ADR.XX, PCP.XX, policy titles).
+      Preserve markdown formatting: use headings, bullet lists, and
+      paragraph breaks exactly as the original. Do not flatten into
+      a single paragraph.
+      End with a single offer to elaborate.
+      Do not add disclaimers about the condensation.
+  abstention_cleanup:
+    enabled: true
+    item_threshold: 2
+    # Known limitation: this list won't catch all paraphrases.
+    # Expand from real production logs as new patterns emerge.
+    negation_signals:
+      - "no budget"
+      - "no relevant"
+      - "not found"
+      - "not in the knowledge base"
+      - "contains no"
+      - "does not contain"
+      - "does not specify"
+      - "doesn't contain"
+      - "doesn't specify"
+      - "no explicit"
+      - "no information"
+# Single source of truth for KB collection names.
+# Update here when a new collection is added to Weaviate.
+kb_collections:
+  - name: ArchitecturalDecision
+    display: "architecture decisions"
+  - name: Principle
+    display: "principles"
+  - name: PolicyDocument
+    display: "policies"
