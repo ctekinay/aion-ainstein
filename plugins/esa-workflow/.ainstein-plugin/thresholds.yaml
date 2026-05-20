@@ -1,0 +1,7 @@
+# esa-workflow tuning — intentionally empty.
+#
+# skosmos-vocabulary calls the SKOSMOS REST API directly (aion.tools.skosmos)
+# and does NOT consume get_skill_tuning(), so no abstention/retrieval/
+# truncation knobs apply here. Present (empty mapping) for layout
+# consistency; the loader treats absent/empty thresholds as {}.
+{}

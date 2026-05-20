@@ -1,0 +1,13 @@
+{
+  "PostToolUse": [
+    {
+      "matcher": "Write",
+      "hooks": [
+        {
+          "type": "command",
+          "command": "${AINSTEIN_PLUGIN_ROOT}/hooks/log-write.sh"
+        }
+      ]
+    }
+  ]
+}

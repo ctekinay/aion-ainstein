@@ -1,0 +1,14 @@
+{
+  "name": "enterpower-architecture",
+  "runtime": "ainstein",
+  "manifest_version": "1.0",
+  "role": "domain",
+  "description": "A set of essential architectural capabilities for enterprises from solution level up to enterprise level: ArchiMate model/view/visual generation, the interactive browser viewer, ArchiMate validation/inspection/merge tooling, TOGAF-aligned principle generation/assessment, and repository-to-architecture analysis.",
+  "version": "0.2.0",
+  "author": {
+    "name": "Cagri Tekinay, Laurent van Groningen, Robert-Jan Peters"
+  },
+  "requires_host_api": {
+    "artifact_materialization": ">=1"
+  }
+}

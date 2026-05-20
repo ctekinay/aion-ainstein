@@ -1,0 +1,38 @@
+# Fixture registry — designed to exercise the migration's hardest paths.
+#
+# - archimate-tools collides with enterpower-architecture's archimate-tools
+#   (post Phase-5 supersession: enterpower is the authoritative owner of
+#   the architecture domain; ainstein-core was deleted).
+#   conflicts_with declared so load resolves (fake-plugin's copy
+#   self-disables when enterpower-architecture is also loaded). Attempts
+#   to re-enable through the API trigger the dup-check preflight + HTTP 409.
+#
+# - Both skills declare mcp_servers: [stub], routing to different agent
+#   types (archimate vs tree). This forces _mcp_tools_for("archimate")
+#   and _mcp_tools_for("tree") to both call get_server(fake-plugin, stub)
+#   concurrently during lifespan, which is the path that exercises the
+#   race fix in MCPPluginManager.get_server.
+
+version: "1.0"
+
+skills:
+  - name: archimate-tools
+    path: archimate-tools/SKILL.md
+    description: "Fixture ArchiMate tooling that shadows enterpower-architecture's version"
+    enabled: true
+    inject_into_tree: false
+    inject_mode: on_demand
+    execution: archimate
+    tags: [archimate-model, fixture]
+    mcp_servers: [stub]
+    conflicts_with: [enterpower-architecture/archimate-tools]
+
+  - name: fake-rag-helper
+    path: fake-rag-helper/SKILL.md
+    description: "Fixture RAG helper routing to the tree agent, sharing the stub MCP server"
+    enabled: true
+    inject_into_tree: false
+    inject_mode: on_demand
+    execution: tree
+    tags: [fake-fixture]
+    mcp_servers: [stub]

@@ -1,0 +1,39 @@
+# ainstein-kernel skills registry — always-on host behaviour.
+#
+# These FOUR skills are the kernel: identity, RAG quality assurance,
+# response formatting, persona orchestration. They are inject_mode:
+# always (host behaviour on every turn), not invocable capabilities.
+#
+# NOTE (reverses Phase-4 Decision 2, by explicit author decision):
+# esa-document-ontology was previously kernel-owned (its registry-index
+# is consumed at ingestion by _load_principle_owner_map and per query for
+# ADR/PCP/DAR "document 22" disambiguation). It has been moved to the
+# esa-workflow plugin because the ESA document ontology is ESA-specific,
+# not generic host behaviour. Consequence owned by the author: it is no
+# longer kernel-protected (can be disabled) and a deployment WITHOUT
+# esa-workflow loses ADR/PCP disambiguation. It stays inject_mode:always
+# in esa-workflow so behaviour is preserved when that plugin is enabled.
+
+version: "1.0"
+
+skills:
+  - name: ainstein-identity
+    path: ainstein-identity/SKILL.md
+    description: "Core identity rules and scope boundaries for the AInstein assistant"
+    enabled: true
+
+  - name: rag-quality-assurance
+    path: rag-quality-assurance/SKILL.md
+    description: "Anti-hallucination rules and citation requirements for RAG responses"
+    enabled: true
+
+  - name: response-formatter
+    path: response-formatter/SKILL.md
+    description: "Ensures list-based responses use rich formatting with statistics, follow-up questions, and visualization suggestions."
+    enabled: true
+
+  - name: persona-orchestrator
+    path: persona-orchestrator/SKILL.md
+    description: "Intent classification and query rewriting for the AInstein Persona layer"
+    enabled: true
+    inject_into_tree: false

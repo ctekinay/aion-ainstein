@@ -1,0 +1,10 @@
+{
+  "name": "fake-plugin",
+  "runtime": "ainstein",
+  "version": "0.0.1",
+  "description": "Fixture plugin for end-to-end tests — exercises name collision, conflicts_with auto-disable, the (plugin, server) construction race, slash routing, per-skill MCP routing, manifest-driven hooks, shared references.",
+  "author": {
+    "name": "AInstein test fixtures"
+  },
+  "hooks": "./.ainstein-plugin/hooks.json"
+}

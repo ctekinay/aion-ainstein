@@ -1,0 +1,30 @@
+# esa-workflow skills registry — ESA-specific capability + ontology.
+#
+# skosmos-vocabulary: terminology/definition lookup via the SKOSMOS REST
+# API — an invocable on-demand capability.
+#
+# esa-document-ontology: moved here from ainstein-kernel by explicit
+# author decision (reverses Phase-4 Decision 2). The ESA ADR/PCP/DAR
+# ontology is ESA-specific, not generic host behaviour. It stays
+# inject_mode: always so its registry-index is consumed at ingestion
+# (_load_principle_owner_map) and per query for "document 22"
+# disambiguation exactly as before — BUT it now lives in a domain plugin,
+# so it is disableable and absent if esa-workflow is not deployed.
+
+version: "1.0"
+
+skills:
+  - name: skosmos-vocabulary
+    path: skosmos-vocabulary/SKILL.md
+    description: "Vocabulary and terminology lookup via SKOSMOS REST API"
+    enabled: true
+    inject_into_tree: false
+    inject_mode: on_demand
+    execution: vocabulary
+    tags: [skosmos, vocabulary, definition, terminology, standard, IEC, abbreviation]
+
+  - name: esa-document-ontology
+    path: esa-document-ontology/SKILL.md
+    description: "Domain knowledge about ADRs, PCPs, DARs: naming, numbering, relationships, disambiguation"
+    enabled: true
+    inject_mode: always

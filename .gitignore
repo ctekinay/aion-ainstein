@@ -1,0 +1,140 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+.venv/
+.venv[0-9]*/
+.venv312/
+venv/
+venv[0-9]*/
+venv312/
+ENV/
+env/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Environment
+.env
+.env.local
+
+# Linting
+.ruff_cache/
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Logs
+*.log
+
+# Docker volumes (if mounted locally)
+weaviate_data/
+ollama_data/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+*.bak.*
+temp/
+
+# Resource or info files
+resources.txt
+other/
+
+# Local database
+chat_history.db
+*.db
+
+# Windows temp
+nul
+
+# Local working documents
+docs/.local/
+docs/backlog.md
+
+# Node / npm (pixel-agents, coding-agent CLI — not AInstein dependencies)
+node_modules/
+package.json
+package-lock.json
+*.vsix
+!extensions/*.vsix
+
+# Legacy scripts
+start_elysia.ps1
+stop_elysia.ps1
+
+# Local test scripts
+scripts/
+
+# Developer documentation (single-developer project, local only)
+docs/
+
+# Data directories (not part of the codebase)
+data/
+images/
+
+# Generated test/script output
+tests/sugiyama_output/
+scripts/sugiyama_output/
+
+# Archive, local test and backup files
+archive/
+
+# Plugin deployment directory: only the bundled plugins are committed —
+# ainstein-kernel (kernel), esa-workflow (ESA domain),
+# enterpower-architecture (authoritative architecture domain; superseded
+# the former transitional ainstein-core). Other operator-deployed plugins
+# live here at runtime but are NOT tracked.
+plugins/*
+!plugins/ainstein-kernel/
+!plugins/ainstein-kernel/**
+!plugins/esa-workflow/
+!plugins/esa-workflow/**
+!plugins/enterpower-architecture/
+!plugins/enterpower-architecture/**
+# The ** re-includes above override the global .DS_Store / *.bak rules
+# inside the tracked plugins — re-assert them so editor/Finder junk and
+# skills-API backup files never get committed under any bundled plugin.
+plugins/ainstein-kernel/**/.DS_Store
+plugins/ainstein-kernel/**/*.bak
+plugins/ainstein-kernel/**/*.bak.*
+plugins/esa-workflow/**/.DS_Store
+plugins/esa-workflow/**/*.bak
+plugins/esa-workflow/**/*.bak.*
+plugins/enterpower-architecture/**/.DS_Store
+plugins/enterpower-architecture/**/*.bak
+plugins/enterpower-architecture/**/*.bak.*
+# enterpower's node_modules / build output must never be committed.
+plugins/enterpower-architecture/**/node_modules/
+plugins/enterpower-architecture/mcp/visual-preview/dist/
+plugins/enterpower-architecture/templates/*/node_modules/

@@ -1,0 +1,20 @@
+# Minimal plugin-content tuning for the fixture. Values are arbitrary;
+# the e2e doesn't assert against retrieval behavior.
+
+abstention:
+  distance_threshold: 0.5
+
+retrieval_limits:
+  adr: 3
+  principle: 3
+  policy: 2
+  vocabulary: 2
+
+truncation:
+  content_max_chars: 400
+  tool_content_chars: 200
+  tool_summary_chars: 150
+  consequences_max_chars: 1000
+  direct_doc_max_chars: 2000
+  max_context_results: 10
+  source_display_limit: 10

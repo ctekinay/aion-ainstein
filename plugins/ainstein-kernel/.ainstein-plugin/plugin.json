@@ -1,0 +1,12 @@
+{
+  "name": "ainstein-kernel",
+  "runtime": "ainstein",
+  "manifest_version": "1.0",
+  "role": "kernel",
+  "description": "AInstein kernel: always-on host behaviour — identity, persona orchestration, response formatting, RAG quality assurance, ESA document ontology. Host-enforced policy: non-removable, non-shadowable (never a conflicts_with/precedence target), implicitly always-loaded.",
+  "version": "0.1.0",
+  "author": {
+    "name": "Cagri Tekinay"
+  },
+  "requires_host_api": {}
+}

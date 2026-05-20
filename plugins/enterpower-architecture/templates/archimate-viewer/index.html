@@ -1,0 +1,28 @@
+<!-- Vite HTML entry for the archimate-viewer template project.
+
+     PURPOSE: Root HTML page for the interactive ArchiMate viewer.
+     Vite uses this as the entry point; it loads main.jsx which mounts
+     the ArchiMateViewer React component.
+
+     LOCATION — templates/archimate-viewer/
+     Part of the Vite project that the MCP server copies to
+     ~/.cache/archimate-preview/project/ and serves at http://localhost:5173.
+     The title shown in the browser tab is set here.
+
+     RELATIONS
+     - Loads:      templates/archimate-viewer/main.jsx
+     - Served by:  mcp/archimate-view-preview/src/index.ts (startVite)
+     - Registered: .mcp.json → "preview" server
+-->
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ArchiMate Viewer</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/main.jsx"></script>
+  </body>
+</html>

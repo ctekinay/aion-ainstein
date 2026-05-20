@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "preview": {
+      "command": "bash",
+      "args": ["${AINSTEIN_PLUGIN_ROOT}/mcp/visual-preview/start.sh"]
+    }
+  }
+}

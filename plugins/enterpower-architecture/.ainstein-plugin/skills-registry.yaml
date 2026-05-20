@@ -1,0 +1,93 @@
+# Skills Registry
+# Defines which skills are available. Enabled skills inject their
+# SKILL.md content into every LLM prompt. The RAG agent decides
+# how to apply the rules — no keyword triggers needed.
+#
+# Groups bundle related skills as a unit — they're enabled/disabled
+# together and members inherit group-level properties (tags, inject_mode).
+
+version: "1.0"
+# Skill invocation rule: always use bare skill names when invoking skills (e.g., Skill("archimate-oxc-generator")).
+# Never prefix with the plugin namespace (e.g., NOT "enterpower-architecture:archimate-oxc-generator").
+# Skills are available without namespace in any context where this plugin is loaded.
+
+groups:
+  - name: archimate
+    description: "ArchiMate 3.2 model generation, views, and reference library"
+    enabled: true
+    inject_into_tree: true
+    inject_mode: on_demand
+    tags: [archimate]
+    shared_references: archimate-shared
+    skills:
+      - name: archimate-oxc-generator
+        path: archimate-oxc-generator/SKILL.md
+        description: "ArchiMate 3.2 OXC (Open Exchange) model generation rules, element types, and XML format"
+        load_order: 1
+        execution: generation
+        validation_tool: validate_archimate
+        yaml_pipeline: true
+      - name: archimate-oxc-view-generator
+        path: archimate-oxc-view-generator/SKILL.md
+        description: "ArchiMate 3.2 OXC (Open Exchange) view generation rules, layout conventions, and fragment format"
+        load_order: 2
+      - name: archimate-visual-composer
+        path: archimate-visual-composer/SKILL.md
+        description: "Composes VIEWS data from an ArchiMate model and opens it in the interactive browser viewer via the preview MCP server"
+        load_order: 3
+        execution: generation
+        requires_mcp: preview
+      - name: archimate-viewer
+        path: archimate-viewer/SKILL.md
+        description: "User-invocable skill (/archimate-viewer) to start, update, or stop the interactive ArchiMate browser viewer"
+        load_order: 4
+        requires_mcp: preview
+
+skills:
+  - name: principle-quality-assessor
+    path: principle-quality-assessor/SKILL.md
+    description: "Quality assessment criteria and improvement recommendations for architecture principles (Enterprise and Architecture level)"
+    enabled: true
+    inject_into_tree: false
+    inject_mode: on_demand
+    execution: principle
+    tags: [principle-quality]
+
+  - name: principle-generator
+    path: principle-generator/SKILL.md
+    description: "Principle generation following TOGAF-aligned quality criteria and template structure"
+    enabled: true
+    inject_into_tree: false
+    inject_mode: on_demand
+    execution: principle
+    tags: [generate-principle]
+
+  # --- On-demand domain skills (injected only when Persona emits matching tags) ---
+
+  - name: archimate-tools
+    path: archimate-tools/SKILL.md
+    description: "ArchiMate model validation, inspection, and merge operations"
+    enabled: true
+    inject_into_tree: false
+    inject_mode: on_demand
+    execution: archimate
+    tags: [archimate-model, validate, inspect, merge]
+
+  - name: repo-to-archimate
+    path: repo-to-archimate/SKILL.md
+    description: "Repository analysis tool sequence and response format for the repo-to-ArchiMate pipeline"
+    enabled: true
+    inject_into_tree: false
+    inject_mode: on_demand
+    execution: repo_analysis
+    tags: [repo-analysis]
+
+  - name: repo-architecture-explorer
+    path: repo-architecture-explorer/SKILL.md
+    description: "Generate interactive HTML architecture explorer from repo analysis YAML"
+    enabled: true
+    inject_into_tree: false
+    inject_mode: on_demand
+    execution: generation
+    content_type: text/html
+    tags: [repo-architecture-explorer]

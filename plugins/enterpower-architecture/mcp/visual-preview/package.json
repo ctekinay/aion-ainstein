@@ -1,0 +1,20 @@
+{
+  "name": "visual-preview-mcp",
+  "description": "MCP server that manages the Vite dev server lifecycle and Puppeteer screenshots for the interactive ArchiMate viewer. Registered in .mcp.json at the repo root. Run 'npm install' here once before first use.",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "start": "tsx src/index.ts",
+    "build": "tsc"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.0",
+    "puppeteer": "^22.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.5.0"
+  }
+}

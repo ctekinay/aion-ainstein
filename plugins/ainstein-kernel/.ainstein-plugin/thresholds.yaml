@@ -1,0 +1,36 @@
+# ainstein-kernel plugin tuning.
+#
+# CRITICAL routing note (Phase 4): abstention / retrieval_limits /
+# truncation are consumed exclusively via
+# get_skill_registry().get_skill_tuning("rag-quality-assurance", ...)
+# in src/aion/tools/rag_search.py, which routes to the OWNING plugin's
+# loader. rag-quality-assurance now lives in ainstein-kernel, so these
+# thresholds MUST live here (moved verbatim from ainstein-core's
+# thresholds.yaml — values byte-identical). If they were left behind,
+# KB retrieval limits + abstention would silently regress.
+#
+# System-infrastructure config (kb_collections, agent tool-call ceilings,
+# LLM token budgets, document_agent, persona, quality_gate, upload) stays
+# in src/aion/config/runtime.yaml — never per-plugin.
+
+abstention:
+  distance_threshold: 0.6
+
+retrieval_limits:
+  adr: 8
+  principle: 6
+  policy: 4
+  vocabulary: 4
+  team_search: 10
+
+truncation:
+  content_max_chars: 800
+  # list_* tools need full principle/ADR text for evaluation scenarios.
+  # 41 principles × 4000 = 164K chars ≈ 41K tokens — fits in GPT-5.2 128K context.
+  list_content_max_chars: 4000
+  tool_content_chars: 500
+  tool_summary_chars: 300
+  consequences_max_chars: 4000
+  direct_doc_max_chars: 12000
+  max_context_results: 50
+  source_display_limit: 35

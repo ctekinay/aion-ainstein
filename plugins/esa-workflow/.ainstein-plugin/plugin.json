@@ -1,0 +1,12 @@
+{
+  "name": "esa-workflow",
+  "runtime": "ainstein",
+  "manifest_version": "1.0",
+  "role": "domain",
+  "description": "ESA-internal workflow capability: SKOSMOS vocabulary / terminology / definition lookup. An invocable capability (not kernel host behaviour); ESA-specific by content, domain by role.",
+  "version": "0.1.0",
+  "author": {
+    "name": "Cagri Tekinay, Laurent van Groningen, Robert-Jan Peters"
+  },
+  "requires_host_api": {}
+}

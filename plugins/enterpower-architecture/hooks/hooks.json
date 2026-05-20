@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${AINSTEIN_PLUGIN_ROOT}/hooks/archimate-view-post-write.sh"
+          }
+        ]
+      }
+    ]
+  }
+}

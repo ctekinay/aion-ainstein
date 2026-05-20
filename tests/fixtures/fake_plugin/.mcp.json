@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "stub": {
+      "command": "bash",
+      "args": ["${AINSTEIN_PLUGIN_ROOT}/mcp/stub-server/start.sh"]
+    }
+  }
+}

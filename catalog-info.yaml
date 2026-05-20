@@ -1,0 +1,13 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: esa-ainstein-artifacts
+  description: >
+    AInstein is a compound AI system with features such as AI skills, agentic RAG, GitHub MCP and SKOSMOS integration, developed by Alliander's Energy System Architecture Group to support various architecture workstreams. 
+    Built on Weaviate (Vector DB) + Elysia decision trees with an AInstein Persona layer for intent classification and a Skills Framework for prompt engineering.
+  annotations:
+    alliander.com/production-branch: main
+spec:
+  owner: so-general
+  type: documentation
+  lifecycle: evolution
